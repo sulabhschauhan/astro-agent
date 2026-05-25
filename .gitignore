@@ -1,0 +1,18 @@
+# PDFs — too large for GitHub, store locally only
+data/pdfs/
+
+# ChromaDB — generated locally
+data/chroma_db/
+
+# Extracted images — generated, not source
+data/extracted_images/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
