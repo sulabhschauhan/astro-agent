@@ -1,0 +1,62 @@
+# Astro Agent — Cursor Rules (Auto-loaded Context)
+
+## Project
+Production-ready Astrologer AI Agent with RAG. Vedic astrology + palmistry PDFs → OCR → embeddings → vector search → LLM answer.
+
+## Stack
+- OCR: Tesseract + pytesseract + pdf2image
+- Diagram interpretation: GPT-4o (one-time ingestion only)
+- Embeddings: OpenAI text-embedding-3-small
+- Vector DB: ChromaDB (local dev), Pinecone (production)
+- Inference: GPT-4o-mini
+- Backend: FastAPI
+- Frontend: Streamlit (dev) → React (prod)
+- Auth: Supabase
+- Payments: Stripe
+
+## Folder Structure
+ingestion/     → pdf_processor.py, image_extractor.py, chunker.py, embedder.py
+retrieval/     → query_engine.py, image_retriever.py
+agent/         → astrologer.py, prompt_builder.py, session_manager.py
+api/           → main.py, routes/, auth.py
+frontend/      → app.py
+data/pdfs/     → source PDFs
+data/chroma_db/→ persistent vector store
+data/extracted_images/ → diagram images
+
+## File Dependency Map
+pdf_processor.py → outputs chunks + image_paths
+chunker.py → consumes pdf_processor output
+embedder.py → consumes chunker output → writes ChromaDB
+query_engine.py → reads ChromaDB
+astrologer.py → calls query_engine + prompt_builder
+
+## Chunk Metadata Schema (locked — do not change)
+{
+  "chunk_id": "str",
+  "text": "str",
+  "topic": "str",
+  "language": "eng|hin|mixed",
+  "page_ref": "int",
+  "image_path": "str|null",
+  "book_name": "str",
+  "page_type": "text|diagram"
+}
+
+## ChromaDB
+- Collection name: "astro_chunks"
+- Embedding dimension: 1536 (text-embedding-3-small)
+- Persist directory: data/chroma_db/
+
+## Coding Standards
+- Python 3.11
+- Production-quality, modular, scalable
+- Brief inline comments
+- Always use try/except with meaningful error messages
+- No full file rewrites — surgical edits only
+- Preserve all interfaces and metadata schemas
+- User is senior analytics practitioner — no basics
+
+## Session Log
+- Session 0: Repo created, folder structure, .cursorrules — COMPLETE
+- Session 1: pdf_processor.py — NOT STARTED
