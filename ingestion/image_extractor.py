@@ -37,8 +37,17 @@ For palmistry diagrams (hand maps, line charts, mount diagrams):
 - Finger names and associated labels
 - All text annotations, markings, and symbols
 
-Return a structured plain-text description that captures every piece of information in the diagram.
-Preserve all numbers, labels, and spatial relationships. Do not omit anything."""
+For mixed pages (table or chart alongside prose text):
+- Focus extraction on the tabular/chart portion only
+- Identify table headers and all cell values
+- Preserve row/column relationships as: Header | Value pairs
+- Ignore the prose text portion (already captured by OCR)
+
+Structure your output as:
+DIAGRAM TYPE: [kundali/nakshatra_table/dasa_table/palm_map/mixed_table/other]
+CONTENT:
+[extracted content here]
+SPATIAL NOTES: [any important positional relationships]"""
 
 
 def load_processed_ids(log_path: str) -> set:
