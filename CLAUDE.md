@@ -49,16 +49,19 @@ astrologer.py      → calls query_engine + prompt_builder, returns answer
 
 ## Chunk Metadata Schema (locked — do not alter)
 
+Sub-chunks from `chunker.py` always have `_c{index}` appended to `chunk_id` (e.g. `BPHS - 1 RSanthanam_p12_c0`).
+
 ```python
 {
-  "chunk_id": str,          # "{book_name}_p{page_num}"
+  "chunk_id": str,          # "{book_name}_p{page_num}_c{index}"
   "text": str,
   "topic": str,             # filled by chunker.py
   "language": "eng|hin|mixed",
   "page_ref": int,
   "image_path": "str|null",
   "book_name": str,
-  "page_type": "text|diagram"
+  "page_type": "text|diagram|mixed",
+  "word_count": int,        # per sub-chunk, filled by chunker.py
 }
 ```
 
@@ -67,6 +70,30 @@ astrologer.py      → calls query_engine + prompt_builder, returns answer
 - Collection: `astro_chunks`
 - Embedding dimension: 1536
 - Persist directory: `data/chroma_db/`
+
+## Running the Ingestion Pipeline
+
+```bash
+# Step 1 — OCR all PDFs, save raw chunks
+python -c "
+import json, sys; sys.path.insert(0, '.')
+from ingestion.pdf_processor import process_all_pdfs
+chunks = process_all_pdfs('data/pdfs', 'data/extracted_images')
+json.dump(chunks, open('data/all_chunks.json', 'w'), ensure_ascii=False, indent=2)
+"
+
+# Step 2 — Extract text from diagram images via GPT-4o (requires OPENAI_API_KEY)
+# python ingestion/image_extractor.py   # resumes from data/processed_chunks.json
+
+# Step 3 — Chunk, detect language, tag topics
+# python ingestion/chunker.py
+```
+
+## Session Log
+
+- Session 0 (2026-05-25): Repo created, folder structure, `.cursorrules`, `CLAUDE.md` — COMPLETE
+- Session 1 (2026-05-25): `pdf_processor.py` complete + validated on BPHS Vol 1 (482 pages, 155 diagram); fixed kundali misclassification via number density + planetary keyword checks; `image_extractor.py` complete; `chunker.py` complete — COMPLETE
+- Session 2: `embedder.py` — NOT STARTED
 
 ## Coding Standards
 
