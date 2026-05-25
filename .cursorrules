@@ -23,6 +23,7 @@ frontend/      → app.py
 data/pdfs/     → source PDFs
 data/chroma_db/→ persistent vector store
 data/extracted_images/ → diagram images
+data/default_user/ → kundli_summary.txt, palm_description.txt (default user context)
 
 ## File Dependency Map
 pdf_processor.py → outputs chunks + image_paths
@@ -60,3 +61,23 @@ astrologer.py → calls query_engine + prompt_builder
 ## Session Log
 - Session 0: Repo created, folder structure, .cursorrules — COMPLETE
 - Session 1: pdf_processor.py — NOT STARTED
+
+## Source Books Registry (locked — these are the exact PDF filenames)
+1. BPHS - 1 RSanthanam          → Brihat Parashara Hora Shastra Vol 1
+2. BPHS - 2 RSanthanam          → Brihat Parashara Hora Shastra Vol 2
+3. cheiroslanguageo00chei_1     → Cheiro's Language of the Hand
+4. Phaladeepika 2nd Ed. 1950 by V Subrahmanya Sastri  → Phaladeepika
+5. Saravali of Kalyana Varma Santhanam R. (Astrology) → Saravali
+
+## Book Type Classification
+Astrology books (planetary/house/dasa content):
+- BPHS Vol 1, BPHS Vol 2, Phaladeepika, Saravali
+
+Palmistry books (hand lines/mounts/zones content):
+- Cheiro's Language of the Hand
+
+## Topic Tags by Book (for chunk metadata)
+- BPHS: houses, planets, dasas, yogas, predictions, remedies
+- Phaladeepika: planetary strength, horoscope, timing
+- Saravali: rasi, navamsa, planetary results
+- Cheiro: palm lines, mounts, hand shape, fingers
