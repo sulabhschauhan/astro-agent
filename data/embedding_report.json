@@ -1,0 +1,46 @@
+{
+  "total_raw_pages": 2169,
+  "total_sub_chunks": 3772,
+  "total_embedded": 3029,
+  "total_pending": 743,
+  "total_failed": 0,
+  "failed_chunk_ids": [],
+  "collection_count": 3029,
+  "by_book": {
+    "BPHS - 1 RSanthanam": {
+      "text": 728,
+      "diagram": 155,
+      "mixed": 0,
+      "embedded": 728,
+      "pending": 155
+    },
+    "BPHS - 2 RSanthanam": {
+      "text": 730,
+      "diagram": 155,
+      "mixed": 0,
+      "embedded": 730,
+      "pending": 155
+    },
+    "Phaladeepika 2nd Ed. 1950 by V Subrahmanya Sastri": {
+      "text": 642,
+      "diagram": 181,
+      "mixed": 0,
+      "embedded": 642,
+      "pending": 181
+    },
+    "Saravali of Kalyana Varma Santhanam R. (Astrology)": {
+      "text": 466,
+      "diagram": 123,
+      "mixed": 0,
+      "embedded": 466,
+      "pending": 123
+    },
+    "cheiroslanguageo00chei_1": {
+      "text": 463,
+      "diagram": 129,
+      "mixed": 0,
+      "embedded": 463,
+      "pending": 129
+    }
+  }
+}
