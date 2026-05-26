@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 SESSIONS_DIR = Path("data/sessions")
 DEFAULT_USER_DIR = Path("data/default_user")
 VALID_ROLES = {"user", "assistant"}
+MAX_HISTORY_SAVE = 100   # turns; if exceeded, oldest 20 turns are trimmed on save()
+_TRIM_TO_TURNS   = 80    # turns kept after trim (MAX_HISTORY_SAVE - 20)
 
 
 class SessionManager:
@@ -54,6 +56,24 @@ class SessionManager:
         """Return a copy of session notes."""
         return dict(self._notes)
 
+    def get_recent_history(self, n: int = 6) -> list[dict]:
+        """Return the last n complete turns (user+assistant pairs) as a flat message list.
+
+        Args:
+            n: Number of complete turns (pairs) to return. Returns up to n*2 messages.
+               If history is shorter, returns all available messages.
+
+        Returns:
+            List of {"role": str, "content": str} dicts, always starting on a "user" message.
+        """
+        if n <= 0:
+            return []
+        recent = list(self._history[-(n * 2):])
+        # Guard: if odd-length history left a leading assistant message, drop it
+        if recent and recent[0]["role"] != "user":
+            recent = recent[1:]
+        return recent
+
     def get_default_context(self) -> dict:
         """Load default user context files from data/default_user/.
 
@@ -89,6 +109,18 @@ class SessionManager:
             RuntimeError: File could not be written.
         """
         sessions_dir.mkdir(parents=True, exist_ok=True)
+
+        # Trim in-memory history if over cap before writing to disk.
+        # get_recent_history() is unaffected — it slices from whatever _history holds.
+        cap_messages  = MAX_HISTORY_SAVE * 2   # 200 messages
+        keep_messages = _TRIM_TO_TURNS * 2     # 160 messages
+        if len(self._history) > cap_messages:
+            dropped = len(self._history) - keep_messages
+            self._history = self._history[-keep_messages:]
+            logger.info(
+                "Session %s: history trimmed — dropped %d messages, kept last %d turns",
+                self.session_id, dropped, _TRIM_TO_TURNS,
+            )
 
         data = {
             "session_id": self.session_id,
