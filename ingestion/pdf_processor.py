@@ -179,9 +179,9 @@ def process_pdf(pdf_path: str, output_dir: str, split_spreads: bool = False) -> 
     return chunks
 
 def process_all_pdfs(pdf_dir: str, output_dir: str) -> list[dict]:
-    """Process all PDFs in a directory."""
+    """Process all PDFs in a directory. Sorted by file size ascending — largest runs last."""
     all_chunks = []
-    pdf_files = list(Path(pdf_dir).glob("*.pdf"))
+    pdf_files = sorted(Path(pdf_dir).glob("*.pdf"), key=lambda p: p.stat().st_size)
 
     if not pdf_files:
         logger.warning(f"No PDFs found in {pdf_dir}")

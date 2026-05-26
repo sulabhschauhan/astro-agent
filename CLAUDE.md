@@ -166,7 +166,7 @@ These are non-negotiable for every session:
 | 5 | Uttara Kalamrita | Uttara Kalamrita (already downloaded) |
 | 6 | Deva Keralam / Chandra Kala Nadi | Deva Keralam (download Archive.org) |
 | 7 | Sarvartha Chintamani | Sarvartha Chintamani (download Archive.org) |
-| 8 | Muhurta Chintamani | Muhurta Chintamani (download Archive.org) |
+| 8 | Muhurtha-Chinthamani | Muhurta Chintamani |
 | 9 | Prasna Marga | Prasna Marga (download Archive.org) |
 
 ### Hindi (3 — need translator.py before ingestion)

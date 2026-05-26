@@ -91,7 +91,7 @@ astrologer.py → calls query_engine + prompt_builder + session_manager
 5. Uttara Kalamrita                  → Uttara Kalamrita (downloaded)
 6. Deva Keralam / Chandra Kala Nadi  → Deva Keralam (Archive.org)
 7. Sarvartha Chintamani              → Sarvartha Chintamani (Archive.org)
-8. Muhurta Chintamani                → Muhurta Chintamani (Archive.org)
+8. Muhurtha-Chinthamani → Muhurta Chintamani
 9. Prasna Marga                      → Prasna Marga (Archive.org)
 
 ### Hindi (3 — need translator.py before ingestion)
@@ -107,7 +107,7 @@ Astrology — Vedic (planetary/house/dasa content):
   Sarvartha Chintamani, Jataka Parijata, Lal Kitab 1941
 
 Astrology — Muhurta/Prasna (timing/electional/horary):
-- Muhurta Chintamani, Prasna Marga
+- Muhurtha-Chinthamani, Prasna Marga
 
 Palmistry books (hand lines/mounts/zones):
 - Cheiro's Language of the Hand, Hasta Samudrika Shastra
@@ -118,7 +118,7 @@ Palmistry books (hand lines/mounts/zones):
 - Uttara Kalamrita: special lagnas, upagrahas, miscellaneous results
 - Deva Keralam: nakshatra-based predictions, moon transits
 - Sarvartha Chintamani: planetary combinations, muhurta
-- Muhurta Chintamani: auspicious timing, electional astrology
+- Muhurtha-Chinthamani: auspicious timing, electional astrology
 - Prasna Marga: horary astrology, query charts
 - Jataka Parijata: rasi results, planetary periods (Hindi)
 - Lal Kitab: remedies, house-based predictions (Hindi)
