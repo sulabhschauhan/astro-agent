@@ -93,7 +93,9 @@ json.dump(chunks, open('data/all_chunks.json', 'w'), ensure_ascii=False, indent=
 
 - Session 0 (2026-05-25): Repo created, folder structure, `.cursorrules`, `CLAUDE.md` — COMPLETE
 - Session 1 (2026-05-25): `pdf_processor.py` complete + validated on BPHS Vol 1 (482 pages, 155 diagram); fixed kundali misclassification via number density + planetary keyword checks; `image_extractor.py` complete; `chunker.py` complete — COMPLETE
-- Session 2: `embedder.py` — NOT STARTED
+- Session 2 (2026-05-26): `embedder.py` written; `classify_page()` extended with mixed detection (5 patterns: number density, planetary keywords, structural grids, illustration markers, diagram override for word_count > 250); `strip_devanagari()` added to `chunker.py`; split_page() added to `pdf_processor.py` with `split_spreads=False` default; all 5 books confirmed as single-page portrait scans — COMPLETE
+- Session 3: full 5-PDF re-run with updated classifier + chunker → embedder → query_engine — NOT STARTED
+
 
 
 ## Working Style Requirements
@@ -119,6 +121,19 @@ These are non-negotiable for every session:
 6. AI reviewing AI — flag explicitly when output hasn't had 
    human review. Never chain AI decisions without a human checkpoint.
 
+
+## Agent Visual Intelligence
+
+**Palmistry queries:**
+- Proactively ask for photos using plain language — never say "palmar flexion crease" or "thenar eminence", say "the lines on your palm" or "the base of your thumb"
+- Request a maximum of 2 photos at once
+- If the user declines → answer from text knowledge and note the limitation explicitly
+- For general questions answer from text; for personalized readings say: "I can share what the texts say generally, but a personalized reading would need your palm photo"
+
+**Kundali queries:**
+- Always ask for birth date, time, and place if not provided
+- Or accept an uploaded kundali PDF
+- Never guess planetary positions
 
 ## Coding Standards
 
