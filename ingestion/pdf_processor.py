@@ -42,26 +42,37 @@ def pdf_to_images(pdf_path: str) -> list[Image.Image]:
 PLANETARY_KEYWORDS = {"Ketu", "Merc", "Sun", "Moon", "Mars", "Jup", "Sat", "Rahu", "Ven", "Asc", "Rasi", "Lagna"}
 PLANET_MATCH_THRESHOLD = 3
 NUMBER_DENSITY_THRESHOLD = 0.30
+MIXED_NUMBER_DENSITY_MIN = 0.20   # numeric density between this and 0.30 → table embedded in prose
+MIXED_PLANET_THRESHOLD = 4        # 4 planetary keywords alongside prose → chart alongside text
 
 
 def classify_page(text: str) -> str:
-    """Classify page as 'text' or 'diagram' based on word count, number density, and planetary keywords."""
+    """Classify page as 'text', 'diagram', or 'mixed' based on word count, number density, and planetary keywords."""
     tokens = text.split()
     word_count = len(tokens)
 
     if word_count < MIN_TEXT_WORDS:
         return "diagram"
 
-    # Kundali charts: dense numeric tokens (degree values like 17-36, 12-18)
     numeric_count = sum(1 for t in tokens if any(ch.isdigit() for ch in t))
-    if numeric_count / word_count > NUMBER_DENSITY_THRESHOLD:
+    numeric_density = numeric_count / word_count
+
+    # Pure diagram: very dense numbers or strong planetary keyword presence
+    if numeric_density > NUMBER_DENSITY_THRESHOLD:
         return "diagram"
 
-    # Kundali charts: planetary abbreviations in grid cells
     tokens_lower = [t.lower() for t in tokens]
     matched = sum(1 for kw in PLANETARY_KEYWORDS if kw.lower() in tokens_lower)
+
     if matched >= PLANET_MATCH_THRESHOLD:
         return "diagram"
+
+    # Mixed: moderate numeric density (table alongside prose) or 2 planetary keywords with substantial prose
+    if numeric_density > MIXED_NUMBER_DENSITY_MIN and word_count >= 150:
+        return "mixed"
+
+    if matched >= MIXED_PLANET_THRESHOLD and word_count >= 150:
+        return "mixed"
 
     return "text"
 
