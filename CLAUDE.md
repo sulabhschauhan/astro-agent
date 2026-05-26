@@ -39,12 +39,15 @@ python ingestion/pdf_processor.py
 ## Module Dependency Order
 
 ```
-pdf_processor.py   → raw page chunks + saved diagram images
-image_extractor.py → fills text field on diagram chunks via GPT-4o
-chunker.py         → splits/refines chunks, sets topic + language fields
-embedder.py        → writes chunks to ChromaDB collection "astro_chunks"
-query_engine.py    → reads ChromaDB, returns ranked chunks
-astrologer.py      → calls query_engine + prompt_builder, returns answer
+pdf_processor.py    → raw page chunks + saved diagram images
+image_extractor.py  → fills text field on diagram chunks via GPT-4o
+translator.py       → translates Hindi/Sanskrit chunks to English (Session 4)
+chunker.py          → splits/refines chunks, sets topic + language fields
+embedder.py         → writes chunks to ChromaDB collection "astro_chunks"
+query_engine.py     → reads ChromaDB, returns ranked chunks
+chart_calculator.py → calculates kundali_context dict from birth details (Session 5)
+astrologer.py       → calls query_engine + prompt_builder, returns answer
+session_manager.py  → stores conversation history + notes, persists to disk
 ```
 
 ## Chunk Metadata Schema (locked — do not alter)
@@ -95,7 +98,11 @@ json.dump(chunks, open('data/all_chunks.json', 'w'), ensure_ascii=False, indent=
 - Session 1 (2026-05-25): `pdf_processor.py` complete + validated on BPHS Vol 1 (482 pages, 155 diagram); fixed kundali misclassification via number density + planetary keyword checks; `image_extractor.py` complete; `chunker.py` complete — COMPLETE
 - Session 2 (2026-05-26): `embedder.py` written; `classify_page()` extended with mixed detection (5 patterns: number density, planetary keywords, structural grids, illustration markers, diagram override for word_count > 250); `strip_devanagari()` added to `chunker.py`; split_page() added to `pdf_processor.py` with `split_spreads=False` default; all 5 books confirmed as single-page portrait scans — COMPLETE
 - Session 3 (2026-05-26): four-agent review system (qa.md added); query_engine.py complete, all QA passed; astrologer.py complete, 13/15 QA passed — 2 failures: response time 6-11s (fix: SSE streaming in FastAPI layer); prompt_builder.py complete 12/12 tests passed; astrologer.py migrated atomically 7/7 regression passed; session_manager.py complete — get_recent_history (sliding 6-turn window), MAX_HISTORY_SAVE=100 trim logic, atomic JSON persist, 24/24 QA passed; astrologer.py session wiring complete — history prepend, introduce suppression, failed-call guard, all crashes fixed — COMPLETE
-- Session 4: FastAPI api/ layer → Streamlit frontend — NOT STARTED
+- Session 4: translator.py — Hindi book translation pipeline (GPT-4o-mini for prose, GPT-4o vision for Sanskrit/diagrams); books: Hasta Samudrika, Jataka Parijata, Lal Kitab 1941 — NOT STARTED
+- Session 5: chart_calculator.py — pyswisseph + Lahiri ayanamsha, IST timezone, verification against Sulabh's AstroSage chart first, output kundali_context dict — NOT STARTED
+- Session 6: FastAPI — SSE streaming, all routes with session management, chart_calculator integrated into /ask endpoint — NOT STARTED
+- Session 7: Streamlit UI — birth details form + auto chart calculation, chat interface with streaming, palm photo upload — NOT STARTED
+- Session 8: Stripe + Supabase + deployment — NOT STARTED
 
 
 
@@ -146,6 +153,41 @@ These are non-negotiable for every session:
 - Always ask for birth date, time, and place if not provided
 - Or accept an uploaded kundali PDF
 - Never guess planetary positions
+
+## Source Books Registry (12 books — locked)
+
+### English (9 — OCR'd or ready to process)
+| # | Filename / ID | Title |
+|---|---|---|
+| 1 | BPHS - 1 RSanthanam | Brihat Parashara Hora Shastra Vol 1 |
+| 2 | BPHS - 2 RSanthanam | Brihat Parashara Hora Shastra Vol 2 |
+| 3 | cheiroslanguageo00chei_1 | Cheiro's Language of the Hand |
+| 4 | Phaladeepika 2nd Ed. 1950 by V Subrahmanya Sastri | Phaladeepika |
+| 5 | Uttara Kalamrita | Uttara Kalamrita (already downloaded) |
+| 6 | Deva Keralam / Chandra Kala Nadi | Deva Keralam (download Archive.org) |
+| 7 | Sarvartha Chintamani | Sarvartha Chintamani (download Archive.org) |
+| 8 | Muhurta Chintamani | Muhurta Chintamani (download Archive.org) |
+| 9 | Prasna Marga | Prasna Marga (download Archive.org) |
+
+### Hindi (3 — need translator.py before ingestion)
+| # | Title | Author |
+|---|---|---|
+| 10 | Hasta Samudrika Shastra | Vasant Lal Vyas (1976) |
+| 11 | Jataka Parijata | Kashi Sanskrit Series |
+| 12 | Lal Kitab 1941 | Pt. Rup Chand Joshi |
+
+**Removed as duplicates:** Saravali, Brihat Jataka, Chamatkar Chintamani
+
+## chart_calculator.py Design (locked before Session 5)
+
+- **Location:** `agent/chart_calculator.py`
+- **Input:** `name, dob, tob, place` (city, country string)
+- **Output:** `kundali_context` dict matching `kundali_summary.txt` format
+- **Engine:** pyswisseph with `SIDM_LAHIRI` ayanamsha
+- **Timezone:** IST handling (critical — birth times are local Indian time)
+- **Geocoding:** geopy for lat/lon from city name
+- **Verification:** must match Sulabh's AstroSage chart exactly before use in prod
+- **Dependencies:** `pyswisseph`, `geopy`
 
 ## Coding Standards
 
