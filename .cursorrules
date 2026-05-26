@@ -15,22 +15,25 @@ Production-ready Astrologer AI Agent with RAG. Vedic astrology + palmistry PDFs 
 - Payments: Stripe
 
 ## Folder Structure
-ingestion/     → pdf_processor.py, image_extractor.py, chunker.py, embedder.py
+ingestion/     → pdf_processor.py, image_extractor.py, translator.py, chunker.py, embedder.py
 retrieval/     → query_engine.py, image_retriever.py
-agent/         → astrologer.py, prompt_builder.py, session_manager.py
+agent/         → astrologer.py, prompt_builder.py, session_manager.py, chart_calculator.py
 api/           → main.py, routes/, auth.py
 frontend/      → app.py
-data/pdfs/     → source PDFs
+data/pdfs/     → source PDFs (English + Hindi)
 data/chroma_db/→ persistent vector store
 data/extracted_images/ → diagram images
-data/default_user/ → kundli_summary.txt, palm_description.txt (default user context)
+data/default_user/ → kundali_summary.txt, palm_description.txt (default user context)
+data/sessions/ → per-session JSON files
 
 ## File Dependency Map
 pdf_processor.py → outputs chunks + image_paths
-chunker.py → consumes pdf_processor output
+translator.py → translates Hindi chunks → English (Session 4)
+chunker.py → consumes pdf_processor/translator output
 embedder.py → consumes chunker output → writes ChromaDB
 query_engine.py → reads ChromaDB
-astrologer.py → calls query_engine + prompt_builder
+chart_calculator.py → birth details → kundali_context dict (Session 5)
+astrologer.py → calls query_engine + prompt_builder + session_manager
 
 ## Chunk Metadata Schema (locked — do not change)
 {
@@ -60,27 +63,58 @@ astrologer.py → calls query_engine + prompt_builder
 
 ## Session Log
 - Session 0: Repo created, folder structure, .cursorrules — COMPLETE
-- Session 1: pdf_processor.py — NOT STARTED
+- Session 1: pdf_processor.py, image_extractor.py, chunker.py — COMPLETE
+- Session 2: embedder.py, classify_page() mixed detection, strip_devanagari() — COMPLETE
+- Session 3: query_engine.py, astrologer.py, prompt_builder.py, session_manager.py, session wiring, 24/24 QA — COMPLETE
+- Session 4: translator.py (Hindi pipeline) — NOT STARTED
+- Session 5: chart_calculator.py (pyswisseph + Lahiri) — NOT STARTED
+- Session 6: FastAPI + SSE streaming — NOT STARTED
+- Session 7: Streamlit UI — NOT STARTED
+- Session 8: Stripe + Supabase + deployment — NOT STARTED
 
-## Source Books Registry (locked — these are the exact PDF filenames)
-1. BPHS - 1 RSanthanam          → Brihat Parashara Hora Shastra Vol 1
-2. BPHS - 2 RSanthanam          → Brihat Parashara Hora Shastra Vol 2
-3. cheiroslanguageo00chei_1     → Cheiro's Language of the Hand
-4. Phaladeepika 2nd Ed. 1950 by V Subrahmanya Sastri  → Phaladeepika
-5. Saravali of Kalyana Varma Santhanam R. (Astrology) → Saravali
+## Source Books Registry (12 books — locked)
+
+### English (9 — OCR'd or ready to process)
+1. BPHS - 1 RSanthanam               → Brihat Parashara Hora Shastra Vol 1
+2. BPHS - 2 RSanthanam               → Brihat Parashara Hora Shastra Vol 2
+3. cheiroslanguageo00chei_1          → Cheiro's Language of the Hand
+4. Phaladeepika 2nd Ed. 1950 ...     → Phaladeepika
+5. Uttara Kalamrita                  → Uttara Kalamrita (downloaded)
+6. Deva Keralam / Chandra Kala Nadi  → Deva Keralam (Archive.org)
+7. Sarvartha Chintamani              → Sarvartha Chintamani (Archive.org)
+8. Muhurta Chintamani                → Muhurta Chintamani (Archive.org)
+9. Prasna Marga                      → Prasna Marga (Archive.org)
+
+### Hindi (3 — need translator.py before ingestion)
+10. Hasta Samudrika Shastra (Vasant Lal Vyas 1976)
+11. Jataka Parijata (Kashi Sanskrit Series)
+12. Lal Kitab 1941 (Pt. Rup Chand Joshi)
+
+Removed as duplicates: Saravali, Brihat Jataka, Chamatkar Chintamani
 
 ## Book Type Classification
-Astrology books (planetary/house/dasa content):
-- BPHS Vol 1, BPHS Vol 2, Phaladeepika, Saravali
+Astrology — Vedic (planetary/house/dasa content):
+- BPHS Vol 1 & 2, Phaladeepika, Uttara Kalamrita, Deva Keralam,
+  Sarvartha Chintamani, Jataka Parijata, Lal Kitab 1941
 
-Palmistry books (hand lines/mounts/zones content):
-- Cheiro's Language of the Hand
+Astrology — Muhurta/Prasna (timing/electional/horary):
+- Muhurta Chintamani, Prasna Marga
+
+Palmistry books (hand lines/mounts/zones):
+- Cheiro's Language of the Hand, Hasta Samudrika Shastra
 
 ## Topic Tags by Book (for chunk metadata)
 - BPHS: houses, planets, dasas, yogas, predictions, remedies
 - Phaladeepika: planetary strength, horoscope, timing
-- Saravali: rasi, navamsa, planetary results
+- Uttara Kalamrita: special lagnas, upagrahas, miscellaneous results
+- Deva Keralam: nakshatra-based predictions, moon transits
+- Sarvartha Chintamani: planetary combinations, muhurta
+- Muhurta Chintamani: auspicious timing, electional astrology
+- Prasna Marga: horary astrology, query charts
+- Jataka Parijata: rasi results, planetary periods (Hindi)
+- Lal Kitab: remedies, house-based predictions (Hindi)
 - Cheiro: palm lines, mounts, hand shape, fingers
+- Hasta Samudrika: palmistry, hand features (Hindi)
 
 
 ## AI Review Standards (Sulabh's Working Style)
