@@ -1,0 +1,226 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working in this repository.
+
+## Project
+
+[DESCRIPTION]
+
+## Stack
+
+[STACK_TABLE]
+<!-- Example format:
+| Layer | Dev | Prod |
+|---|---|---|
+| Embeddings | OpenAI text-embedding-3-small (dim=1536) | same |
+| Vector DB | ChromaDB (local, `data/chroma_db/`) | Pinecone |
+| Inference | GPT-4o-mini | same |
+| Backend | FastAPI (`api/`) | same |
+| Frontend | Streamlit (`frontend/app.py`) | React |
+-->
+
+## Platform Dependencies
+
+[PLATFORM_DEPENDENCIES]
+<!-- List any OS-specific binary paths, e.g.:
+- Tesseract: `C:\Program Files\Tesseract-OCR\tesseract.exe`
+- Poppler: `C:\Program Files\poppler-26.02.0\Library\bin`
+-->
+
+## Running the Pipeline
+
+[RUN_COMMANDS]
+<!-- Example:
+```bash
+# Test on first item in data/
+python ingestion/processor.py
+
+# Full pipeline run
+python -c "from ingestion.processor import run_all; run_all()"
+```
+-->
+
+## Module Dependency Order
+
+[PIPELINE_STEPS]
+<!-- Example format:
+```
+processor.py      → raw chunks + saved images
+extractor.py      → fills text on diagram chunks via GPT-4o
+chunker.py        → splits/refines chunks, sets topic + language fields
+translator.py     → translates non-English chunks
+embedder.py       → writes chunks to vector store
+query_engine.py   → reads vector store, returns ranked chunks
+agent.py          → calls query_engine + prompt_builder, returns answer
+session_manager.py → stores conversation history, persists to disk
+```
+-->
+
+## Output Schema (locked — do not alter)
+
+[OUTPUT_SCHEMA]
+<!-- Define and lock your primary data contract here before writing any component.
+Example:
+```python
+{
+  "chunk_id":   str,          # "{source_name}_p{page_num}_c{index}"
+  "text":       str,
+  "topic":      str,          # filled by chunker.py
+  "language":   "eng|hin|mixed",
+  "page_ref":   int,
+  "image_path": "str|null",
+  "source_name": str,
+  "page_type":  "text|diagram|mixed",
+  "word_count": int,          # per sub-chunk, filled by chunker.py
+}
+```
+-->
+
+## Vector DB Config
+
+[VECTOR_DB_CONFIG]
+<!-- Example:
+- Collection: `project_chunks`
+- Embedding dimension: 1536
+- Persist directory: `data/chroma_db/`
+- Distance metric: cosine (score = 1 - distance)
+-->
+
+## Running the Ingestion Pipeline
+
+[INGESTION_COMMANDS]
+<!-- Step-by-step commands for each pipeline stage, e.g.:
+```bash
+# Step 1 — OCR / process all source files
+python -c "
+import json, sys; sys.path.insert(0, '.')
+from ingestion.processor import process_all
+chunks = process_all('data/sources', 'data/extracted_images')
+json.dump(chunks, open('data/all_chunks.json', 'w'), ensure_ascii=False, indent=2)
+"
+
+# Step 2 — Extract text from diagrams via GPT-4o (if applicable)
+# python ingestion/extractor.py
+
+# Step 3 — Chunk, detect language, tag topics
+# (called from embedder.py automatically)
+
+# Step 4 — Translate non-English chunks (if applicable)
+# python ingestion/translator.py
+
+# Step 5 — Embed into vector store
+# python ingestion/embedder.py
+```
+-->
+
+## Session Log
+
+- Session 0 ([YYYY-MM-DD]): Repo created, folder structure, CLAUDE.md, .cursorrules — COMPLETE
+- Session 1: [COMPONENT] — NOT STARTED
+- Session 2: [COMPONENT] — NOT STARTED
+<!-- Add sessions as you plan them. Update status inline when complete.
+     Include at least one validation result and any locked design decisions.
+     Example completed entry:
+     - Session 1 (2026-05-25): processor.py complete + validated on [source] (N pages, N diagrams);
+       fixed [issue] via [approach]; chunker.py complete — COMPLETE
+-->
+
+## Multi-Agent Review Process
+
+Before writing ANY new file or component:
+1. Load `.claude/architect.md` — review structure
+2. Load `.claude/business.md` — review user value
+3. Load `.claude/critic.md` — challenge assumptions
+4. Load `.claude/qa.md` — validate test coverage
+5. Reconcile all four before writing code
+
+**Mandatory for:** new files, schema changes, threshold values, pipeline changes, API integrations
+
+## Working Style Requirements
+These are non-negotiable for every session:
+
+1. REVIEW before PROCEED — never summarize a diff and say accept.
+   Identify at least one potential issue before approving any edit.
+
+2. SAMPLE before SCALE — never suggest running full dataset without
+   first proposing a sample validation path.
+
+3. HARDEST CASE first — when choosing test data, pick the most
+   complex/edge-case example, not the simplest.
+
+4. OVERRIDE auto-suggestions — if auto-suggested next step skips
+   validation, flag it and suggest the validation step instead.
+
+5. THRESHOLD DISCIPLINE — every numeric threshold needs:
+   - Explicit justification for the value chosen
+   - A scope guard (word_count, length, etc.) to prevent noise
+   - A note on how to tune it if results are off
+
+6. AI reviewing AI — flag explicitly when output hasn't had
+   human review. Never chain AI decisions without a human checkpoint.
+
+## Domain Agent Behavior
+
+[DOMAIN_AGENT_BEHAVIOR]
+<!-- Define domain-specific rules for the LLM agent persona, e.g.:
+
+**For queries requiring user data (photos, calculations, personal info):**
+- Proactively ask for what is needed using plain language
+- Limit media requests (e.g., max 2 photos at once)
+- If user declines → answer from text knowledge, note the limitation explicitly
+
+**For queries requiring computed context (charts, scores, etc.):**
+- Always ask for required inputs if not provided
+- Never guess or assume values for computed fields
+-->
+
+## Data Registry
+
+[DATA_REGISTRY]
+<!-- List your data sources with processing status and notes.
+Example:
+### Primary (ready to process)
+| # | Filename / ID | Title | Language |
+|---|---|---|---|
+| 1 | source_file_1 | Full Title | English |
+| 2 | source_file_2 | Full Title | English |
+
+### Requires preprocessing (translation, OCR, etc.)
+| # | Title | Reason |
+|---|---|---|
+| 3 | Source Title | Non-English — needs translation pipeline |
+-->
+
+## Component Design Sections
+
+[COMPONENT_DESIGN_SECTION]
+<!-- Add a dedicated section here for each component before writing it.
+Lock the design during the 4-agent review and document the decisions.
+Example structure:
+
+## translator.py Design (Session N)
+
+**Location:** `ingestion/translator.py`
+**Pipeline position:** `processor → chunker → translator → embedder`
+
+**Strategy:**
+- Non-English prose → GPT-4o-mini
+- Diagrams → GPT-4o vision (via extractor.py)
+- English pages → skip (language == "eng")
+
+**Output schema additions** (non-English chunks only):
+```python
+{
+  "original_text":     str,    # original OCR'd text
+  "translation_model": str,    # model used
+  "translation_cost":  float,  # per-chunk cost in USD
+}
+```
+-->
+
+## Coding Standards
+
+- Python [PYTHON_VERSION]
+- Surgical edits only — no full file rewrites
+- Always use `try/except` with meaningful error messages
+- Preserve all interfaces and the output schema above
