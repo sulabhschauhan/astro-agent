@@ -27,13 +27,22 @@ data/default_user/ → kundali_summary.txt, palm_description.txt (default user c
 data/sessions/ → per-session JSON files
 
 ## File Dependency Map
-pdf_processor.py → outputs chunks + image_paths
-translator.py → translates Hindi chunks → English (Session 4)
-chunker.py → consumes pdf_processor/translator output
-embedder.py → consumes chunker output → writes ChromaDB
+pdf_processor.py → outputs raw chunks + image_paths
+chunker.py → splits/refines chunks, tags language
+translator.py → translates Hindi chunks to English (Session 4), adds original_hindi + translation_model + translation_cost fields
+embedder.py → consumes chunker+translator output → writes ChromaDB
 query_engine.py → reads ChromaDB
 chart_calculator.py → birth details → kundali_context dict (Session 5)
 astrologer.py → calls query_engine + prompt_builder + session_manager
+
+## translator.py (Session 4)
+- Location: ingestion/translator.py
+- Hindi prose → GPT-4o-mini (~$0.54 total, 3 books)
+- Sanskrit/diagrams → GPT-4o vision (image_extractor.py handles this)
+- English pages → skip (language == "eng")
+- NO IndicTrans2 — broken English on classical texts, rejected
+- Books: Hasta Samudrika (Vyas 1976), Jataka Parijata, Lal Kitab 1941
+- New fields on Hindi chunks: original_hindi, translation_model, translation_cost
 
 ## Chunk Metadata Schema (locked — do not change)
 {

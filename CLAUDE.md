@@ -41,8 +41,8 @@ python ingestion/pdf_processor.py
 ```
 pdf_processor.py    → raw page chunks + saved diagram images
 image_extractor.py  → fills text field on diagram chunks via GPT-4o
-translator.py       → translates Hindi/Sanskrit chunks to English (Session 4)
 chunker.py          → splits/refines chunks, sets topic + language fields
+translator.py       → translates Hindi chunks to English, adds 3 translation fields
 embedder.py         → writes chunks to ChromaDB collection "astro_chunks"
 query_engine.py     → reads ChromaDB, returns ranked chunks
 chart_calculator.py → calculates kundali_context dict from birth details (Session 5)
@@ -177,6 +177,42 @@ These are non-negotiable for every session:
 | 12 | Lal Kitab 1941 | Pt. Rup Chand Joshi |
 
 **Removed as duplicates:** Saravali, Brihat Jataka, Chamatkar Chintamani
+
+## translator.py Design (Session 4)
+
+**Location:** `ingestion/translator.py`
+
+**Pipeline position:** `pdf_processor → chunker → translator → embedder → ChromaDB`
+
+**Translation strategy:**
+- Hindi prose pages → GPT-4o-mini (~$0.54 total for all 3 books)
+- Sanskrit slokas + diagram pages → GPT-4o vision (via image_extractor.py)
+- English pages → skip entirely (language field = "eng")
+- NO IndicTrans2 — quality insufficient for classical Hindi texts
+
+**Cost breakdown (one-time):**
+- GPT-4o-mini translation: ~$0.54 (3 Hindi books)
+- GPT-4o vision diagrams: ~$3–4 (already planned in image_extractor)
+- Total: ~$4–5
+
+**Quality rationale:**
+- GPT-4o-mini is 85–90% of GPT-4o quality for Hindi prose
+- Classical terms (Graha, Bhava, Nakshatra) preserved correctly
+- IndicTrans2 produces broken English — rejected
+
+**Hindi books:**
+- Hasta Samudrika Shastra (Vasant Lal Vyas 1976)
+- Jataka Parijata (Kashi Sanskrit Series)
+- Lal Kitab 1941 (Pt. Rup Chand Joshi)
+
+**Output schema additions** (Hindi chunks only — 3 new fields appended):
+```python
+{
+  "original_hindi":    str,           # original OCR'd Hindi text
+  "translation_model": "gpt-4o-mini", # model used for translation
+  "translation_cost":  float,         # per-chunk cost in USD
+}
+```
 
 ## chart_calculator.py Design (locked before Session 5)
 
