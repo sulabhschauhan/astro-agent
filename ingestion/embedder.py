@@ -1,6 +1,6 @@
 """
 embedder.py
-Loads all_chunks.json → chunk_all() → embeds via OpenAI → writes to ChromaDB.
+Loads chunked_chunks.json (pre-chunked by run_overnight.py) → embeds via OpenAI → writes to ChromaDB.
 Pending chunks (empty text) saved to data/pending_chunks.json.
 Coverage stats saved to data/embedding_report.json.
 """
@@ -25,7 +25,7 @@ EMBEDDING_MODEL = "text-embedding-3-small"
 BATCH_SIZE = 100
 RATE_LIMIT_RETRIES = 4
 RATE_LIMIT_BASE_DELAY = 10  # seconds; doubles each retry (10, 20, 40, 80)
-ALL_CHUNKS_PATH = "data/all_chunks.json"
+ALL_CHUNKS_PATH = "data/chunked_chunks.json"
 PENDING_CHUNKS_PATH = "data/pending_chunks.json"
 EMBEDDING_REPORT_PATH = "data/embedding_report.json"
 
@@ -72,24 +72,17 @@ def run_pipeline(
     report_path: str = EMBEDDING_REPORT_PATH,
 ) -> dict:
     """
-    Full pipeline: load raw chunks → chunk_all() → embed → report.
+    Full pipeline: load pre-chunked sub-chunks → embed → report.
+    Input is chunked_chunks.json (already processed by run_overnight.py chunker stage).
     Returns the embedding report dict.
     """
-    import sys
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from ingestion.chunker import chunk_all
-
-    # Step 1 — load raw page chunks
-    logger.info(f"Loading raw chunks from {raw_chunks_path}")
+    # Step 1 — load pre-chunked sub-chunks (chunk_all already ran in run_overnight.py)
+    logger.info(f"Loading pre-chunked sub-chunks from {raw_chunks_path}")
     with open(raw_chunks_path, "r", encoding="utf-8") as f:
-        raw_chunks = json.load(f)
-    logger.info(f"Loaded {len(raw_chunks)} raw page chunks")
+        sub_chunks = json.load(f)
+    logger.info(f"Loaded {len(sub_chunks)} sub-chunks")
 
-    # Step 2 — chunk_all
-    sub_chunks = chunk_all(raw_chunks)
-    logger.info(f"Chunker produced {len(sub_chunks)} sub-chunks")
-
-    # Step 3 — assign embedding_status (JSON only, not stored in ChromaDB)
+    # Step 2 — assign embedding_status (JSON only, not stored in ChromaDB)
     for chunk in sub_chunks:
         chunk["embedding_status"] = "complete" if chunk.get("text", "").strip() else "pending"
 
@@ -98,12 +91,12 @@ def run_pipeline(
     total_batches = (len(embeddable) + BATCH_SIZE - 1) // BATCH_SIZE
     logger.info(f"Embeddable: {len(embeddable)}, Pending (empty text): {len(pending)}, Batches: {total_batches}")
 
-    # Step 4 — save pending sub-chunks for image_extractor resume
+    # Step 3 — save pending sub-chunks for image_extractor resume
     with open(pending_path, "w", encoding="utf-8") as f:
         json.dump(pending, f, ensure_ascii=False, indent=2)
     logger.info(f"Saved {len(pending)} pending chunks to {pending_path}")
 
-    # Step 5 — embed in batches and upsert to ChromaDB
+    # Step 4 — embed in batches and upsert to ChromaDB
     openai_client = OpenAI()
     collection = get_collection(persist_dir)
 
@@ -133,7 +126,7 @@ def run_pipeline(
             failed_chunk_ids.extend(failed_ids)
             continue
 
-    # Step 6 — build and save embedding_report.json
+    # Step 5 — build and save embedding_report.json
     book_stats = defaultdict(lambda: {"text": 0, "diagram": 0, "mixed": 0, "embedded": 0, "pending": 0})
     for chunk in sub_chunks:
         book_stats[chunk["book_name"]][chunk["page_type"]] += 1
@@ -141,7 +134,6 @@ def run_pipeline(
         book_stats[chunk["book_name"]][stat_key] += 1
 
     report = {
-        "total_raw_pages":   len(raw_chunks),
         "total_sub_chunks":  len(sub_chunks),
         "total_embedded":    len(embeddable),
         "total_pending":     len(pending),
@@ -162,7 +154,6 @@ def run_pipeline(
 if __name__ == "__main__":
     report = run_pipeline()
     print(f"\n--- Embedding Report ---")
-    print(f"Raw pages:      {report['total_raw_pages']}")
     print(f"Sub-chunks:     {report['total_sub_chunks']}")
     print(f"Embedded:       {report['total_embedded']}")
     print(f"Pending:        {report['total_pending']}")
