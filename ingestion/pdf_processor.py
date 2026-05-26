@@ -57,24 +57,50 @@ def classify_page(text: str) -> str:
     numeric_count = sum(1 for t in tokens if any(ch.isdigit() for ch in t))
     numeric_density = numeric_count / word_count
 
-    # Pure diagram: very dense numbers or strong planetary keyword presence
-    if numeric_density > NUMBER_DENSITY_THRESHOLD:
-        return "diagram"
+    numeric_count = sum(1 for t in tokens if any(ch.isdigit() for ch in t))
+    numeric_density = numeric_count / word_count
 
     tokens_lower = [t.lower() for t in tokens]
     matched = sum(1 for kw in PLANETARY_KEYWORDS if kw.lower() in tokens_lower)
 
-    if matched >= PLANET_MATCH_THRESHOLD:
-        return "diagram"
+    # High number density — mixed if substantial prose present, else pure diagram
+    if numeric_density > NUMBER_DENSITY_THRESHOLD:
+        return "mixed" if word_count > 250 else "diagram"
 
-    # Mixed: moderate numeric density (table alongside prose) or 2 planetary keywords with substantial prose
+    # Strong planetary keyword presence — mixed if substantial prose present, else pure diagram
+    if matched >= PLANET_MATCH_THRESHOLD:
+        return "mixed" if word_count > 250 else "diagram"
+
+    # Moderate signals: table or chart alongside prose
     if numeric_density > MIXED_NUMBER_DENSITY_MIN and word_count >= 150:
         return "mixed"
 
     if matched >= MIXED_PLANET_THRESHOLD and word_count >= 150:
         return "mixed"
 
+    # Pattern 1 — structural grid tables (body part grids, house grids)
+    STRUCTURAL_KEYWORDS = ["left", "right", "ascendant", "decanate",
+                           "trunk", "shoulder", "neck", "thigh", "knee", "navel", "pelvis"]
+    structural_count = sum(1 for kw in STRUCTURAL_KEYWORDS if kw in tokens_lower)
+    if structural_count >= 4 and word_count >= 150:
+        return "mixed"
+
+    # Pattern 4 — illustration with prose (Cheiro hand drawings)
+    ILLUSTRATION_MARKERS = ["plate", "fig.", "figure", "no.",
+                            "illustration", "clubbed", "jointed", "phalange"]
+    illustration_count = sum(1 for kw in ILLUSTRATION_MARKERS if kw in tokens_lower)
+    if illustration_count >= 2 and word_count >= 200:
+        return "mixed"
+
     return "text"
+
+def split_page(image: Image.Image) -> tuple[Image.Image, Image.Image]:
+    """Split a full-page image vertically at the midpoint. Returns (left, right)."""
+    mid = image.width // 2
+    left = image.crop((0, 0, mid, image.height))
+    right = image.crop((mid, 0, image.width, image.height))
+    return left, right
+
 
 def ocr_image(image: Image.Image) -> str:
     """Run Tesseract OCR on a PIL image. Supports English + Hindi."""
@@ -97,60 +123,64 @@ def save_diagram_image(image: Image.Image, book_name: str, page_num: int, output
     image.save(filepath, "JPEG", quality=85)
     return filepath
 
-def process_pdf(pdf_path: str, output_dir: str) -> list[dict]:
+def process_pdf(pdf_path: str, output_dir: str, split_spreads: bool = False) -> list[dict]:
     """
     Main processor: converts PDF → images → OCR → classified chunks.
-    
+
     Args:
-        pdf_path: Full path to PDF file
-        output_dir: Directory to save diagram images
-    
+        pdf_path:      Full path to PDF file
+        output_dir:    Directory to save diagram images
+        split_spreads: Set True only for double-page spread PDFs. Each image is
+                       split at width // 2 and processed as separate L/R chunks.
+
     Returns:
         List of chunk dicts with metadata
     """
     book_name = Path(pdf_path).stem  # filename without extension
     chunks = []
 
-    logger.info(f"Processing: {book_name}")
+    logger.info(f"Processing: {book_name} (split_spreads={split_spreads})")
     images = pdf_to_images(pdf_path)
 
     for page_num, image in enumerate(images, start=1):
-        try:
-            # Run OCR on every page first
-            raw_text = ocr_image(image)
-            page_type = classify_page(raw_text)
+        halves = list(zip(split_page(image), ("L", "R"))) if split_spreads else [(image, "")]
+        for half, side in halves:
+            try:
+                raw_text = ocr_image(half)
+                page_type = classify_page(raw_text)
+                chunk_id = f"{book_name}_p{page_num}{side}"
 
-            if page_type == "text":
-                chunk = {
-                    "chunk_id": f"{book_name}_p{page_num}",
-                    "text": raw_text,
-                    "topic": "",           # filled by chunker.py later
-                    "language": "eng",     # updated by chunker.py later
-                    "page_ref": page_num,
-                    "image_path": None,
-                    "book_name": book_name,
-                    "page_type": "text"
-                }
-            else:
-                # Save diagram image for GPT-4o processing in image_extractor.py
-                image_path = save_diagram_image(image, book_name, page_num, output_dir)
-                chunk = {
-                    "chunk_id": f"{book_name}_p{page_num}",
-                    "text": "",            # filled by image_extractor.py later
-                    "topic": "",
-                    "language": "eng",
-                    "page_ref": page_num,
-                    "image_path": image_path,
-                    "book_name": book_name,
-                    "page_type": "diagram"
-                }
+                if page_type == "text":
+                    chunk = {
+                        "chunk_id": chunk_id,
+                        "text": raw_text,
+                        "topic": "",           # filled by chunker.py later
+                        "language": "eng",     # updated by chunker.py later
+                        "page_ref": page_num,
+                        "image_path": None,
+                        "book_name": book_name,
+                        "page_type": "text"
+                    }
+                else:
+                    img_label = f"{page_num}{side}" if split_spreads else page_num
+                    image_path = save_diagram_image(half, book_name, img_label, output_dir)
+                    chunk = {
+                        "chunk_id": chunk_id,
+                        "text": "",            # filled by image_extractor.py later
+                        "topic": "",
+                        "language": "eng",
+                        "page_ref": page_num,
+                        "image_path": image_path,
+                        "book_name": book_name,
+                        "page_type": page_type
+                    }
 
-            chunks.append(chunk)
-            logger.info(f"Page {page_num}/{len(images)} — {page_type} — words: {len(raw_text.split())}")
+                chunks.append(chunk)
+                logger.info(f"Page {page_num}{side}/{len(images)} — {page_type} — words: {len(raw_text.split())}")
 
-        except Exception as e:
-            logger.error(f"Failed on page {page_num} of {book_name}: {e}")
-            continue  # skip bad pages, don't crash entire book
+            except Exception as e:
+                logger.error(f"Failed on page {page_num}{side} of {book_name}: {e}")
+                continue
 
     logger.info(f"Completed {book_name}: {len(chunks)} pages processed")
     return chunks

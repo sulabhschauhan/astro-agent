@@ -57,7 +57,26 @@ TOPIC_KEYWORDS = {
 }
 
 
-def detect_language(text: str) -> str:
+def strip_devanagari(text: str) -> str:
+    """
+    Remove Devanagari content from OCR text before chunking.
+    - Lines where >50% of non-whitespace characters are Devanagari are dropped entirely.
+    - Remaining Devanagari characters are stripped from surviving lines.
+    """
+    cleaned_lines = []
+    for line in text.splitlines():
+        non_ws = [c for c in line if not c.isspace()]
+        if not non_ws:
+            cleaned_lines.append(line)
+            continue
+        devanagari_count = sum(1 for c in non_ws if "ऀ" <= c <= "ॿ")
+        if devanagari_count / len(non_ws) > 0.50:
+            continue  # drop line
+        cleaned_lines.append("".join(c for c in line if not ("ऀ" <= c <= "ॿ")))
+    return "\n".join(cleaned_lines).strip()
+
+
+def detect_language(text: str):
     """Devanagari check first, then langdetect, default 'eng' on failure."""
     non_ws = [c for c in text if not c.isspace()]
     if not non_ws:
@@ -160,7 +179,8 @@ def chunk_page(parent: dict) -> list[dict]:
         }
         return [enriched]
 
-    # text and mixed pages
+    # text and mixed pages — strip Devanagari before chunking
+    text = strip_devanagari(text)
     paragraphs = split_on_paragraphs(text)
     if not paragraphs:
         return []
