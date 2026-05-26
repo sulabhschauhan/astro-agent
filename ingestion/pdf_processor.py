@@ -57,9 +57,6 @@ def classify_page(text: str) -> str:
     numeric_count = sum(1 for t in tokens if any(ch.isdigit() for ch in t))
     numeric_density = numeric_count / word_count
 
-    numeric_count = sum(1 for t in tokens if any(ch.isdigit() for ch in t))
-    numeric_density = numeric_count / word_count
-
     tokens_lower = [t.lower() for t in tokens]
     matched = sum(1 for kw in PLANETARY_KEYWORDS if kw.lower() in tokens_lower)
 

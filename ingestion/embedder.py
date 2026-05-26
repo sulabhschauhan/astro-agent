@@ -1,14 +1,17 @@
 """
 embedder.py
-Embeds chunk text via OpenAI text-embedding-3-small and upserts into ChromaDB.
-Idempotent — upsert handles re-runs safely. Skips chunks with empty text.
+Loads all_chunks_v2.json → chunk_all() → embeds via OpenAI → writes to ChromaDB.
+Pending chunks (empty text) saved to data/pending_chunks.json.
+Coverage stats saved to data/embedding_report.json.
 """
 
 import json
 import logging
+import time
 from pathlib import Path
+from collections import defaultdict
 import chromadb
-from openai import OpenAI
+from openai import OpenAI, RateLimitError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -16,11 +19,15 @@ logger = logging.getLogger(__name__)
 CHROMA_DIR = "data/chroma_db"
 COLLECTION_NAME = "astro_chunks"
 EMBEDDING_MODEL = "text-embedding-3-small"
-BATCH_SIZE = 100  # chunks per OpenAI embeddings request
+BATCH_SIZE = 100
+RATE_LIMIT_RETRIES = 4
+RATE_LIMIT_BASE_DELAY = 10  # seconds; doubles each retry (10, 20, 40, 80)
+ALL_CHUNKS_PATH = "data/all_chunks_v2.json"
+PENDING_CHUNKS_PATH = "data/pending_chunks.json"
+EMBEDDING_REPORT_PATH = "data/embedding_report.json"
 
 
 def get_collection(persist_dir: str = CHROMA_DIR) -> chromadb.Collection:
-    """Get or create the persistent ChromaDB collection."""
     client = chromadb.PersistentClient(path=persist_dir)
     return client.get_or_create_collection(
         name=COLLECTION_NAME,
@@ -29,13 +36,21 @@ def get_collection(persist_dir: str = CHROMA_DIR) -> chromadb.Collection:
 
 
 def _embed_batch(texts: list[str], client: OpenAI) -> list[list[float]]:
-    """Call OpenAI embeddings API for a batch of texts."""
-    response = client.embeddings.create(model=EMBEDDING_MODEL, input=texts)
-    return [item.embedding for item in response.data]
+    """Embed a batch of texts with exponential backoff on rate limit errors."""
+    for attempt in range(RATE_LIMIT_RETRIES):
+        try:
+            response = client.embeddings.create(model=EMBEDDING_MODEL, input=texts)
+            return [item.embedding for item in response.data]
+        except RateLimitError:
+            if attempt == RATE_LIMIT_RETRIES - 1:
+                raise
+            delay = RATE_LIMIT_BASE_DELAY * (2 ** attempt)
+            logger.warning(f"Rate limit hit — retrying in {delay}s (attempt {attempt + 1}/{RATE_LIMIT_RETRIES})")
+            time.sleep(delay)
 
 
 def _to_metadata(chunk: dict) -> dict:
-    """Extract ChromaDB-safe metadata from a chunk (no None values)."""
+    """ChromaDB-safe metadata — no None values, embedding_status excluded."""
     return {
         "topic":      chunk.get("topic") or "",
         "language":   chunk.get("language") or "eng",
@@ -47,27 +62,58 @@ def _to_metadata(chunk: dict) -> dict:
     }
 
 
-def embed_chunks(chunks: list[dict], persist_dir: str = CHROMA_DIR) -> None:
+def run_pipeline(
+    raw_chunks_path: str = ALL_CHUNKS_PATH,
+    persist_dir: str = CHROMA_DIR,
+    pending_path: str = PENDING_CHUNKS_PATH,
+    report_path: str = EMBEDDING_REPORT_PATH,
+) -> dict:
     """
-    Embed all chunks with non-empty text and upsert into ChromaDB.
+    Full pipeline: load raw chunks → chunk_all() → embed → report.
+    Returns the embedding report dict.
+    """
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from ingestion.chunker import chunk_all
 
-    Args:
-        chunks:      Chunk list from chunker.chunk_all() — full schema required.
-        persist_dir: ChromaDB persist directory.
-    """
-    openai_client = OpenAI()  # uses OPENAI_API_KEY from environment
+    # Step 1 — load raw page chunks
+    logger.info(f"Loading raw chunks from {raw_chunks_path}")
+    with open(raw_chunks_path, "r", encoding="utf-8") as f:
+        raw_chunks = json.load(f)
+    logger.info(f"Loaded {len(raw_chunks)} raw page chunks")
+
+    # Step 2 — chunk_all
+    sub_chunks = chunk_all(raw_chunks)
+    logger.info(f"Chunker produced {len(sub_chunks)} sub-chunks")
+
+    # Step 3 — assign embedding_status (JSON only, not stored in ChromaDB)
+    for chunk in sub_chunks:
+        chunk["embedding_status"] = "complete" if chunk.get("text", "").strip() else "pending"
+
+    pending = [c for c in sub_chunks if c["embedding_status"] == "pending"]
+    embeddable = [c for c in sub_chunks if c["embedding_status"] == "complete"]
+    total_batches = (len(embeddable) + BATCH_SIZE - 1) // BATCH_SIZE
+    logger.info(f"Embeddable: {len(embeddable)}, Pending (empty text): {len(pending)}, Batches: {total_batches}")
+
+    # Step 4 — save pending sub-chunks for image_extractor resume
+    with open(pending_path, "w", encoding="utf-8") as f:
+        json.dump(pending, f, ensure_ascii=False, indent=2)
+    logger.info(f"Saved {len(pending)} pending chunks to {pending_path}")
+
+    # Step 5 — embed in batches and upsert to ChromaDB
+    openai_client = OpenAI()
     collection = get_collection(persist_dir)
 
-    embeddable = [c for c in chunks if c.get("text", "").strip()]
-    skipped = len(chunks) - len(embeddable)
-    total_batches = (len(embeddable) + BATCH_SIZE - 1) // BATCH_SIZE
-    logger.info(
-        f"Chunks to embed: {len(embeddable)}, skipped (empty text): {skipped}, "
-        f"batches: {total_batches}"
-    )
+    # Idempotency: skip chunks already present in ChromaDB
+    existing_ids = set(collection.get(include=[])["ids"])
+    to_embed = [c for c in embeddable if c["chunk_id"] not in existing_ids]
+    skipped_existing = len(embeddable) - len(to_embed)
+    if skipped_existing:
+        logger.info(f"Skipping {skipped_existing} chunks already in ChromaDB — {len(to_embed)} to embed")
+    total_batches = (len(to_embed) + BATCH_SIZE - 1) // BATCH_SIZE
 
-    for batch_num, i in enumerate(range(0, len(embeddable), BATCH_SIZE), start=1):
-        batch = embeddable[i: i + BATCH_SIZE]
+    for batch_num, i in enumerate(range(0, len(to_embed), BATCH_SIZE), start=1):
+        batch = to_embed[i: i + BATCH_SIZE]
         try:
             embeddings = _embed_batch([c["text"] for c in batch], openai_client)
             collection.upsert(
@@ -81,30 +127,37 @@ def embed_chunks(chunks: list[dict], persist_dir: str = CHROMA_DIR) -> None:
             logger.error(f"Batch {batch_num}/{total_batches} failed: {e} — skipping")
             continue
 
-    logger.info(f"Done. Collection total: {collection.count()} chunks")
+    # Step 6 — build and save embedding_report.json
+    book_stats = defaultdict(lambda: {"text": 0, "diagram": 0, "mixed": 0, "embedded": 0, "pending": 0})
+    for chunk in sub_chunks:
+        book_stats[chunk["book_name"]][chunk["page_type"]] += 1
+        book_stats[chunk["book_name"]][chunk["embedding_status"]] += 1
+
+    report = {
+        "total_raw_pages":  len(raw_chunks),
+        "total_sub_chunks": len(sub_chunks),
+        "total_embedded":   len(embeddable),
+        "total_pending":    len(pending),
+        "collection_count": collection.count(),
+        "by_book": {book: dict(stats) for book, stats in sorted(book_stats.items())},
+    }
+
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, ensure_ascii=False, indent=2)
+    logger.info(f"Report saved to {report_path}")
+    logger.info(f"ChromaDB collection total: {collection.count()} chunks")
+
+    return report
 
 
 if __name__ == "__main__":
-    import sys
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    from ingestion.chunker import chunk_all
-
-    RAW_CHUNKS_PATH = "data/all_chunks.json"
-
-    logger.info(f"Loading raw chunks from {RAW_CHUNKS_PATH}")
-    with open(RAW_CHUNKS_PATH, "r", encoding="utf-8") as f:
-        raw_chunks = json.load(f)
-    logger.info(f"Loaded {len(raw_chunks)} raw page chunks")
-
-    chunked = chunk_all(raw_chunks)
-    logger.info(f"Chunker produced {len(chunked)} sub-chunks")
-
-    embed_chunks(chunked)
-
-    # Summary
-    collection = get_collection()
-    count = collection.count()
-    print(f"\n--- Results ---")
-    print(f"Raw pages:        {len(raw_chunks)}")
-    print(f"Sub-chunks:       {len(chunked)}")
-    print(f"Embedded (total): {count}")
+    report = run_pipeline()
+    print(f"\n--- Embedding Report ---")
+    print(f"Raw pages:      {report['total_raw_pages']}")
+    print(f"Sub-chunks:     {report['total_sub_chunks']}")
+    print(f"Embedded:       {report['total_embedded']}")
+    print(f"Pending:        {report['total_pending']}")
+    print(f"ChromaDB total: {report['collection_count']}")
+    print(f"\nBy book:")
+    for book, stats in report["by_book"].items():
+        print(f"  {book}: embedded={stats['embedded']}, pending={stats['pending']}")
