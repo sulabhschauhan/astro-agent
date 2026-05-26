@@ -40,7 +40,8 @@ When reviewing any design or code, validate it can survive reality.
 - Test with full input (question + kundali + palm photo)
 - Test when retrieved chunks have low similarity scores
 - Test user-facing error messages — are they human-readable?
-- Verify response time is under 5 seconds
+- Verify response time is under 10 seconds (dev baseline)
+- Response time: streaming required in production — implement SSE in FastAPI layer, not in astrologer.py
 
 ## Known Edge Cases for This Project
 - Empty OCR output on blank/cover pages
