@@ -98,6 +98,16 @@ json.dump(chunks, open('data/all_chunks.json', 'w'), ensure_ascii=False, indent=
 
 
 
+## Multi-Agent Review Process
+
+Before writing ANY new file or component:
+1. Load `.claude/architect.md` — review structure
+2. Load `.claude/business.md` — review user value
+3. Load `.claude/critic.md` — challenge assumptions
+4. Reconcile all three before writing code
+
+**Mandatory for:** new files, schema changes, threshold values, pipeline changes, API integrations
+
 ## Working Style Requirements
 These are non-negotiable for every session:
 
