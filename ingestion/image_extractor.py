@@ -10,7 +10,10 @@ import json
 import time
 import logging
 from pathlib import Path
+from dotenv import load_dotenv
 from openai import OpenAI
+
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)

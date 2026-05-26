@@ -1,6 +1,6 @@
 """
 embedder.py
-Loads all_chunks_v2.json → chunk_all() → embeds via OpenAI → writes to ChromaDB.
+Loads all_chunks.json → chunk_all() → embeds via OpenAI → writes to ChromaDB.
 Pending chunks (empty text) saved to data/pending_chunks.json.
 Coverage stats saved to data/embedding_report.json.
 """
