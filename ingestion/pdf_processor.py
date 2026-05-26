@@ -43,7 +43,6 @@ PLANETARY_KEYWORDS = {"Ketu", "Merc", "Sun", "Moon", "Mars", "Jup", "Sat", "Rahu
 PLANET_MATCH_THRESHOLD = 3
 NUMBER_DENSITY_THRESHOLD = 0.30
 MIXED_NUMBER_DENSITY_MIN = 0.20   # numeric density between this and 0.30 → table embedded in prose
-MIXED_PLANET_THRESHOLD = 4        # 4 planetary keywords alongside prose → chart alongside text
 
 
 def classify_page(text: str) -> str:
@@ -64,18 +63,15 @@ def classify_page(text: str) -> str:
     if numeric_density > NUMBER_DENSITY_THRESHOLD:
         return "mixed" if word_count > 250 else "diagram"
 
-    # Strong planetary keyword presence — mixed if substantial prose present, else pure diagram
+    # Strong planetary keyword presence — mixed if prose present, else pure diagram
     if matched >= PLANET_MATCH_THRESHOLD:
-        return "mixed" if word_count > 250 else "diagram"
+        return "mixed" if word_count > 150 else "diagram"
 
-    # Moderate signals: table or chart alongside prose
+    # Moderate number density alongside prose
     if numeric_density > MIXED_NUMBER_DENSITY_MIN and word_count >= 150:
         return "mixed"
 
-    if matched >= MIXED_PLANET_THRESHOLD and word_count >= 150:
-        return "mixed"
-
-    # Pattern 1 — structural grid tables (body part grids, house grids)
+    # Pattern 3 — structural grid tables (body part grids, house grids)
     STRUCTURAL_KEYWORDS = ["left", "right", "ascendant", "decanate",
                            "trunk", "shoulder", "neck", "thigh", "knee", "navel", "pelvis"]
     structural_count = sum(1 for kw in STRUCTURAL_KEYWORDS if kw in tokens_lower)
