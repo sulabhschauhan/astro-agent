@@ -104,7 +104,8 @@ Before writing ANY new file or component:
 1. Load `.claude/architect.md` — review structure
 2. Load `.claude/business.md` — review user value
 3. Load `.claude/critic.md` — challenge assumptions
-4. Reconcile all three before writing code
+4. Load `.claude/qa.md` — validate test coverage
+5. Reconcile all four before writing code
 
 **Mandatory for:** new files, schema changes, threshold values, pipeline changes, API integrations
 
