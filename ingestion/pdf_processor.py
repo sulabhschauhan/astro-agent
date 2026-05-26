@@ -5,6 +5,7 @@ runs Tesseract OCR on text pages.
 Output: list of chunk dicts with metadata
 """
 
+import json
 import os
 import pytesseract
 from pdf2image import convert_from_path
@@ -178,23 +179,56 @@ def process_pdf(pdf_path: str, output_dir: str, split_spreads: bool = False) -> 
     logger.info(f"Completed {book_name}: {len(chunks)} pages processed")
     return chunks
 
-def process_all_pdfs(pdf_dir: str, output_dir: str) -> list[dict]:
-    """Process all PDFs in a directory. Sorted by file size ascending — largest runs last."""
-    all_chunks = []
-    pdf_files = sorted(Path(pdf_dir).glob("*.pdf"), key=lambda p: p.stat().st_size)
+def _save_progress(chunks: list[dict], path: Path) -> None:
+    """Atomically write per-book progress file."""
+    tmp = path.with_suffix(".tmp")
+    try:
+        tmp.write_text(json.dumps(chunks, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(path)
+    except Exception as e:
+        tmp.unlink(missing_ok=True)
+        raise RuntimeError(f"Failed to save progress to {path}: {e}") from e
 
+
+def process_all_pdfs(
+    pdf_dir: str,
+    output_dir: str,
+    progress_dir: str = "data/progress",
+) -> list[dict]:
+    """Process all PDFs sorted by file size ascending. Saves per-book progress to
+    progress_dir after each book — skips books with existing progress on restart."""
+    progress_path = Path(progress_dir)
+    progress_path.mkdir(parents=True, exist_ok=True)
+
+    pdf_files = sorted(Path(pdf_dir).glob("*.pdf"), key=lambda p: p.stat().st_size)
     if not pdf_files:
         logger.warning(f"No PDFs found in {pdf_dir}")
         return []
 
     logger.info(f"Found {len(pdf_files)} PDFs to process")
+    all_chunks = []
 
     for pdf_path in pdf_files:
+        book_stem = pdf_path.stem
+        progress_file = progress_path / f"{book_stem}.json"
+
+        if progress_file.exists():
+            try:
+                with open(progress_file, "r", encoding="utf-8") as f:
+                    chunks = json.load(f)
+                logger.info(f"[SKIP] {book_stem} — {len(chunks)} chunks loaded from progress")
+                all_chunks.extend(chunks)
+                continue
+            except Exception as e:
+                logger.warning(f"Progress file corrupted for {book_stem}: {e} — reprocessing")
+
         try:
             chunks = process_pdf(str(pdf_path), output_dir)
+            _save_progress(chunks, progress_file)
             all_chunks.extend(chunks)
+            logger.info(f"[DONE] {book_stem} — {len(chunks)} chunks saved to progress")
         except Exception as e:
-            logger.error(f"Skipping {pdf_path.name} due to error: {e}")
+            logger.error(f"[FAIL] {pdf_path.name}: {e}")
             continue
 
     logger.info(f"Total chunks extracted: {len(all_chunks)}")
