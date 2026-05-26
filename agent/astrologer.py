@@ -1,7 +1,6 @@
 """
 astrologer.py
-Orchestrates: query_engine → prompt → GPT-4o-mini → structured response.
-prompt_builder.py will absorb _build_prompt() when written.
+Orchestrates: query_engine → prompt_builder → GPT-4o-mini → structured response.
 """
 
 import sys
@@ -13,6 +12,7 @@ from openai import OpenAI, RateLimitError
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from ingestion.query_engine import search
+from agent.prompt_builder import build_prompts, DISCLAIMER
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -24,72 +24,6 @@ LOW_CONFIDENCE_THRESHOLD = 0.45  # based on observed good-query range 0.57-0.60;
                                   # tune down if too many false low-confidence flags
 RATE_LIMIT_RETRIES = 3
 RATE_LIMIT_BASE_DELAY = 10  # seconds; doubles each retry (10, 20, 40)
-
-SYSTEM_PROMPT = """You are Parashara, a wise and direct AI astrologer with deep knowledge of classical Vedic astrology and palmistry.
-
-You give clear predictions and guidance. Speak as a wise astrologer — not as an academic. Do not say "according to the texts" or cite book names mid-sentence. Give the reading directly and confidently as your own wisdom.
-
-## Your knowledge
-You have been provided with relevant passages from these classical sources:
-- Brihat Parasara Hora Sastra (BPHS) — the foundational Vedic scripture
-- Phaladeepika — planetary results and predictions
-- Saravali — planetary combinations and their effects
-- Cheiro's Language of the Hand — palmistry
-
-## How you answer
-- Give direct readings and predictions based on the retrieved passages provided
-- Do not cite book names, page numbers, or passage numbers in your response — deliver the wisdom directly
-- If the retrieved passages do not support the question, say so honestly — do not fabricate
-- If passages present conflicting guidance, give the stronger or more classical interpretation
-
-## Kundali queries
-- If birth date, time, and place are not provided, ask for them before interpreting
-- Never guess or assume planetary positions
-
-## Palmistry queries
-- For personalized readings: ask for a photo of the lines on the person's palm (maximum 2 photos at once)
-- If the user declines a photo: answer from the texts and note the limitation
-- For general questions: answer from the texts directly
-
-## End every reading with this disclaimer (exact wording):
-"For major life decisions, I recommend consulting a qualified Jyotishi or palmist for a personal reading."
-
-## What you never do
-- Never state planetary positions as fact without a verified kundali
-- Never fabricate predictions not supported by the retrieved passages
-- Never use technical anatomical terms for palm features — say "the lines on your palm" not clinical names"""
-
-LOW_CONFIDENCE_ADDENDUM = """
-
-NOTE: The available passages have a weak match to this question. Answer carefully and explicitly acknowledge that the texts may not fully address this question before giving your response."""
-
-DISCLAIMER = "For major life decisions, I recommend consulting a qualified Jyotishi or palmist for a personal reading."
-
-
-def _build_prompt(
-    question: str,
-    sources: list[dict],
-    kundali_context: str | None,
-    palm_description: str | None,
-) -> str:
-    """Build the user message with retrieved passages as grounding context."""
-    lines = ["Retrieved passages:", "---"]
-    for i, s in enumerate(sources, 1):
-        lines.append(
-            f"[{i}] {s['book_name']}, p.{s['page_ref']} "
-            f"(topic: {s['topic']}, type: {s['page_type']}, score: {s['score']})"
-        )
-        lines.append(s["text"])
-        lines.append("")
-    lines.append("---")
-
-    if kundali_context:
-        lines.append(f"\nKundali context:\n{kundali_context}")
-    if palm_description:
-        lines.append(f"\nPalm description:\n{palm_description}")
-
-    lines.append(f"\nQuestion: {question}")
-    return "\n".join(lines)
 
 
 def _call_gpt(client: OpenAI, system: str, user: str) -> str:
@@ -166,18 +100,19 @@ def ask(
     top_score = sources[0]["score"]
     low_confidence = top_score < LOW_CONFIDENCE_THRESHOLD
 
-    # Step 3 — build prompt
-    system = SYSTEM_PROMPT
-    if low_confidence:
-        system += LOW_CONFIDENCE_ADDENDUM
-    if introduce:
-        system += "\n\nBegin your response by introducing yourself as Parashara."
-
-    user_message = _build_prompt(question, sources, kundali_context, palm_description)
+    # Step 3 — build prompts
+    prompts = build_prompts(
+        question=question,
+        sources=sources,
+        kundali_context=kundali_context,
+        palm_description=palm_description,
+        introduce=introduce,
+        low_confidence=low_confidence,
+    )
 
     # Step 4 — call GPT-4o-mini
     client = OpenAI()
-    answer = _call_gpt(client, system, user_message)
+    answer = _call_gpt(client, prompts["system"], prompts["user"])
 
     return {
         "answer":         answer,
