@@ -81,3 +81,41 @@ Palmistry books (hand lines/mounts/zones content):
 - Phaladeepika: planetary strength, horoscope, timing
 - Saravali: rasi, navamsa, planetary results
 - Cheiro: palm lines, mounts, hand shape, fingers
+
+
+## AI Review Standards (Sulabh's Working Style)
+
+### Code Review Discipline
+- NEVER rubber-stamp Claude Code or any AI output — review every diff critically
+- Summarizing what changed is NOT the same as validating it is correct
+- Always check: does this match the original design intent? Are interfaces preserved?
+- Flag logic errors, missing guards, threshold issues BEFORE accepting edits
+
+### Testing Strategy
+- Always test on the HARDEST case first, not the easiest
+- Sample validation before full runs — 20 pages before 500 pages, 1 book before 5 books
+- If a full run takes >10 minutes, find a faster validation path first
+- Never commit to expensive compute without a cheap sanity check first
+
+### Auto-suggestion Discipline
+- Claude Code auto-suggestions are NOT instructions — evaluate before accepting
+- If auto-suggestion skips a validation step, override it
+- "Proceed" and "looks good" require explicit reasoning, not just pattern matching
+
+### Debugging Approach
+- Test on most complex/dicy case to build real confidence
+- Isolate and validate components before running full pipeline
+- When something looks wrong, re-analyze root cause before applying fixes
+- Don't fix symptoms — find and fix the actual cause
+
+### Threshold and Logic Review
+- Every threshold needs a word_count or scope guard to prevent noise triggering
+- Check logic ORDER — conditions evaluated top to bottom, order matters
+- Low thresholds (< 0.20, < 2) need explicit justification
+- When in doubt, start conservative (higher threshold) and tune down
+
+### General Principles
+- Push back when AI moves too fast
+- Re-analyze before saying continue
+- Prioritize correctness over speed
+- Human checkpoint between AI-generated code and production runs

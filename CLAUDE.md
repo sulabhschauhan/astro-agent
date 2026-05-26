@@ -95,6 +95,31 @@ json.dump(chunks, open('data/all_chunks.json', 'w'), ensure_ascii=False, indent=
 - Session 1 (2026-05-25): `pdf_processor.py` complete + validated on BPHS Vol 1 (482 pages, 155 diagram); fixed kundali misclassification via number density + planetary keyword checks; `image_extractor.py` complete; `chunker.py` complete — COMPLETE
 - Session 2: `embedder.py` — NOT STARTED
 
+
+## Working Style Requirements
+These are non-negotiable for every session:
+
+1. REVIEW before PROCEED — never summarize a diff and say accept. 
+   Identify at least one potential issue before approving any edit.
+
+2. SAMPLE before SCALE — never suggest running full dataset without 
+   first proposing a sample validation path.
+
+3. HARDEST CASE first — when choosing test data, pick the most 
+   complex/edge-case example, not the simplest.
+
+4. OVERRIDE auto-suggestions — if auto-suggested next step skips 
+   validation, flag it and suggest the validation step instead.
+
+5. THRESHOLD DISCIPLINE — every numeric threshold needs:
+   - Explicit justification for the value chosen
+   - A scope guard (word_count, length, etc.) to prevent noise
+   - A note on how to tune it if results are off
+
+6. AI reviewing AI — flag explicitly when output hasn't had 
+   human review. Never chain AI decisions without a human checkpoint.
+
+
 ## Coding Standards
 
 - Python 3.11
