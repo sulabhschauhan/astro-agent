@@ -10,8 +10,11 @@ import logging
 import time
 from pathlib import Path
 from collections import defaultdict
+from dotenv import load_dotenv
 import chromadb
 from openai import OpenAI, RateLimitError
+
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -22,7 +25,7 @@ EMBEDDING_MODEL = "text-embedding-3-small"
 BATCH_SIZE = 100
 RATE_LIMIT_RETRIES = 4
 RATE_LIMIT_BASE_DELAY = 10  # seconds; doubles each retry (10, 20, 40, 80)
-ALL_CHUNKS_PATH = "data/all_chunks_v2.json"
+ALL_CHUNKS_PATH = "data/all_chunks.json"
 PENDING_CHUNKS_PATH = "data/pending_chunks.json"
 EMBEDDING_REPORT_PATH = "data/embedding_report.json"
 
@@ -112,6 +115,7 @@ def run_pipeline(
         logger.info(f"Skipping {skipped_existing} chunks already in ChromaDB — {len(to_embed)} to embed")
     total_batches = (len(to_embed) + BATCH_SIZE - 1) // BATCH_SIZE
 
+    failed_chunk_ids = []
     for batch_num, i in enumerate(range(0, len(to_embed), BATCH_SIZE), start=1):
         batch = to_embed[i: i + BATCH_SIZE]
         try:
@@ -124,21 +128,26 @@ def run_pipeline(
             )
             logger.info(f"Batch {batch_num}/{total_batches} — {len(batch)} chunks upserted")
         except Exception as e:
-            logger.error(f"Batch {batch_num}/{total_batches} failed: {e} — skipping")
+            failed_ids = [c["chunk_id"] for c in batch]
+            logger.error(f"Batch {batch_num}/{total_batches} failed: {e} — {len(batch)} chunks lost: {failed_ids[:3]}...")
+            failed_chunk_ids.extend(failed_ids)
             continue
 
     # Step 6 — build and save embedding_report.json
     book_stats = defaultdict(lambda: {"text": 0, "diagram": 0, "mixed": 0, "embedded": 0, "pending": 0})
     for chunk in sub_chunks:
         book_stats[chunk["book_name"]][chunk["page_type"]] += 1
-        book_stats[chunk["book_name"]][chunk["embedding_status"]] += 1
+        stat_key = "embedded" if chunk["embedding_status"] == "complete" else "pending"
+        book_stats[chunk["book_name"]][stat_key] += 1
 
     report = {
-        "total_raw_pages":  len(raw_chunks),
-        "total_sub_chunks": len(sub_chunks),
-        "total_embedded":   len(embeddable),
-        "total_pending":    len(pending),
-        "collection_count": collection.count(),
+        "total_raw_pages":   len(raw_chunks),
+        "total_sub_chunks":  len(sub_chunks),
+        "total_embedded":    len(embeddable),
+        "total_pending":     len(pending),
+        "total_failed":      len(failed_chunk_ids),
+        "failed_chunk_ids":  failed_chunk_ids,
+        "collection_count":  collection.count(),
         "by_book": {book: dict(stats) for book, stats in sorted(book_stats.items())},
     }
 
@@ -157,6 +166,7 @@ if __name__ == "__main__":
     print(f"Sub-chunks:     {report['total_sub_chunks']}")
     print(f"Embedded:       {report['total_embedded']}")
     print(f"Pending:        {report['total_pending']}")
+    print(f"Failed batches: {report['total_failed']}")
     print(f"ChromaDB total: {report['collection_count']}")
     print(f"\nBy book:")
     for book, stats in report["by_book"].items():
