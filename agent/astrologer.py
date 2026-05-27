@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from ingestion.query_engine import search
 from agent.prompt_builder import build_prompts, DISCLAIMER
 from agent.session_manager import SessionManager
+from agent.config import REWRITE_MAP
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -26,18 +27,6 @@ LOW_CONFIDENCE_THRESHOLD = 0.45  # based on observed good-query range 0.57-0.60;
                                   # tune down if too many false low-confidence flags
 RATE_LIMIT_RETRIES = 3
 RATE_LIMIT_BASE_DELAY = 10  # seconds; doubles each retry (10, 20, 40)
-
-# TODO: move to config.py in next session (agreed action list item 6)
-REWRITE_MAP = {
-    "rich":      "wealth financial prosperity 2nd house 11th house",
-    "money":     "wealth income financial gains",
-    "love":      "relationship marriage 7th house Venus",
-    "marriage":  "marriage partner 7th house",
-    "job":       "career profession 10th house",
-    "health":    "health vitality 6th house",
-    "children":  "children 5th house Jupiter",
-    "travel":    "foreign travel 12th house",
-}
 
 
 def _rewrite_query(q: str) -> str:
