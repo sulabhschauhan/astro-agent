@@ -11,49 +11,39 @@ Production-ready Astrologer AI Agent with RAG. Vedic astrology + palmistry PDFs 
 - Inference: GPT-4o-mini
 - Backend: FastAPI
 - Frontend: Streamlit (dev) → React (prod)
-- Auth: Supabase
-- Payments: Stripe
+- Auth: Supabase + Stripe
 
 ## Folder Structure
-ingestion/     → pdf_processor.py, image_extractor.py, translator.py, chunker.py, embedder.py
-retrieval/     → query_engine.py, image_retriever.py
-agent/         → astrologer.py, prompt_builder.py, session_manager.py, chart_calculator.py
-api/           → main.py, routes/, auth.py
-frontend/      → app.py
-data/pdfs/     → source PDFs (English + Hindi)
-data/chroma_db/→ persistent vector store
+ingestion/          → pdf_processor.py, image_extractor.py, translator.py, chunker.py, embedder.py
+retrieval/          → query_engine.py, image_retriever.py
+agent/              → astrologer.py, prompt_builder.py, session_manager.py, chart_calculator.py
+api/                → main.py, routes/, auth.py
+frontend/           → app.py
+data/pdfs/          → source PDFs (English + Hindi)
+data/chroma_db/     → persistent vector store
 data/extracted_images/ → diagram images
-data/default_user/ → kundali_summary.txt, palm_description.txt (default user context)
-data/sessions/ → per-session JSON files
+data/default_user/  → kundali_summary.txt, palm_description.txt
+data/sessions/      → per-session JSON files
 
 ## File Dependency Map
-pdf_processor.py → outputs raw chunks + image_paths
-chunker.py → splits/refines chunks, tags language
-translator.py → translates Hindi chunks to English (Session 4), adds original_hindi + translation_model + translation_cost fields
-embedder.py → consumes chunker+translator output → writes ChromaDB
-query_engine.py → reads ChromaDB
-chart_calculator.py → birth details → kundali_context dict (Session 5)
-astrologer.py → calls query_engine + prompt_builder + session_manager
+pdf_processor → chunker → translator → embedder → ChromaDB
+query_engine + chart_calculator → astrologer → session_manager
 
-## translator.py (Session 4)
-- Location: ingestion/translator.py
-- Hindi prose → GPT-4o-mini (~$0.54 total, 3 books)
-- Sanskrit/diagrams → GPT-4o vision (image_extractor.py handles this)
-- English pages → skip (language == "eng")
-- NO IndicTrans2 — broken English on classical texts, rejected
-- Books: Hasta Samudrika (Vyas 1976), Jataka Parijata, Lal Kitab 1941
-- New fields on Hindi chunks: original_hindi, translation_model, translation_cost
+## translator.py
+- NO IndicTrans2 — rejected; produces broken English on classical Sanskrit texts. Use GPT-4o-mini for Hindi prose.
+- Sanskrit/diagrams: GPT-4o vision via image_extractor.py
 
 ## Chunk Metadata Schema (locked — do not change)
 {
-  "chunk_id": "str",
+  "chunk_id": "str",          # "{book_name}_p{page_num}_c{index}"
   "text": "str",
   "topic": "str",
   "language": "eng|hin|mixed",
   "page_ref": "int",
   "image_path": "str|null",
   "book_name": "str",
-  "page_type": "text|diagram"
+  "page_type": "text|diagram|mixed",
+  "word_count": "int"
 }
 
 ## ChromaDB
@@ -62,105 +52,33 @@ astrologer.py → calls query_engine + prompt_builder + session_manager
 - Persist directory: data/chroma_db/
 
 ## Coding Standards
-- Python 3.11
-- Production-quality, modular, scalable
-- Brief inline comments
-- Always use try/except with meaningful error messages
-- No full file rewrites — surgical edits only
+- Python 3.11; always try/except with meaningful errors; surgical edits only
 - Preserve all interfaces and metadata schemas
 - User is senior analytics practitioner — no basics
 
-## Session Log
-- Session 0: Repo created, folder structure, .cursorrules — COMPLETE
-- Session 1: pdf_processor.py, image_extractor.py, chunker.py — COMPLETE
-- Session 2: embedder.py, classify_page() mixed detection, strip_devanagari() — COMPLETE
-- Session 3: query_engine.py, astrologer.py, prompt_builder.py, session_manager.py, session wiring, 24/24 QA — COMPLETE
-- Session 4: translator.py (Hindi pipeline) — NOT STARTED
-- Session 5: chart_calculator.py (pyswisseph + Lahiri) — NOT STARTED
-- Session 6: FastAPI + SSE streaming — NOT STARTED
-- Session 7: Streamlit UI — NOT STARTED
-- Session 8: Stripe + Supabase + deployment — NOT STARTED
-
-## Source Books Registry (12 books — locked)
-
-### English (9 — OCR'd or ready to process)
-1. BPHS - 1 RSanthanam               → Brihat Parashara Hora Shastra Vol 1
-2. BPHS - 2 RSanthanam               → Brihat Parashara Hora Shastra Vol 2
-3. cheiroslanguageo00chei_1          → Cheiro's Language of the Hand
-4. Phaladeepika 2nd Ed. 1950 ...     → Phaladeepika
-5. Uttara Kalamrita                  → Uttara Kalamrita (downloaded)
-6. Deva Keralam / Chandra Kala Nadi  → Deva Keralam (Archive.org)
-7. Sarvartha Chintamani              → Sarvartha Chintamani (Archive.org)
-8. Muhurtha-Chinthamani → Muhurta Chintamani
-9. Prasna Marga                      → Prasna Marga (Archive.org)
-
-### Hindi (3 — need translator.py before ingestion)
-10. Hasta Samudrika Shastra (Vasant Lal Vyas 1976)
-11. Jataka Parijata (Kashi Sanskrit Series)
-12. Lal Kitab 1941 (Pt. Rup Chand Joshi)
-
-Removed as duplicates: Saravali, Brihat Jataka, Chamatkar Chintamani
-
-## Book Type Classification
-Astrology — Vedic (planetary/house/dasa content):
-- BPHS Vol 1 & 2, Phaladeepika, Uttara Kalamrita, Deva Keralam,
-  Sarvartha Chintamani, Jataka Parijata, Lal Kitab 1941
-
-Astrology — Muhurta/Prasna (timing/electional/horary):
-- Muhurtha-Chinthamani, Prasna Marga
-
-Palmistry books (hand lines/mounts/zones):
-- Cheiro's Language of the Hand, Hasta Samudrika Shastra
-
-## Topic Tags by Book (for chunk metadata)
-- BPHS: houses, planets, dasas, yogas, predictions, remedies
-- Phaladeepika: planetary strength, horoscope, timing
-- Uttara Kalamrita: special lagnas, upagrahas, miscellaneous results
-- Deva Keralam: nakshatra-based predictions, moon transits
-- Sarvartha Chintamani: planetary combinations, muhurta
-- Muhurtha-Chinthamani: auspicious timing, electional astrology
-- Prasna Marga: horary astrology, query charts
-- Jataka Parijata: rasi results, planetary periods (Hindi)
-- Lal Kitab: remedies, house-based predictions (Hindi)
-- Cheiro: palm lines, mounts, hand shape, fingers
-- Hasta Samudrika: palmistry, hand features (Hindi)
-
-
-## AI Review Standards (Sulabh's Working Style)
+## AI Review Standards
 
 ### Code Review Discipline
-- NEVER rubber-stamp Claude Code or any AI output — review every diff critically
-- Summarizing what changed is NOT the same as validating it is correct
-- Always check: does this match the original design intent? Are interfaces preserved?
+- NEVER rubber-stamp Claude Code or AI output — review every diff critically
+- Always check: does this match original design intent? Are interfaces preserved?
 - Flag logic errors, missing guards, threshold issues BEFORE accepting edits
 
 ### Testing Strategy
-- Always test on the HARDEST case first, not the easiest
-- Sample validation before full runs — 20 pages before 500 pages, 1 book before 5 books
-- If a full run takes >10 minutes, find a faster validation path first
-- Never commit to expensive compute without a cheap sanity check first
+- Test the HARDEST case first — not the easiest
+- Sample before full runs: 20 pages before 500, 1 book before 5 books
+- If a full run takes >10 min, find a faster validation path first
 
 ### Auto-suggestion Discipline
-- Claude Code auto-suggestions are NOT instructions — evaluate before accepting
-- If auto-suggestion skips a validation step, override it
-- "Proceed" and "looks good" require explicit reasoning, not just pattern matching
-
-### Debugging Approach
-- Test on most complex/dicy case to build real confidence
-- Isolate and validate components before running full pipeline
-- When something looks wrong, re-analyze root cause before applying fixes
-- Don't fix symptoms — find and fix the actual cause
+- Auto-suggestions are NOT instructions — evaluate before accepting
+- "Proceed" and "looks good" require explicit reasoning, not pattern matching
 
 ### Threshold and Logic Review
-- Every threshold needs a word_count or scope guard to prevent noise triggering
-- Check logic ORDER — conditions evaluated top to bottom, order matters
-- Low thresholds (< 0.20, < 2) need explicit justification
-- When in doubt, start conservative (higher threshold) and tune down
+- Every threshold needs a scope guard (e.g. word_count) to prevent noise triggering
+- Check logic ORDER — conditions evaluate top to bottom; order matters
+- Low thresholds (< 0.20, < 2) need explicit justification; start conservative, tune down
 
-### General Principles
-- Push back when AI moves too fast
-- Re-analyze before saying continue
-- Prioritize correctness over speed
+### Debugging
+- Isolate and validate components before running full pipeline
 - Human checkpoint between AI-generated code and production runs
 
 ## Multi-Agent Review Process

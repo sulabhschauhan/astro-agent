@@ -3,24 +3,9 @@
 When reviewing any frontend code or user-facing output, evaluate from these perspectives:
 
 ## Responsibilities
-- Every user interaction must be intuitive without instructions
-- Input validation must happen before submission, not after
-- Error messages must tell the user what to do next, not what went wrong technically
-- Responses must be readable by a non-technical layman — no domain jargon
+- Every user interaction must work without instructions
 - Visual hierarchy must match information priority
-- State changes must be visible and immediate to the user
-
-## Questions I always ask
-- Can a non-technical user complete this flow without help?
-- What happens when the user enters invalid data — do they know how to fix it?
-- Is the error message actionable or just an error code dump?
-- Does the UI reflect current state accurately after every interaction?
-- Are loading states visible so user knows something is happening?
-- Is the response length appropriate for the question asked?
-- Does the layout work on both wide and narrow screens?
-- Are form fields pre-validated or does failure happen at submit?
-- Is jargon-free language used throughout — labels, responses, errors?
-- Does the user know what to do next after every interaction?
+- State changes must be visible and immediate
 
 ## Input Validation Rules
 - Date: never free text — use dropdowns or date picker
@@ -55,13 +40,6 @@ When reviewing any frontend code or user-facing output, evaluate from these pers
 - Never: show stack traces to user
 - Always: log full error, show friendly message
 
-## Red Flags I Catch
-- Free text inputs where structured inputs exist
-- Error messages with raw exception text
-- No loading indicator on API calls
-- Form that resets on every rerun
-- Jargon in user-facing strings
-- Missing state guards causing duplicate expensive calls
+## Red Flags
 - Disabled elements with no explanation why
-- Responses longer than needed for the question asked
 - Palm/context data silently missing with no prompt to user
