@@ -152,6 +152,7 @@ def geocode_place(place: str) -> tuple[float, float]:
         raise ValueError(f"Geocoding timed out for '{place}'") from exc
     if loc is None:
         raise ValueError(f"Cannot geocode: '{place}'")
+    # TODO: add retry (2 attempts, 2s delay) — deferred pending manual test plan
     return loc.latitude, loc.longitude
 
 
