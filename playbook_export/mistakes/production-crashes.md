@@ -341,6 +341,27 @@ Validate that the key is present at startup, not at first use.
 
 ---
 
+### CRASH-15: Background process killed when Claude Code exits
+
+**Symptom:** Process starts fine in the background, dies silently when Claude Code
+`/exit` is called. No error, no log entry — the process simply stops.
+
+**Root cause:** Claude Code's `Bash()` tool spawns child processes attached to
+the Claude Code process tree. When Claude Code exits, the OS sends SIGTERM/kills
+the entire process group, taking any background child processes with it.
+
+**Fix:** On Windows, use `start` to detach the process from the Claude Code tree:
+```bat
+start python run_overnight.py
+```
+This launches Python as an independent process that survives Claude Code exit.
+
+**Prevention:** Never use `Bash(run_in_background=True)` for overnight or
+long-running pipeline runs. Always detach with `start python script.py` on
+Windows before exiting Claude Code.
+
+---
+
 ## Summary Table
 
 | ID | Component | Symptom | Root cause category |
@@ -359,3 +380,4 @@ Validate that the key is present at startup, not at first use.
 | CRASH-12 | all pipeline | Truncated JSON on crash | Non-atomic file writes |
 | CRASH-13 | dev | Bash substitution error | F-strings in shell -c argument |
 | CRASH-14 | all LLM | Unclear auth error | load_dotenv() missing |
+| CRASH-15 | dev | Background process dies on /exit | Child process attached to Claude Code process tree |
