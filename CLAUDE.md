@@ -47,6 +47,7 @@ Sub-chunks always have `_c{index}` appended to `chunk_id`.
 
 ## Sessions Completed
 0–5 complete. See `SESSION_LOG.md` for details. Do NOT load unless asked.
+ChromaDB: 7,281 chunks — 14/14 books embedded, 158 diagram chunks pending `image_extractor`.
 
 ## Reference Files (load only when relevant)
 | File | Load when |

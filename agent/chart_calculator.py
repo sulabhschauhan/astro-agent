@@ -453,3 +453,71 @@ def calculate_chart(name: str, dob: str, tob: str, place: str) -> dict:
             "jd_ut": round(jd_ut, 6),
         },
     }
+
+
+def format_kundali_context(chart: dict) -> str:
+    """
+    Serialize a calculate_chart() dict to a human-readable string
+    suitable for passing as kundali_context to astrologer.ask() or
+    displaying in Streamlit.
+    """
+    bd = chart["birth_details"]
+    lg = chart["lagna_chart"]
+    pp = chart["planetary_positions"]
+    hl = chart["house_lord_mapping"]
+    da = chart["dasha"]
+    yd = chart["yogas_doshas"]
+
+    def _oh(n: int) -> str:
+        return f"{_ordinal(n)} house"
+
+    lines = [
+        "BIRTH DETAILS",
+        f"  Name: {bd['name']}",
+        f"  Date of Birth: {bd['dob']}",
+        f"  Time of Birth: {bd['tob']}",
+        f"  Place of Birth: {bd['place']}",
+        "",
+        "LAGNA CHART",
+        f"  Ascendant: {lg['ascendant']}",
+        f"  Ascendant Lord: {lg['ascendant_lord']}",
+        f"  Rasi (Moon Sign): {lg['rasi']}",
+        f"  Rasi Lord: {lg['rasi_lord']}",
+        f"  Nakshatra: {lg['nakshatra']} Pada {lg['nakshatra_pada']}",
+        f"  Nakshatra Lord: {lg['nakshatra_lord']}",
+        "",
+        "PLANETARY POSITIONS",
+    ]
+    for planet, d in pp.items():
+        retro = " (R)" if d["retrograde"] else ""
+        lines.append(
+            f"  {planet}: {_oh(d['house'])}, {d['sign']}, {d['dignity']}{retro}"
+        )
+
+    lines += ["", "CONJUNCTIONS"]
+    lines += [f"  {c}" for c in chart["conjunctions"]] or ["  None"]
+
+    lines += ["", "HOUSE-LORD MAPPING"]
+    for h in hl:
+        lines.append(
+            f"  {_ordinal(h['house'])} House: {h['sign']}, "
+            f"Lord {h['lord']} in {_oh(h['lord_in_house'])}"
+        )
+
+    lines += [
+        "",
+        "YOGAS AND DOSHAS",
+        f"  Mangal Dosha: {'Yes' if yd['mangal_dosha'] else 'No'}",
+        f"  Kalsarpa Yoga: {'Yes' if yd['kalsarpa_yoga'] else 'No'}",
+        "",
+        "DASHA TIMELINE",
+        f"  Current Mahadasha: {da['current_mahadasha']['lord']} "
+        f"({da['current_mahadasha']['start']} – {da['current_mahadasha']['end']})",
+    ]
+    if da.get("current_antardasha"):
+        ad = da["current_antardasha"]
+        lines.append(
+            f"  Current Antardasha: {ad['lord']} ({ad['start']} – {ad['end']})"
+        )
+
+    return "\n".join(lines)
