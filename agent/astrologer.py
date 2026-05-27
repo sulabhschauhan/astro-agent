@@ -27,6 +27,24 @@ LOW_CONFIDENCE_THRESHOLD = 0.45  # based on observed good-query range 0.57-0.60;
 RATE_LIMIT_RETRIES = 3
 RATE_LIMIT_BASE_DELAY = 10  # seconds; doubles each retry (10, 20, 40)
 
+# TODO: move to config.py in next session (agreed action list item 6)
+REWRITE_MAP = {
+    "rich":      "wealth financial prosperity 2nd house 11th house",
+    "money":     "wealth income financial gains",
+    "love":      "relationship marriage 7th house Venus",
+    "marriage":  "marriage partner 7th house",
+    "job":       "career profession 10th house",
+    "health":    "health vitality 6th house",
+    "children":  "children 5th house Jupiter",
+    "travel":    "foreign travel 12th house",
+}
+
+
+def _rewrite_query(q: str) -> str:
+    q_lower = q.lower()
+    extras = [v for k, v in REWRITE_MAP.items() if k in q_lower]
+    return f"{q} {' '.join(extras)}".strip() if extras else q
+
 
 def _call_gpt(client: OpenAI, messages: list[dict]) -> str:
     """Call GPT-4o-mini with exponential backoff on rate limit."""
@@ -86,8 +104,9 @@ def ask(
     if not question.strip():
         raise ValueError("question must not be empty.")
 
-    # Step 1 — retrieve
-    sources = search(question, n_results=n_results, **query_filters)
+    # Step 1 — retrieve (rewritten query for search only; original question goes to GPT)
+    search_query = _rewrite_query(question)
+    sources = search(search_query, n_results=n_results, **query_filters)
 
     if not sources:
         return {
