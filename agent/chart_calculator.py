@@ -156,6 +156,26 @@ def geocode_place(place: str) -> tuple[float, float]:
     return loc.latitude, loc.longitude
 
 
+def geocode_place_candidates(place: str, max_results: int = 5) -> list[dict]:
+    """Return up to max_results candidate locations for a place string.
+
+    Each entry: {"display_name": str, "lat": float, "lon": float}.
+    display_name is the first two comma-parts of the Nominatim address.
+    Returns [] on timeout or no results — never raises.
+    """
+    geo = Nominatim(user_agent="astro-agent/1.0")
+    try:
+        results = geo.geocode(place, exactly_one=False, timeout=10) or []
+    except GeocoderTimedOut:
+        return []
+    candidates = []
+    for loc in results[:max_results]:
+        parts = loc.address.split(",")
+        display = ", ".join(p.strip() for p in parts[:2])
+        candidates.append({"display_name": display, "lat": loc.latitude, "lon": loc.longitude})
+    return candidates
+
+
 # ─── Julian Day conversion ────────────────────────────────────────────────────
 
 def to_julian_day(dob: str, tob: str) -> tuple[float, datetime]:

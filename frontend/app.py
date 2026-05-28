@@ -15,7 +15,7 @@ os.chdir(_ROOT)
 
 import streamlit as st
 
-from agent.chart_calculator import calculate_chart, format_kundali_context
+from agent.chart_calculator import calculate_chart, format_kundali_context, geocode_place_candidates
 from agent.astrologer import ask
 from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf
@@ -55,12 +55,46 @@ if "palm_bytes" not in st.session_state:
     st.session_state.palm_bytes = None
 if "_palm_image_name" not in st.session_state:
     st.session_state["_palm_image_name"] = None
+if "place_error" not in st.session_state:
+    st.session_state.place_error = None
+if "selected_place" not in st.session_state:
+    st.session_state.selected_place = None
+if "place_candidates" not in st.session_state:
+    st.session_state.place_candidates = []
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 with st.sidebar:
     st.header("Birth Details")
 
+    # ── Step 1: place search (outside form) ──────────────────────────────────
+    _place_input = st.text_input(
+        "Place of Birth", value="Calcutta, India", placeholder="Mumbai, India",
+        key="place_search_text",
+    )
+    if st.button("Search", key="search_place_btn"):
+        _cands = geocode_place_candidates(_place_input)
+        st.session_state.place_candidates = _cands
+        st.session_state.place_error = None
+        if not _cands:
+            st.session_state.selected_place = None
+            st.session_state.place_error = (
+                f"'{_place_input}' not found — try a major nearby city "
+                "e.g. 'Mumbai, India' or 'New Delhi, India'."
+            )
+        elif len(_cands) == 1:
+            st.session_state.selected_place = _cands[0]["display_name"]
+
+    if st.session_state.place_error:
+        st.error(st.session_state.place_error)
+    elif len(st.session_state.place_candidates) > 1:
+        _labels = [c["display_name"] for c in st.session_state.place_candidates]
+        _choice = st.radio("Select location:", _labels, key="place_radio")
+        st.session_state.selected_place = _choice
+    elif st.session_state.selected_place:
+        st.caption(f"Place confirmed: {st.session_state.selected_place}")
+
+    # ── Step 2: birth details form ────────────────────────────────────────────
     with st.form("birth_form"):
         name = st.text_input("Name", value="Sulabh Singh Chauhan")
         col1, col2, col3 = st.columns(3)
@@ -76,29 +110,34 @@ with st.sidebar:
         dob = f"{day} {month} {year}"
         tob_input = st.time_input("Time of Birth (IST)", value=datetime.time(0, 30, 0))
         tob = tob_input.strftime("%H:%M") if tob_input else None
-        place = st.text_input("Place of Birth", value="Calcutta, India", placeholder="Mumbai, India")
-        submitted = st.form_submit_button("Calculate Kundali")
+        submitted = st.form_submit_button(
+            "Calculate Kundali",
+            disabled=st.session_state.selected_place is None,
+        )
 
     if submitted:
         if tob is None:
             st.sidebar.warning("Please select time of birth.")
             st.stop()
-        missing = [f for f, v in [("Name", name), ("Place", place)] if not v.strip()]
+        place = st.session_state.selected_place
+        missing = [f for f, v in [("Name", name), ("Place", place or "")] if not v.strip()]
         if missing:
             st.error(f"Required: {', '.join(missing)}")
         else:
             try:
                 with st.spinner("Calculating your chart..."):
-                    chart = calculate_chart(name.strip(), dob, tob, place.strip())
+                    chart = calculate_chart(name.strip(), dob, tob, place)
                 st.session_state.chart       = chart
                 st.session_state.kundali_str = format_kundali_context(chart)
                 st.session_state.chart_ready = True
+                st.session_state.place_error = None
             except ValueError as e:
                 if "geocode" in str(e).lower() or "cannot geocode" in str(e).lower():
-                    st.sidebar.error(
-                        f"Place '{place}' not found. "
-                        "Try a major nearby city e.g. 'Mumbai', 'New Delhi', 'Dubai'."
+                    st.session_state.place_error = (
+                        f"'{place}' not found — try a major nearby city "
+                        "e.g. 'Mumbai, India' or 'New Delhi, India'."
                     )
+                    st.sidebar.error(st.session_state.place_error)
                 else:
                     st.sidebar.error(f"Chart error: {e}")
                 st.session_state.chart_ready = False
@@ -194,7 +233,7 @@ if prompt:
                     question=prompt,
                     has_kundali=st.session_state.chart_ready,
                     has_pdf=st.session_state.pdf_context is not None,
-                    has_palm=False,
+                    has_palm=st.session_state.palm_str is not None,
                 )
                 with st.spinner("Consulting the stars…"):
                     result = ask(
