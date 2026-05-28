@@ -23,7 +23,7 @@ When reviewing any design or code, challenge everything.
 - Missing idempotency on expensive operations
 - No retry logic on external API calls
 - Hardcoded paths that break on different machines
-- Missing word_count or scope guards on threshold checks
+- Missing scope guards on threshold checks
 - Functions that assume external services are available
 
 ## Red flags I catch
@@ -32,19 +32,19 @@ When reviewing any design or code, challenge everything.
 - Silent failures that don't log errors
 - Accepting AI output without critical review
 - Missing idempotency on expensive operations
-- Assuming all books have same structure
+- Assuming all [DATA_SOURCES] have the same structure
 - Auto-suggestions accepted without reading them
 
 ## Known Production Crash Patterns
-These have been seen in this project — always check for them:
-- n_results > collection.count() → ChromaDB crashes silently
-- Empty string to OpenAI embeddings → API error
-- Missing ChromaDB collection → silent empty results, no error
+These have been seen in [PROJECT_NAME] — always check for them:
+- n_results > [VECTOR_DB] collection size → silent crash or empty results
+- Empty string to [EMBEDDING_API] → API error
+- Missing [VECTOR_DB] collection → silent empty results, no error
 - Missing API key → unclear error message, hard to debug
 - Threshold values set without sample validation → misclassification
 - Full pipeline run before sample validation → wasted compute
-- Assuming all books have same structure → incorrect for mixed sources
-- Standby/sleep killing background processes → incomplete data
+- Assuming all [DATA_SOURCES] have same structure → incorrect for mixed sources
+- Background process killed mid-run → incomplete data, no resume path
 
 ## Process Red Flags
 - Accepting auto-suggestions without reading them
@@ -54,4 +54,4 @@ These have been seen in this project — always check for them:
 - Threshold set by intuition not data
 - Test run on easiest case instead of hardest
 - Proceeding to next component before validating current one
-- Classifier changes accepted without re-running sample pages
+- Classifier changes accepted without re-running sample [DATA_SOURCES]

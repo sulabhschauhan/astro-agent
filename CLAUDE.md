@@ -52,13 +52,12 @@ ChromaDB: 7,281 chunks — 14/14 books embedded, 158 diagram chunks pending `ima
 ## Reference Files (load only when relevant)
 | File | Load when |
 |---|---|
-| `SESSION_LOG.md` | Debugging past decisions |
-| `SESSION_5_PLAN.md` | Reviewing chart_calculator.py decisions |
-| `BOOKS.md` | Working on ingestion / new PDFs |
-| `.claude/architect.md` | Before any new file |
-| `.claude/business.md` | Before any new file |
-| `.claude/critic.md` | Before any new file |
-| `.claude/qa.md` | Before any new file |
+| .claude/architect.md | new file, schema, pipeline change |
+| .claude/business.md  | new file, user-facing change |
+| .claude/critic.md    | new file, any code change |
+| .claude/qa.md        | new file, any code change |
+| .claude/ui_ux.md     | any frontend or UX change |
+| .claude/debate.md    | agents conflict, multiple valid options |
 
 ## Working Style (non-negotiable)
 1. **REVIEW before PROCEED** — flag at least one issue before approving any edit
@@ -67,6 +66,7 @@ ChromaDB: 7,281 chunks — 14/14 books embedded, 158 diagram chunks pending `ima
 4. **THRESHOLD DISCIPLINE** — every numeric threshold needs justification + scope guard + tuning note
 5. **AI reviewing AI** — flag when output has no human review; never chain AI decisions without human checkpoint
 6. **SURGICAL EDITS** — no full file rewrites; Python 3.11; always `try/except` with meaningful errors
+7. **AGENT INVOCATION** — invoke relevant agents automatically before any design decision or code change. Do not wait to be asked. New file → all 6 agents. Frontend change → ui_ux mandatory. Conflict → debate last, always. Never write code before agent review is complete.
 
 ## Token Hygiene Rules
 - This file must stay under 80 lines

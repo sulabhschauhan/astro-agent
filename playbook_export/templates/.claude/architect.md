@@ -14,7 +14,7 @@ When reviewing any design or code, evaluate from these perspectives:
 - What happens when this fails?
 - Does this create a circular dependency?
 - Can this be tested in isolation?
-- Will adding a new book/source require changing this code?
+- Will adding a new [DATA_SOURCE] require changing this code?
 - Where does state live and who owns it?
 - How does data transform at each boundary?
 - What is the failure mode at each external call?
@@ -27,8 +27,8 @@ When reviewing any design or code, evaluate from these perspectives:
 - No implicit data transformations — all transforms explicit
 
 ## Failure Mode Analysis
-- What happens if OpenAI API is down?
-- What happens if ChromaDB is empty or missing?
+- What happens if the primary LLM API is down?
+- What happens if [VECTOR_DB] is empty or missing?
 - What happens if input file doesn't exist?
 - What happens on partial failure mid-run?
 - Is there a recovery path for every failure?

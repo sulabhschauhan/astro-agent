@@ -20,37 +20,37 @@ When reviewing any design or code, validate it can survive reality.
 
 ## Required Tests Before Accepting Any Component
 
-### For ingestion components (pdf_processor, chunker, embedder):
-- Run on single PDF page first, validate output schema
-- Run on hardest case page (mixed content, diagrams, Sanskrit)
+### For ingestion components ([INGESTION_PIPELINE]):
+- Run on single input item first, validate output schema
+- Run on hardest case item (complex/mixed/edge content for [PROJECT_NAME])
 - Run twice — verify idempotency (same output, no duplicates)
-- Run with missing input file — verify clear error message
+- Run with missing input — verify clear error message
 - Check output count makes sense (not 0, not 10x expected)
 
-### For retrieval components (query_engine):
-- Test with real question, verify relevant chunks returned
-- Test with empty question string
-- Test when ChromaDB collection is empty
+### For retrieval components ([RETRIEVAL_COMPONENT]):
+- Test with real query, verify relevant results returned
+- Test with empty query string
+- Test when [VECTOR_DB] collection is empty
 - Test when n_results > collection size
 - Test with metadata filters — verify filtering works correctly
-- Test similarity scores — are they in expected range (0-1)?
+- Test similarity scores — are they in expected range (0–1)?
 
-### For agent components (astrologer, prompt_builder):
-- Test with minimal input (question only, no kundali, no photo)
-- Test with full input (question + kundali + palm photo)
-- Test when retrieved chunks have low similarity scores
+### For agent components ([AGENT_COMPONENT]):
+- Test with minimal input (query only, no optional context)
+- Test with full input (query + all optional context)
+- Test when retrieved results have low similarity scores
 - Test user-facing error messages — are they human-readable?
-- Verify response time is under 10 seconds (dev baseline)
-- Response time: streaming required in production — implement SSE in FastAPI layer, not in astrologer.py
+- Verify response time is under [MAX_RESPONSE_TIME] (dev baseline)
+- Streaming required in production — implement in [API_LAYER], not in [AGENT_COMPONENT]
 
-## Known Edge Cases for This Project
-- Empty OCR output on blank/cover pages
-- Diagram pages with no text before GPT-4o processing
-- Hindi/Sanskrit text not stripped → embedding noise
-- ChromaDB collection missing after fresh clone
-- OpenAI rate limit mid-batch → partial embedding
-- Pending chunks JSON missing → image_extractor can't resume
-- Query returns diagram chunks with empty text → filter these
+## Known Edge Cases for [PROJECT_NAME]
+- Empty output on blank or cover input items
+- Items with no text before [VISION_MODEL] processing
+- Non-primary-language text not normalised → embedding noise
+- [VECTOR_DB] collection missing after fresh clone
+- [EMBEDDING_API] rate limit mid-batch → partial embedding, no resume
+- Pending items file missing → downstream component can't resume
+- Query returns non-text items with empty content → filter these
 
 ## Acceptance Criteria Template
 Before marking any component complete:
