@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 5 COMPLETE** — `agent/chart_calculator.py` written and verified (50/51 checks pass; 1 known ephemeris drift). Next: Session 6.
+**Session 8 COMPLETE** — 6-agent framework, palm nudge Option C, 6 issues fixed, 3 unit tests passing. Next: Session 9 — UI fixes (sidebar layout, time input, place autocomplete) + dasha integration for answer depth.
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Stack
