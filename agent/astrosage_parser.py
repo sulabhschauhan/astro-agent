@@ -105,7 +105,12 @@ def _extract_sections(full_text: str) -> dict[str, str]:
 
     def _flush():
         if active_section and active_buffer:
-            found[active_section] = "\n".join(active_buffer).strip()
+            text = "\n".join(active_buffer).strip()
+            if active_section in found:
+                if len(text) > 100:
+                    found[active_section] = found[active_section] + "\n\n" + text
+            else:
+                found[active_section] = text
 
     for line in lines:
         line_lower = line.lower()
@@ -113,8 +118,6 @@ def _extract_sections(full_text: str) -> dict[str, str]:
         # Check if this line opens a new target section.
         matched_name = None
         for display_name, keywords in _SECTIONS:
-            if display_name in found:
-                continue  # already captured
             if any(kw in line_lower for kw in keywords):
                 matched_name = display_name
                 break

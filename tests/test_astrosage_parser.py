@@ -62,18 +62,27 @@ def test_extract_sections_respects_priority_order():
     assert found_keys == expected_order
 
 
-def test_extract_sections_first_occurrence_wins():
-    # Varshaphal appears twice with Pratyantar in between.
-    # Pratyantar triggers a flush, so found["Varshaphal"] is set before the
-    # second Varshaphal line; the `if display_name in found` guard blocks re-capture.
-    text = (
+def test_extract_sections_repeated_occurrences_merge_or_skip():
+    # Repeat with >100-char body is appended (PDF page-break pattern).
+    long_body = "repeated prediction content " * 5  # >100 chars
+    text_merge = (
         "Varshaphal\nfirst block\n"
         "Pratyantar\npt content\n"
-        "Varshaphal\nsecond block\n"
+        f"Varshaphal\n{long_body}\n"
     )
-    result = _extract_sections(text)
+    result = _extract_sections(text_merge)
     assert "first block" in result["Varshaphal"]
-    assert "second block" not in result["Varshaphal"]
+    assert long_body.strip() in result["Varshaphal"]
+
+    # Repeat with ≤100-char body is NOT appended (bare page-header noise).
+    text_skip = (
+        "Varshaphal\nfirst block\n"
+        "Pratyantar\npt content\n"
+        "Varshaphal\nshort repeat\n"
+    )
+    result2 = _extract_sections(text_skip)
+    assert "first block" in result2["Varshaphal"]
+    assert "short repeat" not in result2["Varshaphal"]
 
 
 def test_extract_sections_line_cap():
