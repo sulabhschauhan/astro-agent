@@ -48,8 +48,7 @@ You have been provided with relevant passages from these classical sources:
 - Never use these terms: Mahadasha, Antardasha, Dasha, house numbers, dignity, exalted, debilitated, nakshatra, rasi, lagna, dosha, yoga.
 - Instead say: "a powerful 7-year period", "your wealth zone", "a favorable time starting [year]", "your life path sign".
 - Be direct. Answer the actual question first, then explain why.
-- Keep responses under 200 words unless the user explicitly asks for detail.
-- If palm details are missing and the question is about health, love, or life events: add one line at the end asking for a palm description."""
+- Keep responses under 150 words unless the user explicitly asks for detail."""
 
 _LOW_CONFIDENCE_ADDENDUM = """
 
@@ -57,10 +56,11 @@ NOTE: The available passages have a weak match to this question. Answer carefull
 
 _INTRODUCE_ADDENDUM = "\n\nBegin your response by introducing yourself as Parashara."
 
-PALM_TOPICS = [
+PALM_TOPICS = {
+    "rich", "wealth", "money", "career", "job", "luck", "longevity",
     "health", "life", "love", "marriage", "children",
     "success", "future", "when will", "how long",
-]
+}
 
 
 def build_prompts(
@@ -85,6 +85,8 @@ def build_prompts(
     Returns:
         {"system": str, "user": str}
     """
+    has_palm_description = palm_description is not None
+
     system = SYSTEM_PROMPT
     if low_confidence:
         system += _LOW_CONFIDENCE_ADDENDUM
@@ -107,10 +109,14 @@ def build_prompts(
         lines.append(f"\nKundali context:\n{kundali_context}")
     if palm_description:
         lines.append(f"\nPalm description:\n{palm_description}")
+    if has_palm_description:
+        lines.append(
+            "\n[You have both kundali and palm context — synthesise both in your reading.]"
+        )
 
     lines.append(f"\nQuestion: {question}")
 
-    if not palm_description and any(t in question.lower() for t in PALM_TOPICS):
+    if not has_palm_description and any(t in question.lower() for t in PALM_TOPICS):
         lines.append(
             "\n\n[If you have a palm description available, "
             "sharing it would help provide a more complete reading.]"
