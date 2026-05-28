@@ -15,6 +15,7 @@ from ingestion.query_engine import search
 from agent.prompt_builder import build_prompts, DISCLAIMER, needs_disclaimer
 from agent.session_manager import SessionManager
 from agent.config import REWRITE_MAP
+from agent.context_router import route
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -57,10 +58,12 @@ def ask(
     question: str,
     kundali_context: str | None = None,
     pdf_context: str | None = None,
-    palm_description: str | None = None,
+    palm_left: str | None = None,
+    palm_right: str | None = None,
     n_results: int = DEFAULT_N_RESULTS,
     introduce: bool = False,
     session: SessionManager | None = None,
+    context_order: list[str] | None = None,
     **query_filters,
 ) -> dict:
     """
@@ -69,7 +72,8 @@ def ask(
     Args:
         question: User question (must be non-empty).
         kundali_context: Optional birth chart summary string.
-        palm_description: Optional palm reading description string.
+        palm_left: Optional left-hand palm description string.
+        palm_right: Optional right-hand palm description string.
         n_results: Number of chunks to retrieve (default 5).
         introduce: If True, Parashara introduces himself — suppressed if session
                    already has history (avoids mid-conversation re-introduction).
@@ -96,6 +100,7 @@ def ask(
 
     # Step 1 — retrieve (rewritten query for search only; original question goes to GPT)
     search_query = _rewrite_query(question)
+    query_filters.pop("context_order", None)
     sources = search(search_query, n_results=n_results, **query_filters)
 
     if not sources:
@@ -117,14 +122,23 @@ def ask(
     effective_introduce = introduce and not (session and session.get_history())
 
     # Step 3 — build prompts
+    _route = route(
+        question=question,
+        has_kundali=kundali_context is not None,
+        has_pdf=pdf_context is not None,
+        has_palm=palm_left is not None or palm_right is not None,
+        low_confidence=low_confidence,
+    )
     prompts = build_prompts(
         question=question,
         sources=sources,
         kundali_context=kundali_context,
         pdf_context=pdf_context,
-        palm_description=palm_description,
+        palm_left=palm_left,
+        palm_right=palm_right,
         introduce=effective_introduce,
         low_confidence=low_confidence,
+        context_order=_route["context_order"],
     )
 
     # Step 4 — assemble messages with sliding history window
