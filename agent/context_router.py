@@ -45,7 +45,7 @@ def route(
         }
     """
     if not question or not question.strip():
-        return {"needs_pdf": False, "needs_palm": False, "nudge": None}
+        return {"needs_pdf": False, "needs_palm": False, "nudge": None, "context_order": ["rag", "kundali", "pdf"]}
 
     q_lower = question.lower()
 
@@ -63,7 +63,18 @@ def route(
         has_any_context=has_kundali or has_pdf or has_palm,
     )
 
-    return {"needs_pdf": needs_pdf, "needs_palm": needs_palm, "nudge": nudge}
+    is_time = pdf_match
+    is_palm = palm_match
+    if is_time and is_palm:
+        context_order = ["pdf", "palm", "kundali", "rag"]
+    elif is_time:
+        context_order = ["pdf", "kundali", "rag"]
+    elif is_palm:
+        context_order = ["palm", "kundali", "rag"]
+    else:
+        context_order = ["rag", "kundali", "pdf"]
+
+    return {"needs_pdf": needs_pdf, "needs_palm": needs_palm, "nudge": nudge, "context_order": context_order}
 
 
 # ─── Internal helper ──────────────────────────────────────────────────────────

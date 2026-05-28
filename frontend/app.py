@@ -3,6 +3,8 @@ frontend/app.py
 Streamlit UI — Vedic astrology assistant (Parashara RAG agent).
 """
 
+import hashlib
+import re
 import sys
 import os
 import datetime
@@ -20,6 +22,7 @@ from agent.astrologer import ask
 from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf
 from agent.context_router import route
+from agent.palm_processor import validate_palm_image
 
 # ─── Page config (must be first Streamlit call) ───────────────────────────────
 
@@ -41,20 +44,22 @@ if "chart_ready" not in st.session_state:
     st.session_state.chart_ready = False
 if "messages" not in st.session_state:
     st.session_state.messages = []
-if "palm_str" not in st.session_state:
-    _palm_path = _ROOT / "data" / "default_user" / "palm_description.txt"
-    try:
-        st.session_state.palm_str = _palm_path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        st.session_state.palm_str = None
 if "pdf_context" not in st.session_state:
     st.session_state.pdf_context = None
 if "_astrosage_pdf_name" not in st.session_state:
     st.session_state["_astrosage_pdf_name"] = None
-if "palm_bytes" not in st.session_state:
-    st.session_state.palm_bytes = None
-if "_palm_image_name" not in st.session_state:
-    st.session_state["_palm_image_name"] = None
+if "palm_left_str" not in st.session_state:
+    st.session_state.palm_left_str = None
+if "palm_left_hash" not in st.session_state:
+    st.session_state.palm_left_hash = None
+if "palm_left_status" not in st.session_state:
+    st.session_state.palm_left_status = None
+if "palm_right_str" not in st.session_state:
+    st.session_state.palm_right_str = None
+if "palm_right_hash" not in st.session_state:
+    st.session_state.palm_right_hash = None
+if "palm_right_status" not in st.session_state:
+    st.session_state.palm_right_status = None
 if "place_error" not in st.session_state:
     st.session_state.place_error = None
 if "selected_place" not in st.session_state:
@@ -108,17 +113,25 @@ with st.sidebar:
         with col3:
             year  = st.selectbox("Year",  list(range(2025, 1939, -1)), index=37)
         dob = f"{day} {month} {year}"
-        tob_input = st.time_input("Time of Birth (IST)", value=datetime.time(0, 30, 0))
-        tob = tob_input.strftime("%H:%M") if tob_input else None
+        tob = st.text_input("Time of Birth (IST)", placeholder="HH:MM", key="birth_time_input")
         submitted = st.form_submit_button(
             "Calculate Kundali",
             disabled=st.session_state.selected_place is None,
         )
 
     if submitted:
-        if tob is None:
-            st.sidebar.warning("Please select time of birth.")
+        time_val = st.session_state.get("birth_time_input", "")
+        if not time_val:
+            st.sidebar.warning("Please enter time of birth.")
             st.stop()
+        if time_val:
+            if not re.match(r'^\d{2}:\d{2}$', time_val):
+                st.error("Invalid format — enter time as HH:MM (e.g. 14:30)")
+                st.stop()
+            hh, mm = int(time_val.split(":")[0]), int(time_val.split(":")[1])
+            if not (0 <= hh <= 23 and 0 <= mm <= 59):
+                st.error("Invalid time — hours 00-23, minutes 00-59")
+                st.stop()
         place = st.session_state.selected_place
         missing = [f for f, v in [("Name", name), ("Place", place or "")] if not v.strip()]
         if missing:
@@ -167,15 +180,111 @@ with st.sidebar:
         st.session_state.pdf_context = None
         st.session_state["_astrosage_pdf_name"] = None
 
-    uploaded_palm = st.file_uploader("Palm Image (optional)", type=["jpg", "jpeg", "png"])
-    if uploaded_palm is not None:
-        if st.session_state["_palm_image_name"] != uploaded_palm.name:
-            st.session_state.palm_bytes = uploaded_palm.read()
-            st.session_state["_palm_image_name"] = uploaded_palm.name
-            st.success("Palm image loaded.")
-    elif st.session_state["_palm_image_name"] is not None:
-        st.session_state.palm_bytes = None
-        st.session_state["_palm_image_name"] = None
+    # ── Left palm ─────────────────────────────────────────────────────────────
+    uploaded_left = st.file_uploader(
+        "Left hand (innate potential)", type=["jpg", "jpeg", "png"], key="palm_left_uploader",
+    )
+    if uploaded_left is not None:
+        _lb = uploaded_left.read()
+        _lh = hashlib.md5(_lb).hexdigest()
+        _ls = st.session_state.palm_left_status
+        if st.session_state.palm_left_hash != _lh and not (_ls and _ls.get("swapped_to")):
+            with st.spinner("Validating left palm…"):
+                _vr = validate_palm_image(_lb, "left")
+            if _vr["hard_reject"]:
+                st.error(_vr["reject_message"])
+                st.session_state.palm_left_str    = None
+                st.session_state.palm_left_hash   = None
+                st.session_state.palm_left_status = None
+            elif st.session_state.palm_right_hash == _lh:
+                st.error("Same image uploaded for both hands — please upload each hand separately")
+                st.session_state.palm_left_str    = None
+                st.session_state.palm_left_hash   = None
+                st.session_state.palm_left_status = None
+            else:
+                if _vr["warn"]:
+                    st.warning(_vr["warn_message"])
+                st.session_state.palm_left_hash   = _lh
+                st.session_state.palm_left_status = _vr
+                st.session_state.palm_left_str    = None
+    elif st.session_state.palm_left_hash is not None:
+        st.session_state.palm_left_str    = None
+        st.session_state.palm_left_hash   = None
+        st.session_state.palm_left_status = None
+
+    _ls = st.session_state.palm_left_status
+    if _ls and not _ls.get("swapped_to") and not _ls.get("confirmed"):
+        if _ls["hand"] == "left":
+            st.success("Left hand confirmed.")
+            st.session_state.palm_left_status["confirmed"] = True
+        else:
+            st.info(f"Detected: {_ls['hand']} hand — correct?")
+            _lcy, _lcs = st.columns(2)
+            with _lcy:
+                if st.button("Yes, correct", key="left_confirm"):
+                    st.session_state.palm_left_status["confirmed"] = True
+                    st.rerun()
+            with _lcs:
+                if st.button("Swap to other hand", key="left_swap"):
+                    st.session_state.palm_right_hash   = st.session_state.palm_left_hash
+                    st.session_state.palm_right_status = _ls
+                    st.session_state.palm_right_str    = None
+                    st.session_state.palm_left_status  = {"swapped_to": "right"}
+                    st.session_state.palm_left_str     = None
+                    st.rerun()
+
+    # ── Right palm ────────────────────────────────────────────────────────────
+    uploaded_right = st.file_uploader(
+        "Right hand (current trajectory)", type=["jpg", "jpeg", "png"], key="palm_right_uploader",
+    )
+    if uploaded_right is not None:
+        _rb = uploaded_right.read()
+        _rh = hashlib.md5(_rb).hexdigest()
+        _rs = st.session_state.palm_right_status
+        if st.session_state.palm_right_hash != _rh and not (_rs and _rs.get("swapped_to")):
+            with st.spinner("Validating right palm…"):
+                _vr = validate_palm_image(_rb, "right")
+            if _vr["hard_reject"]:
+                st.error(_vr["reject_message"])
+                st.session_state.palm_right_str    = None
+                st.session_state.palm_right_hash   = None
+                st.session_state.palm_right_status = None
+            elif st.session_state.palm_left_hash == _rh:
+                st.error("Same image uploaded for both hands — please upload each hand separately")
+                st.session_state.palm_right_str    = None
+                st.session_state.palm_right_hash   = None
+                st.session_state.palm_right_status = None
+            else:
+                if _vr["warn"]:
+                    st.warning(_vr["warn_message"])
+                st.session_state.palm_right_hash   = _rh
+                st.session_state.palm_right_status = _vr
+                st.session_state.palm_right_str    = None
+    elif st.session_state.palm_right_hash is not None:
+        st.session_state.palm_right_str    = None
+        st.session_state.palm_right_hash   = None
+        st.session_state.palm_right_status = None
+
+    _rs = st.session_state.palm_right_status
+    if _rs and not _rs.get("swapped_to") and not _rs.get("confirmed"):
+        if _rs["hand"] == "right":
+            st.success("Right hand confirmed.")
+            st.session_state.palm_right_status["confirmed"] = True
+        else:
+            st.info(f"Detected: {_rs['hand']} hand — correct?")
+            _rcy, _rcs = st.columns(2)
+            with _rcy:
+                if st.button("Yes, correct", key="right_confirm"):
+                    st.session_state.palm_right_status["confirmed"] = True
+                    st.rerun()
+            with _rcs:
+                if st.button("Swap to other hand", key="right_swap"):
+                    st.session_state.palm_left_hash   = st.session_state.palm_right_hash
+                    st.session_state.palm_left_status = _rs
+                    st.session_state.palm_left_str    = None
+                    st.session_state.palm_right_status = {"swapped_to": "left"}
+                    st.session_state.palm_right_str    = None
+                    st.rerun()
 
     st.divider()
     st.caption(f"Session ID: `{st.session_state.session_mgr.session_id[:8]}…`")
@@ -233,16 +342,21 @@ if prompt:
                     question=prompt,
                     has_kundali=st.session_state.chart_ready,
                     has_pdf=st.session_state.pdf_context is not None,
-                    has_palm=st.session_state.palm_str is not None,
+                    has_palm=(
+                        st.session_state.palm_left_str is not None
+                        or st.session_state.palm_right_str is not None
+                    ),
                 )
                 with st.spinner("Consulting the stars…"):
                     result = ask(
                         question=prompt,
                         kundali_context=st.session_state.kundali_str or None,
                         pdf_context=st.session_state.pdf_context or None,
-                        palm_description=st.session_state.palm_str or None,
+                        palm_left=st.session_state.get("palm_left_str"),
+                        palm_right=st.session_state.get("palm_right_str"),
                         session=st.session_state.session_mgr,
                         introduce=introduce,
+                        context_order=_router.get("context_order", ["rag", "kundali", "pdf"]),
                     )
 
                 answer         = result["answer"]

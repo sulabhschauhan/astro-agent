@@ -58,7 +58,9 @@ When KUNDALI CONTEXT is present:
 - Never use these terms: Mahadasha, Antardasha, Dasha, house numbers, dignity, exalted, debilitated, nakshatra, rasi, lagna, dosha, yoga.
 - Instead say: "a powerful 7-year period", "your wealth zone", "a favorable time starting [year]", "your life path sign".
 - Be direct. Answer the actual question first, then explain why.
-- Keep responses under 150 words unless the user explicitly asks for detail."""
+- Keep responses under 150 words unless the user explicitly asks for detail.
+
+STRICT RULE: Only use context explicitly provided below (kundali, PDF, palm). If a context block is absent, do not infer, fabricate, or mention it. Silence on missing context is correct."""
 
 _LOW_CONFIDENCE_ADDENDUM = """
 
@@ -78,9 +80,11 @@ def build_prompts(
     sources: list[dict],
     kundali_context: str | None = None,
     pdf_context: str | None = None,
-    palm_description: str | None = None,
+    palm_left: str | None = None,
+    palm_right: str | None = None,
     introduce: bool = False,
     low_confidence: bool = False,
+    context_order: list[str] | None = None,
 ) -> dict:
     """
     Build system and user prompts for GPT-4o-mini.
@@ -90,14 +94,15 @@ def build_prompts(
         sources: 9-field dicts from query_engine (may be empty).
         kundali_context: Optional birth chart summary.
         pdf_context: Optional AstroSage annual report text.
-        palm_description: Optional palm reading description.
+        palm_left: Optional left-hand palm description.
+        palm_right: Optional right-hand palm description.
         introduce: If True, Parashara introduces himself.
         low_confidence: If True, appends weak-match caveat to system prompt.
 
     Returns:
         {"system": str, "user": str}
     """
-    has_palm_description = palm_description is not None
+    has_palm = palm_left is not None or palm_right is not None
 
     system = SYSTEM_PROMPT
     if low_confidence:
@@ -105,40 +110,46 @@ def build_prompts(
     if introduce:
         system += _INTRODUCE_ADDENDUM
 
-    lines: list[str] = []
-    if sources:
-        lines += ["Retrieved passages:", "---"]
-        for i, s in enumerate(sources, 1):
-            lines.append(
-                f"[{i}] {s['book_name']}, p.{s['page_ref']} "
-                f"(topic: {s['topic']}, type: {s['page_type']}, score: {s['score']})"
-            )
-            lines.append(s["text"])
-            lines.append("")
-        lines.append("---")
+    _order = context_order if context_order is not None else ["rag", "kundali", "pdf", "palm"]
 
-    if kundali_context:
-        lines.append(
-            f"\nKUNDALI CONTEXT:\n{kundali_context}"
-            "\n\nINSTRUCTION: The KUNDALI CONTEXT above contains "
-            "UPCOMING ANTARDASHAS with exact date ranges. For any "
-            "health/finance/career question, go through each "
-            "antardasha sub-period one by one with dates and give "
-            "specific guidance per period. Do not give a generic "
-            "summary."
-        )
-    if pdf_context:
-        lines.append("\n## AstroSage Annual Report\n" + pdf_context)
-    if palm_description:
-        lines.append(f"\nPalm description:\n{palm_description}")
-    if has_palm_description:
-        lines.append(
-            "\n[You have both kundali and palm context — synthesise both in your reading.]"
-        )
+    lines: list[str] = []
+    for slot in _order:
+        if slot == "rag" and sources:
+            lines += ["Retrieved passages:", "---"]
+            for i, s in enumerate(sources, 1):
+                lines.append(
+                    f"[{i}] {s['book_name']}, p.{s['page_ref']} "
+                    f"(topic: {s['topic']}, type: {s['page_type']}, score: {s['score']})"
+                )
+                lines.append(s["text"])
+                lines.append("")
+            lines.append("---")
+        elif slot == "kundali" and kundali_context:
+            lines.append(
+                f"\nKUNDALI CONTEXT:\n{kundali_context}"
+                "\n\nINSTRUCTION: The KUNDALI CONTEXT above contains "
+                "UPCOMING ANTARDASHAS with exact date ranges. For any "
+                "health/finance/career question, go through each "
+                "antardasha sub-period one by one with dates and give "
+                "specific guidance per period. Do not give a generic "
+                "summary."
+            )
+        elif slot == "pdf" and pdf_context:
+            lines.append("\n## AstroSage Annual Report\n" + pdf_context)
+        elif slot == "palm" and has_palm:
+            if palm_left:
+                lines.append(f"\nLEFT HAND (innate potential):\n{palm_left}")
+            if palm_right:
+                lines.append(f"\nRIGHT HAND (current trajectory):\n{palm_right}")
+            if palm_left and palm_right:
+                lines.append(
+                    "\nINSTRUCTION: Synthesise both hands in your reading — "
+                    "left reveals innate potential, right shows current trajectory."
+                )
 
     lines.append(f"\nQuestion: {question}")
 
-    if not has_palm_description and any(t in question.lower() for t in PALM_TOPICS):
+    if not has_palm and any(t in question.lower() for t in PALM_TOPICS):
         lines.append(
             "\n\n[If you have a palm description available, "
             "sharing it would help provide a more complete reading.]"
