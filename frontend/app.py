@@ -5,6 +5,7 @@ Streamlit UI — Vedic astrology assistant (Parashara RAG agent).
 
 import sys
 import os
+import datetime
 from pathlib import Path
 
 # SessionManager writes to data/sessions/ (relative path) — must be project root
@@ -17,6 +18,7 @@ import streamlit as st
 from agent.chart_calculator import calculate_chart, format_kundali_context
 from agent.astrologer import ask
 from agent.session_manager import SessionManager
+from agent.astrosage_parser import parse_astrosage_pdf
 
 # ─── Page config (must be first Streamlit call) ───────────────────────────────
 
@@ -38,6 +40,16 @@ if "chart_ready" not in st.session_state:
     st.session_state.chart_ready = False
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "palm_str" not in st.session_state:
+    _palm_path = _ROOT / "data" / "default_user" / "palm_description.txt"
+    try:
+        st.session_state.palm_str = _palm_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        st.session_state.palm_str = None
+if "pdf_context" not in st.session_state:
+    st.session_state.pdf_context = None
+if "_astrosage_pdf_name" not in st.session_state:
+    st.session_state["_astrosage_pdf_name"] = None
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -45,21 +57,21 @@ with st.sidebar:
     st.header("Birth Details")
 
     with st.form("birth_form"):
-        name = st.text_input("Name")
+        name = st.text_input("Name", value="Sulabh Singh Chauhan")
         col1, col2, col3 = st.columns(3)
         with col1:
-            day   = st.selectbox("Day",   list(range(1, 32)))
+            day   = st.selectbox("Day",   list(range(1, 32)), index=5)
         with col2:
             month = st.selectbox("Month", [
                 "January","February","March","April","May","June",
                 "July","August","September","October","November","December",
-            ])
+            ], index=3)
         with col3:
-            year  = st.selectbox("Year",  list(range(2025, 1939, -1)))
+            year  = st.selectbox("Year",  list(range(2025, 1939, -1)), index=37)
         dob = f"{day} {month} {year}"
-        tob_input = st.time_input("Time of Birth (IST)", value=None)
+        tob_input = st.time_input("Time of Birth (IST)", value=datetime.time(0, 30, 0))
         tob = tob_input.strftime("%H:%M") if tob_input else None
-        place = st.text_input("Place of Birth", placeholder="Mumbai, India")
+        place = st.text_input("Place of Birth", value="Calcutta, India", placeholder="Mumbai, India")
         submitted = st.form_submit_button("Calculate Kundali")
 
     if submitted:
@@ -94,6 +106,22 @@ with st.sidebar:
     if st.session_state.chart_ready:
         with st.expander("Kundali Summary"):
             st.text(st.session_state.kundali_str)
+
+    uploaded_pdf = st.file_uploader("AstroSage PDF (optional)", type=["pdf"])
+    if uploaded_pdf is not None:
+        if st.session_state["_astrosage_pdf_name"] != uploaded_pdf.name:
+            with st.spinner("Parsing AstroSage PDF…"):
+                result = parse_astrosage_pdf(uploaded_pdf.read())
+            if result:
+                st.session_state.pdf_context = result
+                st.session_state["_astrosage_pdf_name"] = uploaded_pdf.name
+                st.success("AstroSage data loaded.")
+            else:
+                st.session_state.pdf_context = None
+                st.warning("Could not extract sections — check this is an AstroSage PDF.")
+    elif st.session_state["_astrosage_pdf_name"] is not None:
+        st.session_state.pdf_context = None
+        st.session_state["_astrosage_pdf_name"] = None
 
     st.divider()
     st.caption(f"Session ID: `{st.session_state.session_mgr.session_id[:8]}…`")
@@ -147,10 +175,17 @@ if prompt:
                 # introduce=True only on the very first turn (just the user message is in list)
                 introduce = len(st.session_state.messages) == 1
 
+                _merged = "\n\n".join(
+                    x for x in [
+                        st.session_state.kundali_str or None,
+                        st.session_state.pdf_context,
+                    ] if x
+                )
                 with st.spinner("Consulting the stars…"):
                     result = ask(
                         question=prompt,
-                        kundali_context=st.session_state.kundali_str or None,
+                        kundali_context=_merged or None,
+                        palm_description=st.session_state.palm_str or None,
                         session=st.session_state.session_mgr,
                         introduce=introduce,
                     )
