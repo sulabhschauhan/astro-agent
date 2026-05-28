@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 9 COMPLETE** — token optimisation done, agent invocation locked. Next: Session 10 — UI fixes (sidebar layout, time input, place autocomplete) + dasha integration.
+**Session 10 COMPLETE.** Next: Session 11 — _PALM_TOPICS keyword audit + any new tasks.
 <!-- UPDATE THIS every session. One line only. -->
 
 
