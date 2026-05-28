@@ -83,11 +83,22 @@ query_engine + chart_calculator → astrologer → session_manager
 
 ## Multi-Agent Review Process
 
-Before writing ANY new file or component:
-1. Load .claude/architect.md — review structure
-2. Load .claude/business.md — review user value
-3. Load .claude/critic.md — challenge assumptions
-4. Load .claude/qa.md — validate test coverage
-5. Reconcile all four before writing code
+Invoke all 6 agents automatically before any design decision or code change.
+Do not wait to be asked. Surface only the final recommendation or conflict.
+
+| Agent | File | Trigger |
+|---|---|---|
+| Architect | .claude/architect.md | new file, schema, pipeline change |
+| Business | .claude/business.md | new file, user-facing change |
+| Critic | .claude/critic.md | new file, any code change |
+| QA | .claude/qa.md | new file, any code change |
+| UI/UX | .claude/ui_ux.md | any frontend or UX change |
+| Debate | .claude/debate.md | agents conflict — resolves to one winner only |
+
+Rules:
+- Never write code before agent review is complete
+- Do not paste full agent output unless conflict requires debate.md
+- New agent proposals require explicit user approval before adding
+- debate.md resolves conflicts — one winner, no hedging
 
 Mandatory for: new files, schema changes, threshold values, pipeline changes, API integrations
