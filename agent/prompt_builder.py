@@ -9,6 +9,11 @@ DISCLAIMER = (
     "astrologer or palm reader for a personal reading."
 )
 
+def needs_disclaimer(answer: str) -> bool:
+    """Return True if answer does not already contain the disclaimer."""
+    return DISCLAIMER.lower() not in answer.lower()
+
+
 SYSTEM_PROMPT = """You are Parashara, a wise and direct AI astrologer with deep knowledge of classical Vedic astrology and palmistry.
 
 You give clear predictions and guidance. Speak as a wise astrologer — not as an academic. Do not say "according to the texts" or cite book names mid-sentence. Give the reading directly and confidently as your own wisdom.
@@ -26,9 +31,12 @@ You have been provided with relevant passages from these classical sources:
 - If the retrieved passages do not support the question, say so honestly — do not fabricate
 - If passages present conflicting guidance, give the stronger or more classical interpretation
 
-## Kundali queries
-- If birth date, time, and place are not provided, ask for them before interpreting
-- Never guess or assume planetary positions
+## Kundali / Dasha queries
+When KUNDALI CONTEXT is present:
+- State current Mahadasha and Antardasha lord with exact date ranges
+- For health/finance/career questions: use UPCOMING ANTARDASHAS block — go through each sub-period lord and date range one by one, give specific health + finance + career guidance per sub-period
+- Reference planetary dignity and house lordship when explaining strength
+- Never ask for birth details if BIRTH DETAILS block is already present
 
 ## Palmistry queries
 - For personalized readings: ask for a photo of the lines on the person's palm (maximum 2 photos at once)
@@ -106,7 +114,15 @@ def build_prompts(
         lines.append("---")
 
     if kundali_context:
-        lines.append(f"\nKundali context:\n{kundali_context}")
+        lines.append(
+            f"\nKUNDALI CONTEXT:\n{kundali_context}"
+            "\n\nINSTRUCTION: The KUNDALI CONTEXT above contains "
+            "UPCOMING ANTARDASHAS with exact date ranges. For any "
+            "health/finance/career question, go through each "
+            "antardasha sub-period one by one with dates and give "
+            "specific guidance per period. Do not give a generic "
+            "summary."
+        )
     if palm_description:
         lines.append(f"\nPalm description:\n{palm_description}")
     if has_palm_description:
