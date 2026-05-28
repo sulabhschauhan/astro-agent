@@ -66,6 +66,14 @@ if "selected_place" not in st.session_state:
     st.session_state.selected_place = None
 if "place_candidates" not in st.session_state:
     st.session_state.place_candidates = []
+if "palm_left_confirmed" not in st.session_state:
+    st.session_state.palm_left_confirmed = False
+if "palm_right_confirmed" not in st.session_state:
+    st.session_state.palm_right_confirmed = False
+if "_palm_left_image_name" not in st.session_state:
+    st.session_state["_palm_left_image_name"] = None
+if "_palm_right_image_name" not in st.session_state:
+    st.session_state["_palm_right_image_name"] = None
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -113,7 +121,7 @@ with st.sidebar:
         with col3:
             year  = st.selectbox("Year",  list(range(2025, 1939, -1)), index=37)
         dob = f"{day} {month} {year}"
-        tob = st.text_input("Time of Birth (IST)", placeholder="HH:MM", key="birth_time_input")
+        tob = st.text_input("Time of Birth (IST)", value="00:30", placeholder="HH:MM", key="birth_time_input")
         submitted = st.form_submit_button(
             "Calculate Kundali",
             disabled=st.session_state.selected_place is None,
@@ -164,6 +172,28 @@ with st.sidebar:
         with st.expander("Kundali Summary"):
             st.text(st.session_state.kundali_str)
 
+    st.divider()
+    st.caption(f"Session ID: `{st.session_state.session_mgr.session_id[:8]}…`")
+    if st.button("Clear Chat", use_container_width=True):
+        st.session_state.messages    = []
+        st.session_state.session_mgr = SessionManager()
+        st.rerun()
+
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+def _stream_answer(text: str):
+    for word in text.split():
+        if word:
+            yield word + " "
+
+
+# ─── Main area ────────────────────────────────────────────────────────────────
+
+st.title("Parashara — Vedic Astrology")
+
+with st.expander("Upload context (PDF + palms)", expanded=False):
+    # ── PDF ───────────────────────────────────────────────────────────────────
     uploaded_pdf = st.file_uploader("AstroSage PDF (optional)", type=["pdf"])
     if uploaded_pdf is not None:
         if st.session_state["_astrosage_pdf_name"] != uploaded_pdf.name:
@@ -185,10 +215,9 @@ with st.sidebar:
         "Left hand (innate potential)", type=["jpg", "jpeg", "png"], key="palm_left_uploader",
     )
     if uploaded_left is not None:
-        _lb = uploaded_left.read()
-        _lh = hashlib.md5(_lb).hexdigest()
-        _ls = st.session_state.palm_left_status
-        if st.session_state.palm_left_hash != _lh and not (_ls and _ls.get("swapped_to")):
+        if st.session_state["_palm_left_image_name"] != uploaded_left.name:
+            _lb = uploaded_left.read()
+            _lh = hashlib.md5(_lb).hexdigest()
             with st.spinner("Validating left palm…"):
                 _vr = validate_palm_image(_lb, "left")
             if _vr["hard_reject"]:
@@ -209,15 +238,19 @@ with st.sidebar:
                 try:
                     with st.spinner("Reading palm…"):
                         _desc = describe_palm_image(_lb, "left")
-                    st.session_state.palm_left_str = _desc
+                    st.session_state.palm_left_str            = _desc
+                    st.session_state["_palm_left_image_name"] = uploaded_left.name
+                    st.session_state.palm_left_confirmed      = True
                     st.success("Left palm read ✓")
                 except RuntimeError as e:
                     st.error(f"Could not read palm image: {e}")
                     st.session_state.palm_left_str = None
     elif st.session_state.palm_left_hash is not None:
-        st.session_state.palm_left_str    = None
-        st.session_state.palm_left_hash   = None
-        st.session_state.palm_left_status = None
+        st.session_state.palm_left_str            = None
+        st.session_state.palm_left_hash           = None
+        st.session_state.palm_left_status         = None
+        st.session_state.palm_left_confirmed      = False
+        st.session_state["_palm_left_image_name"] = None
 
     _ls = st.session_state.palm_left_status
     if _ls and not _ls.get("swapped_to") and not _ls.get("confirmed"):
@@ -245,10 +278,9 @@ with st.sidebar:
         "Right hand (current trajectory)", type=["jpg", "jpeg", "png"], key="palm_right_uploader",
     )
     if uploaded_right is not None:
-        _rb = uploaded_right.read()
-        _rh = hashlib.md5(_rb).hexdigest()
-        _rs = st.session_state.palm_right_status
-        if st.session_state.palm_right_hash != _rh and not (_rs and _rs.get("swapped_to")):
+        if st.session_state["_palm_right_image_name"] != uploaded_right.name:
+            _rb = uploaded_right.read()
+            _rh = hashlib.md5(_rb).hexdigest()
             with st.spinner("Validating right palm…"):
                 _vr = validate_palm_image(_rb, "right")
             if _vr["hard_reject"]:
@@ -269,15 +301,19 @@ with st.sidebar:
                 try:
                     with st.spinner("Reading palm…"):
                         _desc = describe_palm_image(_rb, "right")
-                    st.session_state.palm_right_str = _desc
+                    st.session_state.palm_right_str            = _desc
+                    st.session_state["_palm_right_image_name"] = uploaded_right.name
+                    st.session_state.palm_right_confirmed      = True
                     st.success("Right palm read ✓")
                 except RuntimeError as e:
                     st.error(f"Could not read palm image: {e}")
                     st.session_state.palm_right_str = None
     elif st.session_state.palm_right_hash is not None:
-        st.session_state.palm_right_str    = None
-        st.session_state.palm_right_hash   = None
-        st.session_state.palm_right_status = None
+        st.session_state.palm_right_str            = None
+        st.session_state.palm_right_hash           = None
+        st.session_state.palm_right_status         = None
+        st.session_state.palm_right_confirmed      = False
+        st.session_state["_palm_right_image_name"] = None
 
     _rs = st.session_state.palm_right_status
     if _rs and not _rs.get("swapped_to") and not _rs.get("confirmed"):
@@ -299,26 +335,6 @@ with st.sidebar:
                     st.session_state.palm_right_status = {"swapped_to": "left"}
                     st.session_state.palm_right_str    = None
                     st.rerun()
-
-    st.divider()
-    st.caption(f"Session ID: `{st.session_state.session_mgr.session_id[:8]}…`")
-    if st.button("Clear Chat", use_container_width=True):
-        st.session_state.messages    = []
-        st.session_state.session_mgr = SessionManager()
-        st.rerun()
-
-
-# ─── Helpers ──────────────────────────────────────────────────────────────────
-
-def _stream_answer(text: str):
-    for word in text.split():
-        if word:
-            yield word + " "
-
-
-# ─── Main area ────────────────────────────────────────────────────────────────
-
-st.title("Parashara — Vedic Astrology")
 
 if not st.session_state.chart_ready:
     st.info("Enter your birth details in the sidebar to begin.")
@@ -381,7 +397,17 @@ if prompt:
                 st.write_stream(_stream_answer(answer))
 
                 if _router["nudge"]:
-                    st.info(_router["nudge"])
+                    _left_done  = st.session_state.get("palm_left_confirmed", False)
+                    _right_done = st.session_state.get("palm_right_confirmed", False)
+                    if _router["needs_palm"]:
+                        if not _left_done and not _right_done:
+                            st.info("Share photos of both palms for a more personal reading.")
+                        elif not _left_done:
+                            st.info("Share your left palm photo to complete the reading.")
+                        elif not _right_done:
+                            st.info("Share your right palm photo to complete the reading.")
+                    else:
+                        st.info(_router["nudge"])
 
                 st.session_state.messages.append({
                     "role":           "assistant",

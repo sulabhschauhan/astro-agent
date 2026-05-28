@@ -19,7 +19,8 @@ def test_nudge_present_when_palm_missing_and_topic_matches():
     result = build_prompts(
         question="Will I get rich?",
         sources=_SOURCES,
-        palm_description=None,
+        palm_left=None,
+        palm_right=None,
     )
     # If nudge wording in build_prompts() changes, update this string
     assert "[If you have a palm description available" in result["user"]
@@ -30,7 +31,8 @@ def test_nudge_absent_when_palm_missing_and_no_topic_match():
     result = build_prompts(
         question="What is Vedic astrology?",
         sources=_SOURCES,
-        palm_description=None,
+        palm_left=None,
+        palm_right=None,
     )
     # If nudge wording in build_prompts() changes, update this string
     assert "[If you have a palm description available" not in result["user"]
@@ -42,9 +44,10 @@ def test_combine_language_present_when_palm_description_set():
     result = build_prompts(
         question="Tell me about my future",
         sources=_SOURCES,
-        palm_description="Long life line, strong heart line",
+        palm_left="Long life line, strong heart line",
+        palm_right="Strong fate line, prominent mount of Jupiter",
     )
     # If combine wording in build_prompts() changes, update this string
-    assert "synthesise both" in result["user"]
+    assert "Synthesise both" in result["user"]
     # If nudge wording changes, update this string
     assert "[If you have a palm description available" not in result["user"]
