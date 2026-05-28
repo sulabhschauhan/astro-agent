@@ -19,6 +19,7 @@ from agent.chart_calculator import calculate_chart, format_kundali_context
 from agent.astrologer import ask
 from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf
+from agent.context_router import route
 
 # ─── Page config (must be first Streamlit call) ───────────────────────────────
 
@@ -181,6 +182,12 @@ if prompt:
                         st.session_state.pdf_context,
                     ] if x
                 )
+                _router = route(
+                    question=prompt,
+                    has_kundali=st.session_state.chart_ready,
+                    has_pdf=st.session_state.pdf_context is not None,
+                    has_palm=False,
+                )
                 with st.spinner("Consulting the stars…"):
                     result = ask(
                         question=prompt,
@@ -197,10 +204,8 @@ if prompt:
 
                 st.write_stream(_stream_answer(answer))
 
-                if top_score is not None:
-                    st.caption(f"Confidence: {top_score:.2f}")
-                if low_confidence:
-                    st.warning("Low confidence — answer may be general")
+                if _router["nudge"]:
+                    st.info(_router["nudge"])
 
                 st.session_state.messages.append({
                     "role":           "assistant",

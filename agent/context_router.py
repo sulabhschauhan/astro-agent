@@ -80,13 +80,13 @@ def _build_nudge(
     if needs_pdf:
         parts.append("Upload your AstroSage PDF for a detailed year-ahead forecast")
     if needs_palm:
-        parts.append("share a photo of your palm for a more personal reading")
+        parts.append("Share a photo of your palm for a more personal reading")
     if low_confidence and not parts and has_any_context:
         # Confidence is low but no specific gap — suggest rephrasing.
-        parts.append("try rephrasing your question for a sharper match from the texts")
+        parts.append("Try rephrasing your question for a sharper match from the texts")
 
     if not parts:
         return None
 
-    msg = "; ".join(parts).capitalize()
+    msg = "; ".join(parts)
     return msg if msg.endswith(".") else msg + "."
