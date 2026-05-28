@@ -132,3 +132,54 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
         "warn_message":   warn_message,
         "reject_message": reject_message,
     }
+
+
+def describe_palm_image(image_bytes: bytes, hand: str) -> str:
+    """
+    Generate a textual palm reading description via GPT-4o vision.
+
+    Args:
+        image_bytes: Raw bytes of the palm image.
+        hand: "left" or "right" — inserted into the system prompt.
+
+    Returns:
+        Description string from GPT-4o.
+
+    Raises:
+        RuntimeError: If the GPT-4o call fails for any reason.
+    """
+    mime = "image/png" if image_bytes[:8].startswith(b"\x89PNG") else "image/jpeg"
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+    client = OpenAI()
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"You are an expert palm reader. Analyse this {hand} hand image "
+                        "and describe in detail: life line, heart line, head line, fate line, "
+                        "mounts, and any notable features. Be specific and observational. "
+                        "3-5 sentences."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime};base64,{b64}"},
+                        }
+                    ],
+                },
+            ],
+            max_tokens=400,
+            temperature=0.3,
+        )
+        return response.choices[0].message.content
+    except Exception as exc:
+        raise RuntimeError(
+            f"palm_processor: GPT-4o description call failed for hand={hand}: {exc}"
+        ) from exc

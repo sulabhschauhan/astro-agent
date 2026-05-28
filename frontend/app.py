@@ -22,7 +22,7 @@ from agent.astrologer import ask
 from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf
 from agent.context_router import route
-from agent.palm_processor import validate_palm_image
+from agent.palm_processor import validate_palm_image, describe_palm_image
 
 # ─── Page config (must be first Streamlit call) ───────────────────────────────
 
@@ -206,7 +206,14 @@ with st.sidebar:
                     st.warning(_vr["warn_message"])
                 st.session_state.palm_left_hash   = _lh
                 st.session_state.palm_left_status = _vr
-                st.session_state.palm_left_str    = None
+                try:
+                    with st.spinner("Reading palm…"):
+                        _desc = describe_palm_image(_lb, "left")
+                    st.session_state.palm_left_str = _desc
+                    st.success("Left palm read ✓")
+                except RuntimeError as e:
+                    st.error(f"Could not read palm image: {e}")
+                    st.session_state.palm_left_str = None
     elif st.session_state.palm_left_hash is not None:
         st.session_state.palm_left_str    = None
         st.session_state.palm_left_hash   = None
@@ -259,7 +266,14 @@ with st.sidebar:
                     st.warning(_vr["warn_message"])
                 st.session_state.palm_right_hash   = _rh
                 st.session_state.palm_right_status = _vr
-                st.session_state.palm_right_str    = None
+                try:
+                    with st.spinner("Reading palm…"):
+                        _desc = describe_palm_image(_rb, "right")
+                    st.session_state.palm_right_str = _desc
+                    st.success("Right palm read ✓")
+                except RuntimeError as e:
+                    st.error(f"Could not read palm image: {e}")
+                    st.session_state.palm_right_str = None
     elif st.session_state.palm_right_hash is not None:
         st.session_state.palm_right_str    = None
         st.session_state.palm_right_hash   = None
