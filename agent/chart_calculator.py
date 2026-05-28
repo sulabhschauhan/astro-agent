@@ -274,6 +274,21 @@ def _calc_dasha(moon_lon: float, birth_ist: datetime) -> dict:
     Compute Vimshottari dasha timeline from Moon's sidereal nakshatra.
     Returns current mahadasha/antardasha and next-period summaries.
     """
+    # DASHA ACCURACY NOTE:
+    # Current implementation uses pyswisseph with Lahiri ayanamsha.
+    # Known drift: ±37 days at Antardasha level vs AstroSage.
+    # Pratyantar dates computed but suppressed from output — wrong lord
+    # at this granularity due to drift.
+    #
+    # BACKUP PLAN — Prokerala API (validated, not built):
+    # Endpoint: GET /astrology/kundli/advanced
+    # Auth: OAuth 2.0 Client Credentials
+    # Credentials: PROKERALA_CLIENT_ID, PROKERALA_CLIENT_SECRET in .env
+    # Returns: Mahadasha + Antardasha + Pratyantar in one call
+    # Ayanamsa=1 (Lahiri), coordinates as "lat,lon" string
+    # datetime as ISO 8601 with +05:30 offset
+    # Activate if PDF upload approach fails or API accuracy needed.
+    #
     # Dasha boundaries may drift ±37 days vs AstroSage due to ephemeris
     # precision difference in Moon longitude. Not a bug.
     nak_size = 360.0 / 27
@@ -325,8 +340,36 @@ def _calc_dasha(moon_lon: float, birth_ist: datetime) -> dict:
         ad_idx = next(i for i, a in enumerate(ad_list)
                       if a["start"] == current_ad["start"])
         next_5_ad = ad_list[ad_idx + 1: ad_idx + 6]
+
+        # Not surfaced to users — ±37-day drift
+        # causes wrong lord at Pratyantar granularity.
+        # Integration point for Prokerala API.
+        # Pratyantars within current antardasha
+        ad_lord = current_ad["lord"]
+        ad_total = DASHA_YEARS[ad_lord]
+        ad_pt_idx = DASHA_ORDER.index(ad_lord)
+        pt_list: list[dict] = []
+        pt_cursor = current_ad["start"]
+        for i in range(9):
+            pt_lord = DASHA_ORDER[(ad_pt_idx + i) % 9]
+            pt_yrs = (m_total * ad_total * DASHA_YEARS[pt_lord]) / 14400
+            pt_end = _add_years(pt_cursor, pt_yrs)
+            pt_list.append({"lord": pt_lord, "start": pt_cursor, "end": pt_end})
+            pt_cursor = pt_end
+
+        current_pt = next(
+            (p for p in pt_list if p["start"] <= now < p["end"]), None
+        )
+        if current_pt:
+            pt_idx = next(i for i, p in enumerate(pt_list)
+                          if p["start"] == current_pt["start"])
+            next_5_pt = pt_list[pt_idx + 1: pt_idx + 6]
+        else:
+            next_5_pt = []
     else:
         next_5_ad = []
+        current_pt = None
+        next_5_pt = []
 
     maha_idx = next(i for i, m in enumerate(timeline)
                     if m["start"] == current_maha["start"])
@@ -340,6 +383,8 @@ def _calc_dasha(moon_lon: float, birth_ist: datetime) -> dict:
         "current_antardasha": _ser(current_ad) if current_ad else None,
         "next_5_antardashas": [_ser(a) for a in next_5_ad],
         "next_3_mahadashas": [_ser(m) for m in next_3_maha],
+        "current_pratyantar": _ser(current_pt) if current_pt else None,
+        "next_5_pratyantars": [_ser(p) for p in next_5_pt],
     }
 
 
@@ -520,5 +565,19 @@ def format_kundali_context(chart: dict) -> str:
         lines.append(
             f"  Current Antardasha: {ad['lord']} ({ad['start']} – {ad['end']})"
         )
+
+    next_ads = da.get("next_5_antardashas") or []
+    if next_ads:
+        lines.append("")
+        lines.append("UPCOMING ANTARDASHAS (next 5 sub-periods)")
+        for a in next_ads:
+            lines.append(f"  {a['lord']}: {a['start']} – {a['end']}")
+
+    next_mahas = da.get("next_3_mahadashas") or []
+    if next_mahas:
+        lines.append("")
+        lines.append("UPCOMING MAHADASHAS (next 3)")
+        for m in next_mahas:
+            lines.append(f"  {m['lord']}: {m['start']} – {m['end']}")
 
     return "\n".join(lines)
