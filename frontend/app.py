@@ -55,7 +55,7 @@ with st.sidebar:
                 "July","August","September","October","November","December",
             ])
         with col3:
-            year  = st.selectbox("Year",  list(range(2010, 1939, -1)))
+            year  = st.selectbox("Year",  list(range(2025, 1939, -1)))
         dob = f"{day} {month} {year}"
         tob_input = st.time_input("Time of Birth (IST)", value=None)
         tob = tob_input.strftime("%H:%M") if tob_input else None
@@ -71,7 +71,8 @@ with st.sidebar:
             st.error(f"Required: {', '.join(missing)}")
         else:
             try:
-                chart = calculate_chart(name.strip(), dob, tob, place.strip())
+                with st.spinner("Calculating your chart..."):
+                    chart = calculate_chart(name.strip(), dob, tob, place.strip())
                 st.session_state.chart       = chart
                 st.session_state.kundali_str = format_kundali_context(chart)
                 st.session_state.chart_ready = True
@@ -105,7 +106,7 @@ with st.sidebar:
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _stream_answer(text: str):
-    for word in text.split(" "):
+    for word in text.split():
         if word:
             yield word + " "
 
@@ -177,7 +178,7 @@ if prompt:
                 try:
                     st.session_state.session_mgr.save()
                 except RuntimeError:
-                    pass
+                    st.warning("Session could not be saved. Chat history may not persist.")
 
             except ValueError as e:
                 st.error(f"Invalid input: {e}")
