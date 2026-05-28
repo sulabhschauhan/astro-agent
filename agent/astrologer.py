@@ -12,7 +12,7 @@ from openai import OpenAI, RateLimitError
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from ingestion.query_engine import search
-from agent.prompt_builder import build_prompts, DISCLAIMER
+from agent.prompt_builder import build_prompts, DISCLAIMER, needs_disclaimer
 from agent.session_manager import SessionManager
 from agent.config import REWRITE_MAP
 
@@ -136,6 +136,8 @@ def ask(
     # Step 5 — call GPT-4o-mini (session updated only on success)
     client = OpenAI()
     answer = _call_gpt(client, messages)
+    if needs_disclaimer(answer):
+        answer += "\n\n" + DISCLAIMER
 
     if session:
         session.add_message("user", question)
