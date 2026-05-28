@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 8 COMPLETE** — 6-agent framework, palm nudge Option C, 6 issues fixed, 3 unit tests passing. Next: Session 9 — UI fixes (sidebar layout, time input, place autocomplete) + dasha integration for answer depth.
+**Session 9 COMPLETE** — astrosage_parser.py done, PDF upload wired, needs_disclaimer() wired. Next: Session 10 — UI fixes (sidebar, time input, place autocomplete, nudge) + create tests/test_astrosage_parser.py.
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Stack
