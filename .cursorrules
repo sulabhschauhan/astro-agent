@@ -55,6 +55,7 @@ query_engine + chart_calculator → astrologer → session_manager
 - Python 3.11; always try/except with meaningful errors; surgical edits only
 - Preserve all interfaces and metadata schemas
 - User is senior analytics practitioner — no basics
+- LAYER FIRST — before any fix, state which layer owns the problem: Data, Retrieval, Prompt, or UI. A fix in the wrong layer creates narrow patches and technical debt.
 
 ## AI Review Standards
 

@@ -54,4 +54,5 @@ Sub-chunks always have `_c{index}` appended to `chunk_id`.
 5. **AI reviewing AI** — flag when output has no human review; never chain AI decisions without human checkpoint
 6. **SURGICAL EDITS** — no full file rewrites; Python 3.11; always `try/except` with meaningful errors
 7. **AGENT INVOCATION** — auto-invoke all 6 before any design/code decision. Surface conflicts only. New agents need explicit approval.
+8. **LAYER FIRST** — before any fix, state which layer owns the problem: Data, Retrieval, Prompt, or UI. A fix in the wrong layer creates narrow patches and technical debt.
 
