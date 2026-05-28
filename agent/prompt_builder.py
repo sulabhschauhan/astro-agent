@@ -75,6 +75,7 @@ def build_prompts(
     question: str,
     sources: list[dict],
     kundali_context: str | None = None,
+    pdf_context: str | None = None,
     palm_description: str | None = None,
     introduce: bool = False,
     low_confidence: bool = False,
@@ -86,6 +87,7 @@ def build_prompts(
         question: User question string.
         sources: 9-field dicts from query_engine (may be empty).
         kundali_context: Optional birth chart summary.
+        pdf_context: Optional AstroSage annual report text.
         palm_description: Optional palm reading description.
         introduce: If True, Parashara introduces himself.
         low_confidence: If True, appends weak-match caveat to system prompt.
@@ -123,6 +125,8 @@ def build_prompts(
             "specific guidance per period. Do not give a generic "
             "summary."
         )
+    if pdf_context:
+        lines.append("\n## AstroSage Annual Report\n" + pdf_context)
     if palm_description:
         lines.append(f"\nPalm description:\n{palm_description}")
     if has_palm_description:

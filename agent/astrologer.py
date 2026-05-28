@@ -56,6 +56,7 @@ def _call_gpt(client: OpenAI, messages: list[dict]) -> str:
 def ask(
     question: str,
     kundali_context: str | None = None,
+    pdf_context: str | None = None,
     palm_description: str | None = None,
     n_results: int = DEFAULT_N_RESULTS,
     introduce: bool = False,
@@ -120,6 +121,7 @@ def ask(
         question=question,
         sources=sources,
         kundali_context=kundali_context,
+        pdf_context=pdf_context,
         palm_description=palm_description,
         introduce=effective_introduce,
         low_confidence=low_confidence,

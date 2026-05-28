@@ -51,6 +51,10 @@ if "pdf_context" not in st.session_state:
     st.session_state.pdf_context = None
 if "_astrosage_pdf_name" not in st.session_state:
     st.session_state["_astrosage_pdf_name"] = None
+if "palm_bytes" not in st.session_state:
+    st.session_state.palm_bytes = None
+if "_palm_image_name" not in st.session_state:
+    st.session_state["_palm_image_name"] = None
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -124,6 +128,16 @@ with st.sidebar:
         st.session_state.pdf_context = None
         st.session_state["_astrosage_pdf_name"] = None
 
+    uploaded_palm = st.file_uploader("Palm Image (optional)", type=["jpg", "jpeg", "png"])
+    if uploaded_palm is not None:
+        if st.session_state["_palm_image_name"] != uploaded_palm.name:
+            st.session_state.palm_bytes = uploaded_palm.read()
+            st.session_state["_palm_image_name"] = uploaded_palm.name
+            st.success("Palm image loaded.")
+    elif st.session_state["_palm_image_name"] is not None:
+        st.session_state.palm_bytes = None
+        st.session_state["_palm_image_name"] = None
+
     st.divider()
     st.caption(f"Session ID: `{st.session_state.session_mgr.session_id[:8]}…`")
     if st.button("Clear Chat", use_container_width=True):
@@ -176,12 +190,6 @@ if prompt:
                 # introduce=True only on the very first turn (just the user message is in list)
                 introduce = len(st.session_state.messages) == 1
 
-                _merged = "\n\n".join(
-                    x for x in [
-                        st.session_state.kundali_str or None,
-                        st.session_state.pdf_context,
-                    ] if x
-                )
                 _router = route(
                     question=prompt,
                     has_kundali=st.session_state.chart_ready,
@@ -191,7 +199,8 @@ if prompt:
                 with st.spinner("Consulting the stars…"):
                     result = ask(
                         question=prompt,
-                        kundali_context=_merged or None,
+                        kundali_context=st.session_state.kundali_str or None,
+                        pdf_context=st.session_state.pdf_context or None,
                         palm_description=st.session_state.palm_str or None,
                         session=st.session_state.session_mgr,
                         introduce=introduce,
