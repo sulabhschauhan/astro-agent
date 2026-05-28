@@ -15,4 +15,7 @@ __pycache__/
 
 # OS files
 .DS_Store
-Thumbs.db
+Thumbs.dbdata/sessions/  
+data/progress/  
+data/chunked_chunks.json  
+data/*.log  
