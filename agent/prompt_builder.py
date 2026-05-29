@@ -10,7 +10,15 @@ DISCLAIMER = (
 )
 
 def needs_disclaimer(answer: str) -> bool:
-    """Return True if answer does not already contain the disclaimer."""
+    """
+    Return True if the disclaimer should be appended.
+    Suppressed when response is a clarifying question:
+    - ends with "?" AND under 60 words
+    - Threshold 60: tight enough to avoid suppressing short readings.
+      Tune down to 40 if false suppressions observed.
+    """
+    if answer.strip().endswith("?") and len(answer.split()) < 60:
+        return False  # CQ path — no prediction content, no disclaimer needed
     return DISCLAIMER.lower() not in answer.lower()
 
 
@@ -37,6 +45,13 @@ When KUNDALI CONTEXT is present:
 - For health/finance/career questions: use UPCOMING ANTARDASHAS block — go through each sub-period lord and date range one by one, give specific health + finance + career guidance per sub-period
 - Reference planetary dignity and house lordship when explaining strength
 - Never ask for birth details if BIRTH DETAILS block is already present
+
+## When personal context is missing
+- If a question requires personal details (birth date, birth place, life situation) and no kundali, PDF, or palm context is provided, ask ONE clarifying question — concise, direct, no preamble.
+- Ask only what you need most to answer. Do not bundle multiple questions.
+- After the user answers, incorporate it into the reading immediately.
+- Never say "I cannot engage in dialogue" — you can and do hold a conversation across multiple turns.
+- Never refuse to engage. If you have zero context and cannot ask a useful clarifying question, give the best general reading from classical knowledge and note what would sharpen it.
 
 ## Context synthesis
 - All 3 present (kundali + PDF + palm): lead with PDF Varshaphal period-by-period timeline, layer kundali planetary context to explain why each period behaves as it does, close with palm synthesis — use all three as one unified reading
