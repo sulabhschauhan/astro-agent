@@ -123,12 +123,12 @@ def multi_source_search(
     """
     Query each book independently and merge results.
 
-    2 results per book × 5 books = 10 max chunks.
+    2 results per book × 14 books = 28 max chunks.
     Tune n_per_book if token cost exceeds $0.01/query.
 
     Args:
         question: User question string.
-        books: book_name values to query. Defaults to all 5 source books.
+        books: book_name values to query. Defaults to all 14 source books.
         persist_dir: ChromaDB persist directory path.
         n_per_book: Chunks to retrieve per book (default 2).
 
@@ -139,9 +139,18 @@ def multi_source_search(
         books = [
             "BPHS - 1 RSanthanam",
             "BPHS - 2 RSanthanam",
-            "Phaladeepika",
+            "cheiroslanguageo00chei_1",
+            "Phaladeepika 2nd Ed. 1950 by V Subrahmanya Sastri",
             "Saravali of Kalyana Varma Santhanam R. (Astrology)",
-            "Cheiros Language of the Hand",
+            "Deva-keralam",
+            "Muhurtha-Chinthamani",
+            "Prasna Marga 1",
+            "Prasna Marga 2",
+            "Jataka Parijata with explanation of Pt. Kapileshvara Shastri and Vimala Hindi Tika of Pt. Shri Matri Prasad Shastri Series No. 10 - Kashi Sanskrit Series",
+            "Sarvartha-Chintamani",
+            "Hasta Samudrika Shastra by Shri Vasant Lal Vyas 1976 Delhi - Janata Prakashan",
+            "LAL KITAB-1941",
+            "uttkalamrita-kalidas-ps-sastri",
         ]
 
     seen: dict[str, dict] = {}
