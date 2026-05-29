@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 10 COMPLETE.** Next: Session 11 — _PALM_TOPICS keyword audit + any new tasks.
+**Session 11 COMPLETE.** Next: Session 12 — multi-source retrieval validation + _PALM_TOPICS keyword audit (carried forward).
 <!-- UPDATE THIS every session. One line only. -->
 
 

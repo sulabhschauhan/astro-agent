@@ -3,10 +3,13 @@ query_engine.py
 Embeds a user question → queries ChromaDB "astro_chunks" → returns ranked results.
 """
 
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 import chromadb
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -109,6 +112,50 @@ def search(
             raw["distances"][0],
         )
     ]
+
+
+def multi_source_search(
+    question: str,
+    books: list[str] | None = None,
+    persist_dir: str = CHROMA_DIR,
+    n_per_book: int = 2,
+) -> list[dict]:
+    """
+    Query each book independently and merge results.
+
+    2 results per book × 5 books = 10 max chunks.
+    Tune n_per_book if token cost exceeds $0.01/query.
+
+    Args:
+        question: User question string.
+        books: book_name values to query. Defaults to all 5 source books.
+        persist_dir: ChromaDB persist directory path.
+        n_per_book: Chunks to retrieve per book (default 2).
+
+    Returns:
+        Deduplicated list of 9-field dicts sorted descending by score.
+    """
+    if books is None:
+        books = [
+            "BPHS - 1 RSanthanam",
+            "BPHS - 2 RSanthanam",
+            "Phaladeepika",
+            "Saravali of Kalyana Varma Santhanam R. (Astrology)",
+            "Cheiros Language of the Hand",
+        ]
+
+    seen: dict[str, dict] = {}
+    for book in books:
+        try:
+            results = search(question, n_results=n_per_book, persist_dir=persist_dir, book_name=book)
+            for r in results:
+                cid = r["chunk_id"]
+                if cid not in seen or r["score"] > seen[cid]["score"]:
+                    seen[cid] = r
+        except Exception as exc:
+            logger.warning(f"multi_source_search: skipping '{book}' — {exc}")
+
+    return sorted(seen.values(), key=lambda r: r["score"], reverse=True)
 
 
 if __name__ == "__main__":
