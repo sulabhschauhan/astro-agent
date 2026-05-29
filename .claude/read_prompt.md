@@ -2,35 +2,53 @@
 
 #Paste your instructions here. Then tell Claude: "Read .claude/read_prompt.md and execute"
 
+Read agent/prompt_builder.py in full before making any changes.
 
-Edit frontend/app.py only. Surgical edit. Fix palm rerun loop.
+Make exactly two surgical edits — no other changes:
 
-Add to session state defaults block (near top, with other defaults):
-  if "palm_left_confirmed" not in st.session_state:
-      st.session_state.palm_left_confirmed = False
-  if "palm_right_confirmed" not in st.session_state:
-      st.session_state.palm_right_confirmed = False
-  if "_palm_left_image_name" not in st.session_state:
-      st.session_state["_palm_left_image_name"] = None
-  if "_palm_right_image_name" not in st.session_state:
-      st.session_state["_palm_right_image_name"] = None
+EDIT 1 — Add a new section to SYSTEM_PROMPT.
+Insert it immediately after the "## Kundali / Dasha queries" section 
+and before the "## Context synthesis" section.
 
-In the left palm upload block:
-  - Ensure the entire validate + describe + success block is guarded by:
-      if st.session_state["_palm_left_image_name"] != uploaded_left_palm.name:
-  - At the end of a successful describe: set 
-      st.session_state["_palm_left_image_name"] = uploaded_left_palm.name
-      st.session_state.palm_left_confirmed = True
-  - On uploader cleared (elif branch): also reset 
-      st.session_state.palm_left_confirmed = False
-      st.session_state.palm_left_str = None
-      st.session_state["_palm_left_image_name"] = None
+Section to insert (exact text):
 
-Apply the identical pattern to the right palm upload block 
-using palm_right_confirmed, _palm_right_image_name, palm_right_str.
+## When personal context is missing
+- If a question requires personal details (birth date, birth place, life 
+  situation) and no kundali, PDF, or palm context is provided, ask ONE 
+  clarifying question — concise, direct, no preamble.
+- Ask only what you need most to answer. Do not bundle multiple questions.
+- After the user answers, incorporate it into the reading immediately.
+- Never say "I cannot engage in dialogue" — you can and do hold a 
+  conversation across multiple turns.
+- Never refuse to engage. If you have zero context and cannot ask a useful 
+  clarifying question, give the best general reading from classical 
+  knowledge and note what would sharpen it.
 
-Remove any local bool variables used for confirmation state 
-(e.g. confirmed = True / confirmed = False) — these do not 
-survive reruns and are the source of the loop.
+EDIT 2 — Add a clarifying-question guard to needs_disclaimer() in 
+prompt_builder.py.
 
-No other changes.
+Replace the current needs_disclaimer() function:
+
+    def needs_disclaimer(answer: str) -> bool:
+        return DISCLAIMER.lower() not in answer.lower()
+
+With:
+
+    def needs_disclaimer(answer: str) -> bool:
+        """
+        Return True if the disclaimer should be appended.
+        Suppressed when response is a clarifying question:
+        - ends with "?" AND under 60 words
+        - Threshold 60: tight enough to avoid suppressing short readings.
+          Tune down to 40 if false suppressions observed.
+        """
+        if answer.strip().endswith("?") and len(answer.split()) < 60:
+            return False  # CQ path — no prediction content, no disclaimer needed
+        return DISCLAIMER.lower() not in answer.lower()
+
+After both edits, run the existing test suite and report:
+- Pass/fail count
+- Any test that newly fails and the exact assertion error
+- Word count of SYSTEM_PROMPT after Edit 1 (approximate)
+
+No other changes. Do not touch astrologer.py.
