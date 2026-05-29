@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from openai import OpenAI, RateLimitError
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from ingestion.query_engine import search
+from ingestion.query_engine import search, multi_source_search
 from agent.prompt_builder import build_prompts, DISCLAIMER, needs_disclaimer
 from agent.session_manager import SessionManager
 from agent.config import REWRITE_MAP
@@ -61,6 +61,7 @@ def ask(
     palm_left: str | None = None,
     palm_right: str | None = None,
     n_results: int = DEFAULT_N_RESULTS,
+    multi_source: bool = False,
     introduce: bool = False,
     session: SessionManager | None = None,
     context_order: list[str] | None = None,
@@ -75,6 +76,8 @@ def ask(
         palm_left: Optional left-hand palm description string.
         palm_right: Optional right-hand palm description string.
         n_results: Number of chunks to retrieve (default 5).
+        multi_source: If True, calls multi_source_search() — 2 chunks per book
+                      across all 5 source books — instead of a single top-n query.
         introduce: If True, Parashara introduces himself — suppressed if session
                    already has history (avoids mid-conversation re-introduction).
         session: Optional SessionManager. If provided, last MAX_HISTORY_TURNS of
@@ -101,7 +104,10 @@ def ask(
     # Step 1 — retrieve (rewritten query for search only; original question goes to GPT)
     search_query = _rewrite_query(question)
     query_filters.pop("context_order", None)
-    sources = search(search_query, n_results=n_results, **query_filters)
+    if multi_source:
+        sources = multi_source_search(search_query)
+    else:
+        sources = search(search_query, n_results=n_results, **query_filters)
 
     if not sources:
         return {

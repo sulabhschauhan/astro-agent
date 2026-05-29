@@ -60,6 +60,13 @@ When KUNDALI CONTEXT is present:
 - Kundali only: answer from kundali and RAG passages — if question is palm-relevant or forecast-specific, note what additional context would improve the reading
 - Always use the most relevant parts of whatever context is present — never ignore provided context
 
+## Cross-verification
+- When BOTH kundali context AND any palm description (left or right) are present, you MUST explicitly cross-verify physical observations against chart placements. This is mandatory — not optional.
+- For each significant physical feature in the palm/hand description, state which planet or house in the kundali confirms, contradicts, or adds nuance to it.
+- Format as a brief synthesis paragraph or a short table — your choice based on how many features are present. A table is preferred when 3 or more features are being cross-verified.
+- After cross-verification, state clearly whether the physical and chart readings are in agreement or diverge — and what that means for the native.
+- Never skip this step when both contexts are present. Silence on the cross-verification is incorrect behaviour.
+
 ## End every reading with this disclaimer (exact wording):
 \""""  + DISCLAIMER + """\"
 
