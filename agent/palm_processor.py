@@ -17,14 +17,18 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = (
-    "You are a palm image validator. Analyse the image and return \n"
-    "ONLY valid JSON, no markdown:\n"
+    "You are a palm image validator. The user message tells you which slot (left or right) "
+    "this image was uploaded to. Analyse the image, detect which hand is actually shown, "
+    "and flag if the detected hand differs from the intended slot.\n"
+    "Return ONLY valid JSON, no markdown:\n"
     "{\n"
-    "  'hand': 'left|right|unknown',\n"
-    "  'quality': 'good|poor_readable|unusable',\n"
-    "  'issues': ['blurry','partial','dark','not_a_hand']\n"
+    "  \"hand\": \"left|right|unknown\",\n"
+    "  \"matches_slot\": true,\n"
+    "  \"quality\": \"good|poor_readable|unusable\",\n"
+    "  \"issues\": [\"blurry\",\"partial\",\"dark\",\"not_a_hand\"]\n"
     "}\n"
-    "issues is empty list if none."
+    "Set matches_slot to false when the detected hand differs from the intended slot; "
+    "default to true when hand is unknown. issues is an empty list if none."
 )
 
 
@@ -63,9 +67,13 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
                     "role": "user",
                     "content": [
                         {
+                            "type": "text",
+                            "text": f"This image was uploaded to the {slot} palm slot.",
+                        },
+                        {
                             "type": "image_url",
                             "image_url": {"url": f"data:{mime};base64,{b64}"},
-                        }
+                        },
                     ],
                 },
             ],
@@ -87,10 +95,11 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
         }
 
     try:
-        parsed  = json.loads(raw)
-        hand    = parsed.get("hand", "unknown")
-        quality = parsed.get("quality", "unknown")
-        issues  = parsed.get("issues", [])
+        parsed       = json.loads(raw)
+        hand         = parsed.get("hand", "unknown")
+        matches_slot = parsed.get("matches_slot", True)
+        quality      = parsed.get("quality", "unknown")
+        issues       = parsed.get("issues", [])
     except (json.JSONDecodeError, ValueError):
         logger.warning("palm_processor: JSON parse failed for slot=%s. raw=%r", slot, raw)
         return {
@@ -121,6 +130,13 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
     elif quality == "poor_readable":
         warn         = True
         warn_message = "Image quality is reduced — the reading may be less accurate."
+
+    if not matches_slot and not hard_reject:
+        warn         = True
+        warn_message = (
+            f"The detected hand appears to be the opposite of the {slot} slot — "
+            "please confirm this is the correct hand or use the swap button."
+        )
 
     return {
         "hash":           image_hash,
