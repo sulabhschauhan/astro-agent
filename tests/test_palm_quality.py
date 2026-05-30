@@ -51,7 +51,7 @@ QUESTION_WITH_PALM = "What do my palm lines reveal about my career and wealth?"
 
 @pytest.mark.integration
 def test_no_context_no_hallucination():
-    result = ask(question=QUESTION_NO_PALM)
+    result = ask(question=QUESTION_NO_PALM, spouse_pdf=None, hand_detail=None)
     answer = result["answer"].lower()
     print(f"\n[test_no_context_no_hallucination]\n{result['answer']}\n")
     # CQ guard: a clarifying question that mentions palm terms as examples is valid, not hallucination.
@@ -67,7 +67,7 @@ def test_no_context_no_hallucination():
 @pytest.mark.integration
 def test_kundali_only_no_hallucination():
     time.sleep(2)
-    result = ask(question=QUESTION_NO_PALM, kundali_context=_KUNDALI)
+    result = ask(question=QUESTION_NO_PALM, kundali_context=_KUNDALI, spouse_pdf=None, hand_detail=None)
     answer = result["answer"].lower()
     print(f"\n[test_kundali_only_no_hallucination]\n{result['answer']}\n")
     assert not any(term in answer for term in PALM_TERMS), (
@@ -78,7 +78,7 @@ def test_kundali_only_no_hallucination():
 @pytest.mark.integration
 def test_palm_only_terms_present():
     time.sleep(2)
-    result = ask(question=QUESTION_WITH_PALM, palm_left=_PALM_LEFT, palm_right=_PALM_RIGHT)
+    result = ask(question=QUESTION_WITH_PALM, palm_left=_PALM_LEFT, palm_right=_PALM_RIGHT, spouse_pdf=None, hand_detail=None)
     answer = result["answer"].lower()
     print(f"\n[test_palm_only_terms_present]\n{result['answer']}\n")
     assert any(term in answer for term in PALM_TERMS), (
@@ -90,10 +90,12 @@ def test_palm_only_terms_present():
 def test_kundali_and_palm_both_referenced():
     time.sleep(2)
     result = ask(
-        question=QUESTION_WITH_PALM,
+        question="Based on both my birth chart dasha periods and my palm lines, what do they reveal together about my career and wealth?",
         kundali_context=_KUNDALI,
         palm_left=_PALM_LEFT,
         palm_right=_PALM_RIGHT,
+        spouse_pdf=None,
+        hand_detail=None,
     )
     answer = result["answer"].lower()
     print(f"\n[test_kundali_and_palm_both_referenced]\n{result['answer']}\n")

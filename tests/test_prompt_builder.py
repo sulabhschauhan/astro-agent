@@ -1,53 +1,67 @@
 """
 tests/test_prompt_builder.py
-Acceptance tests for Option C palm nudge (debate-agreed implementation).
-Tests 1 and 3 fail until prompt_builder.py is updated with expanded PALM_TOPICS,
-has_palm_description flag, and combine instruction.
+Tests for build_prompts() with the updated signature — spouse_pdf, hand_detail,
+new slot keys ("own_pdf", "spouse_pdf", "hand_detail"), and removal of the
+PALM_TOPICS nudge block (now owned by context_classifier).
+No GPT calls — all deterministic.
 """
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agent.prompt_builder import build_prompts
 
-_SOURCES = []  # nudge and combine logic does not depend on retrieved sources
+_SOURCES = []
+
+_SPOUSE_PDF  = "SPOUSE ASTROSAGE DATA:\n[Varshaphal]\nThis year looks positive."
+_HAND_DETAIL = "Long fingers, flexible thumb, strong Mercury mount."
+_PALM_LEFT   = "Long life line, strong heart line."
+_PALM_RIGHT  = "Strong fate line, prominent mount of Jupiter."
 
 
-def test_nudge_present_when_palm_missing_and_topic_matches():
-    # "rich" must be in PALM_TOPICS after expansion — this test fails until that change lands
+def test_spouse_pdf_slot_renders():
+    result = build_prompts(
+        question="How will my wife's year go?",
+        sources=_SOURCES,
+        spouse_pdf=_SPOUSE_PDF,
+        context_order=["spouse_pdf"],
+    )
+    assert "Spouse AstroSage Annual Report" in result["user"]
+    assert "SPOUSE ASTROSAGE DATA" in result["user"]
+
+
+def test_hand_detail_slot_renders():
+    result = build_prompts(
+        question="What do my hand features say?",
+        sources=_SOURCES,
+        hand_detail=_HAND_DETAIL,
+        context_order=["hand_detail"],
+    )
+    assert "Hand Detail Analysis" in result["user"]
+    assert _HAND_DETAIL in result["user"]
+
+
+def test_dual_palm_synthesis_present():
+    result = build_prompts(
+        question="Tell me about my future",
+        sources=_SOURCES,
+        palm_left=_PALM_LEFT,
+        palm_right=_PALM_RIGHT,
+        context_order=["palm"],
+    )
+    assert "Synthesise both" in result["user"]
+    assert "LEFT HAND (innate potential)" in result["user"]
+    assert "RIGHT HAND (current trajectory)" in result["user"]
+
+
+def test_palm_topics_nudge_removed():
+    # Regression guard: PALM_TOPICS nudge block must be absent after removal.
     result = build_prompts(
         question="Will I get rich?",
         sources=_SOURCES,
         palm_left=None,
         palm_right=None,
     )
-    # If nudge wording in build_prompts() changes, update this string
-    assert "[If you have a palm description available" in result["user"]
-
-
-def test_nudge_absent_when_palm_missing_and_no_topic_match():
-    # Factual query with no PALM_TOPICS keyword — nudge must never fire here
-    result = build_prompts(
-        question="What is Vedic astrology?",
-        sources=_SOURCES,
-        palm_left=None,
-        palm_right=None,
-    )
-    # If nudge wording in build_prompts() changes, update this string
-    assert "[If you have a palm description available" not in result["user"]
-
-
-def test_combine_language_present_when_palm_description_set():
-    # Combine instruction fires when palm_description provided; nudge must be suppressed
-    # This test fails until the has_palm_description flag and combine instruction land
-    result = build_prompts(
-        question="Tell me about my future",
-        sources=_SOURCES,
-        palm_left="Long life line, strong heart line",
-        palm_right="Strong fate line, prominent mount of Jupiter",
-    )
-    # If combine wording in build_prompts() changes, update this string
-    assert "Synthesise both" in result["user"]
-    # If nudge wording changes, update this string
     assert "[If you have a palm description available" not in result["user"]
