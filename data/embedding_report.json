@@ -1,46 +1,115 @@
 {
-  "total_raw_pages": 2169,
-  "total_sub_chunks": 3772,
-  "total_embedded": 3029,
-  "total_pending": 743,
+  "total_sub_chunks": 8290,
+  "total_embedded": 7920,
+  "total_pending": 370,
   "total_failed": 0,
   "failed_chunk_ids": [],
-  "collection_count": 3029,
+  "collection_count": 11995,
   "by_book": {
     "BPHS - 1 RSanthanam": {
-      "text": 728,
-      "diagram": 155,
+      "text": 706,
+      "diagram": 11,
       "mixed": 0,
-      "embedded": 728,
-      "pending": 155
+      "embedded": 706,
+      "pending": 11
     },
     "BPHS - 2 RSanthanam": {
-      "text": 730,
-      "diagram": 155,
+      "text": 716,
+      "diagram": 20,
       "mixed": 0,
-      "embedded": 730,
-      "pending": 155
+      "embedded": 716,
+      "pending": 20
+    },
+    "Deva-keralam": {
+      "text": 672,
+      "diagram": 12,
+      "mixed": 0,
+      "embedded": 672,
+      "pending": 12
+    },
+    "Hasta Samudrika Shastra by Shri Vasant Lal Vyas 1976 Delhi - Janata Prakashan": {
+      "text": 422,
+      "diagram": 27,
+      "mixed": 0,
+      "embedded": 422,
+      "pending": 27
+    },
+    "Jataka Parijata with explanation of Pt. Kapileshvara Shastri and Vimala Hindi Tika of Pt. Shri Matri Prasad Shastri Series No. 10 - Kashi Sanskrit Series": {
+      "text": 504,
+      "diagram": 9,
+      "mixed": 0,
+      "embedded": 504,
+      "pending": 9
+    },
+    "Jyotish_Lal Kitab_B.M. Gosvami": {
+      "text": 707,
+      "diagram": 62,
+      "mixed": 0,
+      "embedded": 769,
+      "pending": 0
+    },
+    "LAL KITAB-1941": {
+      "text": 307,
+      "diagram": 69,
+      "mixed": 0,
+      "embedded": 307,
+      "pending": 69
+    },
+    "Muhurtha-Chinthamani": {
+      "text": 604,
+      "diagram": 8,
+      "mixed": 0,
+      "embedded": 604,
+      "pending": 8
     },
     "Phaladeepika 2nd Ed. 1950 by V Subrahmanya Sastri": {
-      "text": 642,
-      "diagram": 181,
+      "text": 561,
+      "diagram": 42,
       "mixed": 0,
-      "embedded": 642,
-      "pending": 181
+      "embedded": 561,
+      "pending": 42
+    },
+    "Prasna Marga 1": {
+      "text": 517,
+      "diagram": 11,
+      "mixed": 0,
+      "embedded": 517,
+      "pending": 11
+    },
+    "Prasna Marga 2": {
+      "text": 431,
+      "diagram": 8,
+      "mixed": 0,
+      "embedded": 431,
+      "pending": 8
     },
     "Saravali of Kalyana Varma Santhanam R. (Astrology)": {
-      "text": 466,
-      "diagram": 123,
+      "text": 464,
+      "diagram": 12,
       "mixed": 0,
-      "embedded": 466,
-      "pending": 123
+      "embedded": 464,
+      "pending": 12
+    },
+    "Sarvartha-Chintamani": {
+      "text": 423,
+      "diagram": 8,
+      "mixed": 0,
+      "embedded": 423,
+      "pending": 8
     },
     "cheiroslanguageo00chei_1": {
-      "text": 463,
-      "diagram": 129,
+      "text": 452,
+      "diagram": 127,
       "mixed": 0,
-      "embedded": 463,
-      "pending": 129
+      "embedded": 452,
+      "pending": 127
+    },
+    "uttkalamrita-kalidas-ps-sastri": {
+      "text": 372,
+      "diagram": 6,
+      "mixed": 0,
+      "embedded": 372,
+      "pending": 6
     }
   }
 }
