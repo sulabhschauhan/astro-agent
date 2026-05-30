@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 12 COMPLETE.** Phase 1 classifier gate shipped — context_classifier.py, router stripped, app.py pending_question flow, 40/40 passing.
+**Session 13 COMPLETE.** Priority 4 in progress — clean architecture redesign: ContextBundle, single LLM classifier, intent-driven retrieval profiles replacing context_classifier.py + context_router.py.
 <!-- UPDATE THIS every session. One line only. -->
 
 

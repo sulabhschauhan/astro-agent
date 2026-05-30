@@ -3,24 +3,12 @@
 #Paste your instructions here. Then tell Claude: "Read .claude/read_prompt.md and execute"
 
 
-Read CLAUDE.md before doing anything.
-Two tasks in sequence. Stop and report after each.
-Task 1 — Purge LAL KITAB-1941 from ChromaDB:
+Two file updates only.
 
-Fetch all chunk IDs where book_name == "LAL KITAB-1941"
-Print count before deletion
-Delete them
-Verify count after deletion is 0
-Print confirmation
+1. In `CLAUDE.md`, replace the Current Session Focus line with:
+`**Session 13 COMPLETE.** Priority 4 in progress — clean architecture redesign: ContextBundle, single LLM classifier, intent-driven retrieval profiles replacing context_classifier.py + context_router.py.`
 
-Task 2 — Run existing ingestion pipeline on new Lal Kitab PDF:
+2. Append to `SESSION_LOG.md` under the session log list:
+`- Session 13 (2026-05-30): Lal Kitab (Jyotish_Lal Kitab_B.M. Gosvami) validated — 769 chunks embedded, ranks 1&2 on remedy queries at 0.66+; LAL KITAB-1941 re-purged + progress file deleted (root cause: progress file survived Session 12 purge); progress file orphan audit clean; query_engine.py updated (LAL KITAB-1941 → new book string, 14 books clean); KeyError gated fixed — variable name collision in app.py (result reused for parse_astrosage_pdf + ask() output, renamed to _pdf_parse_result); 40/40 passing. Architecture redesign approved for Session 14: ContextBundle dataclass, single GPT-4o-mini classifier replacing context_classifier.py + context_router.py, intent-driven retrieval profiles, tiered gating (required/enriching), spouse PDF + hand detail inputs. Known debt: left/right palm misclassification (Priority 3), _PALM_TOPICS keyword audit.`
 
-Source file: data/pdfs/Jyotish_Lal Kitab_B.M. Gosvami.pdf
-Run exactly the same pipeline used for all other English books:
-pdf_processor → image_extractor → chunker → embedder
-Do NOT run translator.py — this is an English PDF
-Use the existing run_overnight.py or call each stage in order as done for previous books
-Print progress at each stage: page count, chunk count after chunker, chunk count after embedder
-Print the exact book_name string stored in ChromaDB after embedding (check collection metadata)
-
-Do not modify any pipeline code. Use existing functions as-is. Report after Task 1 completes before starting Task 2.
+Confirm both updates done. No other changes.
