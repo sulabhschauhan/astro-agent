@@ -14,7 +14,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from ingestion.query_engine import search, multi_source_search
 from agent.prompt_builder import build_prompts, DISCLAIMER, needs_disclaimer
 from agent.session_manager import SessionManager
-from agent.config import REWRITE_MAP
 from agent.context_classifier import classify
 from agent.context_bundle import ContextBundle
 
@@ -31,10 +30,33 @@ RATE_LIMIT_RETRIES = 3
 RATE_LIMIT_BASE_DELAY = 10  # seconds; doubles each retry (10, 20, 40)
 
 
+_REWRITE_SYSTEM_PROMPT = (
+    "Convert the user's astrology or palmistry question into a short keyword-rich "
+    "search string using classical terminology from Vedic astrology and Cheiro "
+    "palmistry. Use Sanskrit terms, house numbers, planet names, and palmistry "
+    "vocabulary appropriate for matching against a classical text corpus. "
+    "Return only the enriched query string — no explanation, no preamble, "
+    "no punctuation beyond spaces."
+)
+
+
 def _rewrite_query(q: str) -> str:
-    q_lower = q.lower()
-    extras = [v for k, v in REWRITE_MAP.items() if k in q_lower]
-    return f"{q} {' '.join(extras)}".strip() if extras else q
+    try:
+        client = OpenAI()
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": _REWRITE_SYSTEM_PROMPT},
+                {"role": "user",   "content": q},
+            ],
+            temperature=0,
+            max_tokens=60,
+        )
+        enriched = response.choices[0].message.content
+        return enriched.strip() if enriched and enriched.strip() else q
+    except Exception:
+        logger.warning("_rewrite_query: GPT call failed for q=%r — returning original", q)
+        return q
 
 
 def _call_gpt(client: OpenAI, messages: list[dict]) -> str:
