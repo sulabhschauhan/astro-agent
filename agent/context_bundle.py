@@ -6,7 +6,7 @@ Zero imports from agent/ — this module sits at the bottom of the dependency gr
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -18,6 +18,7 @@ class ContextBundle:
     palm_right: str | None = None
     hand_detail: str | None = None
 
+    @property
     def availability_map(self) -> dict[str, bool]:
         """Return presence flag for each context field."""
         return {

@@ -183,3 +183,60 @@ def describe_palm_image(image_bytes: bytes, hand: str) -> str:
         raise RuntimeError(
             f"palm_processor: GPT-4o description call failed for hand={hand}: {exc}"
         ) from exc
+
+
+def describe_hand_detail_image(image) -> str:
+    """
+    Generate a detailed observational description of a hand photograph via GPT-4o vision.
+
+    Args:
+        image: PIL Image object of the hand.
+
+    Returns:
+        Plain string description from GPT-4o.
+
+    Raises:
+        ValueError: If the API call fails or returns an empty response.
+    """
+    import io
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG")
+    b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    client = OpenAI()
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{b64}"},
+                        },
+                        {
+                            "type": "text",
+                            "text": (
+                                "You are a Cheiro-tradition palmist. Examine this hand photograph carefully. "
+                                "Describe only what you can physically observe: hand shape, finger lengths "
+                                "relative to each other, thumb angle and flexibility, visible lines (life, "
+                                "head, heart, fate, sun), any notable mounts, markings, or unusual features. "
+                                "Be precise and observational. Do not interpret or predict — only describe."
+                            ),
+                        },
+                    ],
+                }
+            ],
+            max_tokens=400,
+            temperature=0,
+        )
+        content = response.choices[0].message.content
+    except Exception as exc:
+        raise ValueError(
+            f"palm_processor: GPT-4o hand detail call failed: {exc}"
+        ) from exc
+
+    if not content:
+        raise ValueError("palm_processor: GPT-4o returned an empty response for hand detail image.")
+    return content
