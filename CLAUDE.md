@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 14 COMPLETE.** All debt cleared — dead code deleted, multi-part question fix, palm misclassification fix. 37/37 passing.
+**Session 14 COMPLETE.** All debt cleared, UI confidence score removed, multi-part question fix repositioned, palm misclassification fixed. 37/37 passing. Session 15 not started.
 <!-- UPDATE THIS every session. One line only. -->
 
 
