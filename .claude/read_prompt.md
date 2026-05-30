@@ -3,41 +3,55 @@
 #Paste your instructions here. Then tell Claude: "Read .claude/read_prompt.md and execute"
 
 
-In agent/prompt_builder.py make four surgical edits only. Do not touch
-SYSTEM_PROMPT, _LOW_CONFIDENCE_ADDENDUM, _INTRODUCE_ADDENDUM, needs_disclaimer(),
-or any slot rendering logic except what is listed below.
+Rewrite the following four test files in full. Each is a complete
+replacement — the old content is entirely obsolete.
 
-Edit 1 — Add spouse_pdf and hand_detail parameters to build_prompts() signature,
-after palm_right, before introduce:
-    spouse_pdf: str | None = None,
-    hand_detail: str | None = None,
+FILE 1 — tests/test_nudge_endtoend.py
+Rename the file's purpose in the docstring: these are now integration
+tests for context_classifier.classify() using the new signature.
+Import classify from agent.context_classifier and ContextBundle from
+agent.context_bundle. No imports of classify_context or route anywhere.
 
-Edit 2 — In the slot rendering loop, add two new elif branches after the
-existing "palm" branch:
+Write five tests using real GPT-4o-mini calls:
+  1. Palmistry question with no palm in bundle — hard_block True, blocked_on "palm"
+  2. Time-bound question with no own_pdf in bundle — hard_block True, blocked_on "own_pdf"
+  3. Palmistry question with palm present in bundle — hard_block False, proceed True
+  4. Time-bound question with own_pdf present in bundle — hard_block False, proceed True
+  5. General vedic question with empty bundle — hard_block False, retrieval_profile "vedic"
 
-    elif slot == "own_pdf" and pdf_context:
-        lines.append("\n## AstroSage Annual Report\n" + pdf_context)
+FILE 2 — tests/test_prompt_builder.py
+Rename the file's purpose in the docstring: these are now tests for
+the new build_prompts() signature with spouse_pdf and hand_detail.
+No imports of route or classify. All tests are deterministic — no GPT calls.
 
-    elif slot == "spouse_pdf" and spouse_pdf:
-        lines.append("\n## Spouse AstroSage Annual Report\n" + spouse_pdf)
+Write four tests:
+  1. spouse_pdf slot renders correctly — pass spouse_pdf string and
+     context_order containing "spouse_pdf", assert "Spouse AstroSage" in user message
+  2. hand_detail slot renders correctly — pass hand_detail string and
+     context_order containing "hand_detail", assert "Hand Detail Analysis" in user message
+  3. Dual palm synthesis still works — palm_left and palm_right both passed,
+     assert "Synthesise both" in user message
+  4. Nudge block is gone — pass no palm, assert the old nudge string
+     "[If you have a palm description available" is NOT in user message
+     (this is a regression guard — confirms PALM_TOPICS removal is clean)
 
-    elif slot == "hand_detail" and hand_detail:
-        lines.append("\n## Hand Detail Analysis\n" + hand_detail)
+FILE 3 — tests/test_context_integration.py
+Rename the file's purpose in the docstring: these are now tests for
+build_prompts() rendering with classifier-style context_order inputs.
+No imports of route. No GPT calls. Call build_prompts() directly with
+hardcoded context_order lists that mirror what classify() would return.
 
-Also rename the existing "pdf" branch to handle "pdf" as a legacy fallback
-only — keep it but add "pdf" as an alias that also renders pdf_context,
-so old callers using "pdf" in context_order do not break during transition.
+Write four tests covering:
+  1. Vedic-only context_order — kundali + rag, no pdf/palm blocks in output
+  2. Palmistry context_order — palm_left + palm_right + rag, assert LEFT HAND and RIGHT HAND present
+  3. own_pdf context_order — own_pdf slot renders AstroSage Annual Report header
+  4. Full context_order with all slots — kundali + own_pdf + spouse_pdf +
+     palm_left + palm_right + hand_detail + rag — assert all six context
+     headers present in user message
 
-Edit 3 — Remove the PALM_TOPICS constant and the entire nudge block at the
-bottom of build_prompts() — the lines starting with:
-    if not has_palm and any(t in question.lower() for t in PALM_TOPICS):
-Remove those lines and PALM_TOPICS entirely. Nudge is now owned by the
-classifier, not prompt_builder.
+FILE 4 — tests/test_palm_quality.py
+Surgical edits only — do not rewrite. Update the two ask() call sites
+to add spouse_pdf=None and hand_detail=None explicitly. No other changes.
 
-Edit 4 — Update the build_prompts() docstring to add spouse_pdf and
-hand_detail parameter descriptions, and note that nudge logic has been
-removed (now owned by context_classifier).
-
-Paste only the edited function signature, the slot rendering loop,
-and confirmation that PALM_TOPICS and the nudge block are gone.
-Do not paste the full file.
+After writing all four files, run the full test suite with pytest and
+report the pass/fail count. Do not proceed to fix failures — report them.

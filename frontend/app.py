@@ -21,8 +21,8 @@ from agent.chart_calculator import calculate_chart, format_kundali_context, geoc
 from agent.astrologer import ask
 from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf
-from agent.context_router import route
-from agent.palm_processor import validate_palm_image, describe_palm_image
+from PIL import Image
+from agent.palm_processor import validate_palm_image, describe_palm_image, describe_hand_detail_image
 
 # ─── Page config (must be first Streamlit call) ───────────────────────────────
 
@@ -76,6 +76,14 @@ if "_palm_right_image_name" not in st.session_state:
     st.session_state["_palm_right_image_name"] = None
 if "pending_question" not in st.session_state:
     st.session_state.pending_question = None
+if "spouse_pdf_context" not in st.session_state:
+    st.session_state.spouse_pdf_context = None
+if "_spouse_pdf_name" not in st.session_state:
+    st.session_state["_spouse_pdf_name"] = None
+if "hand_detail_str" not in st.session_state:
+    st.session_state.hand_detail_str = None
+if "_hand_detail_image_name" not in st.session_state:
+    st.session_state["_hand_detail_image_name"] = None
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -338,6 +346,49 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                     st.session_state.palm_right_str    = None
                     st.rerun()
 
+    # ── Spouse AstroSage PDF ──────────────────────────────────────────────────
+    uploaded_spouse_pdf = st.file_uploader(
+        "Spouse AstroSage PDF (optional)", type=["pdf"], key="spouse_pdf_uploader",
+    )
+    if uploaded_spouse_pdf is not None:
+        if st.session_state["_spouse_pdf_name"] != uploaded_spouse_pdf.name:
+            with st.spinner("Parsing spouse AstroSage PDF…"):
+                _spouse_parse_result = parse_astrosage_pdf(uploaded_spouse_pdf.read())
+            if _spouse_parse_result:
+                st.session_state.spouse_pdf_context = _spouse_parse_result
+                st.session_state["_spouse_pdf_name"] = uploaded_spouse_pdf.name
+                st.success("Spouse AstroSage data loaded.")
+            else:
+                st.session_state.spouse_pdf_context = None
+                st.warning("Could not extract sections — check this is an AstroSage PDF.")
+    elif st.session_state["_spouse_pdf_name"] is not None:
+        st.session_state.spouse_pdf_context = None
+        st.session_state["_spouse_pdf_name"] = None
+
+    # ── Hand detail photo ─────────────────────────────────────────────────────
+    uploaded_hand_detail = st.file_uploader(
+        "Hand detail photo (optional — for detailed palm analysis)",
+        type=["jpg", "jpeg", "png"], key="hand_detail_uploader",
+    )
+    if uploaded_hand_detail is not None:
+        if st.session_state["_hand_detail_image_name"] != uploaded_hand_detail.name:
+            _hdb = uploaded_hand_detail.read()
+            _hdh = hashlib.md5(_hdb).hexdigest()
+            try:
+                with st.spinner("Analysing hand detail…"):
+                    import io as _io
+                    _hd_img = Image.open(_io.BytesIO(_hdb))
+                    _hd_desc = describe_hand_detail_image(_hd_img)
+                st.session_state.hand_detail_str = _hd_desc
+                st.session_state["_hand_detail_image_name"] = uploaded_hand_detail.name
+                st.success("Hand detail analysed ✓")
+            except ValueError as e:
+                st.error(f"Could not analyse hand detail image: {e}")
+                st.session_state.hand_detail_str = None
+    elif st.session_state["_hand_detail_image_name"] is not None:
+        st.session_state.hand_detail_str = None
+        st.session_state["_hand_detail_image_name"] = None
+
 if not st.session_state.chart_ready:
     st.info("Enter your birth details in the sidebar to begin.")
 
@@ -350,6 +401,8 @@ for msg in st.session_state.messages:
                 st.caption(f"Confidence: {msg['top_score']:.2f}")
             if msg.get("low_confidence"):
                 st.warning("Low confidence — answer may be general")
+            for _nudge in msg.get("nudges", []):
+                st.info(_nudge)
 
 # ─── "Generate My Reading" button ────────────────────────────────────────────
 # Shown when a question was gated and context has since been uploaded.
@@ -363,15 +416,6 @@ if st.session_state.pending_question is not None and _has_new_context:
         _pq = st.session_state.pending_question
         st.session_state.pending_question = None
         _introduce = len(st.session_state.messages) == 0
-        _router_pq = route(
-            question=_pq,
-            has_kundali=st.session_state.chart_ready,
-            has_pdf=st.session_state.pdf_context is not None,
-            has_palm=(
-                st.session_state.palm_left_str is not None
-                or st.session_state.palm_right_str is not None
-            ),
-        )
         with st.spinner("Consulting the stars…"):
             _btn_result = ask(
                 question=_pq,
@@ -379,20 +423,23 @@ if st.session_state.pending_question is not None and _has_new_context:
                 pdf_context=st.session_state.pdf_context or None,
                 palm_left=st.session_state.get("palm_left_str"),
                 palm_right=st.session_state.get("palm_right_str"),
+                spouse_pdf=st.session_state.get("spouse_pdf_context"),
+                hand_detail=st.session_state.get("hand_detail_str"),
                 session=st.session_state.session_mgr,
                 introduce=_introduce,
-                context_order=_router_pq.get("context_order", ["rag", "kundali", "pdf"]),
             )
         _btn_answer     = _btn_result["answer"]
         _btn_lc         = _btn_result["low_confidence"]
         _btn_sources    = _btn_result["sources"]
         _btn_top_score  = _btn_sources[0]["score"] if _btn_sources else None
+        _btn_nudges     = _btn_result.get("nudges", [])
         st.session_state.messages.append({"role": "user", "content": _pq})
         st.session_state.messages.append({
             "role":           "assistant",
             "content":        _btn_answer,
             "low_confidence": _btn_lc,
             "top_score":      _btn_top_score,
+            "nudges":         _btn_nudges,
         })
         try:
             st.session_state.session_mgr.save()
@@ -413,15 +460,6 @@ if prompt:
         # introduce=True only on the very first real answer (no messages yet)
         introduce = len(st.session_state.messages) == 0
 
-        _router = route(
-            question=prompt,
-            has_kundali=st.session_state.chart_ready,
-            has_pdf=st.session_state.pdf_context is not None,
-            has_palm=(
-                st.session_state.palm_left_str is not None
-                or st.session_state.palm_right_str is not None
-            ),
-        )
         try:
             with st.spinner("Consulting the stars…"):
                 result = ask(
@@ -430,9 +468,10 @@ if prompt:
                     pdf_context=st.session_state.pdf_context or None,
                     palm_left=st.session_state.get("palm_left_str"),
                     palm_right=st.session_state.get("palm_right_str"),
+                    spouse_pdf=st.session_state.get("spouse_pdf_context"),
+                    hand_detail=st.session_state.get("hand_detail_str"),
                     session=st.session_state.session_mgr,
                     introduce=introduce,
-                    context_order=_router.get("context_order", ["rag", "kundali", "pdf"]),
                 )
 
             if result["gated"]:
@@ -451,11 +490,15 @@ if prompt:
 
                     st.write_stream(_stream_answer(answer))
 
+                    for _nudge in result.get("nudges", []):
+                        st.info(_nudge)
+
                     st.session_state.messages.append({
                         "role":           "assistant",
                         "content":        answer,
                         "low_confidence": low_confidence,
                         "top_score":      top_score,
+                        "nudges":         result.get("nudges", []),
                     })
 
                     # Persist session to disk; non-fatal on failure

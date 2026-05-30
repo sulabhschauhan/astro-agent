@@ -172,6 +172,10 @@ def build_prompts(
                     "\nINSTRUCTION: Synthesise both hands in your reading — "
                     "left reveals innate potential, right shows current trajectory."
                 )
+        elif slot == "palm_left" and palm_left:
+            lines.append(f"\nLEFT HAND (innate potential):\n{palm_left}")
+        elif slot == "palm_right" and palm_right:
+            lines.append(f"\nRIGHT HAND (current trajectory):\n{palm_right}")
 
     lines.append(f"\nQuestion: {question}")
 

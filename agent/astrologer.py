@@ -15,8 +15,8 @@ from ingestion.query_engine import search, multi_source_search
 from agent.prompt_builder import build_prompts, DISCLAIMER, needs_disclaimer
 from agent.session_manager import SessionManager
 from agent.config import REWRITE_MAP
-from agent.context_router import route
-from agent.context_classifier import classify_context
+from agent.context_classifier import classify
+from agent.context_bundle import ContextBundle
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -61,6 +61,8 @@ def ask(
     pdf_context: str | None = None,
     palm_left: str | None = None,
     palm_right: str | None = None,
+    spouse_pdf: str | None = None,
+    hand_detail: str | None = None,
     n_results: int = DEFAULT_N_RESULTS,
     multi_source: bool = False,
     introduce: bool = False,
@@ -71,19 +73,21 @@ def ask(
     """
     Full RAG pipeline: retrieve → prompt → GPT-4o-mini → structured response.
 
-    Phase 1 gate: classify_context() runs before any RAG or GPT call. If the
-    question requires context the user has not yet provided (palm photo, AstroSage
-    PDF), ask() returns immediately with gated=True and a friendly upload prompt —
-    no retrieval or inference cost is incurred.
+    Phase 1 gate: classify() builds a ContextBundle and makes a single GPT-4o-mini
+    call to determine retrieval profile, context order, and gating. Hard-blocked
+    requests return immediately with gated=True — no retrieval or inference cost.
 
     Args:
         question: User question (must be non-empty).
         kundali_context: Optional birth chart summary string.
+        pdf_context: Optional user's AstroSage annual report text.
         palm_left: Optional left-hand palm description string.
         palm_right: Optional right-hand palm description string.
+        spouse_pdf: Optional spouse's AstroSage annual report text.
+        hand_detail: Optional detailed hand photograph analysis string.
         n_results: Number of chunks to retrieve (default 5).
         multi_source: If True, calls multi_source_search() — 2 chunks per book
-                      across all 5 source books — instead of a single top-n query.
+                      across all source books — instead of a single top-n query.
         introduce: If True, Parashara introduces himself — suppressed if session
                    already has history (avoids mid-conversation re-introduction).
         session: Optional SessionManager. If provided, last MAX_HISTORY_TURNS of
@@ -93,10 +97,11 @@ def ask(
 
     Returns:
         {
-            "answer":         str,        # Parashara's response (or upload prompt if gated)
+            "answer":         str,        # Parashara's response (or block message if gated)
             "sources":        list[dict], # 9-field dicts from query_engine (empty if gated)
             "low_confidence": bool,       # True if top score < LOW_CONFIDENCE_THRESHOLD
-            "gated":          bool,       # True if Phase 1 gate blocked the request
+            "gated":          bool,       # True if Phase 1 hard-blocked the request
+            "nudges":         list[str],  # enriching-context suggestions (empty if gated)
             "model":          str,        # model used for inference (absent if gated)
         }
 
@@ -108,16 +113,35 @@ def ask(
     if not question.strip():
         raise ValueError("question must not be empty.")
 
-    # Phase 1 — classify context gaps before any RAG or GPT call
-    classification = classify_context(
-        question=question,
-        has_kundali=kundali_context is not None,
-        has_pdf=pdf_context is not None,
-        has_palm=palm_left is not None or palm_right is not None,
+    # Phase 1 — build ContextBundle and classify intent
+    bundle = ContextBundle(
+        kundali=kundali_context,
+        own_pdf=pdf_context,
+        spouse_pdf=spouse_pdf,
+        palm_left=palm_left,
+        palm_right=palm_right,
+        hand_detail=hand_detail,
     )
-    if not classification["proceed"]:
+
+    # Extract last Q&A pair from session for contextual carry-forward
+    _last_user_q: str | None = None
+    _last_assistant_answer: str | None = None
+    if session:
+        _recent = session.get_recent_history(n=1)
+        if len(_recent) >= 2:
+            _last_user_q = _recent[0]["content"]
+            _last_assistant_answer = _recent[1]["content"]
+
+    classification = classify(
+        question=question,
+        bundle=bundle,
+        last_user_q=_last_user_q,
+        last_assistant_answer=_last_assistant_answer,
+    )
+
+    if classification["hard_block"]:
         return {
-            "answer":         classification["message"],
+            "answer":         classification["required_message"],
             "low_confidence": False,
             "sources":        [],
             "gated":          True,
@@ -151,13 +175,6 @@ def ask(
     effective_introduce = introduce and not (session and session.get_history())
 
     # Step 3 — build prompts
-    _route = route(
-        question=question,
-        has_kundali=kundali_context is not None,
-        has_pdf=pdf_context is not None,
-        has_palm=palm_left is not None or palm_right is not None,
-        low_confidence=low_confidence,
-    )
     prompts = build_prompts(
         question=question,
         sources=sources,
@@ -165,9 +182,11 @@ def ask(
         pdf_context=pdf_context,
         palm_left=palm_left,
         palm_right=palm_right,
+        spouse_pdf=spouse_pdf,
+        hand_detail=hand_detail,
         introduce=effective_introduce,
         low_confidence=low_confidence,
-        context_order=_route["context_order"],
+        context_order=classification["context_order"],
     )
 
     # Step 4 — assemble messages with sliding history window
@@ -193,6 +212,7 @@ def ask(
         "sources":        sources,
         "low_confidence": low_confidence,
         "gated":          False,
+        "nudges":         classification.get("nudges", []),
         "model":          MODEL,
     }
 
