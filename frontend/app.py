@@ -200,9 +200,9 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
     if uploaded_pdf is not None:
         if st.session_state["_astrosage_pdf_name"] != uploaded_pdf.name:
             with st.spinner("Parsing AstroSage PDF…"):
-                result = parse_astrosage_pdf(uploaded_pdf.read())
-            if result:
-                st.session_state.pdf_context = result
+                _pdf_parse_result = parse_astrosage_pdf(uploaded_pdf.read())
+            if _pdf_parse_result:
+                st.session_state.pdf_context = _pdf_parse_result
                 st.session_state["_astrosage_pdf_name"] = uploaded_pdf.name
                 st.success("AstroSage data loaded.")
             else:
