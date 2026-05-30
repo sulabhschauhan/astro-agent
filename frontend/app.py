@@ -397,10 +397,6 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if msg["role"] == "assistant":
-            if msg.get("top_score") is not None:
-                st.caption(f"Confidence: {msg['top_score']:.2f}")
-            if msg.get("low_confidence"):
-                st.warning("Low confidence — answer may be general")
             for _nudge in msg.get("nudges", []):
                 st.info(_nudge)
 
@@ -428,18 +424,13 @@ if st.session_state.pending_question is not None and _has_new_context:
                 session=st.session_state.session_mgr,
                 introduce=_introduce,
             )
-        _btn_answer     = _btn_result["answer"]
-        _btn_lc         = _btn_result["low_confidence"]
-        _btn_sources    = _btn_result["sources"]
-        _btn_top_score  = _btn_sources[0]["score"] if _btn_sources else None
-        _btn_nudges     = _btn_result.get("nudges", [])
+        _btn_answer = _btn_result["answer"]
+        _btn_nudges = _btn_result.get("nudges", [])
         st.session_state.messages.append({"role": "user", "content": _pq})
         st.session_state.messages.append({
-            "role":           "assistant",
-            "content":        _btn_answer,
-            "low_confidence": _btn_lc,
-            "top_score":      _btn_top_score,
-            "nudges":         _btn_nudges,
+            "role":    "assistant",
+            "content": _btn_answer,
+            "nudges":  _btn_nudges,
         })
         try:
             st.session_state.session_mgr.save()
@@ -483,10 +474,7 @@ if prompt:
                 st.session_state.messages.append({"role": "user", "content": prompt})
 
                 with st.chat_message("assistant"):
-                    answer         = result["answer"]
-                    low_confidence = result["low_confidence"]
-                    sources        = result["sources"]
-                    top_score      = sources[0]["score"] if sources else None
+                    answer = result["answer"]
 
                     st.write_stream(_stream_answer(answer))
 
@@ -494,11 +482,9 @@ if prompt:
                         st.info(_nudge)
 
                     st.session_state.messages.append({
-                        "role":           "assistant",
-                        "content":        answer,
-                        "low_confidence": low_confidence,
-                        "top_score":      top_score,
-                        "nudges":         result.get("nudges", []),
+                        "role":    "assistant",
+                        "content": answer,
+                        "nudges":  result.get("nudges", []),
                     })
 
                     # Persist session to disk; non-fatal on failure
