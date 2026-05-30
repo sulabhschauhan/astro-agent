@@ -90,13 +90,6 @@ NOTE: The available passages have a weak match to this question. Answer carefull
 
 _INTRODUCE_ADDENDUM = "\n\nBegin your response by introducing yourself as Parashara."
 
-PALM_TOPICS = {
-    "rich", "wealth", "money", "career", "job", "luck", "longevity",
-    "health", "life", "love", "marriage", "children",
-    "success", "future", "when will", "how long",
-}
-
-
 def build_prompts(
     question: str,
     sources: list[dict],
@@ -104,6 +97,8 @@ def build_prompts(
     pdf_context: str | None = None,
     palm_left: str | None = None,
     palm_right: str | None = None,
+    spouse_pdf: str | None = None,
+    hand_detail: str | None = None,
     introduce: bool = False,
     low_confidence: bool = False,
     context_order: list[str] | None = None,
@@ -115,14 +110,19 @@ def build_prompts(
         question: User question string.
         sources: 9-field dicts from query_engine (may be empty).
         kundali_context: Optional birth chart summary.
-        pdf_context: Optional AstroSage annual report text.
+        pdf_context: Optional user's AstroSage annual report text (slot: "pdf" or "own_pdf").
         palm_left: Optional left-hand palm description.
         palm_right: Optional right-hand palm description.
+        spouse_pdf: Optional spouse's AstroSage annual report text (slot: "spouse_pdf").
+        hand_detail: Optional detailed hand photograph analysis (slot: "hand_detail").
         introduce: If True, Parashara introduces himself.
         low_confidence: If True, appends weak-match caveat to system prompt.
 
     Returns:
         {"system": str, "user": str}
+
+    Note: nudge logic (palm upload prompt) has been removed — now owned by
+    context_classifier.classify().
     """
     has_palm = palm_left is not None or palm_right is not None
 
@@ -156,8 +156,12 @@ def build_prompts(
                 "specific guidance per period. Do not give a generic "
                 "summary."
             )
-        elif slot == "pdf" and pdf_context:
+        elif slot in ("pdf", "own_pdf") and pdf_context:
             lines.append("\n## AstroSage Annual Report\n" + pdf_context)
+        elif slot == "spouse_pdf" and spouse_pdf:
+            lines.append("\n## Spouse AstroSage Annual Report\n" + spouse_pdf)
+        elif slot == "hand_detail" and hand_detail:
+            lines.append("\n## Hand Detail Analysis\n" + hand_detail)
         elif slot == "palm" and has_palm:
             if palm_left:
                 lines.append(f"\nLEFT HAND (innate potential):\n{palm_left}")
@@ -170,11 +174,5 @@ def build_prompts(
                 )
 
     lines.append(f"\nQuestion: {question}")
-
-    if not has_palm and any(t in question.lower() for t in PALM_TOPICS):
-        lines.append(
-            "\n\n[If you have a palm description available, "
-            "sharing it would help provide a more complete reading.]"
-        )
 
     return {"system": system, "user": "\n".join(lines)}
