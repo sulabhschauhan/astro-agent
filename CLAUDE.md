@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 12 IN PROGRESS.** Priority 2: _PALM_TOPICS keyword audit — context_router.py coverage vs actual query patterns.
+**Session 12 COMPLETE.** Phase 1 classifier gate shipped — context_classifier.py, router stripped, app.py pending_question flow, 40/40 passing.
 <!-- UPDATE THIS every session. One line only. -->
 
 

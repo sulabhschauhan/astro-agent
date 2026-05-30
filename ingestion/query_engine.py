@@ -149,7 +149,7 @@ def multi_source_search(
             "Jataka Parijata with explanation of Pt. Kapileshvara Shastri and Vimala Hindi Tika of Pt. Shri Matri Prasad Shastri Series No. 10 - Kashi Sanskrit Series",
             "Sarvartha-Chintamani",
             "Hasta Samudrika Shastra by Shri Vasant Lal Vyas 1976 Delhi - Janata Prakashan",
-            "LAL KITAB-1941",
+            "Jyotish_Lal Kitab_B.M. Gosvami",
             "uttkalamrita-kalidas-ps-sastri",
         ]
 

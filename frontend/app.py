@@ -74,6 +74,8 @@ if "_palm_left_image_name" not in st.session_state:
     st.session_state["_palm_left_image_name"] = None
 if "_palm_right_image_name" not in st.session_state:
     st.session_state["_palm_right_image_name"] = None
+if "pending_question" not in st.session_state:
+    st.session_state.pending_question = None
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -349,6 +351,55 @@ for msg in st.session_state.messages:
             if msg.get("low_confidence"):
                 st.warning("Low confidence — answer may be general")
 
+# ─── "Generate My Reading" button ────────────────────────────────────────────
+# Shown when a question was gated and context has since been uploaded.
+_has_new_context = (
+    st.session_state.get("palm_left_str") is not None
+    or st.session_state.get("palm_right_str") is not None
+    or st.session_state.pdf_context is not None
+)
+if st.session_state.pending_question is not None and _has_new_context:
+    if st.button("✋ Generate My Reading"):
+        _pq = st.session_state.pending_question
+        st.session_state.pending_question = None
+        _introduce = len(st.session_state.messages) == 0
+        _router_pq = route(
+            question=_pq,
+            has_kundali=st.session_state.chart_ready,
+            has_pdf=st.session_state.pdf_context is not None,
+            has_palm=(
+                st.session_state.palm_left_str is not None
+                or st.session_state.palm_right_str is not None
+            ),
+        )
+        with st.spinner("Consulting the stars…"):
+            _btn_result = ask(
+                question=_pq,
+                kundali_context=st.session_state.kundali_str or None,
+                pdf_context=st.session_state.pdf_context or None,
+                palm_left=st.session_state.get("palm_left_str"),
+                palm_right=st.session_state.get("palm_right_str"),
+                session=st.session_state.session_mgr,
+                introduce=_introduce,
+                context_order=_router_pq.get("context_order", ["rag", "kundali", "pdf"]),
+            )
+        _btn_answer     = _btn_result["answer"]
+        _btn_lc         = _btn_result["low_confidence"]
+        _btn_sources    = _btn_result["sources"]
+        _btn_top_score  = _btn_sources[0]["score"] if _btn_sources else None
+        st.session_state.messages.append({"role": "user", "content": _pq})
+        st.session_state.messages.append({
+            "role":           "assistant",
+            "content":        _btn_answer,
+            "low_confidence": _btn_lc,
+            "top_score":      _btn_top_score,
+        })
+        try:
+            st.session_state.session_mgr.save()
+        except RuntimeError:
+            pass
+        st.rerun()
+
 # Chat input — disabled until chart is ready
 prompt = st.chat_input(
     "Enter your birth details in the sidebar first" if not st.session_state.chart_ready else "Ask about your birth chart…",
@@ -359,76 +410,67 @@ if prompt:
     if not st.session_state.chart_ready:
         st.warning("Please calculate your birth chart in the sidebar first.")
     else:
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        # introduce=True only on the very first real answer (no messages yet)
+        introduce = len(st.session_state.messages) == 0
 
-        with st.chat_message("assistant"):
-            try:
-                # introduce=True only on the very first turn (just the user message is in list)
-                introduce = len(st.session_state.messages) == 1
-
-                _router = route(
+        _router = route(
+            question=prompt,
+            has_kundali=st.session_state.chart_ready,
+            has_pdf=st.session_state.pdf_context is not None,
+            has_palm=(
+                st.session_state.palm_left_str is not None
+                or st.session_state.palm_right_str is not None
+            ),
+        )
+        try:
+            with st.spinner("Consulting the stars…"):
+                result = ask(
                     question=prompt,
-                    has_kundali=st.session_state.chart_ready,
-                    has_pdf=st.session_state.pdf_context is not None,
-                    has_palm=(
-                        st.session_state.palm_left_str is not None
-                        or st.session_state.palm_right_str is not None
-                    ),
+                    kundali_context=st.session_state.kundali_str or None,
+                    pdf_context=st.session_state.pdf_context or None,
+                    palm_left=st.session_state.get("palm_left_str"),
+                    palm_right=st.session_state.get("palm_right_str"),
+                    session=st.session_state.session_mgr,
+                    introduce=introduce,
+                    context_order=_router.get("context_order", ["rag", "kundali", "pdf"]),
                 )
-                with st.spinner("Consulting the stars…"):
-                    result = ask(
-                        question=prompt,
-                        kundali_context=st.session_state.kundali_str or None,
-                        pdf_context=st.session_state.pdf_context or None,
-                        palm_left=st.session_state.get("palm_left_str"),
-                        palm_right=st.session_state.get("palm_right_str"),
-                        session=st.session_state.session_mgr,
-                        introduce=introduce,
-                        context_order=_router.get("context_order", ["rag", "kundali", "pdf"]),
-                    )
 
-                answer         = result["answer"]
-                low_confidence = result["low_confidence"]
-                sources        = result["sources"]
-                top_score      = sources[0]["score"] if sources else None
+            if result["gated"]:
+                st.session_state.pending_question = prompt
+                st.warning(result["answer"])
+            else:
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                st.session_state.messages.append({"role": "user", "content": prompt})
 
-                st.write_stream(_stream_answer(answer))
+                with st.chat_message("assistant"):
+                    answer         = result["answer"]
+                    low_confidence = result["low_confidence"]
+                    sources        = result["sources"]
+                    top_score      = sources[0]["score"] if sources else None
 
-                if _router["nudge"]:
-                    _left_done  = st.session_state.get("palm_left_confirmed", False)
-                    _right_done = st.session_state.get("palm_right_confirmed", False)
-                    if _router["needs_palm"]:
-                        if not _left_done and not _right_done:
-                            st.info("Share photos of both palms for a more personal reading.")
-                        elif not _left_done:
-                            st.info("Share your left palm photo to complete the reading.")
-                        elif not _right_done:
-                            st.info("Share your right palm photo to complete the reading.")
-                    else:
-                        st.info(_router["nudge"])
+                    st.write_stream(_stream_answer(answer))
 
-                st.session_state.messages.append({
-                    "role":           "assistant",
-                    "content":        answer,
-                    "low_confidence": low_confidence,
-                    "top_score":      top_score,
-                })
+                    st.session_state.messages.append({
+                        "role":           "assistant",
+                        "content":        answer,
+                        "low_confidence": low_confidence,
+                        "top_score":      top_score,
+                    })
 
-                # Persist session to disk; non-fatal on failure
-                try:
-                    st.session_state.session_mgr.save()
-                except RuntimeError:
-                    st.warning("Session could not be saved. Chat history may not persist.")
+                    # Persist session to disk; non-fatal on failure
+                    try:
+                        st.session_state.session_mgr.save()
+                    except RuntimeError:
+                        st.warning("Session could not be saved. Chat history may not persist.")
 
-            except ValueError as e:
-                st.error(f"Invalid input: {e}")
-            except RuntimeError as e:
-                st.error(f"Database error: {e}")
-            except Exception as e:
-                err = str(e).lower()
-                if "api_key" in err or "authentication" in err:
-                    st.error("OpenAI API key missing or invalid — check your .env file.")
-                else:
-                    st.error(f"{type(e).__name__}: {e}")
+        except ValueError as e:
+            st.error(f"Invalid input: {e}")
+        except RuntimeError as e:
+            st.error(f"Database error: {e}")
+        except Exception as e:
+            err = str(e).lower()
+            if "api_key" in err or "authentication" in err:
+                st.error("OpenAI API key missing or invalid — check your .env file.")
+            else:
+                st.error(f"{type(e).__name__}: {e}")

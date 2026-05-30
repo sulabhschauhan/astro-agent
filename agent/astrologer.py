@@ -16,6 +16,7 @@ from agent.prompt_builder import build_prompts, DISCLAIMER, needs_disclaimer
 from agent.session_manager import SessionManager
 from agent.config import REWRITE_MAP
 from agent.context_router import route
+from agent.context_classifier import classify_context
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -70,6 +71,11 @@ def ask(
     """
     Full RAG pipeline: retrieve → prompt → GPT-4o-mini → structured response.
 
+    Phase 1 gate: classify_context() runs before any RAG or GPT call. If the
+    question requires context the user has not yet provided (palm photo, AstroSage
+    PDF), ask() returns immediately with gated=True and a friendly upload prompt —
+    no retrieval or inference cost is incurred.
+
     Args:
         question: User question (must be non-empty).
         kundali_context: Optional birth chart summary string.
@@ -87,10 +93,11 @@ def ask(
 
     Returns:
         {
-            "answer":         str,        # Parashara's response
-            "sources":        list[dict], # 9-field dicts from query_engine (backend use)
+            "answer":         str,        # Parashara's response (or upload prompt if gated)
+            "sources":        list[dict], # 9-field dicts from query_engine (empty if gated)
             "low_confidence": bool,       # True if top score < LOW_CONFIDENCE_THRESHOLD
-            "model":          str,        # model used for inference
+            "gated":          bool,       # True if Phase 1 gate blocked the request
+            "model":          str,        # model used for inference (absent if gated)
         }
 
     Raises:
@@ -100,6 +107,21 @@ def ask(
     """
     if not question.strip():
         raise ValueError("question must not be empty.")
+
+    # Phase 1 — classify context gaps before any RAG or GPT call
+    classification = classify_context(
+        question=question,
+        has_kundali=kundali_context is not None,
+        has_pdf=pdf_context is not None,
+        has_palm=palm_left is not None or palm_right is not None,
+    )
+    if not classification["proceed"]:
+        return {
+            "answer":         classification["message"],
+            "low_confidence": False,
+            "sources":        [],
+            "gated":          True,
+        }
 
     # Step 1 — retrieve (rewritten query for search only; original question goes to GPT)
     search_query = _rewrite_query(question)
@@ -115,9 +137,10 @@ def ask(
                 "I couldn't find relevant passages in my texts to answer this question. "
                 "Could you rephrase or give me more context?\n\n" + DISCLAIMER
             ),
-            "sources": [],
+            "sources":        [],
             "low_confidence": True,
-            "model": MODEL,
+            "gated":          False,
+            "model":          MODEL,
         }
 
     # Step 2 — assess confidence
@@ -169,6 +192,7 @@ def ask(
         "answer":         answer,
         "sources":        sources,
         "low_confidence": low_confidence,
+        "gated":          False,
         "model":          MODEL,
     }
 
