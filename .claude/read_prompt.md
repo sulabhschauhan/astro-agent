@@ -3,32 +3,31 @@
 #Paste your instructions here. Then tell Claude: "Read .claude/read_prompt.md and execute"
 
 
-In agent/context_classifier.py, the _FAIL_OPEN dict hardcodes
-context_order to ["kundali", "rag"]. If the classify() API call fails
-for a user who has uploaded own_pdf, spouse_pdf, palm_left, palm_right,
-or hand_detail, that context is silently dropped on fallback — the user
-gets a generic vedic-profile answer with no indication their uploads
-were ignored.
+In agent/palm_processor.py, validate_palm_image():
 
-Fix: on API failure, build context_order dynamically from what's
-actually present in the ContextBundle passed into classify() — include
-kundali first if present, then own_pdf, spouse_pdf, palm_left,
-palm_right, hand_detail (whichever the bundle has), then rag last.
-retrieval_profile on fallback should be "palmistry" if palm_left or
-palm_right is present and kundali/own_pdf are not, otherwise "vedic".
-needs_required and hard_block stay as-is (False/None) — fail-open must
-never hard-block.
+1. Remove all mention of {slot} from the message sent to GPT-4o for
+   hand determination — the model should determine "hand" purely from
+   image content, with no slot context at all.
+2. Update _SYSTEM_PROMPT's JSON schema: GPT returns only "hand",
+   "quality", "issues" — drop "matches_slot" from what GPT returns
+   entirely.
+3. In Python, after receiving "hand" from GPT, compute
+   matches_slot = (hand == slot) deterministically — slot is the
+   function's existing parameter, no new input needed.
+4. Keep all existing hard_reject/warn logic, just sourced from the
+   Python-computed matches_slot instead of GPT's.
 
-Constraints:
-- Surgical edit to agent/context_classifier.py only
-- _FAIL_OPEN can become a small helper function computed at the
-  exception site using the bundle already in scope — do not restructure
-  classify()'s overall control flow
-- Do not touch _VALID_* whitelists or the LLM-facing classification
-  prompt
-- Add a test: simulate classify() raising an exception with a bundle
-  containing kundali + palm_left + palm_right (no own_pdf) — assert
-  fallback context_order is ["kundali", "palm_left", "palm_right", "rag"]
-  and retrieval_profile is sensible for that case
-- Run the full test suite after the change and report pass/fail count —
-  do not fix unrelated failures, just report them
+In tests/manual/slot_bias_check.py (keep as throwaway, don't add to
+suite): re-run with the new code — call validate_palm_image(same
+image bytes, "left") and validate_palm_image(same bytes, "right") —
+this time "hand" should be IDENTICAL in both calls (slot-independent).
+Report the new hand value for palm_left_test.jpg.
+
+Then, in tests/test_palm_endtoend.py, replace test_left_palm_validates
+and test_right_palm_validates with a single new test:
+test_hand_detection_is_slot_independent — calls validate_palm_image on
+the same image with both slot="left" and slot="right", asserts "hand"
+is identical in both results. This is now the regression guard against
+this exact bug recurring.
+
+Run full test suite, report pass/fail count.

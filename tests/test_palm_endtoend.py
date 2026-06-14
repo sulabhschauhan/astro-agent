@@ -1,8 +1,8 @@
 """
 tests/test_palm_endtoend.py
 End-to-end tests for palm validation and prompt assembly.
-Tests 1+2 make real GPT-4o vision calls.
-Tests 3+4+5 are deterministic — no GPT calls.
+Test 1 makes real GPT-4o vision calls (two internally).
+Tests 2+3+4 are deterministic — no GPT calls.
 """
 
 import hashlib
@@ -59,15 +59,11 @@ def test_single_palm_no_synthesis():
 
 # ── GPT vision tests (real API calls) ────────────────────────────────────────
 
-def test_left_palm_validates():
-    result = validate_palm_image(_LEFT_BYTES, "left")
-    assert result["hard_reject"] is False
-    assert result["hash"] is not None
-    assert result["hand"] in ["left", "right", "unknown"]
-
-
-def test_right_palm_validates():
-    result = validate_palm_image(_RIGHT_BYTES, "right")
-    assert result["hard_reject"] is False
-    assert result["hash"] is not None
-    assert result["hand"] in ["left", "right", "unknown"]
+def test_hand_detection_is_slot_independent():
+    """hand classification must be image-driven, not influenced by the slot arg."""
+    r_left  = validate_palm_image(_LEFT_BYTES, "left")
+    r_right = validate_palm_image(_LEFT_BYTES, "right")
+    assert r_left["hand"] == r_right["hand"], (
+        f"hand changed with slot: slot=left -> {r_left['hand']!r}, "
+        f"slot=right -> {r_right['hand']!r}"
+    )

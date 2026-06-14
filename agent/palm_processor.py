@@ -17,18 +17,14 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = (
-    "You are a palm image validator. The user message tells you which slot (left or right) "
-    "this image was uploaded to. Analyse the image, detect which hand is actually shown, "
-    "and flag if the detected hand differs from the intended slot.\n"
+    "You are a palm image validator. Analyse the image and detect which hand is shown.\n"
     "Return ONLY valid JSON, no markdown:\n"
     "{\n"
     "  \"hand\": \"left|right|unknown\",\n"
-    "  \"matches_slot\": true,\n"
     "  \"quality\": \"good|poor_readable|unusable\",\n"
     "  \"issues\": [\"blurry\",\"partial\",\"dark\",\"not_a_hand\"]\n"
     "}\n"
-    "Set matches_slot to false when the detected hand differs from the intended slot; "
-    "default to true when hand is unknown. issues is an empty list if none."
+    "issues is an empty list if none."
 )
 
 
@@ -68,7 +64,7 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
                     "content": [
                         {
                             "type": "text",
-                            "text": f"This image was uploaded to the {slot} palm slot.",
+                            "text": "Analyse this palm image.",
                         },
                         {
                             "type": "image_url",
@@ -79,6 +75,7 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
             ],
             max_tokens=200,
             temperature=0,
+            response_format={"type": "json_object"},
         )
         raw = response.choices[0].message.content
     except Exception:
@@ -88,7 +85,7 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
             "hand":           "unknown",
             "quality":        "unknown",
             "issues":         [],
-            "hard_reject":    False,
+            "matches_slot":   None,            "hard_reject":    False,
             "warn":           True,
             "warn_message":   "Could not validate image — proceeding with caution.",
             "reject_message": None,
@@ -97,17 +94,18 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
     try:
         parsed       = json.loads(raw)
         hand         = parsed.get("hand", "unknown")
-        matches_slot = parsed.get("matches_slot", True)
         quality      = parsed.get("quality", "unknown")
         issues       = parsed.get("issues", [])
+        matches_slot = (hand == slot)
     except (json.JSONDecodeError, ValueError):
+        logger.debug("palm_processor: raw GPT response for slot=%s: %r", slot, raw)
         logger.warning("palm_processor: JSON parse failed for slot=%s. raw=%r", slot, raw)
         return {
             "hash":           image_hash,
             "hand":           "unknown",
             "quality":        "unknown",
             "issues":         [],
-            "hard_reject":    False,
+            "matches_slot":   None,            "hard_reject":    False,
             "warn":           True,
             "warn_message":   "Could not validate image — proceeding with caution.",
             "reject_message": None,
@@ -143,7 +141,7 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
         "hand":           hand,
         "quality":        quality,
         "issues":         issues,
-        "hard_reject":    hard_reject,
+        "matches_slot":   matches_slot,        "hard_reject":    hard_reject,
         "warn":           warn,
         "warn_message":   warn_message,
         "reject_message": reject_message,
