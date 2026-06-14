@@ -125,16 +125,24 @@ _VALID_ORDER_SLOTS:  frozenset[str] = frozenset({"kundali", "own_pdf", "spouse_p
 _VALID_REQUIRED:     frozenset[str] = frozenset({"own_pdf", "palm"})
 _VALID_ENRICHING:    frozenset[str] = frozenset({"spouse_pdf", "hand_detail"})
 
-_FAIL_OPEN: dict = {
-    "proceed":           True,
-    "hard_block":        False,
-    "blocked_on":        None,
-    "retrieval_profile": "vedic",
-    "context_order":     ["kundali", "rag"],
-    "needs_enriching":   [],
-    "nudges":            [],
-    "required_message":  None,
-}
+def _fail_open(bundle: ContextBundle) -> dict:
+    """Build a safe fallback result from whatever context the bundle actually has."""
+    avail = bundle.availability_map
+    _ORDER = ["kundali", "own_pdf", "spouse_pdf", "palm_left", "palm_right", "hand_detail"]
+    context_order = [slot for slot in _ORDER if avail.get(slot)] + ["rag"]
+    has_palm = avail.get("palm_left") or avail.get("palm_right")
+    has_chart = avail.get("kundali") or avail.get("own_pdf")
+    retrieval_profile = "palmistry" if has_palm and not has_chart else "vedic"
+    return {
+        "proceed":           True,
+        "hard_block":        False,
+        "blocked_on":        None,
+        "retrieval_profile": retrieval_profile,
+        "context_order":     context_order,
+        "needs_enriching":   [],
+        "nudges":            [],
+        "required_message":  None,
+    }
 
 
 def classify(
@@ -266,4 +274,4 @@ def classify(
             "context_classifier.classify: failed for question=%r — failing open",
             question,
         )
-        return dict(_FAIL_OPEN)
+        return _fail_open(bundle)

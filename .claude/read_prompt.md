@@ -3,55 +3,32 @@
 #Paste your instructions here. Then tell Claude: "Read .claude/read_prompt.md and execute"
 
 
-Rewrite the following four test files in full. Each is a complete
-replacement — the old content is entirely obsolete.
+In agent/context_classifier.py, the _FAIL_OPEN dict hardcodes
+context_order to ["kundali", "rag"]. If the classify() API call fails
+for a user who has uploaded own_pdf, spouse_pdf, palm_left, palm_right,
+or hand_detail, that context is silently dropped on fallback — the user
+gets a generic vedic-profile answer with no indication their uploads
+were ignored.
 
-FILE 1 — tests/test_nudge_endtoend.py
-Rename the file's purpose in the docstring: these are now integration
-tests for context_classifier.classify() using the new signature.
-Import classify from agent.context_classifier and ContextBundle from
-agent.context_bundle. No imports of classify_context or route anywhere.
+Fix: on API failure, build context_order dynamically from what's
+actually present in the ContextBundle passed into classify() — include
+kundali first if present, then own_pdf, spouse_pdf, palm_left,
+palm_right, hand_detail (whichever the bundle has), then rag last.
+retrieval_profile on fallback should be "palmistry" if palm_left or
+palm_right is present and kundali/own_pdf are not, otherwise "vedic".
+needs_required and hard_block stay as-is (False/None) — fail-open must
+never hard-block.
 
-Write five tests using real GPT-4o-mini calls:
-  1. Palmistry question with no palm in bundle — hard_block True, blocked_on "palm"
-  2. Time-bound question with no own_pdf in bundle — hard_block True, blocked_on "own_pdf"
-  3. Palmistry question with palm present in bundle — hard_block False, proceed True
-  4. Time-bound question with own_pdf present in bundle — hard_block False, proceed True
-  5. General vedic question with empty bundle — hard_block False, retrieval_profile "vedic"
-
-FILE 2 — tests/test_prompt_builder.py
-Rename the file's purpose in the docstring: these are now tests for
-the new build_prompts() signature with spouse_pdf and hand_detail.
-No imports of route or classify. All tests are deterministic — no GPT calls.
-
-Write four tests:
-  1. spouse_pdf slot renders correctly — pass spouse_pdf string and
-     context_order containing "spouse_pdf", assert "Spouse AstroSage" in user message
-  2. hand_detail slot renders correctly — pass hand_detail string and
-     context_order containing "hand_detail", assert "Hand Detail Analysis" in user message
-  3. Dual palm synthesis still works — palm_left and palm_right both passed,
-     assert "Synthesise both" in user message
-  4. Nudge block is gone — pass no palm, assert the old nudge string
-     "[If you have a palm description available" is NOT in user message
-     (this is a regression guard — confirms PALM_TOPICS removal is clean)
-
-FILE 3 — tests/test_context_integration.py
-Rename the file's purpose in the docstring: these are now tests for
-build_prompts() rendering with classifier-style context_order inputs.
-No imports of route. No GPT calls. Call build_prompts() directly with
-hardcoded context_order lists that mirror what classify() would return.
-
-Write four tests covering:
-  1. Vedic-only context_order — kundali + rag, no pdf/palm blocks in output
-  2. Palmistry context_order — palm_left + palm_right + rag, assert LEFT HAND and RIGHT HAND present
-  3. own_pdf context_order — own_pdf slot renders AstroSage Annual Report header
-  4. Full context_order with all slots — kundali + own_pdf + spouse_pdf +
-     palm_left + palm_right + hand_detail + rag — assert all six context
-     headers present in user message
-
-FILE 4 — tests/test_palm_quality.py
-Surgical edits only — do not rewrite. Update the two ask() call sites
-to add spouse_pdf=None and hand_detail=None explicitly. No other changes.
-
-After writing all four files, run the full test suite with pytest and
-report the pass/fail count. Do not proceed to fix failures — report them.
+Constraints:
+- Surgical edit to agent/context_classifier.py only
+- _FAIL_OPEN can become a small helper function computed at the
+  exception site using the bundle already in scope — do not restructure
+  classify()'s overall control flow
+- Do not touch _VALID_* whitelists or the LLM-facing classification
+  prompt
+- Add a test: simulate classify() raising an exception with a bundle
+  containing kundali + palm_left + palm_right (no own_pdf) — assert
+  fallback context_order is ["kundali", "palm_left", "palm_right", "rag"]
+  and retrieval_profile is sensible for that case
+- Run the full test suite after the change and report pass/fail count —
+  do not fix unrelated failures, just report them
