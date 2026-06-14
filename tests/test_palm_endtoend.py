@@ -1,13 +1,15 @@
 """
 tests/test_palm_endtoend.py
 End-to-end tests for palm validation and prompt assembly.
-Test 1 makes real GPT-4o vision calls (two internally).
-Tests 2+3+4 are deterministic — no GPT calls.
+Tests 1+2+3 are deterministic — no GPT calls.
+Test 4 makes real GPT-4o vision calls (two internally).
 """
 
 import hashlib
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -59,11 +61,22 @@ def test_single_palm_no_synthesis():
 
 # ── GPT vision tests (real API calls) ────────────────────────────────────────
 
-def test_hand_detection_is_slot_independent():
-    """hand classification must be image-driven, not influenced by the slot arg."""
+@pytest.mark.integration
+def test_validation_is_slot_independent():
+    """validate_palm_image results must be image-driven, not influenced by the slot arg."""
     r_left  = validate_palm_image(_LEFT_BYTES, "left")
     r_right = validate_palm_image(_LEFT_BYTES, "right")
-    assert r_left["hand"] == r_right["hand"], (
-        f"hand changed with slot: slot=left -> {r_left['hand']!r}, "
-        f"slot=right -> {r_right['hand']!r}"
+    assert r_left["quality"] == r_right["quality"], (
+        f"quality changed with slot: slot=left -> {r_left['quality']!r}, "
+        f"slot=right -> {r_right['quality']!r}"
+    )
+    # Compare as sets — temperature=0 should keep content stable, but list
+    # ordering of issues/tips is not a guaranteed contract.
+    assert set(r_left["issues"]) == set(r_right["issues"]), (
+        f"issues changed with slot: slot=left -> {r_left['issues']!r}, "
+        f"slot=right -> {r_right['issues']!r}"
+    )
+    assert set(r_left["geometry_tips"]) == set(r_right["geometry_tips"]), (
+        f"geometry_tips changed with slot: slot=left -> {r_left['geometry_tips']!r}, "
+        f"slot=right -> {r_right['geometry_tips']!r}"
     )

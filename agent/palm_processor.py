@@ -17,15 +17,27 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = (
-    "You are a palm image validator. Analyse the image and detect which hand is shown.\n"
+    "You are a palm image validator. Analyse the image and report objective "
+    "observations only — do not identify which hand (left or right) this is.\n"
     "Return ONLY valid JSON, no markdown:\n"
     "{\n"
-    "  \"hand\": \"left|right|unknown\",\n"
     "  \"quality\": \"good|poor_readable|unusable\",\n"
-    "  \"issues\": [\"blurry\",\"partial\",\"dark\",\"not_a_hand\"]\n"
+    "  \"issues\": [\"blurry\",\"partial\",\"dark\",\"not_a_hand\"],\n"
+    "  \"palm_facing\": \"camera|away|unclear\",\n"
+    "  \"finger_direction\": \"up|down|sideways|unclear\"\n"
     "}\n"
     "issues is an empty list if none."
 )
+
+_VALID_PALM_FACING      = frozenset({"camera", "away", "unclear"})
+_VALID_FINGER_DIRECTION = frozenset({"up", "down", "sideways", "unclear"})
+
+# Soft, non-blocking capture guidance (never "wrong"/error framing).
+_GEOMETRY_ORIENTATION_TIP = "Tip: for best results, hold your palm facing the camera with fingers pointing up."
+_GEOMETRY_ISSUE_TIPS: dict[str, str] = {
+    "blurry": "Tip: the image looks a bit blurry — a sharper, in-focus photo will give a more accurate reading.",
+    "dark":   "Tip: the image looks a bit dark — better lighting will give a more accurate reading.",
+}
 
 
 def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
@@ -35,17 +47,18 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
     Args:
         image_bytes: Raw bytes of the uploaded image.
         slot: "left" or "right" — identifies which uploader the image came from.
+              Used for logging only; not compared against a detected hand.
 
     Returns:
         {
             "hash":           str,        # MD5 hex digest of image_bytes
-            "hand":           str,        # "left" | "right" | "unknown"
             "quality":        str,        # "good" | "poor_readable" | "unusable" | "unknown"
             "issues":         list[str],  # subset of blurry/partial/dark/not_a_hand
             "hard_reject":    bool,       # True → do not use image for reading
             "warn":           bool,       # True → usable but warn the user
             "warn_message":   str|None,   # set when warn=True
             "reject_message": str|None,   # set when hard_reject=True
+            "geometry_tips":  list[str],  # soft, non-blocking capture guidance (never errors)
         }
     """
     image_hash = hashlib.md5(image_bytes).hexdigest()
@@ -82,33 +95,37 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
         logger.exception("palm_processor: GPT-4o call failed for slot=%s hash=%s", slot, image_hash)
         return {
             "hash":           image_hash,
-            "hand":           "unknown",
             "quality":        "unknown",
             "issues":         [],
-            "matches_slot":   None,            "hard_reject":    False,
+            "hard_reject":    False,
             "warn":           True,
             "warn_message":   "Could not validate image — proceeding with caution.",
             "reject_message": None,
+            "geometry_tips":  [],
         }
 
     try:
-        parsed       = json.loads(raw)
-        hand         = parsed.get("hand", "unknown")
-        quality      = parsed.get("quality", "unknown")
-        issues       = parsed.get("issues", [])
-        matches_slot = (hand == slot)
+        parsed           = json.loads(raw)
+        quality          = parsed.get("quality", "unknown")
+        issues           = parsed.get("issues", [])
+        palm_facing      = parsed.get("palm_facing", "unclear")
+        finger_direction = parsed.get("finger_direction", "unclear")
+        if palm_facing not in _VALID_PALM_FACING:
+            palm_facing = "unclear"
+        if finger_direction not in _VALID_FINGER_DIRECTION:
+            finger_direction = "unclear"
     except (json.JSONDecodeError, ValueError):
         logger.debug("palm_processor: raw GPT response for slot=%s: %r", slot, raw)
         logger.warning("palm_processor: JSON parse failed for slot=%s. raw=%r", slot, raw)
         return {
             "hash":           image_hash,
-            "hand":           "unknown",
             "quality":        "unknown",
             "issues":         [],
-            "matches_slot":   None,            "hard_reject":    False,
+            "hard_reject":    False,
             "warn":           True,
             "warn_message":   "Could not validate image — proceeding with caution.",
             "reject_message": None,
+            "geometry_tips":  [],
         }
 
     hard_reject    = False
@@ -116,10 +133,7 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
     warn_message   = None
     reject_message = None
 
-    if hand == "unknown":
-        hard_reject    = True
-        reject_message = "Hand orientation could not be determined — please upload a clearer palm image."
-    elif "not_a_hand" in issues:
+    if "not_a_hand" in issues:
         hard_reject    = True
         reject_message = "This does not appear to be a palm image — please upload a photo of your hand."
     elif quality == "unusable":
@@ -129,22 +143,24 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
         warn         = True
         warn_message = "Image quality is reduced — the reading may be less accurate."
 
-    if not matches_slot and not hard_reject:
-        warn         = True
-        warn_message = (
-            f"The detected hand appears to be the opposite of the {slot} slot — "
-            "please confirm this is the correct hand or use the swap button."
-        )
+    # ── Soft, non-blocking capture guidance (never overrides hard_reject) ──────
+    geometry_tips: list[str] = []
+    for issue in ("blurry", "dark"):
+        if issue in issues:
+            geometry_tips.append(_GEOMETRY_ISSUE_TIPS[issue])
+
+    if palm_facing != "camera" or finger_direction != "up":
+        geometry_tips.append(_GEOMETRY_ORIENTATION_TIP)
 
     return {
         "hash":           image_hash,
-        "hand":           hand,
         "quality":        quality,
         "issues":         issues,
-        "matches_slot":   matches_slot,        "hard_reject":    hard_reject,
+        "hard_reject":    hard_reject,
         "warn":           warn,
         "warn_message":   warn_message,
         "reject_message": reject_message,
+        "geometry_tips":  geometry_tips,
     }
 
 
