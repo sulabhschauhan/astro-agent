@@ -206,14 +206,6 @@ with st.sidebar:
         st.rerun()
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
-
-def _stream_answer(text: str):
-    for word in text.split():
-        if word:
-            yield word + " "
-
-
 # ─── Main area ────────────────────────────────────────────────────────────────
 
 st.title("Parashara — Vedic Astrology")
@@ -595,6 +587,9 @@ if prompt:
         # introduce=True only on the very first real answer (no messages yet)
         introduce = len(st.session_state.messages) == 0
 
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
         try:
             with st.spinner("Consulting the stars…"):
                 result = ask(
@@ -613,14 +608,12 @@ if prompt:
                 st.session_state.pending_question = prompt
                 st.warning(result["answer"])
             else:
-                with st.chat_message("user"):
-                    st.markdown(prompt)
                 st.session_state.messages.append({"role": "user", "content": prompt})
 
                 with st.chat_message("assistant"):
                     answer = result["answer"]
 
-                    st.write_stream(_stream_answer(answer))
+                    st.markdown(answer)
 
                     for _nudge in result.get("nudges", []):
                         st.info(_nudge)

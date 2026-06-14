@@ -5,9 +5,11 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 14 COMPLETE.** All debt cleared, UI confidence score removed, multi-part question fix repositioned, palm misclassification fixed. 37/37 passing. Session 15 not started.
+**Session 16 COMPLETE.** Palm geometry validation consolidated into validate_palm_image()'s single GPT-4o call — quality/issues still drive hard_reject/warn; palm_facing/finger_direction (+ issues) now also produce geometry_tips, no extra call. Hand-laterality detection removed entirely — replaced with upload-time human confirmation + swap (regenerates description on swap). Chat UI: fixed unformatted-answer bug (st.write_stream → st.markdown) and question-disappear-on-submit bug (render order). 35/35 non-integration passing.
 <!-- UPDATE THIS every session. One line only. -->
 
+## Locked Decisions
+- **Hand-laterality via vision LLM** — evaluated across Sessions 15-16 under 3 framings (anchored chirality, unanchored chirality, thumb-side spatial position); consistently unreliable (Session 15: 5/6 right-bias on unlabeled images; Session 16: 3/4 thumb-side accuracy on N=4, one image misjudged, sample too small to trust). Permanent design: human confirmation at upload, no GPT laterality judgment.
 
 ## Windows Paths (hardcoded)
 - Tesseract: `C:\Program Files\Tesseract-OCR\tesseract.exe`
