@@ -1,14 +1,16 @@
 """
 chart_calculator.py
-Vedic birth chart engine: pyswisseph, Lahiri ayanamsha, whole-sign houses, IST input.
+Vedic birth chart engine: pyswisseph, Lahiri ayanamsha, whole-sign houses, multi-location input.
 Output must be verified against AstroSage before production use.
 """
 
 import swisseph as swe
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
 import pytz
+from timezonefinder import TimezoneFinder
 
 
 # ─── Lookup tables ────────────────────────────────────────────────────────────
@@ -83,6 +85,10 @@ _SPECIAL_ASPECTS: dict[str, set[int]] = {
     "Ketu": {5, 9},
 }
 
+# No longer referenced by to_julian_day, calculate_chart,
+# calculate_solar_return, or build_varshaphal_chart — all now resolve the
+# birth location's offset via resolve_timezone_offset()/_local_datetime().
+# Retained (not removed) per Session 17 Task B3 decision.
 _IST = pytz.timezone("Asia/Kolkata")
 # Traditional Jyotish planet ordering for display (faster/luminaries first)
 _PLANET_ORDER = {p: i for i, p in enumerate(
@@ -202,13 +208,136 @@ def geocode_place_candidates(place: str, max_results: int = 5) -> list[dict]:
     return candidates
 
 
+# ─── Timezone Resolution ───────────────────────────────────────────────────────
+#
+# resolve_timezone_offset() is used by to_julian_day() (and so
+# calculate_chart()) to resolve the birth location's UTC offset for the
+# natal JD/dasha anchor. _local_datetime() (below) builds on it for the
+# "UTC instant -> local display datetime at (lat, lon)" pattern, used by
+# calculate_chart() (birth_local) and calculate_solar_return() (and so
+# build_varshaphal_chart(), via its epoch).
+
+_TIMEZONE_FINDER: TimezoneFinder | None = None
+
+
+def _get_timezone_finder() -> TimezoneFinder:
+    global _TIMEZONE_FINDER
+    if _TIMEZONE_FINDER is None:
+        _TIMEZONE_FINDER = TimezoneFinder()
+    return _TIMEZONE_FINDER
+
+
+def resolve_timezone_offset(lat: float, lon: float, dt_naive: datetime) -> float:
+    """
+    Resolve the UTC offset in hours for (lat, lon) at the given naive local
+    datetime.
+
+    Maps coordinates to an IANA timezone (timezonefinder), then resolves the
+    historically-correct, DST-aware UTC offset for dt_naive in that zone
+    (zoneinfo). The datetime matters, not just the location: the same
+    coordinates can have different offsets across history (DST, zone
+    redefinitions).
+
+    Args:
+        lat: Latitude in decimal degrees.
+        lon: Longitude in decimal degrees.
+        dt_naive: Naive local datetime (no tzinfo) at this location.
+
+    Returns:
+        UTC offset in hours, e.g. 5.5 for IST, 0.0 for GMT, 2.0 for SAST.
+
+    Raises:
+        ValueError: dt_naive is not naive, lat/lon are out of range, no
+            IANA timezone is found for the coordinates (e.g. open ocean),
+            or the resolved timezone name is missing from local tzdata.
+    """
+    if dt_naive.tzinfo is not None:
+        raise ValueError(
+            f"resolve_timezone_offset: dt_naive must be naive (no tzinfo), "
+            f"got {dt_naive!r}"
+        )
+
+    try:
+        tz_name = _get_timezone_finder().timezone_at(lat=lat, lng=lon)
+    except ValueError as exc:
+        raise ValueError(
+            f"resolve_timezone_offset: invalid coordinates lat={lat}, lon={lon}: {exc}"
+        ) from exc
+
+    if tz_name is None:
+        raise ValueError(
+            f"resolve_timezone_offset: no IANA timezone found for "
+            f"lat={lat}, lon={lon} (likely open ocean / uninhabited)"
+        )
+
+    try:
+        tz = ZoneInfo(tz_name)
+    except ZoneInfoNotFoundError as exc:
+        raise ValueError(
+            f"resolve_timezone_offset: timezone '{tz_name}' not found in "
+            f"local tzdata database"
+        ) from exc
+
+    offset = dt_naive.replace(tzinfo=tz).utcoffset()
+    if offset is None:
+        raise ValueError(
+            f"resolve_timezone_offset: could not determine UTC offset for "
+            f"'{tz_name}' at {dt_naive}"
+        )
+    return offset.total_seconds() / 3600.0
+
+
+def _local_datetime(utc_dt: datetime, lat: float, lon: float) -> datetime:
+    """
+    Convert a tz-aware UTC datetime to local time at (lat, lon).
+
+    Thin wrapper around resolve_timezone_offset(): resolves the UTC offset
+    for (lat, lon) at this instant, then re-expresses utc_dt with that
+    fixed-offset tzinfo.
+
+    Args:
+        utc_dt: tz-aware UTC datetime.
+        lat: Latitude in decimal degrees.
+        lon: Longitude in decimal degrees.
+
+    Returns:
+        utc_dt re-expressed with a fixed-offset tzinfo for (lat, lon).
+
+    Raises:
+        ValueError: propagated from resolve_timezone_offset() if the UTC
+            offset for (lat, lon) cannot be resolved. Callers should wrap
+            with their own context.
+    """
+    offset_hours = resolve_timezone_offset(lat, lon, utc_dt.replace(tzinfo=None))
+    return utc_dt.astimezone(timezone(timedelta(hours=offset_hours)))
+
+
 # ─── Julian Day conversion ────────────────────────────────────────────────────
 
-def to_julian_day(dob: str, tob: str) -> tuple[float, datetime]:
+def to_julian_day(dob: str, tob: str, lat: float, lon: float) -> tuple[float, datetime]:
     """
-    Parse IST birth date/time strings and return (jd_ut, utc_datetime).
+    Parse local birth date/time strings and return (jd_ut, utc_datetime).
+
+    The local UTC offset is resolved from (lat, lon) and the parsed
+    date/time via resolve_timezone_offset() — DST-aware and historically
+    correct; no longer a hardcoded IST assumption.
+
     Accepted date formats: YYYY-MM-DD, D Month YYYY, D Mon YYYY, DD/MM/YYYY.
     Accepted time formats: HH:MM:SS, HH:MM.
+
+    Args:
+        dob: Date of birth string.
+        tob: Time of birth string — local time at (lat, lon).
+        lat: Birth location latitude in decimal degrees.
+        lon: Birth location longitude in decimal degrees.
+
+    Returns:
+        (jd_ut, utc_datetime) — jd_ut is the Julian Day (UT) for pyswisseph;
+        utc_datetime is a tz-aware UTC datetime.
+
+    Raises:
+        ValueError: unrecognized date/time format, or the UTC offset for
+            (lat, lon) at this date/time could not be resolved.
     """
     d = None
     for fmt in _DATE_FMTS:
@@ -230,8 +359,16 @@ def to_julian_day(dob: str, tob: str) -> tuple[float, datetime]:
     if t is None:
         raise ValueError(f"Unrecognized time format: '{tob}'")
 
-    ist_dt = _IST.localize(datetime.combine(d, t))
-    utc_dt = ist_dt.astimezone(pytz.utc)
+    naive_dt = datetime.combine(d, t)
+    try:
+        offset_hours = resolve_timezone_offset(lat, lon, naive_dt)
+    except ValueError as exc:
+        raise ValueError(
+            f"to_julian_day: could not resolve timezone for dob='{dob}', "
+            f"tob='{tob}', lat={lat}, lon={lon}: {exc}"
+        ) from exc
+
+    utc_dt = (naive_dt - timedelta(hours=offset_hours)).replace(tzinfo=pytz.utc)
     hr = utc_dt.hour + utc_dt.minute / 60.0 + utc_dt.second / 3600.0
     jd_ut = swe.julday(utc_dt.year, utc_dt.month, utc_dt.day, hr)
     return jd_ut, utc_dt
@@ -315,7 +452,7 @@ def _calc_aspects(planets: dict) -> dict:
 
 # ─── Vimshottari Dasha ────────────────────────────────────────────────────────
 
-def _calc_dasha(moon_lon: float, birth_ist: datetime) -> dict:
+def _calc_dasha(moon_lon: float, birth_local: datetime) -> dict:
     """
     Compute Vimshottari dasha timeline from Moon's sidereal nakshatra.
     Returns current mahadasha/antardasha and next-period summaries.
@@ -351,7 +488,7 @@ def _calc_dasha(moon_lon: float, birth_ist: datetime) -> dict:
 
     start_idx = DASHA_ORDER.index(nak_lord)
     timeline: list[dict] = []
-    cursor = birth_ist
+    cursor = birth_local
 
     for i in range(27):  # 3 full cycles covers ~360 years; well beyond any life
         lord = DASHA_ORDER[(start_idx + i) % 9]
@@ -360,7 +497,7 @@ def _calc_dasha(moon_lon: float, birth_ist: datetime) -> dict:
         timeline.append({"lord": lord, "start": cursor, "end": end})
         cursor = end
 
-    now = datetime.now(tz=birth_ist.tzinfo)
+    now = datetime.now(tz=birth_local.tzinfo)
     current_maha = next(
         (m for m in timeline if m["start"] <= now < m["end"]), None
     )
@@ -470,7 +607,7 @@ def calculate_chart(name: str, dob: str, tob: str, place: str) -> dict:
     Args:
         name:  Person's name.
         dob:   Date of birth — 'YYYY-MM-DD' or '6 April 1988'.
-        tob:   Time of birth in IST — 'HH:MM' or 'HH:MM:SS'.
+        tob:   Time of birth, local to `place` — 'HH:MM' or 'HH:MM:SS'.
         place: Birth city string, e.g. 'Calcutta, India'.
 
     Returns:
@@ -480,8 +617,14 @@ def calculate_chart(name: str, dob: str, tob: str, place: str) -> dict:
     swe.set_sid_mode(swe.SIDM_LAHIRI)
 
     lat, lon_geo = geocode_place(place)
-    jd_ut, utc_dt = to_julian_day(dob, tob)
-    birth_ist = utc_dt.astimezone(_IST)
+    jd_ut, utc_dt = to_julian_day(dob, tob, lat, lon_geo)
+    try:
+        birth_local = _local_datetime(utc_dt, lat, lon_geo)
+    except ValueError as exc:
+        raise ValueError(
+            f"calculate_chart: could not resolve timezone for "
+            f"lat={lat}, lon={lon_geo}: {exc}"
+        ) from exc
 
     # Tropical ascendant → subtract Lahiri ayanamsha for sidereal
     _, ascmc = swe.houses(jd_ut, lat, lon_geo, b"P")
@@ -542,7 +685,7 @@ def calculate_chart(name: str, dob: str, tob: str, place: str) -> dict:
         "yogas_doshas": _calc_yogas(planets),
         "aspects_by_planet": aspect_data["aspects_by_planet"],
         "aspected_by": aspect_data["aspected_by"],
-        "dasha": _calc_dasha(moon_lon, birth_ist),
+        "dasha": _calc_dasha(moon_lon, birth_local),
         "meta": {
             "ayanamsha_lahiri": round(ayanamsha, 4),
             "asc_lon_sidereal": round(asc_lon, 4),
@@ -654,13 +797,16 @@ def calculate_solar_return(natal_data: dict, target_year: int) -> dict:
     Args:
         natal_data: dict as returned by calculate_chart(). Must contain
             meta["jd_ut"] (natal Julian Day, UT) — the natal sidereal Sun
-            longitude is derived from this.
+            longitude is derived from this — and birth_details["lat"]/
+            ["lon"] (the birth location's coordinates, used to resolve
+            local_datetime's UTC offset).
         target_year: Gregorian year (UTC) in which to find the return.
 
     Returns:
         {
           "utc_datetime": tz-aware datetime (UTC),
-          "local_datetime": tz-aware datetime (Asia/Kolkata),
+          "local_datetime": tz-aware datetime (fixed UTC offset resolved
+              for the birth location via resolve_timezone_offset),
           "sun_longitude": float,        # sidereal Sun lon at found epoch
           "natal_sun_longitude": float,
           "jd_ut": float,
@@ -668,13 +814,16 @@ def calculate_solar_return(natal_data: dict, target_year: int) -> dict:
 
     Raises:
         RuntimeError: natal_data missing required fields, a pyswisseph
-            calculation error, or the bisection root-finder fails to
-            bracket/converge.
+            calculation error, the bisection root-finder fails to
+            bracket/converge, or the birth location's timezone offset
+            could not be resolved.
     """
     swe.set_sid_mode(swe.SIDM_LAHIRI)
 
     try:
         natal_jd = natal_data["meta"]["jd_ut"]
+        lat = natal_data["birth_details"]["lat"]
+        lon_geo = natal_data["birth_details"]["lon"]
     except KeyError as exc:
         raise RuntimeError(
             f"calculate_solar_return: natal_data missing required field {exc}"
@@ -737,7 +886,14 @@ def calculate_solar_return(natal_data: dict, target_year: int) -> dict:
 
     y, mo, dy, hr = swe.revjul(root_jd)
     utc_dt = datetime(y, mo, dy, tzinfo=pytz.utc) + timedelta(hours=hr)
-    local_dt = utc_dt.astimezone(_IST)
+
+    try:
+        local_dt = _local_datetime(utc_dt, lat, lon_geo)
+    except ValueError as exc:
+        raise RuntimeError(
+            f"calculate_solar_return: could not resolve timezone for "
+            f"lat={lat}, lon={lon_geo}: {exc}"
+        ) from exc
 
     return {
         "utc_datetime": utc_dt,
@@ -835,4 +991,98 @@ def build_varshaphal_chart(natal_data: dict, target_year: int) -> dict:
             }
             for planet, d in planets.items()
         },
+    }
+
+
+# ─── Muntha ────────────────────────────────────────────────────────────────
+
+def calculate_muntha(natal_data: dict, varshaphal_data: dict, target_year: int) -> dict:
+    """
+    Compute Muntha: the natal Lagna sign advanced by age-in-years, placed
+    as a bhav (Whole Sign house) relative to the Varshaphal Lagna.
+
+    age = target_year - birth_year is deterministic and does not depend on
+    the solar-return epoch (see playbook_export/decisions/
+    ayanamsa-investigation.md, "Muntha design implication").
+
+    Args:
+        natal_data: dict as returned by calculate_chart(). Must contain
+            birth_details["dob"] and lagna_chart["ascendant"] (natal
+            Lagna sign).
+        varshaphal_data: dict as returned by build_varshaphal_chart(). Must
+            contain "lagna", "lagna_degree_in_sign", and
+            "lagna_boundary_sensitive".
+        target_year: Gregorian year of the Varshaphal.
+
+    Returns:
+        {
+          "muntha_sign": str,
+          "bhav_primary": int,    # 1-12, Whole Sign house from Varshaphal Lagna
+          "bhav_alternate": int,  # only present if lagna_boundary_sensitive
+          "ambiguous": bool,
+        }
+        When varshaphal_data["lagna_boundary_sensitive"] is True, the
+        alternate Varshaphal Lagna (previous sign if lagna_degree_in_sign <
+        15, else next sign) yields bhav_alternate alongside bhav_primary —
+        a single bhav would assert false confidence on what may be a
+        categorical interpretive difference (different bhav = different
+        life domain). When False, bhav_alternate is omitted.
+
+    Raises:
+        ValueError: natal_data or varshaphal_data is missing a required
+            field, or birth_details["dob"] cannot be parsed.
+    """
+    try:
+        dob = natal_data["birth_details"]["dob"]
+        natal_lagna = natal_data["lagna_chart"]["ascendant"]
+    except KeyError as exc:
+        raise ValueError(
+            f"calculate_muntha: natal_data missing required field {exc}"
+        ) from exc
+
+    try:
+        varshaphal_lagna = varshaphal_data["lagna"]
+        lagna_degree_in_sign = varshaphal_data["lagna_degree_in_sign"]
+        boundary_sensitive = varshaphal_data["lagna_boundary_sensitive"]
+    except KeyError as exc:
+        raise ValueError(
+            f"calculate_muntha: varshaphal_data missing required field {exc}"
+        ) from exc
+
+    birth_year = None
+    for fmt in _DATE_FMTS:
+        try:
+            birth_year = datetime.strptime(dob.strip(), fmt).year
+            break
+        except ValueError:
+            pass
+    if birth_year is None:
+        raise ValueError(f"calculate_muntha: unrecognized date format: '{dob}'")
+
+    age = target_year - birth_year
+    natal_lagna_idx = SIGNS.index(natal_lagna)
+    muntha_idx = (natal_lagna_idx + age) % 12
+    muntha_sign = SIGNS[muntha_idx]
+
+    varshaphal_lagna_idx = SIGNS.index(varshaphal_lagna)
+    bhav_primary = ((muntha_idx - varshaphal_lagna_idx) % 12) + 1
+
+    if boundary_sensitive:
+        if lagna_degree_in_sign < 15:
+            alt_lagna_idx = (varshaphal_lagna_idx - 1) % 12
+        else:
+            alt_lagna_idx = (varshaphal_lagna_idx + 1) % 12
+        bhav_alternate = ((muntha_idx - alt_lagna_idx) % 12) + 1
+
+        return {
+            "muntha_sign": muntha_sign,
+            "bhav_primary": bhav_primary,
+            "bhav_alternate": bhav_alternate,
+            "ambiguous": True,
+        }
+
+    return {
+        "muntha_sign": muntha_sign,
+        "bhav_primary": bhav_primary,
+        "ambiguous": False,
     }
