@@ -61,3 +61,52 @@ Sub-chunks always have `_c{index}` appended to `chunk_id`.
 
 ## Varshaphal House-Counting Convention (Session 18)
 `resolve_house_counting_lagna()` is the canonical house-counting reference for any Varshaphal-derived bhav calculation (prefers AstroSage parsed Lagna, year-matched; else computed + boundary flag). Future Varshaphal functions (Sade Sati, transits) should call it rather than reading Lagna directly off `varshaphal_data`.
+
+
+## Calculation Architecture (Session 19+)
+
+The calculation layer is structured as the `calculations/` package. Every new calculation module lives in its appropriate subpackage. Never add calculation logic to a top-level file.
+
+**Package structure:**
+- `calculations/core/` — chart_d1, panchanga, aspects, dignity
+- `calculations/vargas/` — divisional charts D2-D60, vimshopaka
+- `calculations/strength/` — shadbala, ishta_kashta, bhava_bala
+- `calculations/dashas/` — vimshottari, yogini, chara, ashtottari, mudda
+- `calculations/yogas/` — detector + catalog/
+- `calculations/transits/` — gochara, sade_sati, transit_aspects
+- `calculations/ashtakavarga/` — bav, sav
+- `calculations/jaimini/` — karakas, arudha, padas
+- `calculations/annual/` — varshaphal, muntha, sahams
+- `calculations/helpers/` — house_counting, ephemeris
+
+**Canonical helpers:**
+- `resolve_house_counting_lagna()` lives in `helpers/house_counting.py` — canonical reference for ANY Varshaphal-derived bhav calculation
+- pyswisseph wrapper centralised in `helpers/ephemeris.py`
+
+**Validation protocol (per module):**
+1. Sample-before-scale: validate on Sulabh's chart first
+2. Hardest-case-first: test edge cases before mainline
+3. Empirical validation across 4 reference charts before locking formula
+4. Zero free parameters: test alternative hypotheses and rule them out
+5. AstroSage parity where applicable; JHora oracle where not
+6. Document irreducible cross-software noise as discovered
+
+
+## Reference Materials
+
+**Calculation specifications:**
+- `project_files/classical_references/PVR_Vedic_Astrology_Integrated_Approach.pdf`
+  Primary calculation reference for all Phase P1-P6 modules. PVR Narasimha 
+  Rao authored both this book and JHora — book = formulas + classical 
+  justification; JHora = numerical ground truth. Both consulted before 
+  implementing any new calculation module.
+
+**Validation oracles:**
+- AstroSage PDFs (4 reference charts) — secondary parity
+- JHora exports — primary parity for non-AstroSage-exposed calculations
+
+**Interpretive RAG (separate, do not pollute):**
+- ChromaDB 7,281 chunks across 14 classical texts. RAG is for Tier 4 
+  interpretive answers in Parashara's voice. Modern textbooks (including 
+  PVR's) are deliberately excluded from RAG to preserve classical voice 
+  and avoid single-author tradition bias in retrieval.
