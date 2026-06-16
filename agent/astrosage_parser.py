@@ -5,6 +5,7 @@ Extract named sections from an AstroSage PDF for use as LLM context.
 
 import io
 import logging
+import re
 from typing import Optional
 
 import pdfplumber
@@ -150,3 +151,83 @@ def _log_coverage(sections: dict[str, str]) -> None:
     )
     if missing_names:
         logger.info("astrosage_parser: missing sections — %s", missing_names)
+
+
+# ─── Varshaphal Lagna / Varsha-year extraction (Mudda Dasha house-counting) ───
+#
+# ASSUMPTION (unvalidated against a real AstroSage Varshaphal PDF — flag for
+# review once a sample is available): AstroSage's Varshaphal page renders
+# "Lagna" and "Date of Birth" as two-column natal-vs-Varsha rows, e.g.
+# "Lagna Sagittarius Virgo" and "Date of Birth 06/04/1988 06/04/2026"
+# (pdfplumber linearizes table columns onto one line, separator may be a
+# colon/dash or just whitespace). The second value in each row is the
+# "year-side" (Varshaphal) value. If this layout assumption is wrong for
+# real PDFs, both regexes simply fail to match and
+# extract_varshaphal_lagna_year() returns Nones — fail-soft, same as
+# parse_astrosage_pdf().
+
+_SIGN_NAMES = {
+    "aries", "taurus", "gemini", "cancer", "leo", "virgo",
+    "libra", "scorpio", "sagittarius", "capricorn", "aquarius", "pisces",
+}
+
+# "Lagna <natal sign> <Varsha sign>" — group(2) is the year-side value.
+_VARSHAPHAL_LAGNA_RE = re.compile(
+    r"Lagna\s*[:\-]?\s*([A-Za-z]+)\s+([A-Za-z]+)", re.IGNORECASE
+)
+# "Date of Birth <natal DD/MM/YYYY> <Varsha DD/MM/YYYY>" — group(2) is the
+# year-side value; only its year is used.
+_VARSHAPHAL_DOB_RE = re.compile(
+    r"Date of Birth\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{4})\s+(\d{1,2}/\d{1,2}/\d{4})",
+    re.IGNORECASE,
+)
+
+
+def extract_varshaphal_lagna_year(file_bytes: bytes) -> dict:
+    """
+    Parse an AstroSage PDF and extract the Varshaphal section's Lagna sign
+    and Varsha year, for chart_calculator.resolve_house_counting_lagna().
+
+    Args:
+        file_bytes: Raw PDF bytes (from st.file_uploader or open()).
+
+    Returns:
+        {"varshaphal_lagna": str | None, "varsha_year": int | None}
+        Either field is None if the Varshaphal section is missing or the
+        expected row format isn't found. Never raises — mirrors
+        parse_astrosage_pdf()'s fail-soft behavior.
+    """
+    result: dict = {"varshaphal_lagna": None, "varsha_year": None}
+    try:
+        full_text = _extract_text(file_bytes)
+        if not full_text:
+            return result
+        sections = _extract_sections(full_text)
+    except Exception:
+        logger.exception(
+            "astrosage_parser: unexpected error extracting Varshaphal Lagna/year."
+        )
+        return result
+
+    text = sections.get("Varshaphal", "")
+    if not text:
+        return result
+
+    lagna_match = _VARSHAPHAL_LAGNA_RE.search(text)
+    if lagna_match:
+        candidate = lagna_match.group(2).strip().lower()
+        if candidate in _SIGN_NAMES:
+            result["varshaphal_lagna"] = candidate.title()
+
+    dob_match = _VARSHAPHAL_DOB_RE.search(text)
+    if dob_match:
+        try:
+            _, _, year_str = dob_match.group(2).split("/")
+            result["varsha_year"] = int(year_str)
+        except ValueError:
+            logger.warning(
+                "astrosage_parser: could not parse Varsha year from '%s'.",
+                dob_match.group(2),
+            )
+
+    return result

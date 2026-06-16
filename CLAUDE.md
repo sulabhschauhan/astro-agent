@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 16 COMPLETE.** Palm geometry validation consolidated into validate_palm_image()'s single GPT-4o call — quality/issues still drive hard_reject/warn; palm_facing/finger_direction (+ issues) now also produce geometry_tips, no extra call. Hand-laterality detection removed entirely — replaced with upload-time human confirmation + swap (regenerates description on swap). Chat UI: fixed unformatted-answer bug (st.write_stream → st.markdown) and question-disappear-on-submit bug (render order). 35/35 non-integration passing.
+**Session 18 COMPLETE.** calculate_mudda_dasha() implemented and validated 36/36 lords + bhavs. resolve_house_counting_lagna() added as shared helper for all Varshaphal bhav calculations; wired into calculate_muntha() (additive: resolved_bhav/bhav_source/bhav_boundary_sensitive, legacy fields untouched). extract_varshaphal_lagna_year() added to astrosage_parser.py. 41/41 passing.
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -58,3 +58,6 @@ Sub-chunks always have `_c{index}` appended to `chunk_id`.
 7. **AGENT INVOCATION** — auto-invoke all 6 before any design/code decision. Surface conflicts only. New agents need explicit approval.
 8. **LAYER FIRST** — before any fix, state which layer owns the problem: Data, Retrieval, Prompt, or UI. A fix in the wrong layer creates narrow patches and technical debt.
 9. **NO ANCHORED JUDGMENT** — never give an LLM call both a stated expectation and a request to judge against it in the same call. LLM observes independently (no expectation context given); Python compares the observation to the expectation deterministically.
+
+## Varshaphal House-Counting Convention (Session 18)
+`resolve_house_counting_lagna()` is the canonical house-counting reference for any Varshaphal-derived bhav calculation (prefers AstroSage parsed Lagna, year-matched; else computed + boundary flag). Future Varshaphal functions (Sade Sati, transits) should call it rather than reading Lagna directly off `varshaphal_data`.

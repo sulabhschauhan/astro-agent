@@ -996,7 +996,7 @@ def build_varshaphal_chart(natal_data: dict, target_year: int) -> dict:
 
 # ─── Muntha ────────────────────────────────────────────────────────────────
 
-def calculate_muntha(natal_data: dict, varshaphal_data: dict, target_year: int) -> dict:
+def calculate_muntha(natal_data: dict, varshaphal_data: dict, target_year: int, astrosage_parsed_data: dict | None = None) -> dict:
     """
     Compute Muntha: the natal Lagna sign advanced by age-in-years, placed
     as a bhav (Whole Sign house) relative to the Varshaphal Lagna.
@@ -1013,14 +1013,26 @@ def calculate_muntha(natal_data: dict, varshaphal_data: dict, target_year: int) 
             contain "lagna", "lagna_degree_in_sign", and
             "lagna_boundary_sensitive".
         target_year: Gregorian year of the Varshaphal.
+        astrosage_parsed_data: optional dict as returned by astrosage_parser
+            .extract_varshaphal_lagna_year() -- see
+            resolve_house_counting_lagna(). Defaults to None (use this
+            pipeline's computed Lagna for resolved_bhav).
 
     Returns:
         {
           "muntha_sign": str,
-          "bhav_primary": int,    # 1-12, Whole Sign house from Varshaphal Lagna
-          "bhav_alternate": int,  # only present if lagna_boundary_sensitive
-          "ambiguous": bool,
+          "bhav_primary": int,          # 1-12, from computed Varshaphal Lagna (preserved)
+          "bhav_alternate": int,        # only present if lagna_boundary_sensitive (preserved)
+          "ambiguous": bool,            # (preserved)
+          "resolved_bhav": int,         # 1-12, from resolve_house_counting_lagna
+          "bhav_source": str,           # "astrosage" | "computed"
+          "bhav_boundary_sensitive": bool,
         }
+        bhav_primary/bhav_alternate/ambiguous are preserved for backward
+        compatibility. resolved_bhav is the recommended field for new
+        consumers: uses AstroSage's own stated Varshaphal Lagna when
+        available and year-matched (source="astrosage"), else this
+        pipeline's computed Lagna (source="computed").
         When varshaphal_data["lagna_boundary_sensitive"] is True, the
         alternate Varshaphal Lagna (previous sign if lagna_degree_in_sign <
         15, else next sign) yields bhav_alternate alongside bhav_primary —
@@ -1030,7 +1042,8 @@ def calculate_muntha(natal_data: dict, varshaphal_data: dict, target_year: int) 
 
     Raises:
         ValueError: natal_data or varshaphal_data is missing a required
-            field, or birth_details["dob"] cannot be parsed.
+            field, birth_details["dob"] cannot be parsed, or the resolved
+            house-counting Lagna sign is not a recognized sign name.
     """
     try:
         dob = natal_data["birth_details"]["dob"]
@@ -1067,6 +1080,16 @@ def calculate_muntha(natal_data: dict, varshaphal_data: dict, target_year: int) 
     varshaphal_lagna_idx = SIGNS.index(varshaphal_lagna)
     bhav_primary = ((muntha_idx - varshaphal_lagna_idx) % 12) + 1
 
+    resolved = resolve_house_counting_lagna(varshaphal_data, astrosage_parsed_data, target_year)
+    try:
+        resolved_lagna_idx = SIGNS.index(resolved["lagna_sign"])
+    except ValueError as exc:
+        raise ValueError(
+            f"calculate_muntha: resolved house-counting Lagna "
+            f"'{resolved['lagna_sign']}' is not a recognized sign"
+        ) from exc
+    resolved_bhav = ((muntha_idx - resolved_lagna_idx) % 12) + 1
+
     if boundary_sensitive:
         if lagna_degree_in_sign < 15:
             alt_lagna_idx = (varshaphal_lagna_idx - 1) % 12
@@ -1079,10 +1102,220 @@ def calculate_muntha(natal_data: dict, varshaphal_data: dict, target_year: int) 
             "bhav_primary": bhav_primary,
             "bhav_alternate": bhav_alternate,
             "ambiguous": True,
+            "resolved_bhav": resolved_bhav,
+            "bhav_source": resolved["source"],
+            "bhav_boundary_sensitive": resolved["boundary_sensitive"],
         }
 
     return {
         "muntha_sign": muntha_sign,
         "bhav_primary": bhav_primary,
         "ambiguous": False,
+        "resolved_bhav": resolved_bhav,
+        "bhav_source": resolved["source"],
+        "bhav_boundary_sensitive": resolved["boundary_sensitive"],
     }
+
+
+# ─── House-Counting Lagna Resolution ──────────────────────────────────────
+
+def resolve_house_counting_lagna(varshaphal_data: dict, astrosage_parsed_data: dict | None, target_year: int) -> dict:
+    """
+    Resolve which Lagna sign to use as the house-counting reference for
+    Varshaphal-derived placements (Mudda Dasha bhav, and Muntha in a future
+    follow-up): prefer AstroSage's own stated Varshaphal Lagna when it's
+    available for this target_year, else fall back to this pipeline's
+    computed Varshaphal Lagna.
+
+    This exists because the computed Varshaphal Lagna can land one sign off
+    from AstroSage's near a sign boundary (see
+    build_varshaphal_chart's lagna_boundary_sensitive / Session 17
+    ayanamsa-investigation.md) -- when AstroSage's own value is available
+    for the year in question, it's a strictly better house-counting
+    reference than ours.
+
+    Args:
+        varshaphal_data: dict as returned by build_varshaphal_chart(). Must
+            contain "lagna" and "lagna_boundary_sensitive".
+        astrosage_parsed_data: dict as returned by astrosage_parser
+            .extract_varshaphal_lagna_year(), or None if no AstroSage PDF
+            was supplied. Expected keys: "varshaphal_lagna" (str | None),
+            "varsha_year" (int | None).
+        target_year: Gregorian year of the Varshaphal.
+
+    Returns:
+        {
+          "lagna_sign": str,
+          "source": "astrosage" | "computed",
+          "boundary_sensitive": bool,  # always False when source=="astrosage"
+        }
+
+    Raises:
+        ValueError: varshaphal_data is missing "lagna" or
+            "lagna_boundary_sensitive".
+    """
+    try:
+        computed_lagna = varshaphal_data["lagna"]
+        boundary_sensitive = varshaphal_data["lagna_boundary_sensitive"]
+    except KeyError as exc:
+        raise ValueError(
+            f"resolve_house_counting_lagna: varshaphal_data missing required field {exc}"
+        ) from exc
+
+    if astrosage_parsed_data:
+        astrosage_lagna = astrosage_parsed_data.get("varshaphal_lagna")
+        astrosage_year = astrosage_parsed_data.get("varsha_year")
+        if astrosage_lagna and astrosage_year == target_year:
+            return {
+                "lagna_sign": astrosage_lagna,
+                "source": "astrosage",
+                "boundary_sensitive": False,
+            }
+
+    return {
+        "lagna_sign": computed_lagna,
+        "source": "computed",
+        "boundary_sensitive": boundary_sensitive,
+    }
+
+
+# ─── Mudda Dasha (Varshaphal Sub-Period Dasha) ────────────────────────────
+
+def calculate_mudda_dasha(natal_data: dict, varshaphal_data: dict, target_year: int, astrosage_parsed_data: dict | None = None) -> list[dict]:
+    """
+    Compute the Mudda Dasha: the 9-period Varshaphal sub-period dasha for
+    target_year, in cyclic Vimshottari order starting from a lord derived
+    from the natal Moon's first Mahadasha lord and age.
+
+    Formula (validated against AstroSage's published 9-period Mudda Dasha
+    table; see tests/manual/mudda_dasha_*_check.py for the diagnostics that
+    led here):
+      1. starting_lord_index = (natal_first_mahadasha_lord_index + age) % 9,
+         where age = target_year - birth_year, and
+         natal_first_mahadasha_lord_index = DASHA_ORDER.index(natal_data
+         ["lagna_chart"]["nakshatra_lord"]) -- the lord whose Mahadasha runs
+         first at birth.
+      2. 9 periods in cyclic DASHA_ORDER starting from that lord.
+      3. Each lord's share = (DASHA_YEARS[lord] / 120) * 365 days, summed
+         cumulatively (unrounded) from the Varshaphal epoch; each
+         cumulative endpoint (not each period's share independently) is
+         rounded to the nearest day to get period_end.
+      4. bhav = each lord's whole-sign house offset from
+         resolve_house_counting_lagna(varshaphal_data, astrosage_parsed_data,
+         target_year)'s resolved Lagna sign -- i.e. recomputed from
+         varshaphal_data["planetary_positions"][lord]["sign"], not read
+         directly from ["house"] (which is always relative to this
+         pipeline's own computed Lagna).
+
+    Args:
+        natal_data: dict as returned by calculate_chart(). Must contain
+            birth_details["dob"] and lagna_chart["nakshatra_lord"].
+        varshaphal_data: dict as returned by build_varshaphal_chart(). Must
+            contain epoch["local_datetime"], "lagna",
+            "lagna_boundary_sensitive", and planetary_positions (with a
+            "sign" entry for every DASHA_ORDER lord).
+        target_year: Gregorian year of the Varshaphal.
+        astrosage_parsed_data: optional dict as returned by astrosage_parser
+            .extract_varshaphal_lagna_year() -- see
+            resolve_house_counting_lagna(). Defaults to None (use this
+            pipeline's computed Lagna).
+
+    Returns:
+        list of 9 dicts, in cyclic order starting from the computed
+        starting lord:
+        {
+          "lord": str,
+          "bhav": int,             # 1-12, from the resolved house-counting Lagna
+          "period_start": str,     # _fmt()-formatted date
+          "period_end": str,       # _fmt()-formatted date
+          "cumulative_days": int,  # rounded days from epoch to period_end
+        }
+
+    Raises:
+        ValueError: natal_data or varshaphal_data is missing a required
+            field, birth_details["dob"] cannot be parsed,
+            lagna_chart["nakshatra_lord"] is not a recognized Vimshottari
+            lord, or the resolved house-counting Lagna sign is not a
+            recognized sign name.
+    """
+    try:
+        dob = natal_data["birth_details"]["dob"]
+        natal_dasha_lord = natal_data["lagna_chart"]["nakshatra_lord"]
+    except KeyError as exc:
+        raise ValueError(
+            f"calculate_mudda_dasha: natal_data missing required field {exc}"
+        ) from exc
+
+    try:
+        epoch_dt = varshaphal_data["epoch"]["local_datetime"]
+        planetary_positions = varshaphal_data["planetary_positions"]
+    except KeyError as exc:
+        raise ValueError(
+            f"calculate_mudda_dasha: varshaphal_data missing required field {exc}"
+        ) from exc
+
+    resolved_lagna = resolve_house_counting_lagna(varshaphal_data, astrosage_parsed_data, target_year)
+    try:
+        lagna_idx = SIGNS.index(resolved_lagna["lagna_sign"])
+    except ValueError as exc:
+        raise ValueError(
+            f"calculate_mudda_dasha: resolved house-counting Lagna "
+            f"'{resolved_lagna['lagna_sign']}' is not a recognized sign"
+        ) from exc
+
+    birth_year = None
+    for fmt in _DATE_FMTS:
+        try:
+            birth_year = datetime.strptime(dob.strip(), fmt).year
+            break
+        except ValueError:
+            pass
+    if birth_year is None:
+        raise ValueError(f"calculate_mudda_dasha: unrecognized date format: '{dob}'")
+
+    try:
+        natal_lord_idx = DASHA_ORDER.index(natal_dasha_lord)
+    except ValueError as exc:
+        raise ValueError(
+            f"calculate_mudda_dasha: unrecognized natal nakshatra lord "
+            f"'{natal_dasha_lord}'"
+        ) from exc
+
+    age = target_year - birth_year
+    start_idx = (natal_lord_idx + age) % 9
+
+    periods: list[dict] = []
+    cursor = epoch_dt
+    raw_cumulative = 0.0
+    for i in range(9):
+        lord = DASHA_ORDER[(start_idx + i) % 9]
+        raw_cumulative += (DASHA_YEARS[lord] / 120.0) * 365
+        cumulative_days = round(raw_cumulative)
+        period_end = epoch_dt + timedelta(days=cumulative_days)
+
+        try:
+            planet_sign = planetary_positions[lord]["sign"]
+        except KeyError as exc:
+            raise ValueError(
+                f"calculate_mudda_dasha: varshaphal_data planetary_positions "
+                f"missing lord '{lord}': {exc}"
+            ) from exc
+
+        try:
+            bhav = ((SIGNS.index(planet_sign) - lagna_idx) % 12) + 1
+        except ValueError as exc:
+            raise ValueError(
+                f"calculate_mudda_dasha: planetary_positions['{lord}']['sign'] "
+                f"'{planet_sign}' is not a recognized sign"
+            ) from exc
+
+        periods.append({
+            "lord": lord,
+            "bhav": bhav,
+            "period_start": _fmt(cursor),
+            "period_end": _fmt(period_end),
+            "cumulative_days": cumulative_days,
+        })
+        cursor = period_end
+
+    return periods
