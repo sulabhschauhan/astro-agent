@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 18 COMPLETE.** calculate_mudda_dasha() implemented and validated 36/36 lords + bhavs. resolve_house_counting_lagna() added as shared helper for all Varshaphal bhav calculations; wired into calculate_muntha() (additive: resolved_bhav/bhav_source/bhav_boundary_sensitive, legacy fields untouched). extract_varshaphal_lagna_year() added to astrosage_parser.py. 41/41 passing.
+**Session 19 IN PROGRESS.** P1.2b + P1.2c + ayanamsa wiring complete; next P1.3 (Dignity + Aspects). 112/112 passing.
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions

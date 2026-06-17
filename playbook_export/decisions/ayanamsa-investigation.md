@@ -93,3 +93,81 @@ consider whether period-transition dates need a similar "disclose
 uncertainty rather than assert precision" treatment, analogous to
 is_boundary_sensitive for Lagna/Muntha — but on the time axis instead of
 the degree axis. Not yet investigated; flag for that session.
+
+## pyswisseph vs JHora ayanamsa (Session 19, P1.2d — Panchanga)
+
+### Question
+Wiring real SIDM_LAHIRI ayanamsa into Panchanga's return value (replacing a
+0.0 placeholder). Added 4 tests comparing computed ayanamsa against each
+fixture's `expected_ayanamsa_dms` (sourced from JHora) at 1" tolerance.
+Hardest case first (Sheridan, per working-style rule): failed by 57.77".
+All 4 fixtures failed by the same ~57.77", not noise — a constant
+cross-implementation offset, independent of date/location.
+
+### Sweep
+Tested every `SIDM_*` mode pyswisseph exposes (~50 modes: Lahiri variants,
+True Citra/Pushya/Revati/Mula, Krishnamurti, Fagan-Bradley, Babylonian
+variants, etc.) against Sulabh's fixture (expected 24°12'38.22" =
+24.210617°). None land within 1". Closest five:
+
+| Mode                  | Ayanamsa   | Diff vs JHora |
+|-----------------------|------------|---------------|
+| SIDM_LAHIRI_1940      | 24.211895° | 4.60"         |
+| SIDM_TRUE_CITRA       | 24.213363° | 9.89"         |
+| SIDM_LAHIRI_ICRC      | 24.226361° | 56.68"        |
+| SIDM_LAHIRI (current) | 24.226664° | 57.77"        |
+| SIDM_LAHIRI_VP285     | 24.233052° | 80.77"        |
+
+Also ruled out an ephemeris-source effect: `get_ayanamsa_ex_ut` with
+FLG_SWIEPH vs FLG_MOSEPH gives identical ayanamsa (expected — ayanamsa is a
+precession-model quantity, independent of which planetary ephemeris is
+loaded).
+
+### Measured gap, per fixture (2026-06-16 12:30 local, 4 charts)
+
+| Fixture   | pyswisseph SIDM_LAHIRI | JHora expected | Diff       |
+|-----------|------------------------|-----------------|------------|
+| Sulabh    | 24.226664°              | 24.210617°      | 57.77"     |
+| Surbhi    | 24.226664°              | 24.210617°      | 57.77"     |
+| Sheridan  | 24.226670°              | 24.210622°      | 57.77"     |
+| David     | 24.226672°              | 24.210625°      | 57.77"     |
+
+(Sub-second fixture-to-fixture variation is the expected ~0.026"
+precession drift across the ~4.5h of UTC spread between timezones on the
+same calendar date — negligible next to the 57.77" gap itself.)
+
+### Decision
+- Keep SIDM_LAHIRI. It's the mode every other Panchanga element (tithi,
+  vara, nakshatra, yoga, karana, hora) was already validated against in
+  P1.2a/P1.2b; switching modes to chase a 4.60" reduction (still not exact)
+  would be a global behavior change for a single-field gain, and is out of
+  scope for what was meant to be a surgical "wire up the real value" edit.
+- Treat 60" (1 arcmin) as the working cross-implementation tolerance for
+  ayanamsa specifically — enough headroom above the measured 57.77" to not
+  flag on this known gap, tight enough to still catch a real regression
+  (e.g. wrong jd_ut, wrong sidereal mode, or a flipped sign).
+- This is the same class of finding as the pyswisseph-vs-AstroSage ~2.2-2.7"
+  gap above, just against a different oracle (JHora) and ~20x larger in
+  magnitude. Both are treated as irreducible cross-implementation noise
+  rather than a defect to chase further, absent a third independent oracle
+  to triangulate which side (if either) is "right."
+
+### Internal consistency check
+An ayanamsa offset of δ shifts every sidereal longitude by -δ. Tithi
+(moon_lon - sun_lon) cancels the offset exactly — consistent with tithi
+showing no corresponding drift. Nakshatra (function of moon_lon alone)
+should shift by δ directly; yoga (moon_lon + sun_lon) should shift by 2δ
+since both terms carry the offset. For δ=57.77", against the nakshatra/yoga
+span of 13°20' (48000"):
+- Predicted nakshatra percent_left shift: 57.77/48000 = 0.12%
+- Predicted yoga percent_left shift: 2 x 0.12% = 0.24%
+
+Observed deltas (computed vs each fixture's expected percent_left, already
+absorbed under PERCENT_TOLERANCE=0.5 and so never previously surfaced):
+nakshatra ~0.14-0.15%, yoga ~0.30-0.31%, ratio ~2.1x. Same order of
+magnitude and the expected ~2x yoga:nakshatra ratio — confirms the gap is
+concentrated in ayanamsa itself, not a downstream Moon/Sun longitude bug.
+The ~20-25% relative gap between predicted (0.12%/0.24%) and observed
+(0.14-0.15%/0.30-0.31%) is consistent with the independent few-arcsecond
+Sun/Moon residual noise already documented above (the 5-48" inconsistent-
+sign residuals) — i.e. ayanamsa is the dominant but not sole contributor.

@@ -35,3 +35,21 @@
 **Session 19 work in progress:**
 - P1.1 — Refactor `chart_calculator.py` → `calculations/` package
 - Next: P1.2 Panchanga module
+
+**Session 19 continued — P1.2b + P1.2c + ayanamsa (this entry):**
+
+Work completed:
+- P1.2b: core five Panchanga elements (tithi, vara, nakshatra, yoga, karana) + hora — validated against 4 JHora fixtures (sub-0.3% deltas).
+- P1.2c: Choghadiya, Rahu Kalam, Yamaganda, Gulika Kalam, Abhijit Muhurta — validated against 4 fixtures; Sheridan (605 min day) vs David (983 min day) confirmed proportional behavior with 62% segment-length spread.
+- Ayanamsa field wired (SIDM_LAHIRI), 4 tests added.
+- `_pvr_spec_reference.json` created (P1-scope topics only) — 6 found in PVR (tithi, vara, nakshatra, yoga, karana, hora), 5 not in PVR (choghadiya, rahu_kalam, yamaganda, gulika_kalam, abhijit_muhurta).
+- Hora comment corrected: PVR defines hora as 24 equal clock-hours from sunrise (`vara_elapsed_sec / 3600`), NOT proportional. Earlier comment claiming day_length/12 was wrong; code itself was always correct. Distinct from the Choghadiya/muhurta-family fields, which ARE proportional.
+- Test count: 76 → 112.
+
+Key findings/decisions:
+- Gulika Kalam slot table corroborated by PVR §4.3 (Gulika Upagraha Saturn's-part-of-day table) — positive cross-validation of `GULIKA_KALAM_SLOT` for all 7 weekdays. Upgrades Gulika Kalam from "formula-only" to "PVR-corroborated-via-related-upagraha" validation tier.
+- Abhijit Muhurta: PVR does not cover it. Implementation uses the Muhurtha-Chinthamani definition (day_length/15, 8th of 15 daytime muhurtas). Validated geometrically only — center = local noon to 0.0s on all 4 fixtures. No JHora numeric oracle available in current basic exports.
+- Validation tier (lower than full-oracle): Rahu Kalam, Yamaganda, Gulika Kalam, Abhijit Muhurta — all validated by formula correctness + geometric/structural checks, NOT by independent JHora numeric cross-check (basic JHora exports don't expose these windows). Deferred: bundle JHora muhurta-menu extraction into the planned `jhora_parser.py` (Phase 0.6) scope.
+- Ayanamsa: pyswisseph SIDM_LAHIRI kept (consistent with all prior P1 work). Cross-implementation gap vs JHora's Lahiri = 57.77″, perfectly flat across all 4 fixtures (structural formula difference, not a bug). Working tolerance set to 60″ for ayanamsa tests specifically. Full investigation in `playbook_export/decisions/ayanamsa-investigation.md`.
+
+Next planned work: P1.3 — Dignity + Aspects (Graha Drishti per classical rules: 7th-from-self for all planets, plus special aspects for Mars 4th/8th, Jupiter 5th/9th, Saturn 3rd/10th). Refer to the PVR spec reference once extracted for P1.3 topics in a future `_pvr_spec_reference.json` extension.

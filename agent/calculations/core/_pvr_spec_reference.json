@@ -1,0 +1,89 @@
+{
+  "_meta": {
+    "purpose": "One-time structured extraction from PVR Narasimha Rao's 'Vedic Astrology: An Integrated Approach' for calculation-spec lookup during development (page refs + exact classical definition text for future dispute resolution).",
+    "DO_NOT_INGEST": "This file must NOT be added to the ChromaDB ingestion pipeline or any RAG config, and must not be discoverable by the interpretive retrieval path. Per CLAUDE.md ('Reference Materials' / 'Interpretive RAG'), modern textbooks including PVR's are deliberately excluded from the RAG corpus to preserve classical voice in interpretive answers. This file is a developer-facing calculation-spec reference only, separate from the 14-book ChromaDB corpus.",
+    "source_file": "data/pdfs/Vedic Astrology_ PVR Narashimha Rao.pdf",
+    "source_title": "Vedic Astrology: An Integrated Approach, PVR Narasimha Rao (515 pages)",
+    "scope": "P1 Panchanga topics only: tithi, vara, nakshatra, yoga, karana, hora, choghadiya, rahu_kalam, yamaganda, gulika_kalam, abhijit_muhurta. Do not extend this file beyond this list without a fresh extraction pass.",
+    "page_numbering": "page_reference cites the PDF page number first, then the book's own printed page number in parentheses. printed_page = pdf_page - 12 throughout (12 pages of front matter before §1.1).",
+    "method": "Read-only extraction. Candidate pages located via full-text scan (pdftotext) of all 515 pages for topic keywords, then each candidate page re-read directly from the PDF to get clean text (the plain pdftotext layer mangles degree signs/apostrophes due to a font-encoding quirk in this particular PDF). No existing file was modified.",
+    "extracted_on": "2026-06-17"
+  },
+
+  "tithi": {
+    "page_reference": "PDF p.24-26 (printed p.12-14), §1.3.8 'Tithis and Lunar Calendar', Table 3 on p.24",
+    "definition": "\"In lunar calendar, one day stands for one tithi. Tithi or lunar day is a period in which the difference between the longitudes of Moon and Sun changes by exactly 12°.\" (§1.3.8.1)",
+    "formula": "\"(1) Find the difference: (Moon's longitude – Sun's longitude). Add 360° if the result is negative... (2) Divide this result by 12°. Ignore the remainder and take the quotient. (3) Add 1 to the quotient. You get a number from 1 to 30. That will give the index of the tithi running. (4) Refer to Table 3 and find the name of the tithi.\" — i.e. tithi_index(1-30) = floor(((moon_lon - sun_lon) mod 360) / 12) + 1. Table 3 lists 15 names per paksha (Sukla 1st-15th, Krishna 16th-30th) with planetary lord per tithi.",
+    "notes": "Matches the implementation exactly (panchanga.py: elong = (moon_lon - sun_lon) % 360, tithi_idx = int(elong/12)) — PVR's index is 1-based (1-30), the implementation's is 0-based (0-29), same partition. PVR's Table 3 tithi names (Pratipat/Pratipada/Padyami, Dwitiya/Vidiya, ...) match _panchanga_tables.py TITHI_NAMES with the expected Sukla-/Krishna- prefix convention; no naming conflicts found."
+  },
+
+  "vara": {
+    "page_reference": "PDF p.29-30 (printed p.17-18), §1.3.11 'Hora' (weekday-lord list) and §1.3.12 'Panchaanga'",
+    "definition": "PVR has no dedicated section for vara; it is named only as one of the 5 limbs of panchaanga: \"...vaara (week day – Sunday, Monday etc)...\" (§1.3.12). The weekday-to-planetary-lord assignment is given in the Hora section instead: \"Sun for Sunday, Moon for Monday, Mars for Tuesday, Mercury for Wednesday, Jupiter for Thursday, Venus for Friday and Saturn for Saturday.\" (§1.3.11)",
+    "formula": "Not given as a standalone formula. Vara is the civil weekday; PVR's §1.3.11 example anchors hora-counting at sunrise ('Each day starts at sunrise...'), implying vara is likewise sunrise-bound, but this is never stated explicitly for vara itself.",
+    "notes": "PVR never explicitly addresses the pre-sunrise-belongs-to-yesterday boundary rule for vara; the implementation's vara_sunrise / sr_next handling (panchanga.py) is consistent with PVR's sunrise-anchored framing elsewhere in §1.3 and §4.3 but is not directly confirmed by PVR text for vara specifically."
+  },
+
+  "nakshatra": {
+    "page_reference": "PDF p.22-23 (printed p.10-11), §1.3.6 'Nakshatras (constellations)', Table 2 on p.23",
+    "definition": "\"In Vedic astrology, the zodiac is divided into 27 nakshatras. Each nakshatra has a length of 360°/27 = 13°20'... Each nakshatra is again divided into 4 quarters. They are called padas (legs/feet). The length of a nakshatra pada is 3°20'.\" (§1.3.6)",
+    "formula": "nakshatra_index = floor(moon_longitude / 13°20'); pada = floor((moon_longitude mod 13°20') / 3°20') + 1. Table 2 gives start/end degrees, Vimsottari lord, and ruling deity for all 27 nakshatras.",
+    "notes": "Abhijit caveat (verbatim, repeated on p.358 printed in the Sarvatobhadra Chakra chapter): \"For the purpose of some special charts like Kota Chakra and Sarvatobhadra Chakra, we consider 28 nakshatras. The last quarter of Uttarashadha is known as 'Abhijit'. However, we consider 27 nakshatras for all other purposes.\" This is the ONLY 'Abhijit' PVR defines — a 28th nakshatra (the last pada of Uttara Ashadha), used only in two special charts. This is NOT the Abhijit Muhurta (a daytime auspicious period) — see the abhijit_muhurta entry below; do not conflate the two despite the shared name."
+  },
+
+  "yoga": {
+    "page_reference": "PDF p.27-28 (printed p.15-16), §1.3.9 'Yogas', Table 5 on p.28",
+    "definition": "\"Add the longitudes of Sun and Moon. Remove 360° from the sum if it is greater than 360°. Divide the sum by the length of one nakshatra (13°20' or 800'). Ignore fractions and take the integer part. Add 1 to it and the result is the index of the yoga running.\" (§1.3.9)",
+    "formula": "yoga_index(1-27) = floor(((sun_lon + moon_lon) mod 360) / 13°20') + 1. Table 5 gives the 27 yoga names (Vishkambha...Vaidhriti) with a one-word classical meaning for each.",
+    "notes": "PVR's yoga names match _panchanga_tables.py YOGA_NAMES with minor transliteration differences only (e.g. PVR 'Preeti'/'Aayushmaan'/'Saubhaagya'/'Sobhana'/'Aatiganda'/'Sukarman'/'Shoola'/'Vyaaghaata'/'Vyatipaata'/'Subha' vs implementation 'Priti'/'Ayushman'/'Saubhagya'/'Shobhana'/'Atiganda'/'Sukarma'/'Shula'/'Vyaghata'/'Vyatipata'/'Shubha'). Index order, count (27), and span definition all match; spelling only."
+  },
+
+  "karana": {
+    "page_reference": "PDF p.29 (printed p.17), §1.3.10 'Karanas'",
+    "definition": "\"Each tithi is divided into 2 karanas. There are 11 karanas: (1) Bava, (2) Balava, (3) Kaulava, (4) Taitula, (5) Garija, (6) Vanija, (7) Vishti, (8) Sakuna, (9) Chatushpada, (10) Naga, and, (11) Kimstughna. The first 7 karanas repeat 8 times starting from the 2nd half of the first lunar day of a month. The last 4 karanas come just once in a month, starting from the 2nd half of the 29th lunar day and ending at the 1st half of the first lunar day.\" (§1.3.10)",
+    "formula": "Implied: karana_index = floor(elongation / 6°) -> 60 half-tithi slots/month (2 per tithi x 30 tithis). PVR states the moving/fixed structure (7 movable karanas cycling 8x, 4 fixed karanas once per month) but does not spell out an explicit modular formula.",
+    "notes": "Implementation's _build_karana_sequence() reproduces this exactly when read cyclically: slots 57(Sakuni)->58(Chatushpada)->59(Naga)->[month wrap]->0(Kintughna) matches PVR's stated order Sakuna->Chatushpada->Naga->Kimstughna spanning 2nd-half-of-tithi-29 through 1st-half-of-next-month's-tithi-1. Spelling variants only: PVR 'Taitula'/'Garija'/'Sakuna'/'Kimstughna' vs implementation 'Taitila'/'Gara'/'Sakuni'/'Kintughna' — same karana, transliteration only, no structural conflict."
+  },
+
+  "hora": {
+    "page_reference": "PDF p.29 (printed p.17), §1.3.11 'Hora'",
+    "definition": "\"Each day starts at sunrise and ends at next day's sunrise. This period is divided into 24 equal parts and they are called horas. A hora is almost equal to an hour... The first hora of any day (i.e. a period of one hour following sunrise) is ruled by the lord of the weekday... After that, we list planets in the order [of decreasing speed: Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon].\" (§1.3.11). Worked example: elapsed time since sunrise is converted directly to an integer hour count (e.g. 15:30 elapsed -> 16th hora), with no day/night distinction.",
+    "formula": "hora_n = floor(hours_elapsed_since_sunrise); hora_lord = HORA_SEQ[(weekday_lord_index + hora_n) mod 7]. PVR's text divides the WHOLE sunrise-to-next-sunrise span into 24 EQUAL parts (a single uniform hora length for the full day+night), not day and night divided separately into 12 parts each.",
+    "notes": "Cross-checked against the implementation: panchanga.py's actual code (hora_n = int(vara_elapsed_sec / 3600)) uses literal clock-hour counting from sunrise — this matches PVR's text and worked example, and matches all 4 JHora-derived test fixtures (verified expected_hora_lord passes for all 4). HOWEVER, the prose comment directly above that line in panchanga.py (~line 307) describes the method as 'proportional solar horas: day_length/12, night_length/12' and claims this was empirically confirmed — that comment is NOT what the code does (a manual recompute for the Sulabh fixture gives 'Jupiter' under a true day_length/12 model vs the correct/expected 'Mars' under literal clock-hour counting, which is what the code and fixture actually agree on). This looks like a stale/incorrect comment left over from an earlier draft, not a behavior bug — the code, PVR, and JHora all agree; only the comment text is wrong. Flagged here for a future doc-fix pass; not corrected in this extraction (out of scope — no code changes made)."
+  },
+
+  "choghadiya": {
+    "page_reference": "not found in PVR",
+    "definition": "not found in PVR",
+    "formula": "not found in PVR",
+    "notes": "No occurrence of 'Choghadiya' or transliteration variants ('Chogadia', 'Chaughadiya') anywhere in the 515-page text (verified via full-text scan across all pages). PVR's muhurta chapter (Ch.36 'Muhurta or Electional Astrology', printed pp.471-481) discusses only tithi/vara/nakshatra/yoga/karana/lagna/planetary-strength guidelines (Table 79) — no 8-segment day/night naming scheme of any kind. The existing implementation already documents this gap (_panchanga_tables.py: 'Source: traditional North Indian almanac / Drik Panchang. PVR's book does not cover Choghadiya'); this extraction independently confirms it via direct full-text search."
+  },
+
+  "rahu_kalam": {
+    "page_reference": "not found in PVR",
+    "definition": "not found in PVR",
+    "formula": "not found in PVR",
+    "notes": "No occurrence of 'Rahu Kalam' / 'Rahukalam' / 'Rahu kaala' anywhere in the text. PVR's §4.3 'Other Upagrahas' (PDF p.54-56, printed p.42-44) describes the same STRUCTURAL mechanism used by modern Rahu Kalam tables — dividing day or night into 8 equal parts, each ruled by a planet per Table 10 (printed p.43) — but Rahu is not one of the 7 ruling planets cycled in that table (only Sun/Moon/Mars/Mercury/Jupiter/Venus/Saturn appear), and PVR uses the division only to compute Upagraha longitudes (Kaala/Mrityu/Artha Praharaka/Yama Ghantaka/Gulika/Maandi via Lagna-at-midpoint-of-part), never to name an avoid-this-slot muhurta period. No PVR-derived ruler corresponds to 'Rahu's part'; the modern Rahu Kalam slot assignment is independent of PVR's Upagraha table and not traceable to this source."
+  },
+
+  "yamaganda": {
+    "page_reference": "not found in PVR",
+    "definition": "not found in PVR",
+    "formula": "not found in PVR",
+    "notes": "No occurrence of 'Yamaganda' / 'Yama Ganda' anywhere in the text. PVR does name a similarly-titled but distinct Upagraha, 'Yamaghantaka' (Yama Ghantaka), in §4.3 (PDF p.54-56) — ruled by Jupiter's part of the day/night, used to compute a longitude (via Lagna rising at the middle of Jupiter's part), not a time-avoidance window. Do not conflate Yamaghantaka (an Upagraha/shadow point) with Yamaganda (a muhurta-avoidance period) — different concepts despite the similar name; PVR does not cover the latter."
+  },
+
+  "gulika_kalam": {
+    "page_reference": "not found in PVR under this name",
+    "definition": "not found in PVR as a muhurta-avoidance period. PVR defines only the related Upagraha: \"Gulika rises at the middle of Saturn's part.\" (printed p.44 / PDF p.56, §4.3, point 5)",
+    "formula": "not found in PVR as a time-window formula. PVR's Table 10 (printed p.43) gives Saturn's-part position per weekday for both day and night, used there to find Gulika's longitude (Lagna at the midpoint of that part), not to mark a span of time to avoid.",
+    "notes": "CROSS-VALIDATION FINDING: PVR's Table 10 'Saturn's part of the DAY', read per weekday, is numerically identical (0-indexed slot position) to GULIKA_KALAM_SLOT in agent/calculations/core/_panchanga_tables.py for all 7 weekdays (checked Mon-Sun by hand against Table 10's day-ruler rows). This independently corroborates the implementation's Gulika Kalam slot table via a completely different PVR mechanism (the Upagraha part-ruler table, not a named muhurta period) — strong supporting evidence even though PVR never names 'Gulika Kalam' itself. The implementation's existing source note ('Drik Panchang / classical tradition') can be supplemented with this independent PVR cross-check."
+  },
+
+  "abhijit_muhurta": {
+    "page_reference": "not found in PVR as a muhurta/time-period",
+    "definition": "not found in PVR as a daytime auspicious period. PVR's only 'Abhijit' is a 28th NAKSHATRA: \"For the purpose of some special charts like Kota Chakra and Sarvatobhadra Chakra, we consider 28 nakshatras. The last quarter of Uttarashadha is known as 'Abhijit'. However, we consider 27 nakshatras for all other purposes.\" (printed p.11 / PDF p.23, §1.3.6; repeated printed p.358 / PDF p.370)",
+    "formula": "not found in PVR",
+    "notes": "Confirms what the existing implementation already documents (panchanga.py comment: 'PVR's book was searched but does not cover this topic' for the day_length/15 Abhijit Muhurta). This extraction independently verifies that absence via full-text search (zero hits for 'Abhijit' outside the two nakshatra-context pages above) and additionally surfaces what PVR DOES use the name 'Abhijit' for — a nakshatra, unrelated to the muhurta. Do not use PVR to resolve the day_length/15-vs-fixed-48-minute Abhijit Muhurta dispute; the implementation already cites Muhurtha-Chinthamani for that, which remains the right source — not this book."
+  }
+}
