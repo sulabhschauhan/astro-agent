@@ -98,5 +98,11 @@
     "source": "Section 3.3 Table 6 + special-points list",
     "in_pvr": true,
     "notes": "Rahu/Ketu follow Convention B (Gemini/Sagittarius); MT degree ranges for nodes default to full sign; deep degrees for node exalt/debil are None per PVR Table 6."
+  },
+
+  "natural_friendship": {
+    "source": "Section 3.4.1 Table 7 (Natural Relationships) + Section 3.4.3 Table 8 (Compound Relationships)",
+    "in_pvr": true,
+    "notes": "Cross-validated against the 'Permanent Friendship' table in all 4 AstroSage reference PDFs (Sulabh, Surbhi, Sheridan, David) — identical in every case. Natural friendship is asymmetric, not a symmetric matrix: 11 of the 21 planet-pairs differ depending on direction (e.g. Moon counts Mercury as a friend, but Mercury counts Moon as an enemy); only 10 pairs are symmetric. Scope is the 7 classical planets only — neither PVR's Table 7 nor any of the 4 AstroSage charts extends this table to Rahu/Ketu. Compound relationship labels (Table 8) use PVR's own English glosses (Adhimitra/Sama/Mitra/Satru/Adhisatru) rather than AstroSage's alternate wording, which uses 'Intimate'/'Bitter' for the two extreme categories PVR calls 'Good Friend'/'Bad Enemy'. Temporary (tatkalika) friendship is out of scope for this data file — it is chart-dependent computed logic per PVR §3.4.2, not a static table."
   }
 }
