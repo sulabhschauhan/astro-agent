@@ -5,6 +5,13 @@
     "source_file": "data/pdfs/Vedic Astrology_ PVR Narashimha Rao.pdf",
     "source_title": "Vedic Astrology: An Integrated Approach, PVR Narasimha Rao (515 pages)",
     "scope": "P1 Panchanga topics only: tithi, vara, nakshatra, yoga, karana, hora, choghadiya, rahu_kalam, yamaganda, gulika_kalam, abhijit_muhurta. Do not extend this file beyond this list without a fresh extraction pass.",
+    "extensions_log": [
+      {
+        "date": "2026-06-17",
+        "addition": "planetary_dignity",
+        "rationale": "P1.3 dignity tables module created (agent/calculations/core/_dignity_tables.py); spec source is PVR Section 3.3 Table 6 plus the special-points list. Original scope statement preserved as historical record."
+      }
+    ],
     "page_numbering": "page_reference cites the PDF page number first, then the book's own printed page number in parentheses. printed_page = pdf_page - 12 throughout (12 pages of front matter before §1.1).",
     "method": "Read-only extraction. Candidate pages located via full-text scan (pdftotext) of all 515 pages for topic keywords, then each candidate page re-read directly from the PDF to get clean text (the plain pdftotext layer mangles degree signs/apostrophes due to a font-encoding quirk in this particular PDF). No existing file was modified.",
     "extracted_on": "2026-06-17"
