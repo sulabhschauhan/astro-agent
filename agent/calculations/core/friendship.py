@@ -1,11 +1,13 @@
-"""Friendship-based dignity classification: natural and tatkalika (temporary).
+"""Friendship-based dignity classification: natural, tatkalika (temporary),
+and pancha-dha maitri (compound).
 
-Covers two of the three classical friendship layers (PVR Section 3.4):
+Covers all three classical friendship layers (PVR Section 3.4):
 natural_friendship() is a static lookup against the 7-planet table in
 _friendship_tables.py; tatkalika_friendship() is computed directly from
 relative sign position (PVR Section 3.4.2), uniformly for all 9 chart
-points. Pancha-dha maitri (the 5-fold compound scheme combining natural
-+ temporary) is a later addition, once both of these are verified.
+points. pancha_dha_maitri() combines the two per PVR Table 8, returning
+PVR's canonical Sanskrit compound labels (Adhimitra/Mitra/Sama/Satru/
+Adhisatru).
 """
 
 from agent.calculations.core._friendship_tables import (
@@ -16,6 +18,16 @@ from agent.calculations.core._friendship_tables import (
 _CANONICAL_SIGNS = (
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
     "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces",
+)
+
+CLASSICAL_PLANETS = (
+    "Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn",
+)
+
+assert set(CLASSICAL_PLANETS) == set(NATURAL_FRIENDSHIP.keys()), (
+    f"CLASSICAL_PLANETS {sorted(CLASSICAL_PLANETS)} != "
+    f"NATURAL_FRIENDSHIP.keys() {sorted(NATURAL_FRIENDSHIP.keys())} -- "
+    f"these two sources of truth have drifted apart"
 )
 
 _NODES = ("Rahu", "Ketu")
@@ -86,10 +98,19 @@ def pancha_dha_maitri(planet_a: str, sign_a: str, planet_b: str, sign_b: str) ->
     (in sign_a) toward planet_b (in sign_b), combining natural + tatkalika
     friendship.
 
-    Returns one of "Good Friend", "Friend", "Neutral", "Enemy", "Bad Enemy".
-    Validation is delegated entirely to natural_friendship() and
-    tatkalika_friendship() -- their ValueErrors propagate unchanged.
+    Returns one of "Adhimitra" (good friend), "Mitra" (friend), "Sama"
+    (neutral), "Satru" (enemy), "Adhisatru" (bad enemy).
+    Defined only for the 7 classical planets in CLASSICAL_PLANETS; passing
+    Rahu or Ketu raises ValueError.
     """
+    for planet in (planet_a, planet_b):
+        if planet in _NODES:
+            raise ValueError(
+                f"pancha_dha_maitri: {planet!r} is not valid -- the natural "
+                f"friendship layer this function depends on covers only the "
+                f"7 classical planets per PVR Table 7, not Rahu/Ketu."
+            )
+
     natural = natural_friendship(planet_a, planet_b)
     temporal = tatkalika_friendship(sign_a, sign_b)
     return COMPOUND_RELATIONSHIP_MAP[(natural, temporal)]
