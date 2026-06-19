@@ -158,12 +158,12 @@ def test_compound_relationship_map_keys_are_full_cross_product():
 @pytest.mark.parametrize(
     "key,expected_value",
     [
-        (("Friend", "Friend"), "Good Friend"),
-        (("Friend", "Enemy"), "Neutral"),
-        (("Neutral", "Friend"), "Friend"),
-        (("Neutral", "Enemy"), "Enemy"),
-        (("Enemy", "Friend"), "Neutral"),
-        (("Enemy", "Enemy"), "Bad Enemy"),
+        (("Friend", "Friend"), "Adhimitra"),
+        (("Friend", "Enemy"), "Sama"),
+        (("Neutral", "Friend"), "Mitra"),
+        (("Neutral", "Enemy"), "Satru"),
+        (("Enemy", "Friend"), "Sama"),
+        (("Enemy", "Enemy"), "Adhisatru"),
     ],
 )
 def test_compound_relationship_values_match_pvr_table_8(key, expected_value):

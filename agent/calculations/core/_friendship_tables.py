@@ -38,17 +38,23 @@ NATURAL_FRIENDSHIP: dict[str, dict[str, list[str]]] = {
 
 # PVR §3.4.3 Table 8. Key is (natural_relation, temporal_relation); temporal
 # relation has no neutral state (PVR §3.4.2), so only "Friend"/"Enemy" appear
-# in that slot. Values use PVR's own English glosses (his parenthetical
-# translations of the Sanskrit terms, given in the comments below) rather
-# than AstroSage's alternate wording for the two extreme categories —
-# AstroSage's report uses "Intimate"/"Bitter" where PVR uses "Good
-# Friend"/"Bad Enemy" for the same compound categories. PVR's wording is the
-# locked value since his book is the primary source.
+# in that slot. Values use PVR's own canonical Sanskrit terms rather than
+# his English parentheticals or AstroSage's alternate wording — both of
+# those are translation references only, NOT what the code returns, kept
+# here as inline comments for human readability:
+#   Adhimitra  — PVR English gloss: Good Friend; AstroSage: Intimate
+#   Sama       — PVR English gloss: Neutral
+#   Mitra      — PVR English gloss: Friend
+#   Satru      — PVR English gloss: Enemy
+#   Adhisatru  — PVR English gloss: Bad Enemy; AstroSage: Bitter
+# Sanskrit terms are namespace-distinct from the "Friend"/"Neutral"/"Enemy"
+# strings used by the natural and tatkalika layers, and match JHora's own
+# output labels for direct parser alignment (Phase 0.6).
 COMPOUND_RELATIONSHIP_MAP: dict[tuple[str, str], str] = {
-    ("Friend", "Friend"):  "Good Friend",  # PVR: Adhimitra
-    ("Friend", "Enemy"):   "Neutral",      # PVR: Sama
-    ("Neutral", "Friend"): "Friend",       # PVR: Mitra
-    ("Neutral", "Enemy"):  "Enemy",        # PVR: Satru
-    ("Enemy", "Friend"):   "Neutral",      # PVR: Sama
-    ("Enemy", "Enemy"):    "Bad Enemy",    # PVR: Adhisatru
+    ("Friend", "Friend"):  "Adhimitra",  # PVR English gloss: Good Friend; AstroSage: Intimate
+    ("Friend", "Enemy"):   "Sama",       # PVR English gloss: Neutral
+    ("Neutral", "Friend"): "Mitra",      # PVR English gloss: Friend
+    ("Neutral", "Enemy"):  "Satru",      # PVR English gloss: Enemy
+    ("Enemy", "Friend"):   "Sama",       # PVR English gloss: Neutral
+    ("Enemy", "Enemy"):    "Adhisatru",  # PVR English gloss: Bad Enemy; AstroSage: Bitter
 }
