@@ -13,84 +13,75 @@
 # the project's Whole Sign house lock naturally; no degree-based
 # refinement is needed or implemented here.
 #
-# ── 2. THE RAHU/KETU QUESTION IS A LOCKED CLASSICAL-CONFLICT RESOLUTION ─────
-# This is a locked resolution of a genuine textual and classical conflict,
-# not a simple majority vote. PVR himself is internally inconsistent on
-# this point: §10.2 states "all planets aspect the 7th" with no scope
-# qualifier that would exclude the nodes, yet Exercise 14 explicitly
-# enumerates graha drishti only for the 7 classical planets, silently
-# omitting Rahu/Ketu -- while Exercise 15, covering rasi drishti (sign
-# aspects, a separate mechanism), explicitly includes both nodes. The
-# strict-text reading of Exercise 14 (no graha drishti for nodes) is
-# therefore textually defensible on its own, but it is contradicted by
-# PVR's own software, JHora (see Section 3 below).
+# ── 2. LOCKED DECISION ───────────────────────────────────────────────────────
+# Rahu=(5,7,9), Ketu=(5,7,9) -- Jupiter-pattern graha drishti for BOTH nodes.
+# This is a RE-AFFIRMATION, not a new decision: the tuple values are
+# UNCHANGED from the prior lock (commit de9debe). What changed is the
+# evidence base below -- PyJHora's own source surfaced new conflicting
+# evidence after the original lock, it was investigated on its merits, and
+# it did not change the outcome.
 #
-# The broader classical field is genuinely fragmented beyond PVR, with no
-# clean majority position:
-#   - "No aspects at all" for the nodes -- some BPHS readings, the
-#     "headless Ketu" school (Ketu has no head to cast a directional gaze).
-#   - "7th only" for the nodes -- a BPHS-inclusive reading treating Rahu
-#     and Ketu as ordinary planets under the universal 7th-aspect rule
-#     only, with no special aspects.
-#   - "5th/7th/9th for both" -- the modern Indian classical majority,
-#     treating both nodes as Jupiter-like aspect sources.
-#   - Asymmetric variants -- e.g. Rahu treated as Saturn-like (3rd/7th/
-#     10th) with Ketu treated as Mars-like (4th/7th/8th); or Rahu given
-#     2nd/5th/7th/9th with Ketu given no special aspects at all.
+# ── 3. SOURCE LANDSCAPE (8 sources, genuinely fragmented) ───────────────────
+# | Source                                                | Rahu     | Ketu     |
+# |--------------------------------------------------------|----------|----------|
+# | PyJHora const.py L508 (PVR's own Python port)         | (7,)     | (7,)     |
+# | JHora UI highlight (right-click -> highlight rasis)   | 2,5,7,9  | none     |
+# | AstroSage (4 ref PDFs: Sulabh/Surbhi/Sheridan/David)  | 5,7,9    | 5,7,9    |
+# | Modern Indian web consensus (astrosutras.in,          | 5,7,9    | 5,7,9    |
+# |   astrosight.ai, jagatsevak.com, drikpanchang,        |          |          |
+# |   prokerala)                                          |          |          |
+# | Sanjay Rath commentary (srath.com)                    | 5,7,9    | 5,7,9    |
+# | PVR book Exercise 14 (strict text reading)            | omitted  | omitted  |
+# | Vedic-Planetary-Aspectarium (3rd-party)               | omitted  | omitted  |
+# | lightonvedicastrology forum                           | 2,5,7,9  | none     |
 #
-# ── 3. TIEBREAKER ────────────────────────────────────────────────────────────
-# Per the project's locked conflict-resolution protocol -- "classical
-# majority + JHora implementation wins"; with the classical majority
-# itself contested per Section 2, JHora's own behavior is decisive --
-# four independent, convergent pieces of evidence support the 5th/7th/9th
-# (Jupiter-like) lock for BOTH Rahu and Ketu:
+# ── 4. DECISION RATIONALE ────────────────────────────────────────────────────
+# No clean classical majority exists across the 8 sources above -- the field
+# is genuinely fragmented, not a simple head-count. Per the project's
+# tiebreaker principle for genuinely confused classical sources: prefer
+# USER-PERCEIVED CORRECTNESS over single-source-code purity. This app is
+# user-facing -- if a user cross-checks our output against AstroSage,
+# Prokerala, or Drik Panchang and finds a disagreement, credibility is lost
+# regardless of how defensible our internal citation chain is.
 #
-#   (a) JHora's own "Aspect Table with Relationships" output includes Rahu
-#       and Ketu as aspect-source rows with non-zero aspect values landing
-#       across multiple target signs and houses. Verified directly by
-#       screenshot inspection of JHora's output on 19-Jun-2026, the session
-#       in which this decision was locked. JHora is PVR-authored and the
-#       project's locked numerical-ground-truth oracle, so this is the
-#       single heaviest-weighted piece of evidence.
+# 5,7,9 for both nodes has the highest cross-check convergence of any
+# candidate value above: it matches all 4 AstroSage validation PDFs (Sulabh,
+# Surbhi, Sheridan, David), the modern Indian web consensus (astrosutras.in,
+# astrosight.ai, jagatsevak.com, drikpanchang, prokerala), AND Sanjay Rath's
+# classical commentary -- three independent source families, not one.
 #
-#   (b) Sanjay Rath (srath.com), a recognized commentator working within
-#       PVR's own tradition, analyzing PVR's own natal chart, writes:
-#       "Rahu being in the 2nd house also aspects them in the 10th house."
-#       The 10th house is the 9th position counted from the 2nd house
-#       (2nd as position 1) -- this is a worked example directly confirming
-#       a 9th-house aspect for Rahu, i.e. Jupiter-like behavior, from a
-#       source explicitly situated inside PVR's own tradition.
+# Explicitly rejected, with reasons:
+#   - PyJHora (7,)-only -- outlier; a single author's Python port; contradicts
+#     even JHora's own UI behavior (which shows Rahu=2,5,7,9, not bare 7).
+#   - JHora-UI's asymmetric 2,5,7,9 (Rahu) / none (Ketu) -- no major
+#     third-party site matches this pattern, and the Rahu/Ketu asymmetry is
+#     unexplained and would be confusing to surface to users.
+#   - PVR Exercise 14's strict-text omission -- would make this app uniquely
+#     silent on node aspects against every popular consumer-facing source.
 #
-#   (c) All 4 AstroSage reference PDFs in project_files (Sulabh, Surbhi,
-#       Sheridan, David) independently state "Ketu aspects [house X, house
-#       Y, house Z]" in their respective chart reports. Across all four
-#       charts, the three stated houses consistently map back to the
-#       5th/7th/9th positions counted from Ketu's own sign -- four
-#       independent real-chart confirmations of the same pattern.
+# ── 5. TRADE-OFF, ACKNOWLEDGED ───────────────────────────────────────────────
+# We are choosing user-perceived correctness over single-source purity
+# because the source landscape is genuinely confused, not because we dismiss
+# PyJHora. PyJHora is PVR's own Python port and would normally carry real
+# weight -- but here it is a single, isolated outlier that even disagrees
+# with JHora's own UI. If a future authoritative consensus emerges (e.g. a
+# revised PVR publication, or a cross-source convergence on a different
+# value), this lock should be revisited.
 #
-#   (d) Modern Indian classical web sources outside the AstroSage/JHora
-#       ecosystem -- astrosutras.in, astrosight.ai, jagatsevak.com --
-#       independently converge on Jupiter-like 5th/7th/9th aspects for
-#       both nodes, consistent with (a)-(c) above.
+# ── 6. SENSITIVITY TAG FOR DOWNSTREAM CONSUMERS ──────────────────────────────
+# SENSITIVE_TO: rahu_ketu_drishti_lock -- yoga/dosha/transit modules that key
+# off Rahu/Ketu aspects should reference this lock by name in their own
+# docstrings, so that a future change here triggers a targeted regression
+# sweep rather than a silent semantics shift.
 #
-# ── 4. EXPLICITLY REJECTED ALTERNATIVES ─────────────────────────────────────
-# Documented here, not silently discarded, so a future reviewer can see
-# what was considered and why it didn't win:
+# ── 7. AUDIT ANCHOR (rejected alternative, cited for traceability) ──────────
+# PyJHora source: github.com/naturalstupid/PyJHora, const.py L508
+# (graha_drishti dict), retrieved 2026-06-20 (this session). This is the
+# rejected (7,)-only alternative from Sections 3-4 above, not the locked
+# value -- cited here so a future reviewer can verify the claim directly
+# against source rather than trusting this comment.
 #
-#   - PVR Exercise 14's strict reading (no graha drishti for Rahu/Ketu at
-#     all): contradicts JHora, the locked numerical oracle (Section 3a).
-#     Rejected.
-#   - "7th only" for the nodes: contradicted by Sanjay Rath's worked
-#     example, which shows a 9th-house aspect for Rahu, not merely a 7th
-#     (Section 3b). Rejected.
-#   - Asymmetric variants (Rahu Saturn-like / Ketu Mars-like; or Rahu with
-#     2nd/5th/7th/9th and Ketu silent): no corroborating evidence found in
-#     JHora's actual behavior or in AstroSage parity across the 4
-#     reference charts. Rejected for lack of supporting evidence, not on
-#     principle -- if such evidence surfaces later this should be
-#     revisited.
-#
-# ── 5. V2 CONFIGURABILITY NOTE ───────────────────────────────────────────────
+# ── 8. V2 CONFIGURABILITY NOTE ───────────────────────────────────────────────
 # If a future v2 needs to support alternative aspect traditions (e.g. KP
 # astrology's own aspect conventions, the strict-PVR-text no-node-aspect
 # reading, or another school entirely), that should be parametrized via a
@@ -98,7 +89,7 @@
 # multiple named tables at a higher layer. Do NOT add competing dicts to
 # this file. This module remains the single canonical source for v1.
 #
-# ── 6. SCOPE NOTE FOR DOWNSTREAM CALLERS ─────────────────────────────────────
+# ── 9. SCOPE NOTE FOR DOWNSTREAM CALLERS ─────────────────────────────────────
 # ASPECTED_HOUSES_BY_PLANET.keys() defines the full aspecting-planet set:
 # all 9 chart points, nodes included. This is intentionally DIFFERENT from
 # friendship.py's CLASSICAL_PLANETS (7 classical planets only, nodes
