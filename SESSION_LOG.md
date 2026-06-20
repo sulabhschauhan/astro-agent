@@ -95,3 +95,32 @@ Files shipped:
 Test baseline: 593 passed / 3 skipped (Session 19 close) -> 614 passed / 7 skipped (21 new passing tests + 4 new skips, zero regressions). `chart_calculator.py` and `calculations/core/panchanga.py` untouched throughout.
 
 Next session entry point: David fixture extraction (Navamsa parity) — manually extract David's AstroSage Shodashvarga (D9) page values (lagna sign + each of the 9 planets' d9_sign/d9_house), cross-check against JHora, and populate `tests/calculations/vargas/test_navamsa.py` Layer B for David first (hardest case), then Sulabh, Surbhi, Sheridan. After fixtures land: P2.2 Dasamsa (D10).
+
+## Session 20 continued — P2 reorder + P2.1 Navamsa fully closed (this entry)
+
+**Date:** 2026-06-20
+**Phase tag:** P2.1 Navamsa (D9) — fully CLOSED; P2 roadmap reordered
+
+Deliverables:
+1. Scope-calibration exercise: 20 V1 layman questions classified against the calculation surface, leverage ranking established per module.
+2. P2 sequence reordered (see locked order below) — supersedes the flat "P2 Charts/Strength" placeholder from the Session 19 roadmap.
+3. P2.1 Navamsa final closeout: 4/4 reference charts (David, Sulabh, Surbhi, Sheridan) now PASSED, no skips — David activated first (hardest case), then Sulabh/Surbhi/Sheridan in one pass, each verified independently against the project's own `calculate_chart()` primitives before being locked into the test file.
+4. Test baseline: 618 passed, 3 skipped (Panchanga-related skips remain; unrelated to this session's work).
+
+Decisions locked this session:
+- Reference-chart fixture template: one standalone test function per chart (not a shared `@pytest.mark.parametrize`) when each chart's expected-value structure differs (named dict of 9 planets here); the skip-stub parametrize block is deleted once its backing list is empty, not left as dead scaffolding.
+- ASC citation honesty: do not fabricate a degree-level AstroSage value when the source material is sign-only (Sulabh's `reference_charts.md` entry omits a natal ASC degree) — the gap is noted explicitly in the citation comment rather than papered over.
+- Tiebreaker principle (memory #10) extends beyond contested calculation values to roadmap sequencing — user value beats classical pedagogical ordering wherever no classical source mandates a specific build order.
+
+Locked P2 order (supersedes the Session 19 placeholder):
+- P2.2 Gochara (transits) — was D10
+- P2.3 Muhurta answer-engine
+- P2.4 Ashtakoot + Mangal dosha
+- P2.5 Shadbala
+- P2.6 D7 Saptamsa
+- P2.7 D10 Dasamsa (demoted)
+- P3+ Yogas / Jaimini / Arudha — deferred for V1
+
+Rationale: scope-calibration against the 20 V1 layman questions showed Gochara answers 13/17 high-value rows; D10 Dasamsa answers 0/17 — the original D9→D10 divisional-chart-family ordering optimized for classical pedagogy, not user-facing leverage.
+
+Next session entry point: P2.2 Gochara (transits).
