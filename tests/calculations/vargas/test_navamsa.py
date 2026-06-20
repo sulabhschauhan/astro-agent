@@ -1,8 +1,8 @@
 """Tests for agent/calculations/vargas/navamsa.py — P2.1 Navamsa (D9).
 
 Layer A: structural / input-validation (no ephemeris).
-Layer B: reference-chart parity against the 4 AstroSage PDFs (skipped --
-    fixture extraction is deferred, see each test's skip message).
+Layer B: reference-chart parity against the 4 AstroSage PDFs (David, Sulabh,
+    Surbhi, Sheridan -- all 4 active).
 Layer C: internal consistency (real ephemeris, synthetic jd_ut).
 """
 
@@ -21,6 +21,7 @@ from agent.calculations.vargas.navamsa import (
     _pada_index,
     compute_navamsa,
 )
+from agent.chart_calculator import calculate_chart
 
 _CANONICAL_SIGNS = (
     "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
@@ -77,24 +78,177 @@ def test_navamsa_start_sign_locked_values(rasi, expected_start):
 
 # ── Layer B: reference-chart parity (HARDEST CASE FIRST) ─────────────────────
 #
-# Fixture population is deferred to next session (manual extraction from
-# each chart's AstroSage Shodashvarga page, cross-checked against JHora --
-# see playbook_export/reference/reference_charts.md for the natal data
-# already on file for these 4 charts). Do not fabricate expected values here.
+# All 4 charts active: David (this session's hardest case -- boundary-prone
+# London/BST chart, see CLAUDE.md), then Sulabh, Surbhi, Sheridan.
 
-_REFERENCE_CHARTS = [
-    {"name": "David", "source": "David's AstroSage PDF, Shodashvarga (D9) page"},
-    {"name": "Sulabh", "source": "Sulabh's AstroSage PDF, Shodashvarga (D9) page"},
-    {"name": "Surbhi", "source": "Surbhi's AstroSage PDF, Shodashvarga (D9) page"},
-    {"name": "Sheridan", "source": "Sheridan's AstroSage PDF, Shodashvarga (D9) page"},
-]
+# Source: David_Kundli.pdf page 40, AstroSage Shodashvarga Bhav Table,
+# Navamsha row (top row = sign, bottom row = house counted from D9 Lagna).
+# Sign numbering 1=Aries..12=Pisces translated to _CANONICAL_SIGNS names.
+_DAVID_EXPECTED_D9_LAGNA_SIGN = "Aquarius"
+_DAVID_EXPECTED_PLACEMENTS = {
+    "Sun":     {"d9_sign": "Aquarius",    "d9_house": 1},
+    "Moon":    {"d9_sign": "Cancer",      "d9_house": 6},
+    "Mars":    {"d9_sign": "Cancer",      "d9_house": 6},
+    "Mercury": {"d9_sign": "Aries",       "d9_house": 3},
+    "Jupiter": {"d9_sign": "Aquarius",    "d9_house": 1},
+    "Venus":   {"d9_sign": "Pisces",      "d9_house": 2},
+    "Saturn":  {"d9_sign": "Leo",         "d9_house": 7},
+    "Rahu":    {"d9_sign": "Taurus",      "d9_house": 4},
+    "Ketu":    {"d9_sign": "Scorpio",     "d9_house": 10},
+}
 
 
-@pytest.mark.parametrize(
-    "chart", _REFERENCE_CHARTS, ids=[c["name"] for c in _REFERENCE_CHARTS]
-)
-def test_navamsa_reference_chart_parity(chart):
-    pytest.skip(f"Reference fixture pending manual extraction from {chart['source']}")
+def test_navamsa_reference_chart_parity_david():
+    # Birth data shared with tests/test_chart_calculator.py and the
+    # tests/manual/*_check.py scripts -- not redefined here.
+    chart = calculate_chart("David", "19 Jan 1976", "22:00", "London, UK")
+    nav = compute_navamsa(
+        chart["meta"]["jd_ut"], chart["meta"]["asc_lon_sidereal"]
+    )
+
+    assert nav.d9_lagna_sign == _DAVID_EXPECTED_D9_LAGNA_SIGN
+
+    for planet, expected in _DAVID_EXPECTED_PLACEMENTS.items():
+        placement = nav.placements[planet]
+        assert placement.d9_sign == expected["d9_sign"], (
+            f"David {planet}: d9_sign {placement.d9_sign} vs "
+            f"expected {expected['d9_sign']}"
+        )
+        assert placement.d9_house == expected["d9_house"], (
+            f"David {planet}: d9_house {placement.d9_house} vs "
+            f"expected {expected['d9_house']}"
+        )
+
+
+# Source: VedicReport5242026100151PM.pdf page 40, AstroSage Shodashvarga Bhav
+# Table, Navamsha row (top row = sign, bottom row = house from D9 Lagna).
+# ASC cross-check: reference_charts.md Chart 1 (Sulabh) records natal ayanamsha
+# but omits a degree-level natal ASC -- only the sign-level "Ascendant:
+# Sagittarius" is on file (data/default_user/kundali_summary.txt). Computed
+# asc_lon_sidereal=262.6938 (Sagittarius 22d41'38") matches that sign;
+# no AstroSage degree figure exists to diff against the +-57.77" Lahiri
+# cross-implementation tolerance (see playbook_export/decisions/
+# ayanamsa-investigation.md) for this chart specifically.
+_SULABH_EXPECTED_D9_LAGNA_SIGN = "Libra"
+_SULABH_EXPECTED_PLACEMENTS = {
+    "Sun":     {"d9_sign": "Capricorn",   "d9_house": 4},
+    "Moon":    {"d9_sign": "Cancer",      "d9_house": 10},
+    "Mars":    {"d9_sign": "Aquarius",    "d9_house": 5},
+    "Mercury": {"d9_sign": "Virgo",       "d9_house": 12},
+    "Jupiter": {"d9_sign": "Cancer",      "d9_house": 10},
+    "Venus":   {"d9_sign": "Pisces",      "d9_house": 6},
+    "Saturn":  {"d9_sign": "Gemini",      "d9_house": 9},
+    "Rahu":    {"d9_sign": "Gemini",      "d9_house": 9},
+    "Ketu":    {"d9_sign": "Sagittarius", "d9_house": 3},
+}
+
+
+def test_navamsa_reference_chart_parity_sulabh():
+    # Birth data shared with tests/test_chart_calculator.py and the
+    # tests/manual/*_check.py scripts -- not redefined here.
+    chart = calculate_chart("Sulabh", "6 April 1988", "00:30", "Calcutta, India")
+    nav = compute_navamsa(
+        chart["meta"]["jd_ut"], chart["meta"]["asc_lon_sidereal"]
+    )
+
+    assert nav.d9_lagna_sign == _SULABH_EXPECTED_D9_LAGNA_SIGN
+
+    for planet, expected in _SULABH_EXPECTED_PLACEMENTS.items():
+        placement = nav.placements[planet]
+        assert placement.d9_sign == expected["d9_sign"], (
+            f"Sulabh {planet}: d9_sign {placement.d9_sign} vs "
+            f"expected {expected['d9_sign']}"
+        )
+        assert placement.d9_house == expected["d9_house"], (
+            f"Sulabh {planet}: d9_house {placement.d9_house} vs "
+            f"expected {expected['d9_house']}"
+        )
+
+
+# Source: Wife_VedicReport.pdf page 40, AstroSage Shodashvarga Bhav Table,
+# Navamsha row (top row = sign, bottom row = house from D9 Lagna).
+# ASC cross-check: reference_charts.md Chart 2 (Surbhi) -- AstroSage natal
+# ASC = Libra 29-52-55 = 209.8819 sidereal. Computed asc_lon_sidereal=209.8932,
+# diff 0.0113deg = 40.7" -- inside the documented +-57.77" Lahiri
+# cross-implementation tolerance (playbook_export/decisions/
+# ayanamsa-investigation.md).
+_SURBHI_EXPECTED_D9_LAGNA_SIGN = "Gemini"
+_SURBHI_EXPECTED_PLACEMENTS = {
+    "Sun":     {"d9_sign": "Scorpio",     "d9_house": 6},
+    "Moon":    {"d9_sign": "Aquarius",    "d9_house": 9},
+    "Mars":    {"d9_sign": "Scorpio",     "d9_house": 6},
+    "Mercury": {"d9_sign": "Libra",       "d9_house": 5},
+    "Jupiter": {"d9_sign": "Sagittarius", "d9_house": 7},
+    "Venus":   {"d9_sign": "Gemini",      "d9_house": 1},
+    "Saturn":  {"d9_sign": "Gemini",      "d9_house": 1},
+    "Rahu":    {"d9_sign": "Aries",       "d9_house": 11},
+    "Ketu":    {"d9_sign": "Libra",       "d9_house": 5},
+}
+
+
+def test_navamsa_reference_chart_parity_surbhi():
+    # Birth data shared with tests/test_chart_calculator.py and the
+    # tests/manual/*_check.py scripts -- not redefined here.
+    chart = calculate_chart("Surbhi", "11 Sep 1992", "10:30", "Patna, India")
+    nav = compute_navamsa(
+        chart["meta"]["jd_ut"], chart["meta"]["asc_lon_sidereal"]
+    )
+
+    assert nav.d9_lagna_sign == _SURBHI_EXPECTED_D9_LAGNA_SIGN
+
+    for planet, expected in _SURBHI_EXPECTED_PLACEMENTS.items():
+        placement = nav.placements[planet]
+        assert placement.d9_sign == expected["d9_sign"], (
+            f"Surbhi {planet}: d9_sign {placement.d9_sign} vs "
+            f"expected {expected['d9_sign']}"
+        )
+        assert placement.d9_house == expected["d9_house"], (
+            f"Surbhi {planet}: d9_house {placement.d9_house} vs "
+            f"expected {expected['d9_house']}"
+        )
+
+
+# Source: Sheridan_Kundli.pdf page 40, AstroSage Shodashvarga Bhav Table,
+# Navamsha row (top row = sign, bottom row = house from D9 Lagna).
+# ASC cross-check: reference_charts.md Chart 3 (Sheridan) -- AstroSage natal
+# ASC = Taurus 28-46-17 = 58.7714 sidereal. Computed asc_lon_sidereal=58.76,
+# diff 0.0114deg = 41.0" -- inside the documented +-57.77" Lahiri
+# cross-implementation tolerance (playbook_export/decisions/
+# ayanamsa-investigation.md).
+_SHERIDAN_EXPECTED_D9_LAGNA_SIGN = "Virgo"
+_SHERIDAN_EXPECTED_PLACEMENTS = {
+    "Sun":     {"d9_sign": "Aries",  "d9_house": 8},
+    "Moon":    {"d9_sign": "Aries",  "d9_house": 8},
+    "Mars":    {"d9_sign": "Aries",  "d9_house": 8},
+    "Mercury": {"d9_sign": "Virgo",  "d9_house": 1},
+    "Jupiter": {"d9_sign": "Virgo",  "d9_house": 1},
+    "Venus":   {"d9_sign": "Pisces", "d9_house": 7},
+    "Saturn":  {"d9_sign": "Pisces", "d9_house": 7},
+    "Rahu":    {"d9_sign": "Aries",  "d9_house": 8},
+    "Ketu":    {"d9_sign": "Libra",  "d9_house": 2},
+}
+
+
+def test_navamsa_reference_chart_parity_sheridan():
+    # Birth data shared with tests/test_chart_calculator.py and the
+    # tests/manual/*_check.py scripts -- not redefined here.
+    chart = calculate_chart("Sheridan", "27 May 1984", "08:00", "Durban, South Africa")
+    nav = compute_navamsa(
+        chart["meta"]["jd_ut"], chart["meta"]["asc_lon_sidereal"]
+    )
+
+    assert nav.d9_lagna_sign == _SHERIDAN_EXPECTED_D9_LAGNA_SIGN
+
+    for planet, expected in _SHERIDAN_EXPECTED_PLACEMENTS.items():
+        placement = nav.placements[planet]
+        assert placement.d9_sign == expected["d9_sign"], (
+            f"Sheridan {planet}: d9_sign {placement.d9_sign} vs "
+            f"expected {expected['d9_sign']}"
+        )
+        assert placement.d9_house == expected["d9_house"], (
+            f"Sheridan {planet}: d9_house {placement.d9_house} vs "
+            f"expected {expected['d9_house']}"
+        )
 
 
 # ── Layer C: internal consistency (real ephemeris, synthetic jd_ut) ─────────
