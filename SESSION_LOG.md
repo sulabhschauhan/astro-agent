@@ -75,3 +75,23 @@ Files shipped:
 Investigation trail: PyJHora source code investigation surfaced (7,)-only for both nodes, contradicting the original (5,7,9) lock. Multi-source landscape mapped across 8 sources. After agent debate, lock reverted to (5,7,9) on user-perceived-correctness grounds — PyJHora is an outlier vs. every major user-facing site. Decision trade-off documented explicitly in the table's citation block so the next dev sees the reasoning, not just the value.
 
 Next session entry point: P2.1 Navamsa (D9) — first divisional chart. Hardest-case target: David's chart for boundary signs. Open questions pre-listed in the P2.1 handoff.
+
+## Session 20 — P2.1 Navamsa (D9)
+
+**Date:** 2026-06-20
+**Phase tag:** P2.1 Navamsa (D9) — CLOSED
+
+Decisions locked this session:
+- Chart/VargaType prep task aborted before any code was written: grep confirmed no Chart dataclass exists anywhere in the codebase, and `calculations/core/panchanga.py`'s functions take raw `(datetime, latitude, longitude)` primitives directly, not a chart object — wiring the requested guard-rail pattern would have required adding a new parameter to ~9 function signatures, which the task explicitly forbade. Paused and re-scoped with Sulabh rather than inventing infrastructure nothing consumes.
+- P2.1 Navamsa (D9) re-scoped to a pure function over birth-time primitives instead: `compute_navamsa(jd_ut, asc_lon_sidereal) -> NavamsaChart`. No Chart dataclass, no VargaType enum — explicitly deferred until a future varga module actually needs shared chart-identity state (P2.5-boundary note left in navamsa.py's docstring).
+- Pada formula: exact `30.0/9.0` arithmetic (not a rounded 3.333 constant), with a defensive clamp to 8. Verified pada-boundary floats numerically before locking the 5 edge-case test expectations rather than assuming them — e.g. 3°20'00" lands bit-identically on the pada-1 boundary (`3 + 20/60` and `30.0/9.0` are bit-identical floats), 26°40'00" lands bit-identically on pada-8.
+- D9 starting-sign table hardcoded per PVR Ch.7/BPHS Ch.6 movable/fixed/dual convention; confirmed it reduces to "each triplicity starts from its own movable sign" (fire to Aries, earth to Capricorn, air to Libra, water to Cancer) and cross-checked against 3 locked test values (Aries to Aries, Taurus to Capricorn, Gemini to Libra) before writing the table.
+
+Files shipped:
+- `agent/calculations/vargas/navamsa.py` — `NavamsaPlacement`/`NavamsaChart` (frozen dataclasses), `compute_navamsa()` (commit 2a70f1a; one-line Ketu-comment closeout in 16036ec)
+- `tests/calculations/vargas/test_navamsa.py` — Layer A (8 structural/input-validation tests, no ephemeris), Layer B (4 reference-chart parity tests, skipped pending manual fixture extraction), Layer C (4 internal-consistency tests) (commit 2a70f1a)
+- `tests/calculations/vargas/__init__.py`
+
+Test baseline: 593 passed / 3 skipped (Session 19 close) -> 614 passed / 7 skipped (21 new passing tests + 4 new skips, zero regressions). `chart_calculator.py` and `calculations/core/panchanga.py` untouched throughout.
+
+Next session entry point: David fixture extraction (Navamsa parity) — manually extract David's AstroSage Shodashvarga (D9) page values (lagna sign + each of the 9 planets' d9_sign/d9_house), cross-check against JHora, and populate `tests/calculations/vargas/test_navamsa.py` Layer B for David first (hardest case), then Sulabh, Surbhi, Sheridan. After fixtures land: P2.2 Dasamsa (D10).

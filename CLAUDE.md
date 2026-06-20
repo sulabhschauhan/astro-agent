@@ -5,14 +5,15 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**P1.3 Aspects COMPLETE. Next: P2.1 Navamsa (D9).** 593 passed, 3 skipped.
-- `agent/calculations/core/_aspects_tables.py`, `agent/calculations/core/aspects.py`
-- `tests/calculations/test__aspects_tables.py`, `tests/calculations/test_aspects.py`
+**P2.1 Navamsa (D9) COMPLETE. Next: David fixture extraction (Navamsa parity), then P2.2 Dasamsa (D10).** 614 passed, 7 skipped.
+- `agent/calculations/vargas/navamsa.py`
+- `tests/calculations/vargas/test_navamsa.py`
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
 - **Hand-laterality via vision LLM** — evaluated across Sessions 15-16 under 3 framings (anchored chirality, unanchored chirality, thumb-side spatial position); consistently unreliable (Session 15: 5/6 right-bias on unlabeled images; Session 16: 3/4 thumb-side accuracy on N=4, one image misjudged, sample too small to trust). Permanent design: human confirmation at upload, no GPT laterality judgment.
 - **Tiebreaker principle (memory #10)** — when classical sources are genuinely fragmented, user-perceived correctness wins over single-source-code purity. Established via the Rahu/Ketu graha drishti lock (SESSION_LOG.md, Session 19, P1.3 Aspects). Applies to all future contested P2-P7 decisions.
+- **No Chart dataclass / VargaType enum yet (Session 20)** — confirmed neither exists in the codebase; a guard-rail prep task was paused rather than inventing unused infrastructure. Navamsa (D9) built as a pure function of `(jd_ut, asc_lon_sidereal)` primitives instead. Revisit only when a future varga module genuinely needs shared chart-identity state.
 
 ## Windows Paths (hardcoded)
 - Tesseract: `C:\Program Files\Tesseract-OCR\tesseract.exe`
