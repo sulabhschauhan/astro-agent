@@ -5,11 +5,14 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 19 IN PROGRESS.** P1.2b + P1.2c + ayanamsa wiring complete; next P1.3 (Dignity + Aspects). 112/112 passing.
+**P1.3 Aspects COMPLETE. Next: P2.1 Navamsa (D9).** 593 passed, 3 skipped.
+- `agent/calculations/core/_aspects_tables.py`, `agent/calculations/core/aspects.py`
+- `tests/calculations/test__aspects_tables.py`, `tests/calculations/test_aspects.py`
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
 - **Hand-laterality via vision LLM** — evaluated across Sessions 15-16 under 3 framings (anchored chirality, unanchored chirality, thumb-side spatial position); consistently unreliable (Session 15: 5/6 right-bias on unlabeled images; Session 16: 3/4 thumb-side accuracy on N=4, one image misjudged, sample too small to trust). Permanent design: human confirmation at upload, no GPT laterality judgment.
+- **Tiebreaker principle (memory #10)** — when classical sources are genuinely fragmented, user-perceived correctness wins over single-source-code purity. Established via the Rahu/Ketu graha drishti lock (SESSION_LOG.md, Session 19, P1.3 Aspects). Applies to all future contested P2-P7 decisions.
 
 ## Windows Paths (hardcoded)
 - Tesseract: `C:\Program Files\Tesseract-OCR\tesseract.exe`

@@ -53,3 +53,25 @@ Key findings/decisions:
 - Ayanamsa: pyswisseph SIDM_LAHIRI kept (consistent with all prior P1 work). Cross-implementation gap vs JHora's Lahiri = 57.77″, perfectly flat across all 4 fixtures (structural formula difference, not a bug). Working tolerance set to 60″ for ayanamsa tests specifically. Full investigation in `playbook_export/decisions/ayanamsa-investigation.md`.
 
 Next planned work: P1.3 — Dignity + Aspects (Graha Drishti per classical rules: 7th-from-self for all planets, plus special aspects for Mars 4th/8th, Jupiter 5th/9th, Saturn 3rd/10th). Refer to the PVR spec reference once extracted for P1.3 topics in a future `_pvr_spec_reference.json` extension.
+
+**Session 19 continued — P1.3 Aspects, CLOSED (this entry):**
+
+**Date:** 2026-06-20
+**Phase tag:** P1.3 Aspects — CLOSED
+
+Completed P1.3 Aspects sub-phase. Nine-planet graha drishti table, three public aspect functions, 73 new tests. Final test baseline: 593 passed, 3 skipped.
+
+Decisions locked this session:
+- Rahu/Ketu graha drishti = (5,7,9) Jupiter-pattern, both nodes symmetric. Anchored to AstroSage 4-PDF parity + Sanjay Rath + modern web consensus. PyJHora const.py L508 (7,)-only and JHora-UI 2,5,7,9-asymmetric explicitly rejected and cited as alternatives.
+- Tiebreaker principle established (now memory #10): when classical sources are genuinely fragmented, user-perceived correctness wins over single-source-code purity. Applies to all future P2-P7 contested decisions.
+- SENSITIVE_TO tag convention introduced: downstream consumers of contested locks must reference the lock by name in their docstrings so future revisions trigger targeted regression sweeps.
+
+Files shipped:
+- `agent/calculations/core/_aspects_tables.py` — 9-planet table + full citation block (data table: commit de9debe; comment-only citation rewrite: commit 23efe58)
+- `agent/calculations/core/aspects.py` — 3 public functions (`signs_aspected_by`, `does_planet_aspect_sign`, `aspects_between`) + `ASPECTING_PLANETS` constant (commit aee45ed)
+- `tests/calculations/test__aspects_tables.py` — 54 tests (commit de910eb)
+- `tests/calculations/test_aspects.py` — 19 tests (commit 23efe58)
+
+Investigation trail: PyJHora source code investigation surfaced (7,)-only for both nodes, contradicting the original (5,7,9) lock. Multi-source landscape mapped across 8 sources. After agent debate, lock reverted to (5,7,9) on user-perceived-correctness grounds — PyJHora is an outlier vs. every major user-facing site. Decision trade-off documented explicitly in the table's citation block so the next dev sees the reasoning, not just the value.
+
+Next session entry point: P2.1 Navamsa (D9) — first divisional chart. Hardest-case target: David's chart for boundary signs. Open questions pre-listed in the P2.1 handoff.
