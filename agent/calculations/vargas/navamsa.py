@@ -166,7 +166,7 @@ def compute_navamsa(jd_ut: float, asc_lon_sidereal: float) -> NavamsaChart:
     longitudes["Rahu"] = rahu_lon
     retrogrades["Rahu"] = True  # Mean Node convention -- always retrograde
     longitudes["Ketu"] = (rahu_lon + 180) % 360
-    retrogrades["Ketu"] = True
+    retrogrades["Ketu"] = True  # Mean Node convention -- Ketu mirrors Rahu (180deg opposite)
 
     lagna_d9_sign, lagna_pada = _d9_sign(asc_lon_sidereal)
 
