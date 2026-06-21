@@ -159,3 +159,45 @@ Open items carried forward:
 - `helpers/ephemeris.py` extraction (still stub; convention is direct `swe.calc_ut` with a TODO marker per call site).
 
 Next session entry point: P2.2.2 Sade Sati.
+
+## Session 22 — P2.2.2 Sade Sati closed; Interpretive-text spike returned FAIL; calculation roadmap paused
+
+**Date:** 2026-06-21
+**Phase tag:** P2.2.2 Sade Sati — CLOSED; P2.2.3+ PAUSED pending architectural rethink
+
+Work completed:
+1. P2.2.2 `sade_sati.py` implemented and validated against AstroSage Sade Sati reports for Sheridan + Surbhi. 623 passed / 3 skipped.
+2. `macro_sade_sati` field added to `SadeSatiStatus` dataclass on Claude Code's initiative during implementation — accepted retroactively (genuinely useful, semantically distinct from `current_phase_window`). Flag for awareness: was not in the locked Session 20 scaffolding contract.
+3. Gating contract locked: `macro_sade_sati` populated whenever `transit_jd` ∈ `[overall_start_jd, overall_end_jd]`, independent of instantaneous phase. `current_phase_window` gated on `phase != NONE`. Surbhi's June-October 2027 Aries gap (Saturn outside her envelope mid-Sade-Sati) validated as the canonical test case in Test 3.
+4. Macro envelope bug found and fixed during implementation: old 3-sign envelope continuity logic broke on retrograde dips into non-envelope signs (Surbhi-specific failure mode; silent on Sheridan because her envelope happened to contain the dip target). Replaced with independent rising/setting sign scans (earliest rising ingress + latest setting egress).
+5. Interpretive-text feasibility spike (backlog #1) executed. Single throwaway harness, Sheridan Saturn-in-11th-from-Lagna (retargeted from 6th after verification). Three-way comparison produced. Rubric score: 0/4 Yes. Decision: FAIL.
+
+Spike findings (structural, not just rubric):
+- RAG retrieval is broken at corpus level: 3 of 8 chunks were exact duplicates (ChromaDB indexing bug); off-topic dominates (12th-house content, 5th-10th content cutting off before 11th, a TOC heading); corpus itself documents a gap on Saturn-in-11th-from-ascendant (Deva-keralam p.59 chunk explicitly flags the missing lines).
+- Layering prompt is independently broken: adding AstroSage to the RAG+LLM context (Output C vs B) LOST named citations B had, contradicted AstroSage on 3+ themes despite "do not contradict" instruction, and degraded voice from astrological to corporate/therapeutic register. Even with perfect RAG, this prompt structure would fail.
+- Personalization is tokenistic: "Aries Moon native" name-dropped once, never integrated. No use of natal Saturn placement, dignity, dasha context.
+
+Decisions locked this session:
+- `macro_sade_sati` gating contract (see point 3 above).
+- P2.2.3 transit_aspects PAUSED. Aspects calculations are useless until the interpretive layer architecture is settled.
+- Calculation roadmap on hold pending architectural rethink.
+- RAG corpus rebuild queued as a parallel workstream regardless of architectural path chosen.
+
+Test baseline: 620 -> 623 passed (+3 from Sade Sati tests).
+
+Calendar/JD clarification: confirmed Gregorian calendar setting in both JHora and pyswisseph (gregflag=1) is correct for all modern chart dates; "Julian Date" (continuous day count) is unrelated to "Julian Calendar" (pre-1582 system).
+
+Open items carried forward:
+- Architectural rethink for interpretive layer. Three candidate paths to debate Session 23:
+  (a) Extract-then-annotate two-stage pipeline
+  (b) Template-bound generation (AstroSage as fixed scaffold)
+  (c) Scope cut — AstroSage terminal, RAG/LLM reserved for follow-up Q&A only
+- RAG corpus rebuild: dedup, chunking strategy review, plug Deva-keralam gap on 11th-house-from-ascendant content.
+- Sade Sati systematic delta pattern: ingress consistently -0.3d, exits consistently +0.5-0.9d vs AstroSage day-only dates. Likely cause: AstroSage uses IST sunrise rollover rather than UT midnight for date assignment. Worth a 5-min investigation when a time-stamped oracle is available (also closes backlog item #2 anchor corroboration in the same pass).
+- AstroSage anchor convention corroboration on second date (open since Session 21).
+- CLAUDE.md trim pass (handled in Part B of this prompt).
+- Sulabh and David transit fixtures (only Surbhi/Sheridan currently active for P2.2.x work).
+- `helpers/ephemeris.py` extraction (still stub).
+- `SadeSatiWindow` range-scan API (P2.2.2b, deferred).
+
+Next session entry point: Session 23 — interpretive layer architectural debate. Full 9-agent framework. Three candidate paths above. No code until architecture is locked.

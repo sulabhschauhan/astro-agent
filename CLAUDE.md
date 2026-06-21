@@ -5,18 +5,18 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**P2.2.1 Gochara CLOSED — compute_gochara() green on Surbhi + Sheridan. Next: P2.2.2 Sade Sati.** 620 passed, 3 skipped.
-- `agent/calculations/transits/gochara.py`
-- `tests/calculations/transits/test_gochara.py`
-- P2 order (locked, Session 20): Gochara → Muhurta engine → Ashtakoot/Mangal dosha → Shadbala → D7 Saptamsa → D10 Dasamsa (demoted); P3+ Yogas/Jaimini/Arudha deferred for V1
+**P2.2.2 Sade Sati CLOSED. Interpretive-text spike FAILED (0/4 rubric) — RAG corpus + layering prompt both broken. P2.2.3+ PAUSED pending Session 23 architectural debate.** 623 passed, 3 skipped.
+- `agent/calculations/transits/sade_sati.py`
+- `tests/calculations/transits/test_sade_sati.py`
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
-- **Hand-laterality via vision LLM** — evaluated across Sessions 15-16 under 3 framings (anchored chirality, unanchored chirality, thumb-side spatial position); consistently unreliable (Session 15: 5/6 right-bias on unlabeled images; Session 16: 3/4 thumb-side accuracy on N=4, one image misjudged, sample too small to trust). Permanent design: human confirmation at upload, no GPT laterality judgment.
-- **Tiebreaker principle (memory #10)** — when classical sources are genuinely fragmented, user-perceived correctness wins over single-source-code purity. Established via the Rahu/Ketu graha drishti lock (SESSION_LOG.md, Session 19, P1.3 Aspects). Applies to all future contested P2-P7 decisions.
-- **No Chart dataclass / VargaType enum yet (Session 20)** — confirmed neither exists in the codebase; a guard-rail prep task was paused rather than inventing unused infrastructure. Navamsa (D9) built as a pure function of `(jd_ut, asc_lon_sidereal)` primitives instead. Revisit only when a future varga module genuinely needs shared chart-identity state.
-- **Reference-chart fixture template (Session 20)** — one standalone test per chart, not a shared `@pytest.mark.parametrize`, when expected-value structures differ across charts; delete the skip-stub parametrize block once its backing list is empty rather than leaving it as dead scaffolding.
-- **P2.2.1 transit fixture anchor (Session 21)** — fixture anchored at 18:30 UTC (00:00 IST next day) per Session 21 diagnostic. AstroSage anchor convention provisional — corroborate on second date when convenient.
+- **Hand-laterality via vision LLM** — evaluated Sessions 15-16 under 3 framings; consistently unreliable (worst case 5/6 right-bias on unlabeled images). Permanent: human confirmation at upload, no GPT laterality judgment.
+- **Tiebreaker principle (memory #10)** — when classical sources are genuinely fragmented, user-perceived correctness wins over single-source purity. Locked via the Rahu/Ketu graha drishti decision (Session 19); applies to all contested P2-P7 decisions, including roadmap sequencing.
+- **No Chart dataclass / VargaType enum** (Session 20) — neither exists; Navamsa built as a pure `(jd_ut, asc_lon_sidereal)` function instead. Revisit only when a varga module genuinely needs shared chart-identity state.
+- **Reference-chart fixture template** (Session 20) — one standalone test per chart, not `@pytest.mark.parametrize`, when expected-value structures differ; delete skip-stub parametrize blocks once empty.
+- **Transit fixture anchor** (Session 21, PROVISIONAL) — 18:30 UTC (00:00 IST next day); needs second-date corroboration before treating as final.
+- **P2 order** (locked Session 20, PAUSED Session 22) — Gochara → Sade Sati → Muhurta engine → Ashtakoot/Mangal dosha → Shadbala → D7 → D10 (demoted); P3+ deferred. On hold pending interpretive-layer architecture.
 
 ## Windows Paths (hardcoded)
 - Tesseract: `C:\Program Files\Tesseract-OCR\tesseract.exe`
@@ -44,7 +44,6 @@ query_engine + chart_calculator → astrologer → session_manager
 ```
 Sub-chunks always have `_c{index}` appended to `chunk_id`.
 
-
 ## Reference Files (load only when relevant)
 | File | Load when |
 |---|---|
@@ -64,56 +63,19 @@ Sub-chunks always have `_c{index}` appended to `chunk_id`.
 6. **SURGICAL EDITS** — no full file rewrites; Python 3.11; always `try/except` with meaningful errors
 7. **AGENT INVOCATION** — auto-invoke all 6 before any design/code decision. Surface conflicts only. New agents need explicit approval.
 8. **LAYER FIRST** — before any fix, state which layer owns the problem: Data, Retrieval, Prompt, or UI. A fix in the wrong layer creates narrow patches and technical debt.
-9. **NO ANCHORED JUDGMENT** — never give an LLM call both a stated expectation and a request to judge against it in the same call. LLM observes independently (no expectation context given); Python compares the observation to the expectation deterministically.
+9. **NO ANCHORED JUDGMENT** — never give an LLM call both a stated expectation and a request to judge against it in the same call. LLM observes independently; Python compares the observation to the expectation deterministically.
 
 ## Varshaphal House-Counting Convention (Session 18)
-`resolve_house_counting_lagna()` is the canonical house-counting reference for any Varshaphal-derived bhav calculation (prefers AstroSage parsed Lagna, year-matched; else computed + boundary flag). Future Varshaphal functions (Sade Sati, transits) should call it rather than reading Lagna directly off `varshaphal_data`.
-
+`resolve_house_counting_lagna()` is the canonical house-counting reference for any Varshaphal-derived bhav calculation (prefers AstroSage parsed Lagna, year-matched; else computed + boundary flag); call it rather than reading Lagna directly off `varshaphal_data`.
 
 ## Calculation Architecture (Session 19+)
+Every new calculation module lives in its `calculations/` subpackage; never add calculation logic to a top-level file.
 
-The calculation layer is structured as the `calculations/` package. Every new calculation module lives in its appropriate subpackage. Never add calculation logic to a top-level file.
-
-**Package structure:**
-- `calculations/core/` — chart_d1, panchanga, aspects, dignity
-- `calculations/vargas/` — divisional charts D2-D60, vimshopaka
-- `calculations/strength/` — shadbala, ishta_kashta, bhava_bala
-- `calculations/dashas/` — vimshottari, yogini, chara, ashtottari, mudda
-- `calculations/yogas/` — detector + catalog/
-- `calculations/transits/` — gochara, sade_sati, transit_aspects
-- `calculations/ashtakavarga/` — bav, sav
-- `calculations/jaimini/` — karakas, arudha, padas
-- `calculations/annual/` — varshaphal, muntha, sahams
-- `calculations/helpers/` — house_counting, ephemeris
-
-**Canonical helpers:**
-- `resolve_house_counting_lagna()` lives in `helpers/house_counting.py` — canonical reference for ANY Varshaphal-derived bhav calculation
-- pyswisseph wrapper centralised in `helpers/ephemeris.py`
-
-**Validation protocol (per module):**
-1. Sample-before-scale: validate on Sulabh's chart first
-2. Hardest-case-first: test edge cases before mainline
-3. Empirical validation across 4 reference charts before locking formula
-4. Zero free parameters: test alternative hypotheses and rule them out
-5. AstroSage parity where applicable; JHora oracle where not
-6. Document irreducible cross-software noise as discovered
-
+**Package structure:** `core/` (chart_d1, panchanga, aspects, dignity) · `vargas/` (D2-D60, vimshopaka) · `strength/` (shadbala, ishta_kashta, bhava_bala) · `dashas/` (vimshottari, yogini, chara, ashtottari, mudda) · `yogas/` (detector + catalog/) · `transits/` (gochara, sade_sati, transit_aspects) · `ashtakavarga/` (bav, sav) · `jaimini/` (karakas, arudha, padas) · `annual/` (varshaphal, muntha, sahams) · `helpers/` (house_counting, ephemeris)
+**Canonical helpers:** `resolve_house_counting_lagna()` (`helpers/house_counting.py`) — canonical for ANY Varshaphal-derived bhav calc; `helpers/ephemeris.py` — planned pyswisseph wrapper, currently a stub (interim: direct `swe.calc_ut` + a `# TODO` marker per call site).
+**Validation protocol** (per module, on top of Working Style #2/#3): empirical validation across 4 reference charts before locking a formula; zero free parameters (test alternative hypotheses, rule them out); AstroSage parity where applicable, JHora oracle where not; document irreducible cross-software noise as discovered.
 
 ## Reference Materials
-
-**Calculation specifications:**
-- `project_files/classical_references/PVR_Vedic_Astrology_Integrated_Approach.pdf`
-  Primary calculation reference for all Phase P1-P6 modules. PVR Narasimha 
-  Rao authored both this book and JHora — book = formulas + classical 
-  justification; JHora = numerical ground truth. Both consulted before 
-  implementing any new calculation module.
-
-**Validation oracles:**
-- AstroSage PDFs (4 reference charts) — secondary parity
-- JHora exports — primary parity for non-AstroSage-exposed calculations
-
-**Interpretive RAG (separate, do not pollute):**
-- ChromaDB 7,281 chunks across 14 classical texts. RAG is for Tier 4 
-  interpretive answers in Parashara's voice. Modern textbooks (including 
-  PVR's) are deliberately excluded from RAG to preserve classical voice 
-  and avoid single-author tradition bias in retrieval.
+**Calculation specifications:** `project_files/classical_references/PVR_Vedic_Astrology_Integrated_Approach.pdf` — primary reference for P1-P6; PVR authored both this book and JHora (book = formulas/justification, JHora = numerical ground truth); both consulted before implementing any new calculation module.
+**Validation oracles:** AstroSage PDFs (4 reference charts) for secondary parity; JHora exports as primary parity where AstroSage doesn't expose the calculation.
+**Interpretive RAG (separate, do not pollute):** ChromaDB ~7,281 chunks across 14 classical texts, for Tier 4 interpretive answers in Parashara's voice. Modern textbooks (incl. PVR's) are deliberately excluded from RAG to preserve classical voice and avoid single-author bias.
