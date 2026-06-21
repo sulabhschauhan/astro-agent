@@ -17,6 +17,7 @@ Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → em
 - **Reference-chart fixture template** (Session 20) — one standalone test per chart, not `@pytest.mark.parametrize`, when expected-value structures differ; delete skip-stub parametrize blocks once empty.
 - **Transit fixture anchor** (Session 21, PROVISIONAL) — 18:30 UTC (00:00 IST next day); needs second-date corroboration before treating as final.
 - **P2 order** (locked Session 20, PAUSED Session 22) — Gochara → Sade Sati → Muhurta engine → Ashtakoot/Mangal dosha → Shadbala → D7 → D10 (demoted); P3+ deferred. On hold pending interpretive-layer architecture.
+- **V1 scope** — LLM-generated interpretive Q&A is OUT (see `diagnostics/path_c_validation_20260621_173724.md`, Session 23 close 2026-06-21). AstroSage paragraph terminal; palm primary; deterministic calculation-engine output is V1's only structured Q&A surface.
 
 ## Windows Paths (hardcoded)
 - Tesseract: `C:\Program Files\Tesseract-OCR\tesseract.exe`
@@ -40,9 +41,11 @@ query_engine + chart_calculator → astrologer → session_manager
   "book_name": str,
   "page_type": "text|diagram|mixed",
   "word_count": int,
+  "text_sha256": str,    # SHA-256 hex digest of `text`; embedder-computed, ChromaDB-metadata-only (not chunker-emitted)
 }
 ```
 Sub-chunks always have `_c{index}` appended to `chunk_id`.
+Schema lock permits additive fields with safe defaults; renames and removals require explicit sign-off. `text_sha256` added per `diagnostics/embedder_hardening_proposal_20260621_100850.md`.
 
 ## Reference Files (load only when relevant)
 | File | Load when |
