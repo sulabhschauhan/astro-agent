@@ -201,3 +201,43 @@ Open items carried forward:
 - `SadeSatiWindow` range-scan API (P2.2.2b, deferred).
 
 Next session entry point: Session 23 — interpretive layer architectural debate. Full 9-agent framework. Three candidate paths above. No code until architecture is locked.
+
+## Session 23 — Architectural debate closed; corpus dedup executed; Path (c) validation FAILED; V1 scope locked
+
+**Date:** 2026-06-21
+**Phase tag:** Interpretive-layer architecture — LOCKED (path (c) selected, then invalidated by its own validation run); calculation roadmap UNPAUSED
+
+Work completed:
+1. Architectural rethink: 9-agent debate walked the three Session 22 candidate paths — (a) extract-then-annotate two-stage pipeline, (b) template-bound generation (AstroSage as fixed scaffold), (c) scope cut (AstroSage terminal, RAG/LLM reserved for follow-up Q&A only). (b) eliminated for AstroSage prose-shape instability (no stable structural anchor to template against). (c) selected pending validation, as the smallest, most testable change. (a) deferred as a V1.1 candidate pending corpus rebuild + natal-context redesign — not ruled out, just not V1-critical-path.
+2. Corpus dedup: `chromadb_dup_diagnostic.py` surfaced 3,930 byte-identical duplicate-text groups (~25% of the 11,688-chunk collection). Root cause traced via the chunking-code audit + provenance audit to a 2026-05-27 mystery write into `data/progress/*.json` (writer never identified — PowerShell history had no record covering that window) compounded by `run_single_book.py`'s 2026-05-30 re-merge re-chunking content that was already chunked. `embedder.py` hardened with `text_sha256` idempotency (prompt #5) to prevent recurrence. Targeted delete removed 3,945 X/X_c<N> duplicate children: 11,688 -> 7,743. Full-fidelity snapshot retained at `diagnostics/targeted_delete_snapshot_20260621_120557.jsonl` (122 MB, includes embeddings) for reversibility.
+3. Post-delete verification: dedup mechanics landed clean — axis (b) duplicate-text groups 3,930 -> 10 (all OCR-garbage residuals, e.g. the 18-member literal `|` group), axis (c) near-identical-embedding pairs 5 -> 0. Saturn-11th retrieval is now 8/8 distinct (no within-result duplicates), but relevance is unchanged from pre-delete: still only 2/8 on-topic, and the 3 freed slots surfaced comparably off-topic Deva-keralam content rather than better content. None of the 6 clean books (BPHS, Phaladeepika, Saravali, Cheiro, Lal Kitab) surface for Saturn-11th queries. Confirms retrieval relevance is a separate workstream from dedup, not fixed by it.
+4. Path (c) validation: 4 Q&A queries against Sheridan's Saturn-11th AstroSage paragraph (Q1 definitional, Q2 mechanism, Q3 cross-placement, Q4 compound stress case probing the documented Deva-keralam 11th/12th-from-ascendant corpus gap). Primary-signal results: Q1 clean 3/3; Q3 nominally 3/3 but the citation is factually mis-paginated (verified against the actual retrieved chunks); Q2 failed on voice degradation (self-help register); Q4 failed on voice AND silently dropped the Moon-in-Aries clause instead of giving the honest-gap answer the stress test was designed to elicit. Honest primary-signal pass rate: 1/4. All three failure modes (voice drift, confident mis-citation, silent sub-clause omission) are LLM-behavior-layer, independent of retrieval quality. Path (c) does not ship as designed. Verdict locked.
+5. V1 scope decision: LLM-generated interpretive Q&A is OUT for V1. AstroSage paragraph is terminal; palm reading is primary; the deterministic calculation engine (Mahadasha lookups, Chandrabala, Tarabala, etc.) is V1's only structured Q&A surface — no LLM synthesis in that path.
+
+Decisions locked this session:
+- Path (b) eliminated (AstroSage prose-shape instability).
+- Path (c) selected for testing, then invalidated by its own validation run (1/4 honest primary-signal pass rate against the locked rubric).
+- Path (a) deferred to V1.1, pending corpus rebuild + natal-context redesign.
+- V1 scope: LLM-generated interpretive Q&A OUT; AstroSage terminal; palm primary; calculation engine is the only structured V1 Q&A surface.
+- Calculation roadmap UNPAUSED. P2.2.3 transit_aspects remains paused (no architectural need for it under the V1 scope decision); next session resumes at P2.3 Muhurta per the existing locked P2 order.
+
+Test baseline: 623 passed / 3 skipped (Session 22 close) -> 626 passed / 3 skipped (+3 new embedder hardening tests, `tests/test_embedder.py`). Zero regressions.
+
+Open items carried forward:
+- Path (a) extract-then-annotate one-shot test with full natal context — research question, not V1 critical path.
+- Deterministic Q&A on structured calculation data — possible V1.1 addition once Muhurta and Gochara ship.
+- Deterministic template-fill (no LLM in interpretive layer) — V2 destination, multi-month corpus engineering.
+- Path (c) prompt iteration — open option but not recommended given confident-incorrectness failure modes; extends V1 timeline materially.
+- Rubric hardening for any future Q&A test — citation-content-accuracy verification required, not just presence. Q3's result is the textbook case.
+- `run_single_book.py` re-merge input validation (scrapped from Session 23 as off critical path).
+- `run_overnight.py` twin gap (same vulnerability, different script).
+- OCR garbage cleanup (single-char chunks, the `|` group of 18).
+- Corpus gap inventory on 11th/12th-from-ascendant and similar holes — flagged by the path (c) retrieval result.
+- Enable PowerShell command-line history persistence (`Set-PSReadLineOption -HistorySaveStyle SaveIncrementally`) so the next incident is forensically reachable.
+- AstroSage anchor convention corroboration on a second date (open since Session 21).
+- Sade Sati systematic delta pattern investigation (5-min when a time-stamped oracle is available).
+- `helpers/ephemeris.py` extraction (still stub).
+- `SadeSatiWindow` range-scan API (P2.2.2b).
+- Sulabh and David transit fixtures (Surbhi/Sheridan only currently active).
+
+Next session entry point: P2.3 Muhurta answer-engine (highest user-value-per-session ratio per the Session 20 scope-calibration exercise; directly validates the post-(c) product thesis as deterministic structured-data Q&A).
