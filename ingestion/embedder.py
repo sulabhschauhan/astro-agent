@@ -5,6 +5,7 @@ Pending chunks (empty text) saved to data/pending_chunks.json.
 Coverage stats saved to data/embedding_report.json.
 """
 
+import hashlib
 import json
 import logging
 import time
@@ -62,6 +63,7 @@ def _to_metadata(chunk: dict) -> dict:
         "book_name":  chunk.get("book_name") or "",
         "page_type":  chunk.get("page_type") or "",
         "word_count": chunk.get("word_count") or 0,
+        "text_sha256": hashlib.sha256((chunk.get("text") or "").encode("utf-8")).hexdigest(),
     }
 
 
@@ -106,6 +108,28 @@ def run_pipeline(
     skipped_existing = len(embeddable) - len(to_embed)
     if skipped_existing:
         logger.info(f"Skipping {skipped_existing} chunks already in ChromaDB — {len(to_embed)} to embed")
+
+    # Idempotency: skip chunks whose text already exists under a different chunk_id (X / X_c0 collision)
+    skipped_duplicate_text = 0
+    try:
+        existing_meta = collection.get(include=["metadatas"])["metadatas"]
+    except Exception as e:
+        logger.warning(f"Bulk metadata read failed, skipping text-hash idempotency check this run: {e}")
+        existing_meta = []
+    existing_hashes = {m.get("text_sha256") for m in existing_meta if m.get("text_sha256")}
+
+    seen, deduped = set(), []
+    for c in to_embed:
+        h = hashlib.sha256((c.get("text") or "").encode("utf-8")).hexdigest()
+        if h in existing_hashes or h in seen:
+            matched = "existing ChromaDB chunk" if h in existing_hashes else "in-batch chunk"
+            logger.warning(f"Skipping {c['chunk_id']} — text_sha256 matches {matched} (duplicate text)")
+            skipped_duplicate_text += 1
+            continue
+        seen.add(h)
+        deduped.append(c)
+    to_embed = deduped
+
     total_batches = (len(to_embed) + BATCH_SIZE - 1) // BATCH_SIZE
 
     failed_chunk_ids = []
@@ -139,6 +163,7 @@ def run_pipeline(
         "total_pending":     len(pending),
         "total_failed":      len(failed_chunk_ids),
         "failed_chunk_ids":  failed_chunk_ids,
+        "skipped_duplicate_text": skipped_duplicate_text,
         "collection_count":  collection.count(),
         "by_book": {book: dict(stats) for book, stats in sorted(book_stats.items())},
     }
@@ -158,6 +183,7 @@ if __name__ == "__main__":
     print(f"Embedded:       {report['total_embedded']}")
     print(f"Pending:        {report['total_pending']}")
     print(f"Failed batches: {report['total_failed']}")
+    print(f"Duplicate text: {report['skipped_duplicate_text']}")
     print(f"ChromaDB total: {report['collection_count']}")
     print(f"\nBy book:")
     for book, stats in report["by_book"].items():

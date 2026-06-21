@@ -17,6 +17,10 @@ __pycache__/
 .DS_Store
 Thumbs.db
 data/sessions/
-data/progress/  
-data/chunked_chunks.json  
-data/*.log  
+data/progress/
+data/chunked_chunks.json
+data/*.log
+
+# ChromaDB snapshot/restore dumps — generated, not source (full embeddings,
+# can exceed GitHub's 100MB per-file push limit); kept on local disk only
+diagnostics/*snapshot*.jsonl
