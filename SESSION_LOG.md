@@ -124,3 +124,38 @@ Locked P2 order (supersedes the Session 19 placeholder):
 Rationale: scope-calibration against the 20 V1 layman questions showed Gochara answers 13/17 high-value rows; D10 Dasamsa answers 0/17 — the original D9→D10 divisional-chart-family ordering optimized for classical pedagogy, not user-facing leverage.
 
 Next session entry point: P2.2 Gochara (transits).
+
+## Session 21 — P2.2.1 Gochara (transits)
+
+**Date:** 2026-06-21
+**Phase tag:** P2.2.1 Gochara — first implementation GREEN; transit anchor convention provisionally locked
+
+Deliverables:
+1. Scope-calibration exercise — 20 V1 layman questions classified; leverage ranking established.
+2. P2 sequence reordered (V1-user-value over classical pedagogy) — see the Session 20 continued entry for the full locked order.
+3. P2.1 Navamsa fully closed: 4/4 reference charts (David, Sulabh, Surbhi, Sheridan) PASSED.
+4. `agent/calculations/transits/` package scaffolded with locked design docstrings + `NotImplementedError` stubs (gochara.py, sade_sati.py, transit_aspects.py).
+5. P2.2.1 `compute_gochara()` implemented; 2 reference fixtures (Surbhi, Sheridan) PASSED.
+6. Anchor convention diagnostic: 5 candidate JDs tested; 18:30 UTC (00:00 IST next-day rollover) is the only anchor matching all 9 planets simultaneously.
+
+Decisions locked this session:
+- P2 reordering: P2.2 Gochara, P2.3 Muhurta answer-engine, P2.4 Ashtakoot + Mangal dosha, P2.5 Shadbala, P2.6 D7, P2.7 D10 (demoted), P3+ Yogas/Jaimini/Arudha (deferred for V1).
+- Calculation subpackage `__init__.py` convention: empty (no re-exports). Callers use direct module imports — `transits/__init__.py` was normalized back to this shape after briefly deviating.
+- Reference-chart fixture template: standalone test per chart with real assertions; no parametrize when assertions differ; skip-stub deleted when its list empties.
+- ASC citation honesty: do not fabricate degree-level AstroSage values when source is sign-only; note the gap in the citation comment.
+- Mean Node for transit Rahu (deliberate divergence from JHora; matches AstroSage + Indian astrologer mainstream).
+- Sade Sati boundaries from natal Moon SIGN (Janma Rashi), not nakshatra — universal app/astrologer consensus.
+- Tiebreaker principle extends to roadmap sequencing — user-perceived value beats classical-text pedagogy where no source forbids.
+- Transit fixture canonical moment 18:30 UTC = 00:00 IST next-day rollover (PROVISIONAL — strong lead, sub-arcsecond margin on the Mars boundary, needs second-date corroboration).
+
+Test baseline: 618 passed / 3 skipped (Session 20 close) -> 620 passed / 3 skipped (+2 from the new Surbhi/Sheridan transit fixtures).
+
+Open items carried forward:
+- Interpretive-text feasibility spike (30-min RAG+GPT-4o experiment vs AstroSage paragraph quality) — execute after P2.2 closes.
+- AstroSage anchor convention corroboration on second date.
+- CLAUDE.md trim pass (currently 119 lines vs ~80 budget; flagged by Claude Code Session 21).
+- Retrograde-double-ingress handling for sade_sati.py design (Sheridan rows 13-19, Surbhi rows 15-17 confirm this is not edge-case but mainline).
+- Sulabh and David transit fixtures (only Surbhi/Sheridan currently active).
+- `helpers/ephemeris.py` extraction (still stub; convention is direct `swe.calc_ut` with a TODO marker per call site).
+
+Next session entry point: P2.2.2 Sade Sati.

@@ -5,9 +5,9 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**P2.1 Navamsa (D9) fully CLOSED — 4/4 reference charts passing, no skips. Next: P2.2 Gochara (transits).** 618 passed, 3 skipped.
-- `agent/calculations/vargas/navamsa.py`
-- `tests/calculations/vargas/test_navamsa.py`
+**P2.2.1 Gochara CLOSED — compute_gochara() green on Surbhi + Sheridan. Next: P2.2.2 Sade Sati.** 620 passed, 3 skipped.
+- `agent/calculations/transits/gochara.py`
+- `tests/calculations/transits/test_gochara.py`
 - P2 order (locked, Session 20): Gochara → Muhurta engine → Ashtakoot/Mangal dosha → Shadbala → D7 Saptamsa → D10 Dasamsa (demoted); P3+ Yogas/Jaimini/Arudha deferred for V1
 <!-- UPDATE THIS every session. One line only. -->
 
@@ -16,6 +16,7 @@ Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → em
 - **Tiebreaker principle (memory #10)** — when classical sources are genuinely fragmented, user-perceived correctness wins over single-source-code purity. Established via the Rahu/Ketu graha drishti lock (SESSION_LOG.md, Session 19, P1.3 Aspects). Applies to all future contested P2-P7 decisions.
 - **No Chart dataclass / VargaType enum yet (Session 20)** — confirmed neither exists in the codebase; a guard-rail prep task was paused rather than inventing unused infrastructure. Navamsa (D9) built as a pure function of `(jd_ut, asc_lon_sidereal)` primitives instead. Revisit only when a future varga module genuinely needs shared chart-identity state.
 - **Reference-chart fixture template (Session 20)** — one standalone test per chart, not a shared `@pytest.mark.parametrize`, when expected-value structures differ across charts; delete the skip-stub parametrize block once its backing list is empty rather than leaving it as dead scaffolding.
+- **P2.2.1 transit fixture anchor (Session 21)** — fixture anchored at 18:30 UTC (00:00 IST next day) per Session 21 diagnostic. AstroSage anchor convention provisional — corroborate on second date when convenient.
 
 ## Windows Paths (hardcoded)
 - Tesseract: `C:\Program Files\Tesseract-OCR\tesseract.exe`
