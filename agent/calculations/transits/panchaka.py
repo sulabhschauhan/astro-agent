@@ -83,11 +83,12 @@ Range-scan (P2.3.4 continued):
   primitive above -- no duplicated ephemeris or classification logic.
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
 import swisseph as swe
+
+from agent.calculations.helpers.discrete_scan import find_state_segments
 
 _PANCHAK_START_DEG = 300.0   # inclusive
 _PANCHAK_END_DEG = 360.0     # exclusive
@@ -181,11 +182,6 @@ def compute_panchaka(jd_ut: float) -> PanchakaStatus:
 # a function parameter -- see module docstring's Range-scan section.
 _COARSE_STEP_JD = 0.5
 
-# Bisection precision, internal only -- ~0.09 seconds. Below any meaningful
-# Muhurta time-of-day display precision. Same value as chandrabala.py /
-# tarabala.py. Not a function parameter.
-_BISECT_TOL_JD = 1e-6
-
 
 @dataclass(frozen=True)
 class PanchakaWindow:
@@ -194,59 +190,13 @@ class PanchakaWindow:
     category: PanchakaCategory
 
 
-def _bisect_transition(
-    t_lo: float,
-    t_hi: float,
-    state_lo: PanchakaCategory,
-    state_hi: PanchakaCategory,
-    classify: Callable[[float], PanchakaCategory],
-    max_iters: int = 40,
-) -> float:
-    """Bisects [t_lo, t_hi] -- where classify(t_lo) == state_lo,
-    classify(t_hi) == state_hi, and state_lo != state_hi -- down to
-    _BISECT_TOL_JD precision, returning the transition JD. Independently
-    reimplemented (not imported) from chandrabala.py's / tarabala.py's
-    functions of the same name -- see module docstring's
-    cross-module-coupling rationale.
-
-    NOTE: third module carrying this duplicated helper (chandrabala.py,
-    tarabala.py, panchaka.py). Triggers helpers/discrete_scan.py
-    extraction -- separate task per Session 25 scope (see module
-    docstring's Range-scan section).
-
-    State is typed PanchakaCategory directly, not a tuple -- unlike
-    chandrabala.py / tarabala.py, PanchakaStatus has no auxiliary
-    natal-relative fields to bisect on alongside category.
-
-    Takes `classify` as an explicit callable rather than relying on a
-    closure, so this function is independently unit-testable -- same
-    rationale as chandrabala.py / tarabala.py's functions of the same
-    name.
-
-    max_iters=40: log2(_COARSE_STEP_JD / _BISECT_TOL_JD) =
-    log2(0.5 / 1e-6) ~= 19; 40 is a 2x safety margin, not a tuned or
-    load-bearing constant -- by construction (state_lo != state_hi over a
-    bracket no wider than one coarse step) convergence happens well
-    before 40 iterations.
-    """
-    lo, hi = t_lo, t_hi
-    for _ in range(max_iters):
-        if hi - lo < _BISECT_TOL_JD:
-            break
-        mid = (lo + hi) / 2.0
-        if classify(mid) == state_lo:
-            lo = mid
-        else:
-            hi = mid
-    return (lo + hi) / 2.0
-
-
 def find_panchaka_windows(start_jd: float, end_jd: float) -> list[PanchakaWindow]:
     """
     Scans [start_jd, end_jd] for contiguous Panchaka windows -- spans
-    where category stays constant. Boundaries are bisected to
-    _BISECT_TOL_JD precision; see the module docstring's Range-scan
-    section for the algorithm and constant justifications.
+    where category stays constant. Boundaries are bisected via
+    agent.calculations.helpers.discrete_scan.find_state_segments, to its
+    default tol_jd precision (1e-6 JD); see the module docstring's
+    Range-scan section for the algorithm and constant justifications.
 
     Args:
         start_jd: Julian Day (UT), inclusive lower bound of the scan.
@@ -272,32 +222,13 @@ def find_panchaka_windows(start_jd: float, end_jd: float) -> list[PanchakaWindow
     def _classify(jd: float) -> PanchakaCategory:
         return compute_panchaka(jd).category
 
-    samples_jd = []
-    jd = start_jd
-    while jd < end_jd:
-        samples_jd.append(jd)
-        jd += _COARSE_STEP_JD
-    if samples_jd[-1] != end_jd:
-        samples_jd.append(end_jd)
-
-    states = [_classify(jd) for jd in samples_jd]
-
-    boundary_jds = [start_jd]
-    boundary_states = [states[0]]
-    for i in range(len(samples_jd) - 1):
-        if states[i] != states[i + 1]:
-            transition_jd = _bisect_transition(
-                samples_jd[i], samples_jd[i + 1], states[i], states[i + 1], _classify
-            )
-            boundary_jds.append(transition_jd)
-            boundary_states.append(states[i + 1])
-    boundary_jds.append(end_jd)
+    segments = find_state_segments(_classify, start_jd, end_jd, _COARSE_STEP_JD)
 
     return [
         PanchakaWindow(
-            start_jd=boundary_jds[i],
-            end_jd=boundary_jds[i + 1],
-            category=boundary_states[i],
+            start_jd=segment.start_jd,
+            end_jd=segment.end_jd,
+            category=segment.state,
         )
-        for i in range(len(boundary_jds) - 1)
+        for segment in segments
     ]
