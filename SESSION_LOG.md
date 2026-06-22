@@ -241,3 +241,83 @@ Open items carried forward:
 - Sulabh and David transit fixtures (Surbhi/Sheridan only currently active).
 
 Next session entry point: P2.3 Muhurta answer-engine (highest user-value-per-session ratio per the Session 20 scope-calibration exercise; directly validates the post-(c) product thesis as deterministic structured-data Q&A).
+
+## Session 24 — P2.3.1 + P2.3.2 Chandrabala (in progress)
+
+**Date:** 2026-06-21/2026-06-22
+**Phase tag:** P2.3.1 Chandrabala (instant primitive) — CLOSED; P2.3.2 Chandrabala (range-scan) — CLOSED. Session not yet closed.
+
+Work completed:
+1. P2.3.1 design proposal executed (read-only, no code) — investigated `calculations/` package structure, `gochara.py`/`sade_sati.py` conventions, the PVR PDF, and the test-fixture pattern. Headline finding: PVR's book contains **no section named "Chandrabala"** anywhere (zero hits across 515 pages). The functionally equivalent favorable-house data exists under Ch.26 §26.3 "Rasi Gochara Vedha" Table 63's Moon row (general transit theory), NOT in PVR's own dedicated Muhurta chapter (Ch.36), which names only Tarabala as a muhurta limb. Surfaced 7 open questions for Sulabh plus one Architect-vs-Critic conflict (import `gochara.compute_gochara()` vs. an independent minimal helper), resolved in favor of the independent-helper precedent.
+2. P2.3.1 `compute_chandrabala()` implemented in `agent/calculations/transits/chandrabala.py`: binary FAVORABLE/UNFAVORABLE classification, enum {1,3,6,7,10,11} locked from PVR Table 63's Moon row, Janma-Rashi (house 1) folded into FAVORABLE and surfaced via `is_janma_rashi`, sign convention 0-11 (matches `sade_sati.py`, deliberately not `gochara.py`'s 1-12), independent `_moon_sign()` helper (no cross-module dependency on `gochara.compute_gochara()`), vedha-sthana mechanism explicitly deferred to V1.1 (P2.3.1b) mirroring `sade_sati.py`'s Small Panoti precedent. 9 tests, 3 fixtures (Sulabh canonical anchor, Sulabh Janma-Rashi, David cross-chart), all computed programmatically.
+3. `transits/__init__.py` conflict caught and resolved: the implementation prompt asked to add re-exports to `transits/__init__.py`, directly contradicting the Session 21 locked convention (empty `__init__.py`, no re-exports, "normalized back to this shape after briefly deviating") — re-verified all 11 `calculations/` subpackages are currently empty. Flagged via a question rather than silently complying or silently skipping; Sulabh confirmed keeping `__init__.py` empty. Callers use direct module imports throughout.
+4. P2.3.2 `find_chandrabala_windows()` range-scan implemented in the same file: bisection-based discrete-state window detection (Skyfield `almanac.find_discrete` pattern, reimplemented locally against pyswisseph — skyfield itself is not a dependency); two internal-only constants (`_COARSE_STEP_JD`=0.5 JD/12h, justified by Moon's ~13°/day speed vs. 30° sign width; `_BISECT_TOL_JD`=1e-6 JD/~0.09s); no caller-facing step/precision parameters; bisects on the full (category, is_janma_rashi, house_from_natal_moon) triple (mathematically equivalent to bisecting on Moon sign ingress alone, since house_from_natal_moon is a bijective function of transit sign for fixed natal sign); no retrograde-double-ingress handling needed — the Moon never retrogrades, unlike Saturn in `sade_sati.py`. 11 tests: 3 fixtures (Sulabh 7-day, Sulabh 30-day spanning a Janma-Rashi entry, David 7-day cross-chart) plus contiguity/coverage/frozen-dataclass/bisection-convergence unit tests.
+5. Epistemic check on Fixture 1: all 3 detected boundaries differ from a naive fixed-step (0.5 JD grid) estimate by 8.3-11.4 hours — confirms the bisection is load-bearing, not cosmetic.
+6. Committed and pushed: commit `7d4ec2e` (`44cb935..7d4ec2e` on `origin/main`), 3 files, 726 insertions.
+
+Decisions locked this session:
+- Favorable-house enum {1,3,6,7,10,11} sourced from PVR Ch.26 §26.3 Table 63 Moon row — corroborates but is NOT the same source as PVR's own Muhurta methodology (Ch.36), which names only Tarabala. Chandrabala implemented as the mainstream Muhurta-lineage criterion (AstroSage/Drik Panchang/Muhurta Chintamani convention), with PVR Table 63 as independent corroboration.
+- Janma-Rashi (house 1) is part of the FAVORABLE bucket, surfaced via `is_janma_rashi: bool`, not a separate category.
+- Binary category only (FAVORABLE/UNFAVORABLE); NEUTRAL explicitly deferred to V1.1 — applies to both the instant primitive and the range-scan.
+- Vedha-sthana (obstruction) mechanism deferred to V1.1 (P2.3.1b), both instant primitive and range-scan.
+- Sign convention split acknowledged and accepted: `chandrabala.py` uses 0-11 (`sade_sati.py` convention); `gochara.py`'s 1-12 convention untouched, not refactored.
+- `transits/__init__.py` stays empty (no re-exports) — re-confirmed the Session 21 lock after a conflicting instruction was caught and Sulabh confirmed keeping it empty.
+- `_bisect_transition` takes an explicit `classify` callable parameter (beyond the literal signature given in the P2.3.2 prompt) to make it independently unit-testable; mirrors `sade_sati.py`'s existing `_refine_boundary(jd_a, jd_b, in_target: Callable)` precedent.
+
+Files shipped:
+- `agent/calculations/transits/chandrabala.py` — `compute_chandrabala()`, `ChandrabalaStatus`, `ChandrabalaCategory`, `find_chandrabala_windows()`, `ChandrabalaWindow`, `_moon_sign()`, `_bisect_transition()` (commit `7d4ec2e`)
+- `tests/calculations/transits/test_chandrabala.py` — 9 tests (commit `7d4ec2e`)
+- `tests/calculations/transits/test_chandrabala_windows.py` — 11 tests (commit `7d4ec2e`)
+
+Test baseline: 626 passed/3 skipped (Session 23 close) -> 646 passed/3 skipped (+20: 9 instant-primitive + 11 range-scan; zero regressions).
+
+Open items carried forward:
+- P2.3.1b vedha-sthana mechanism (deferred V1.1, both instant primitive and range-scan).
+- NEUTRAL category for 2nd/5th houses (deferred V1.1, per the P2.3.2 prompt's own locked-decisions list).
+- **P2.3 sub-sequence numbering collision**: "P2.3.2" was used for two different things across this conversation — Tarabala (per the original P2.3.1→P2.3.2→P2.3.3 Chandrabala→Tarabala→Panchaka sub-sequence, quoted as already-locked context in the design-proposal prompt) and Chandrabala's own range-scan (per this session's actual implementation prompt, titled "P2.3.2 Chandrabala range-scan"). Needs reconciling before Tarabala work starts — flag for Sulabh.
+- Test file location precedent: `tests/calculations/transits/test_chandrabala.py` was placed nested (mirroring `test_gochara.py`/`test_sade_sati.py`) rather than at the flat `tests/test_chandrabala.py` path one prompt's literal text specified; flagged in that turn's report, not separately re-confirmed by Sulabh.
+- All Session 23 carried-forward items (Path (a) interpretive-pipeline research question, RAG corpus gap inventory on 11th/12th-from-ascendant content, ephemeris helper extraction, Sulabh/David transit fixtures for Gochara/Sade Sati specifically, Sade Sati systematic delta-pattern investigation, AstroSage anchor-convention corroboration on a second date, OCR garbage cleanup, PowerShell history persistence) remain untouched.
+
+## Session 24 continued — Muhurta phase P2.3.1, P2.3.2, P2.3.3 shipped; session CLOSED
+
+**Date:** 2026-06-22
+**Phase tag:** P2.3.1 Chandrabala instant — CLOSED; P2.3.2 Chandrabala range-scan — CLOSED; P2.3.3 Tarabala instant + range-scan — CLOSED. Session 24 CLOSED. Next: P2.3.4 Panchaka.
+
+Work completed (continuing from the in-progress entry above):
+1. P2.3.3 Tarabala implemented in `agent/calculations/transits/tarabala.py`: `compute_tarabala()` instant primitive + `find_tarabala_windows()` range-scan, shipped as a single combined unit since the bisection design pattern was already locked from P2.3.2. 9-tara cycle (Janma/Sampat/Vipat/Kshema/Pratyari/Sadhaka/Vadha/Mitra/Ati-mitra), binary FAVORABLE/UNFAVORABLE, Janma Tara (nakshatra_count in {1,10,19}) UNFAVORABLE. Independent `_moon_nakshatra()` and `_bisect_transition()` (not imported from chandrabala.py). 18 tests across two files (test_tarabala.py instant: 9, test_tarabala_windows.py range: 9), 3 fixtures each (Sulabh canonical anchor, Sulabh Janma-Tara, David cross-chart), all computed programmatically.
+2. PVR Ch.36 §36.3 "Basics of Muhurta" (PDF p.484, printed p.472) extracted verbatim: "The nakshatra occupied by Moon at the time of a muhurta should be a good tara with respect to janma nakshatra." Cleaner source-ladder than Chandrabala — Tarabala is endorsed directly in PVR's own Muhurta chapter, not borrowed from a different chapter. Table 79 (PDF pp.485-486) checked for a tara column: none present; it lists task-specific good Nakshatras instead. No classical sub-classification of Janma Tara as activity-dependent found in this passage — binary classification proceeds as locked, no STOP triggered.
+3. Internal consistency cross-check: Tarabala windows over the same 7-day Sulabh scan are markedly more granular than Chandrabala's (8 windows vs. 4, since nakshatra divisions (27) cycle faster than rashi divisions (12) over the same ~27.3-day Moon cycle) — confirms the two limbs' relative time-resolution behaves as classically expected.
+4. Suite run: 646 passed/3 skipped (P2.3.2 close) -> 664 passed/3 skipped (+18 new, 0 failed, 0 regressions).
+
+Documentation correction found during Session 24 close review: the P2.3.3 implementation report (and a code comment inside `tests/calculations/transits/test_tarabala.py`'s `test_sulabh_canonical_anchor_unfavorable`) mislabeled nakshatra index 10 as "Uttara Phalguni" — per `agent/calculations/core/_panchanga_tables.py`'s `NAKSHATRA_NAMES`, index 10 is **Purva Phalguni** (Uttara Phalguni is index 11). Confirmed by direct table lookup, not left as a "likely typo" guess. Doc/comment-only error — the test asserts on the integer index (10), not the name string, so no test logic is affected. Not fixed in this prompt (doc-only scope this entry); tracked as a backlog item below.
+
+Decisions locked this session (continued, Tarabala-specific — supplements the P2.3.1/P2.3.2 locks already recorded in the entry above):
+- Tarabala source ladder: PVR Ch.36 §36.3 directly endorses Tarabala as a Muhurta limb (cleaner than Chandrabala's borrowed-chapter sourcing), but the 9-tara enum and FAVORABLE/UNFAVORABLE split are still mainstream-lineage, not PVR-derived — PVR's text never enumerates the 9 tara names.
+- Janma Tara (nakshatra_count in {1,10,19}) is UNFAVORABLE — deliberately the opposite auspiciousness convention from Chandrabala's Janma Rashi (FAVORABLE), reflecting genuinely divergent classical treatment of the two "back on your own natal point" cases, not an inconsistency to reconcile.
+- No vedha-sthana analog for Tarabala — Tarabala's classical formulation has no per-tara obstruction column comparable to Chandrabala's PVR Table 63 vedha-sthana column, so nothing is deferred there (a scope difference between the two limbs, not an oversight).
+- `_bisect_transition` and `_moon_nakshatra` reimplemented independently in tarabala.py, not imported from chandrabala.py — cross-module-coupling avoidance, same rationale as chandrabala.py's own independent `_moon_sign()` vs. `gochara.compute_gochara()`.
+- Generic `discrete_scan` helper extraction explicitly NOT done — two modules (chandrabala.py, tarabala.py) now carry near-identical bisection scaffolding; extraction threshold set at three modules (see CLAUDE.md Locked Decisions).
+- `transits/__init__.py` stays empty — untouched this session, re-confirming the Session 21 lock a second time.
+
+Files shipped (Tarabala, this entry):
+- `agent/calculations/transits/tarabala.py` — `compute_tarabala()`, `TarabalaStatus`, `TaraName`, `TarabalaCategory`, `find_tarabala_windows()`, `TarabalaWindow`, `_moon_nakshatra()`, `_bisect_transition()`
+- `tests/calculations/transits/test_tarabala.py` — 9 tests
+- `tests/calculations/transits/test_tarabala_windows.py` — 9 tests
+
+Test baseline: 646 passed/3 skipped (P2.3.2 close, this same session) -> 664 passed/3 skipped (+18: 9 instant-primitive + 9 range-scan; zero regressions).
+
+P2.3 sub-sequence numbering reconciled (resolves the collision flagged in this session's first entry above): P2.3.1 = Chandrabala instant primitive, P2.3.2 = Chandrabala range-scan, P2.3.3 = Tarabala instant + range-scan (combined), P2.3.4 = Panchaka (next). The pre-renumbering sequence quoted in this session's own design-proposal prompt (P2.3.1→P2.3.2→P2.3.3 mapping to Chandrabala→Tarabala→Panchaka, i.e. Tarabala as P2.3.2) is superseded going forward; not retroactively edited in this log's earlier entries, per the standing instruction against rewriting historical entries.
+
+Backlog items retired this session:
+- The "Uttara Phalguni" → "Purva Phalguni" mislabel in test_tarabala.py's test_sulabh_canonical_anchor_unfavorable comment (flagged in this same entry above) — fixed immediately after this entry was written; doc-comment-only change, 664 passed/3 skipped/0 failed reconfirmed after the fix.
+- Otherwise none confirmed against the written backlog record. (A draft closing brief for this entry proposed retiring the "Sulabh and David transit fixtures" item as covered by Chandrabala/Tarabala's own David fixtures — checked against this log's actual backlog wording (lines recorded at Sessions 21/22/23 close) and found that item is explicitly scoped to Gochara/Sade Sati ("P2.2.x work"), not Chandrabala/Tarabala. Chandrabala and Tarabala shipped with their own Sulabh+David fixtures from their initial design this session — not a retirement of a pre-existing gap. The Gochara/Sade Sati Sulabh+David fixture gap remains OPEN, untouched by this session's work.)
+
+Backlog items added this session:
+- Parity infrastructure (PRIORITY): `jhora_parser.py` construction (Phase 0.6, never built); `astrosage_parser.py` extension for Chandra Bala / Tara Bala; manual JHora Chandra Bala parity on the Sulabh canonical fixture (needs UI investigation — transit-time selector independent of birth time); manual JHora Tara Bala parity on the Sulabh canonical fixture.
+- V1.1 refinement candidates: ternary enum for 2nd/5th-house NEUTRAL Chandrabala; activity-dependent/conditional Janma Tara classification; vedha-sthana obstruction layer for Chandrabala.
+- Test-coverage gaps: frozen-dataclass enforcement test backfill for sade_sati.py and gochara.py (chandrabala.py and tarabala.py already have it). (The "Uttara Phalguni" → "Purva Phalguni" mislabel noted above was fixed same-session, not carried forward — see Backlog items retired.)
+- Reference-data hygiene: backfill Sulabh's natal Moon sign/degree + janma nakshatra into `playbook_export/reference/reference_charts.md` (currently only David's chart has a natal Moon entry there; Sulabh's nakshatra was sourced from `kundali_summary.txt` instead during P2.3.1/P2.3.3).
+- Generic `discrete_scan` helper extraction once a third range-scan module ships.
+- CLAUDE.md trim pass (now 92 lines vs ~80 budget — was already 85 before this session's Locked Decisions additions; flagged by Claude Code Session 24, same pattern as the Session 21 item that was handled in Session 22).
+
+Session close: not committed. Sulabh runs git commands directly per locked working pattern (see the Claude Code report for this entry for the staged commands).

@@ -5,9 +5,10 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**P2.2.2 Sade Sati CLOSED. Interpretive-text spike FAILED (0/4 rubric) — RAG corpus + layering prompt both broken. P2.2.3+ PAUSED pending Session 23 architectural debate.** 623 passed, 3 skipped.
-- `agent/calculations/transits/sade_sati.py`
-- `tests/calculations/transits/test_sade_sati.py`
+**P2.3.1-P2.3.3 DONE: Chandrabala (instant + range-scan) + Tarabala (instant + range-scan). Next: P2.3.4 Panchaka.** 664 passed, 3 skipped.
+- `agent/calculations/transits/chandrabala.py`, `tarabala.py`
+- `tests/calculations/transits/test_chandrabala.py`, `test_chandrabala_windows.py`, `test_tarabala.py`, `test_tarabala_windows.py`
+- Session 24 sub-step numbering (now locked): P2.3.1=Chandrabala instant, P2.3.2=Chandrabala range-scan, P2.3.3=Tarabala instant+range-scan, P2.3.4=Panchaka. Earlier entries in this session may carry the pre-renumbering sequence (Tarabala as P2.3.2) — not retroactively edited in SESSION_LOG.md.
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -16,8 +17,15 @@ Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → em
 - **No Chart dataclass / VargaType enum** (Session 20) — neither exists; Navamsa built as a pure `(jd_ut, asc_lon_sidereal)` function instead. Revisit only when a varga module genuinely needs shared chart-identity state.
 - **Reference-chart fixture template** (Session 20) — one standalone test per chart, not `@pytest.mark.parametrize`, when expected-value structures differ; delete skip-stub parametrize blocks once empty.
 - **Transit fixture anchor** (Session 21, PROVISIONAL) — 18:30 UTC (00:00 IST next day); needs second-date corroboration before treating as final.
-- **P2 order** (locked Session 20, PAUSED Session 22) — Gochara → Sade Sati → Muhurta engine → Ashtakoot/Mangal dosha → Shadbala → D7 → D10 (demoted); P3+ deferred. On hold pending interpretive-layer architecture.
+- **P2 order** (locked Session 20, PAUSED Session 22, UNPAUSED Session 23) — Gochara → Sade Sati → Muhurta engine (Chandrabala instant primitive + range-scan shipped Session 24; Tarabala, Panchaka next — sub-step numbering needs reconciling, see SESSION_LOG) → Ashtakoot/Mangal dosha → Shadbala → D7 → D10 (demoted); P3+ deferred.
 - **V1 scope** — LLM-generated interpretive Q&A is OUT (see `diagnostics/path_c_validation_20260621_173724.md`, Session 23 close 2026-06-21). AstroSage paragraph terminal; palm primary; deterministic calculation-engine output is V1's only structured Q&A surface.
+- **Bisection-over-discrete-state range-scan** (Session 24) — locked pattern for all transit-range-scan modules, NOT fixed-step. Internal-only constants: 0.5 JD coarse step, 1e-6 JD bisection precision, max_iters=40; no caller-facing precision params. Threshold-discipline rejects tunable step params without a classical anchor; empirically, bisection vs. a naive 12h grid differs by 8-11h per Moon ingress (P2.3.2 Fixture 1 epistemic check).
+- **Per-module ephemeris helpers stay duplicated** (Session 24) — `_moon_sign`/`_moon_nakshatra`/`_saturn_sign` etc. are not cross-imported between transit modules; `helpers/ephemeris.py` extraction (still a stub, Session 19+) remains the agreed future remediation.
+- **Per-module bisection helper stays duplicated** (Session 24) — `_bisect_transition` is reimplemented per module (chandrabala.py, tarabala.py), not imported between them. Extract to `helpers/` once a third module carries it.
+- **Sign convention split, transits** (Session 19-24) — `gochara.py` uses 1-12 (1=Aries); `sade_sati.py`/`chandrabala.py` use 0-11 (0=Aries); `tarabala.py` uses 0-26 (0=Ashwini) for nakshatras. `gochara.py` normalization remains an unscheduled backlog item.
+- **Binary FAVORABLE/UNFAVORABLE across Muhurta limbs** (Session 24) — Chandrabala and Tarabala both lock binary categories; NEUTRAL classifications (2nd/5th-house Chandrabala, activity-dependent Janma Tara) are deferred jointly to V1.1.
+- **PVR source-ladder asymmetry, Chandrabala vs. Tarabala** (Session 24) — Chandrabala lives in PVR's transit chapter (Ch.26 Table 63), not his Muhurta chapter; Tarabala lives directly in PVR's own Muhurta chapter (Ch.36 §36.3). Both still bind their FAVORABLE/UNFAVORABLE enums from mainstream Muhurta lineage, not derived purely from PVR.
+- **Transit range-scan test layout** (Session 24) — `test_<module>.py` (instant) + `test_<module>_windows.py` (range-scan), both under `tests/calculations/transits/`.
 
 ## Windows Paths (hardcoded)
 - Tesseract: `C:\Program Files\Tesseract-OCR\tesseract.exe`
@@ -74,7 +82,7 @@ Schema lock permits additive fields with safe defaults; renames and removals req
 ## Calculation Architecture (Session 19+)
 Every new calculation module lives in its `calculations/` subpackage; never add calculation logic to a top-level file.
 
-**Package structure:** `core/` (chart_d1, panchanga, aspects, dignity) · `vargas/` (D2-D60, vimshopaka) · `strength/` (shadbala, ishta_kashta, bhava_bala) · `dashas/` (vimshottari, yogini, chara, ashtottari, mudda) · `yogas/` (detector + catalog/) · `transits/` (gochara, sade_sati, transit_aspects) · `ashtakavarga/` (bav, sav) · `jaimini/` (karakas, arudha, padas) · `annual/` (varshaphal, muntha, sahams) · `helpers/` (house_counting, ephemeris)
+**Package structure:** `core/` (chart_d1, panchanga, aspects, dignity) · `vargas/` (D2-D60, vimshopaka) · `strength/` (shadbala, ishta_kashta, bhava_bala) · `dashas/` (vimshottari, yogini, chara, ashtottari, mudda) · `yogas/` (detector + catalog/) · `transits/` (gochara, sade_sati, chandrabala, transit_aspects) · `ashtakavarga/` (bav, sav) · `jaimini/` (karakas, arudha, padas) · `annual/` (varshaphal, muntha, sahams) · `helpers/` (house_counting, ephemeris)
 **Canonical helpers:** `resolve_house_counting_lagna()` (`helpers/house_counting.py`) — canonical for ANY Varshaphal-derived bhav calc; `helpers/ephemeris.py` — planned pyswisseph wrapper, currently a stub (interim: direct `swe.calc_ut` + a `# TODO` marker per call site).
 **Validation protocol** (per module, on top of Working Style #2/#3): empirical validation across 4 reference charts before locking a formula; zero free parameters (test alternative hypotheses, rule them out); AstroSage parity where applicable, JHora oracle where not; document irreducible cross-software noise as discovered.
 
