@@ -185,34 +185,6 @@ def test_chandrabala_window_is_frozen():
         windows[0].category = ChandrabalaCategory.UNFAVORABLE
 
 
-def test_bisect_transition_converges_to_known_threshold(monkeypatch):
-    # Contrive a sign transition at a specific, known fractional JD inside
-    # one coarse-step bracket, mocking _moon_sign directly (sign 0 before
-    # the threshold, sign 1 after) -- then verify _bisect_transition
-    # converges to within _BISECT_TOL_JD of that exact, known value.
-    t_lo = 2461212.0
-    true_transition = t_lo + 0.337  # arbitrary offset within the bracket
-    t_hi = t_lo + chandrabala_module._COARSE_STEP_JD
-
-    def fake_moon_sign(jd_ut):
-        return 0 if jd_ut < true_transition else 1
-
-    monkeypatch.setattr(chandrabala_module, "_moon_sign", fake_moon_sign)
-
-    natal_moon_sign = 5
-
-    def classify(jd):
-        status = compute_chandrabala(natal_moon_sign, jd)
-        return status.category, status.is_janma_rashi, status.house_from_natal_moon
-
-    state_lo = classify(t_lo)
-    state_hi = classify(t_hi)
-    assert state_lo != state_hi
-
-    result = chandrabala_module._bisect_transition(t_lo, t_hi, state_lo, state_hi, classify)
-    assert abs(result - true_transition) <= chandrabala_module._BISECT_TOL_JD
-
-
 def test_window_contiguity_invariant():
     natal_moon_sign = _natal_moon_sign(
         "Sulabh", "6 Apr 1988", "00:30", "Calcutta, India"

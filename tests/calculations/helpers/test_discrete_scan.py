@@ -185,3 +185,24 @@ def test_state_segment_is_frozen():
     segment = StateSegment(start_jd=0.0, end_jd=1.0, state="X")
     with pytest.raises(FrozenInstanceError):
         segment.state = "Y"
+
+
+# ─── Tuple state plumbing ───────────────────────────────────────────────────
+
+def test_tuple_state_segments():
+    # Tuple-state plumbing -- mirrors the (enum, bool, int) shape used
+    # by chandrabala.py / tarabala.py to verify the Hashable TypeVar
+    # bound works for composite states, not just scalar enums.
+    threshold = 4.7
+
+    def state_fn(jd):
+        if jd < threshold:
+            return ("LOW", True, 1)
+        return ("HIGH", False, 7)
+
+    segments = find_state_segments(state_fn, 0.0, 10.0, 1.0)
+
+    assert len(segments) == 2
+    assert segments[0].state == ("LOW", True, 1)
+    assert segments[1].state == ("HIGH", False, 7)
+    assert abs(segments[0].end_jd - threshold) <= 1e-6

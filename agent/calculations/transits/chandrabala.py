@@ -75,11 +75,12 @@ Range-scan (P2.3.2):
   above -- no duplicated ephemeris or classification logic.
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
 import swisseph as swe
+
+from agent.calculations.helpers.discrete_scan import find_state_segments
 
 _FAVORABLE_HOUSES = frozenset({1, 3, 6, 7, 10, 11})
 
@@ -174,10 +175,6 @@ def compute_chandrabala(natal_moon_sign: int, transit_jd: float) -> ChandrabalaS
 # function parameter -- see module docstring's Range-scan section.
 _COARSE_STEP_JD = 0.5
 
-# Bisection precision, internal only -- ~0.09 seconds. Below any meaningful
-# Muhurta time-of-day display precision. Not a function parameter.
-_BISECT_TOL_JD = 1e-6
-
 
 @dataclass(frozen=True)
 class ChandrabalaWindow:
@@ -188,55 +185,16 @@ class ChandrabalaWindow:
     house_from_natal_moon: int
 
 
-def _bisect_transition(
-    t_lo: float,
-    t_hi: float,
-    state_lo: tuple,
-    state_hi: tuple,
-    classify: Callable[[float], tuple],
-    max_iters: int = 40,
-) -> float:
-    """Bisects [t_lo, t_hi] -- where classify(t_lo) == state_lo,
-    classify(t_hi) == state_hi, and state_lo != state_hi -- down to
-    _BISECT_TOL_JD precision, returning the transition JD. Mirrors
-    sade_sati.py's _refine_boundary bisection loop, generalized from a
-    boolean in_target predicate to tuple-state equality.
-
-    Takes `classify` as an explicit callable rather than relying on a
-    closure, unlike find_chandrabala_windows' own nested _classify --
-    this is what makes _bisect_transition independently unit-testable
-    (see tests/calculations/transits/test_chandrabala_windows.py's
-    bisection-convergence test, which mocks _moon_sign directly). Same
-    parameter shape as sade_sati.py's _refine_boundary(jd_a, jd_b,
-    in_target: Callable[[float], bool]).
-
-    max_iters=40: log2(_COARSE_STEP_JD / _BISECT_TOL_JD) =
-    log2(0.5 / 1e-6) ~= 19; 40 is a 2x safety margin, not a tuned or
-    load-bearing constant -- by construction (state_lo != state_hi over a
-    bracket no wider than one coarse step) convergence happens well
-    before 40 iterations.
-    """
-    lo, hi = t_lo, t_hi
-    for _ in range(max_iters):
-        if hi - lo < _BISECT_TOL_JD:
-            break
-        mid = (lo + hi) / 2.0
-        if classify(mid) == state_lo:
-            lo = mid
-        else:
-            hi = mid
-    return (lo + hi) / 2.0
-
-
 def find_chandrabala_windows(
     natal_moon_sign: int, start_jd: float, end_jd: float
 ) -> list[ChandrabalaWindow]:
     """
     Scans [start_jd, end_jd] for contiguous Chandrabala windows -- spans
     where (category, is_janma_rashi, house_from_natal_moon) all stay
-    constant. Boundaries are bisected to _BISECT_TOL_JD precision; see
-    the module docstring's Range-scan section for the algorithm and
-    constant justifications.
+    constant. Boundaries are bisected via
+    agent.calculations.helpers.discrete_scan.find_state_segments, to its
+    default tol_jd precision (1e-6 JD); see the module docstring's
+    Range-scan section for the algorithm and constant justifications.
 
     Args:
         natal_moon_sign: Natal Moon's sidereal sign, 0=Aries..11=Pisces.
@@ -264,34 +222,15 @@ def find_chandrabala_windows(
         status = compute_chandrabala(natal_moon_sign, jd)
         return status.category, status.is_janma_rashi, status.house_from_natal_moon
 
-    samples_jd = []
-    jd = start_jd
-    while jd < end_jd:
-        samples_jd.append(jd)
-        jd += _COARSE_STEP_JD
-    if samples_jd[-1] != end_jd:
-        samples_jd.append(end_jd)
-
-    states = [_classify(jd) for jd in samples_jd]
-
-    boundary_jds = [start_jd]
-    boundary_states = [states[0]]
-    for i in range(len(samples_jd) - 1):
-        if states[i] != states[i + 1]:
-            transition_jd = _bisect_transition(
-                samples_jd[i], samples_jd[i + 1], states[i], states[i + 1], _classify
-            )
-            boundary_jds.append(transition_jd)
-            boundary_states.append(states[i + 1])
-    boundary_jds.append(end_jd)
+    segments = find_state_segments(_classify, start_jd, end_jd, _COARSE_STEP_JD)
 
     return [
         ChandrabalaWindow(
-            start_jd=boundary_jds[i],
-            end_jd=boundary_jds[i + 1],
-            category=boundary_states[i][0],
-            is_janma_rashi=boundary_states[i][1],
-            house_from_natal_moon=boundary_states[i][2],
+            start_jd=segment.start_jd,
+            end_jd=segment.end_jd,
+            category=segment.state[0],
+            is_janma_rashi=segment.state[1],
+            house_from_natal_moon=segment.state[2],
         )
-        for i in range(len(boundary_jds) - 1)
+        for segment in segments
     ]
