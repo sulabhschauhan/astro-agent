@@ -1,0 +1,106 @@
+{
+  "Calcutta, India": {
+    "latitude": 22.5726459,
+    "longitude": 88.3638953,
+    "address": "Kolkata, Kolkata Metropolitan Area, Kolkata, West Bengal, India",
+    "raw": {
+      "place_id": 251609816,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "osm_type": "relation",
+      "osm_id": 9381363,
+      "lat": "22.5726459",
+      "lon": "88.3638953",
+      "class": "boundary",
+      "type": "administrative",
+      "place_rank": 14,
+      "importance": 0.6862866712659843,
+      "addresstype": "city",
+      "name": "Kolkata",
+      "display_name": "Kolkata, Kolkata Metropolitan Area, Kolkata, West Bengal, India",
+      "boundingbox": [
+        "22.4520292",
+        "22.6188255",
+        "88.2336280",
+        "88.4610776"
+      ]
+    }
+  },
+  "London, UK": {
+    "latitude": 51.5074456,
+    "longitude": -0.1277653,
+    "address": "Greater London, England, United Kingdom",
+    "raw": {
+      "place_id": 416507446,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "osm_type": "relation",
+      "osm_id": 175342,
+      "lat": "51.5074456",
+      "lon": "-0.1277653",
+      "class": "boundary",
+      "type": "administrative",
+      "place_rank": 10,
+      "importance": 0.8920997258748663,
+      "addresstype": "city",
+      "name": "Greater London",
+      "display_name": "Greater London, England, United Kingdom",
+      "boundingbox": [
+        "51.2867601",
+        "51.6918741",
+        "-0.5103751",
+        "0.3340155"
+      ]
+    }
+  },
+  "Patna, India": {
+    "latitude": 25.6093239,
+    "longitude": 85.1235252,
+    "address": "Patna, Patna Rural, Patna, Bihar, India",
+    "raw": {
+      "place_id": 381901577,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "osm_type": "way",
+      "osm_id": 383774533,
+      "lat": "25.6093239",
+      "lon": "85.1235252",
+      "class": "place",
+      "type": "city",
+      "place_rank": 16,
+      "importance": 0.6283141403317186,
+      "addresstype": "city",
+      "name": "Patna",
+      "display_name": "Patna, Patna Rural, Patna, Bihar, India",
+      "boundingbox": [
+        "25.5389546",
+        "25.6510479",
+        "85.0118412",
+        "85.2641902"
+      ]
+    }
+  },
+  "Durban, South Africa": {
+    "latitude": -29.861825,
+    "longitude": 31.009909,
+    "address": "Durban, eThekwini Metropolitan Municipality, KwaZulu-Natal, 4057, South Africa",
+    "raw": {
+      "place_id": 35711137,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "osm_type": "node",
+      "osm_id": 27564996,
+      "lat": "-29.8618250",
+      "lon": "31.0099090",
+      "class": "place",
+      "type": "city",
+      "place_rank": 16,
+      "importance": 0.6577377739737574,
+      "addresstype": "city",
+      "name": "Durban",
+      "display_name": "Durban, eThekwini Metropolitan Municipality, KwaZulu-Natal, 4057, South Africa",
+      "boundingbox": [
+        "-30.0218250",
+        "-29.7018250",
+        "30.8499090",
+        "31.1699090"
+      ]
+    }
+  }
+}
