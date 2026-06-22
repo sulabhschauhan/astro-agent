@@ -321,3 +321,39 @@ Backlog items added this session:
 - CLAUDE.md trim pass (now 92 lines vs ~80 budget — was already 85 before this session's Locked Decisions additions; flagged by Claude Code Session 24, same pattern as the Session 21 item that was handled in Session 22).
 
 Session close: not committed. Sulabh runs git commands directly per locked working pattern (see the Claude Code report for this entry for the staged commands).
+
+## Session 25 — P2.3.4 Panchaka (CLOSED)
+
+**Date:** 2026-06-22
+**Phase tag:** P2.3.4 Panchaka — CLOSED.
+
+Work completed:
+1. `agent/calculations/transits/panchaka.py` (303 lines) implemented: `compute_panchaka(jd_ut) -> PanchakaStatus`, `find_panchaka_windows(start_jd, end_jd) -> list[PanchakaWindow]`, binary `PanchakaCategory` enum, frozen dataclasses, local `_bisect_transition` (third module carrying this duplicated helper, after chandrabala.py and tarabala.py). No natal parameter anywhere on the public surface -- Panchaka is not natal-relative, unlike Chandrabala/Tarabala.
+2. `tests/calculations/transits/test_panchaka.py` (113 lines, 7 tests) and `tests/calculations/transits/test_panchaka_windows.py` (147 lines, 9 tests) shipped.
+3. Suite run: 664 passed/3 skipped (Session 24 close) -> 680 passed/3 skipped (+16 new, 0 failed, 0 regressions).
+
+Decisions locked this session:
+- Panchaka V1 = Definition B (Moon sidereal longitude in [300, 360) degrees, Aquarius + Pisces). Binary IS_PANCHAK / NOT_PANCHAK only.
+- Source: Muhurtha-Chinthamani p.84-85. Verified this session against the project's own RAG corpus (`data/all_chunks.json`, chunks `Muhurtha-Chinthamani_p84_c2` / `p85_c0` / `p309_c1` / `p309_c2` / `p310_c0` -- OCR'd from `data/pdfs/Muhurtha-Chinthamani.pdf`), not a fresh direct PDF read; flagged here per the project's citation-honesty convention rather than overstating the verification method.
+- Threshold note: the passage gives both the round-sign framing ("Moon in the Ascendants of Aquarius and Pisces" = [300, 360) degrees, Definition B, implemented) and the nakshatra-pada-exact framing (Dhanishtha's 3rd pada, ~293°20', through end of Revati, Definition A, NOT implemented) in the same breath, treating them as equivalent glosses rather than competing definitions. The ~6°40' gap between the two is acknowledged, not reconciled, and documented in `panchaka.py`'s module docstring as a risk-accepted V1 simplification.
+- Three V1.1 deferrals documented: named-type overlay (Raj/Agni/Chor/Mrityu/Rog Panchak by entry weekday), Panchaka Rahita as a wholly separate future module, and Definition A's round-degree refinement.
+- Methodology lock: design-proposal-first is NOT the default going forward -- earned only when (a) classical sources are genuinely ambiguous post-agent-pass, (b) the module structurally differs from existing precedent, (c) fixtures require pre-implementation ephemeris computation, or (d) the API shape is uncertain (full criteria recorded in CLAUDE.md's Locked Decisions). Default is a direct implementation prompt -- this session went straight to implementation with no separate design-proposal pass, the first P2.3.x module to do so.
+
+Files shipped:
+- `agent/calculations/transits/panchaka.py`
+- `tests/calculations/transits/test_panchaka.py` -- 7 tests
+- `tests/calculations/transits/test_panchaka_windows.py` -- 9 tests
+
+Test baseline: 664 passed/3 skipped (Session 24 close) -> 680 passed/3 skipped (+16: 7 instant-primitive + 9 range-scan; zero regressions).
+
+Backlog items retired this session:
+- Generic `discrete_scan` helper extraction is now the ACTIVE next task, not backlog -- `panchaka.py` is the third module carrying a duplicated `_bisect_transition` (chandrabala.py, tarabala.py, panchaka.py), crossing the Session 24-locked extraction threshold.
+
+Backlog items added this session:
+- `helpers/discrete_scan.py` extraction (NOW DUE -- next task): refactor chandrabala.py / tarabala.py / panchaka.py to import a shared bisection helper.
+- Named-type Panchak overlay (V1.1): Raj/Agni/Chor/Mrityu/Rog classification requires a Panchak-entry-vara backward scan plus a location/timezone parameter.
+- Panchaka Rahita module (V1.1+): separate file `transits/panchaka_rahita.py`; function of (Tithi, Vara, Nakshatra, Udaya Lagna); Andhra/Telangana intraday classifier; oracle drikpanchang.com/muhurat/panchaka-rahita-muhurat.html. Do NOT conflate with `panchaka.py`.
+
+Next session entry point: Session 26 -- `helpers/discrete_scan.py` extraction (refactor chandrabala.py / tarabala.py / panchaka.py to import the shared helper). Then P2.3.5 Muhurta composite scorer.
+
+Session close: committed and pushed as commit `23f0c31` on `origin/main` (`89cd330..23f0c31`).
