@@ -104,11 +104,12 @@ Range-scan (P2.3.3 continued):
   above -- no duplicated ephemeris or classification logic.
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
 import swisseph as swe
+
+from agent.calculations.helpers.discrete_scan import find_state_segments
 
 _NAK_SPAN = 360.0 / 27.0
 
@@ -241,10 +242,6 @@ def compute_tarabala(natal_nakshatra: int, transit_jd: float) -> TarabalaStatus:
 # parameter -- see module docstring's Range-scan section.
 _COARSE_STEP_JD = 0.5
 
-# Bisection precision, internal only -- ~0.09 seconds. Below any meaningful
-# Muhurta time-of-day display precision. Not a function parameter.
-_BISECT_TOL_JD = 1e-6
-
 
 @dataclass(frozen=True)
 class TarabalaWindow:
@@ -257,43 +254,6 @@ class TarabalaWindow:
     transit_nakshatra: int
 
 
-def _bisect_transition(
-    t_lo: float,
-    t_hi: float,
-    state_lo: tuple,
-    state_hi: tuple,
-    classify: Callable[[float], tuple],
-    max_iters: int = 40,
-) -> float:
-    """Bisects [t_lo, t_hi] -- where classify(t_lo) == state_lo,
-    classify(t_hi) == state_hi, and state_lo != state_hi -- down to
-    _BISECT_TOL_JD precision, returning the transition JD. Independently
-    reimplemented (not imported) from chandrabala.py's function of the
-    same name -- see module docstring's cross-module-coupling rationale.
-
-    Takes `classify` as an explicit callable rather than relying on a
-    closure, so this function is independently unit-testable (see
-    tests/calculations/transits/test_tarabala_windows.py's
-    bisection-convergence test, which mocks _moon_nakshatra directly).
-
-    max_iters=40: log2(_COARSE_STEP_JD / _BISECT_TOL_JD) =
-    log2(0.5 / 1e-6) ~= 19; 40 is a 2x safety margin, not a tuned or
-    load-bearing constant -- by construction (state_lo != state_hi over a
-    bracket no wider than one coarse step) convergence happens well
-    before 40 iterations.
-    """
-    lo, hi = t_lo, t_hi
-    for _ in range(max_iters):
-        if hi - lo < _BISECT_TOL_JD:
-            break
-        mid = (lo + hi) / 2.0
-        if classify(mid) == state_lo:
-            lo = mid
-        else:
-            hi = mid
-    return (lo + hi) / 2.0
-
-
 def find_tarabala_windows(
     natal_nakshatra: int, start_jd: float, end_jd: float
 ) -> list[TarabalaWindow]:
@@ -302,7 +262,8 @@ def find_tarabala_windows(
     where (category, is_janma_tara, tara_number) all stay constant
     (equivalently, spans of a single nakshatra-count value -- see module
     docstring's Range-scan section for why these coincide). Boundaries are
-    bisected to _BISECT_TOL_JD precision.
+    bisected via agent.calculations.helpers.discrete_scan.find_state_segments,
+    to its default tol_jd precision (1e-6 JD).
 
     Args:
         natal_nakshatra: Natal Moon's sidereal nakshatra, 0=Ashwini..26=Revati.
@@ -327,40 +288,32 @@ def find_tarabala_windows(
         return []
 
     def _classify(jd: float) -> tuple:
+        # Widened beyond the (category, is_janma_tara, tara_number)
+        # change-detection triple to also carry tara_name/nakshatra_count/
+        # transit_nakshatra -- tara_number changes at every nakshatra
+        # ingress (see module docstring's Range-scan section), so this
+        # produces the identical boundary set while letting each
+        # StateSegment.state be unpacked directly into a TarabalaWindow.
         status = compute_tarabala(natal_nakshatra, jd)
-        return status.category, status.is_janma_tara, status.tara_number
+        return (
+            status.tara_name,
+            status.category,
+            status.is_janma_tara,
+            status.nakshatra_count,
+            status.transit_nakshatra,
+        )
 
-    samples_jd = []
-    jd = start_jd
-    while jd < end_jd:
-        samples_jd.append(jd)
-        jd += _COARSE_STEP_JD
-    if samples_jd[-1] != end_jd:
-        samples_jd.append(end_jd)
-
-    sample_statuses = [compute_tarabala(natal_nakshatra, jd) for jd in samples_jd]
-    states = [(s.category, s.is_janma_tara, s.tara_number) for s in sample_statuses]
-
-    boundary_jds = [start_jd]
-    boundary_statuses = [sample_statuses[0]]
-    for i in range(len(samples_jd) - 1):
-        if states[i] != states[i + 1]:
-            transition_jd = _bisect_transition(
-                samples_jd[i], samples_jd[i + 1], states[i], states[i + 1], _classify
-            )
-            boundary_jds.append(transition_jd)
-            boundary_statuses.append(sample_statuses[i + 1])
-    boundary_jds.append(end_jd)
+    segments = find_state_segments(_classify, start_jd, end_jd, _COARSE_STEP_JD)
 
     return [
         TarabalaWindow(
-            start_jd=boundary_jds[i],
-            end_jd=boundary_jds[i + 1],
-            tara_name=boundary_statuses[i].tara_name,
-            category=boundary_statuses[i].category,
-            is_janma_tara=boundary_statuses[i].is_janma_tara,
-            nakshatra_count=boundary_statuses[i].nakshatra_count,
-            transit_nakshatra=boundary_statuses[i].transit_nakshatra,
+            start_jd=segment.start_jd,
+            end_jd=segment.end_jd,
+            tara_name=segment.state[0],
+            category=segment.state[1],
+            is_janma_tara=segment.state[2],
+            nakshatra_count=segment.state[3],
+            transit_nakshatra=segment.state[4],
         )
-        for i in range(len(boundary_jds) - 1)
+        for segment in segments
     ]

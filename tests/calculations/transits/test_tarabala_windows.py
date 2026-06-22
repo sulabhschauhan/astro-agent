@@ -200,32 +200,3 @@ def test_tarabala_window_is_frozen():
     )
     with pytest.raises(dataclasses.FrozenInstanceError):
         windows[0].category = TarabalaCategory.FAVORABLE
-
-
-def test_bisect_transition_converges_to_known_threshold(monkeypatch):
-    # Contrive a nakshatra transition at a specific, known fractional JD
-    # inside one coarse-step bracket, mocking _moon_nakshatra directly
-    # (nakshatra 0 before the threshold, nakshatra 1 after) -- then verify
-    # _bisect_transition converges to within _BISECT_TOL_JD of that exact,
-    # known value.
-    t_lo = 2461212.0
-    true_transition = t_lo + 0.337  # arbitrary offset within the bracket
-    t_hi = t_lo + tarabala_module._COARSE_STEP_JD
-
-    def fake_moon_nakshatra(jd_ut):
-        return 0 if jd_ut < true_transition else 1
-
-    monkeypatch.setattr(tarabala_module, "_moon_nakshatra", fake_moon_nakshatra)
-
-    natal_nakshatra = 5
-
-    def classify(jd):
-        status = compute_tarabala(natal_nakshatra, jd)
-        return status.category, status.is_janma_tara, status.tara_number
-
-    state_lo = classify(t_lo)
-    state_hi = classify(t_hi)
-    assert state_lo != state_hi
-
-    result = tarabala_module._bisect_transition(t_lo, t_hi, state_lo, state_hi, classify)
-    assert abs(result - true_transition) <= tarabala_module._BISECT_TOL_JD
