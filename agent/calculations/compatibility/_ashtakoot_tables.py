@@ -402,23 +402,32 @@ GANA_SCORE: dict[tuple[str, str], int] = {
 # progeny", {6,8}="giver of death" are inauspicious (0 points pre-
 # cancellation); all other distances (1,3,4,7,10,11) are auspicious (7
 # points, the max).
-# Cancellation rules (locked decisions):
-# - {5,9}: "same_lord_or_friend_lords" -- cancels if the two Rashi lords
-#   are the same planet, or are mutual Naisargika friends (reuse
-#   NATURAL_FRIENDSHIP + SIGN_LORD above). Source: Muhurtha-Chinthamani
-#   p.176 ("If there is no friendship between the Lords... Dusta Bhakoota
-#   ... 5 kinds of removal" -- lists same-lord and friend-lords first).
-# - {6,8}: explicitly NOT locked (TODO). The same source (p.174) lists a
-#   specific same-lord/friend-lord exception set for what its own text
-#   labels "6/8" (signs 1-8,2-7,4-9,5-12,6-11,10-3 -- verified by direct
-#   house-count arithmetic to be exactly the 6 unordered 6th/8th sign
-#   pairs, not an OCR artifact), which would suggest the SAME cancellation
-#   rule applies to 6/8, not just 5/9. This is NOT used to unlock 6/8 here:
-#   the surrounding OCR (p.173-177) is heavily degraded and at one point
-#   cross-references "Dusta Gana" in the middle of a Bhakoota discussion,
-#   making fine-grained sub-rule attribution unreliable without a manual
-#   PDF re-read. Left as an explicit TODO per the locked decision, not
-#   silently resolved either way.
+# Cancellation rules (locked decisions): Bhakoot has three classical dosha
+# types -- Dwirdwadash {2,12}, Nav-Pancham {5,9}, Shadashtak {6,8} -- and
+# all three share the same primary cancellation rule. Locked via a 9-agent
+# silent deliberation cross-validated across 12 independent sources
+# (PyJHora, astroyogi, astrologymag/Navneet Khanna, astrosight, truthstar,
+# kundalimatches, ganeshmitra, vama, instaastro, pawankaushik, 108astro,
+# astronidan), P2.4.1b design chat.
+# - Same Rashi lord cancels (any of the three dosha types), OR
+# - Mutual Naisargika friend Rashi lords cancels (any of the three),
+#   reusing NATURAL_FRIENDSHIP + SIGN_LORD above.
+# - "Mutual" = STRICT: both NATURAL_FRIENDSHIP[A][B] == "Friend" AND
+#   NATURAL_FRIENDSHIP[B][A] == "Friend". Asymmetric Friend/Neutral pairs
+#   (e.g. Moon-Jupiter) do NOT qualify. Deliberate conservative choice,
+#   consistent with P2.4.0's existing "mutual" language -- this is the
+#   contract the future calculator must follow.
+# Source: Muhurtha-Chinthamani p.176 ("If there is no friendship between
+# the Lords... Dusta Bhakoota ... 5 kinds of removal" -- lists same-lord
+# and friend-lords first).
+# {6,8} resolution history: P2.4.0 left {6,8} as an explicit TODO because
+# the surrounding OCR (p.173-177) was heavily degraded and at one point
+# cross-referenced "Dusta Gana" mid-Bhakoota-discussion, making fine-
+# grained sub-rule attribution unreliable from the source PDF alone. That
+# TODO is now resolved by the 12-source cross-validation above: cross-
+# source unanimity confirms {6,8} uses the same rule as {5,9}. The original
+# OCR-degradation concern is acknowledged as the original reason for
+# deferral, now superseded by this cross-source agreement.
 # A further nuance -- p.173-174 also documents that 6 specific otherwise-
 # auspicious 4th/10th sign-pairs (Capricorn/Libra, Taurus/Leo, Aries/
 # Cancer, Gemini/Pisces, Sagittarius/Virgo, Aquarius/Scorpio) are
@@ -426,6 +435,20 @@ GANA_SCORE: dict[tuple[str, str], int] = {
 # completeness, NOT implemented (a calculator-layer refinement, out of
 # scope for a constants-only phase, same treatment as Varna's lord-
 # override exception above).
+# V1.1 KNOWN EXPANSIONS (deferred, not implemented here):
+# - Navamsa-lord cancellation pathway: a parallel cancellation check
+#   against the Navamsa (D9) Rashi lords, not just the Rashi (D1) lords
+#   used above. Cited via BPHS and Phaladeepika (per astrosight), and
+#   independently corroborated by truthstar, mysticgazer, foresightindia,
+#   and astrologymag/Navneet Khanna -- including a contested severity
+#   exception specifically for {6,8} (per ganeshmitra) that is NOT cross-
+#   source-unanimous and needs its own resolution pass before
+#   implementation. This is a V1 scoping choice supported by classical
+#   sources, NOT a claim that V1's rule-set is classically exhaustive.
+# - Meta-cancellation: "no other dosha present" cancels Bhakoot dosha
+#   outright (cite truthstar). Deferred as a known classical refinement.
+# - The 4/10 enemy-lords exception documented in the "further nuance"
+#   paragraph above also remains V1.1 territory.
 # ============================================================================
 
 BHAKOOT_SCORE_BY_DISTANCE: dict[int, int] = {
@@ -440,8 +463,9 @@ BHAKOOT_DISTANCE_EFFECT: dict[int, str] = {
 }  # qualitative effect name per inauspicious distance; citation flavor only
 
 BHAKOOT_CANCELLATION_RULES: dict[tuple[int, int], str | None] = {
-    (5, 9): "same_lord_or_friend_lords",  # locked
-    (6, 8): None,                          # TODO -- deferred, not locked; see module-section citation above
+    (2, 12): "same_lord_or_friend_lords",  # Dwirdwadash -- source: 12-source cross-validation, P2.4.1b design chat lock
+    (5, 9): "same_lord_or_friend_lords",   # Nav-Pancham -- source: 12-source cross-validation, P2.4.1b design chat lock
+    (6, 8): "same_lord_or_friend_lords",   # Shadashtak -- source: 12-source cross-validation, P2.4.1b design chat lock
 }
 
 

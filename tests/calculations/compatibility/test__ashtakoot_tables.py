@@ -317,9 +317,15 @@ def test_bhakoot_distance_effect_names_match_classical_citation():
     assert ak.BHAKOOT_DISTANCE_EFFECT[2] == ak.BHAKOOT_DISTANCE_EFFECT[12] == "poverty"
 
 
-def test_bhakoot_cancellation_rules_59_locked_68_deferred():
+def test_bhakoot_cancellation_rules_all_three_locked():
+    assert ak.BHAKOOT_CANCELLATION_RULES[(2, 12)] == "same_lord_or_friend_lords"
     assert ak.BHAKOOT_CANCELLATION_RULES[(5, 9)] == "same_lord_or_friend_lords"
-    assert ak.BHAKOOT_CANCELLATION_RULES[(6, 8)] is None
+    assert ak.BHAKOOT_CANCELLATION_RULES[(6, 8)] == "same_lord_or_friend_lords"
+
+
+def test_bhakoot_cancellation_rules_dict_is_complete():
+    assert set(ak.BHAKOOT_CANCELLATION_RULES.keys()) == {(2, 12), (5, 9), (6, 8)}
+    assert all(v is not None for v in ak.BHAKOOT_CANCELLATION_RULES.values())
 
 
 # ── 9. Nadi ───────────────────────────────────────────────────────────────────
