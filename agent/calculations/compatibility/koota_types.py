@@ -39,3 +39,13 @@ class KootaResult:
     max_score: int                  # matches KOOTA_SCORE_WEIGHTS in _ashtakoot_tables.py
     details: dict[str, Any]         # per-koota intermediates (e.g. boy_varna, girl_vashya_group)
     warnings: tuple[str, ...]       # deterministic order, empty tuple if none
+
+
+@dataclass(frozen=True)
+class AshtakootResult:
+    total_score: float
+    max_score: int                    # always 36
+    kootas: dict[str, KootaResult]    # 8 entries, keyed by koota name
+    doshas: list[str]                 # active dosha classical names
+    interpretation: str               # threshold-derived string
+    warnings: tuple[str, ...]         # union of all per-koota warnings
