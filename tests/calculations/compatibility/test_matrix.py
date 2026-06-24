@@ -1,5 +1,10 @@
 """Tests for agent/calculations/compatibility/matrix.py -- P2.4.1c
-symmetric-matrix-lookup koota calculator (Yoni only; Nadi deferred).
+symmetric-matrix-lookup koota calculators (Yoni and Nadi).
+
+Nadi calculator tests: ND-1 (Sulabh×Surbhi oracle anchor) +
+ND-2/3/4 (three AstroSage empirical-lock pairs confirming no
+cancellation in V1) + ND-5/6 (parametrized same/different Nadi
+coverage) + INV-5/6/7 (structural invariants).
 
 AstroSage reference pair: Sulabh (boy) x Surbhi (girl), same
 calculate_chart() derivation path as test_trivial.py / test_sign_lord.py.

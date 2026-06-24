@@ -2,13 +2,13 @@
 
 Hosts the koota calculators whose classical rule reduces to a single
 lookup in a pre-built symmetric matrix, keyed by nakshatra-derived group
-membership: Yoni (animal-yoni compatibility) and, in a follow-up prompt,
-Nadi (Adi/Madhya/Antya pulse grouping). compute_nadi_koota is deliberately
-NOT implemented or stubbed here -- Nadi's classical cancellation rule
-("same_sign_different_pada", already locked in ak.NADI_CANCELLATION_RULE)
-still awaits AstroSage ground-truth data on how that cancellation
-interacts with the raw same-Nadi dosha before a calculator can be written
-against it. This file ships with exactly one public function.
+membership: Yoni (animal-yoni compatibility) and Nadi (Adi/Madhya/Antya
+pulse grouping). compute_nadi_koota() is also implemented here (appended
+after compute_yoni_koota). V1 scope: pure binary Nadi lookup matching
+AstroSage's empirically confirmed behavior (no cancellation). Classical
+cancellation rules are documented in
+_ashtakoot_tables.NADI_CANCELLATION_RULE_CLASSICAL_V1_1 and surfaced in
+KootaResult.details for the P7 answer layer.
 
 compute_yoni_koota() takes (boy: KootaNatalInfo, girl: KootaNatalInfo) and
 returns a KootaResult (agent.calculations.compatibility.koota_types).

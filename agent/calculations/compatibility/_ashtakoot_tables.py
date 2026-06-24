@@ -474,11 +474,10 @@ BHAKOOT_CANCELLATION_RULES: dict[tuple[int, int], str | None] = {
 # Source: Muhurtha-Chinthamani p.177-178 ("NADI KOOTA"). Clean partition of
 # all 27 nakshatras into Adi/Madhya/Antya, 9 each. Same Nadi = inauspicious
 # (0 points); different Nadi = auspicious (8 points, the max).
-# Cancellation rule (locked decision): "same_sign_different_pada" --
-# Source: Muhurtha-Chinthamani p.180 ("THE REMOVAL OF NADI DOSHA... if the
-# Nakshatras are the same but the quarters [padas] of the Nakshatras are
-# different, it is also regarded auspicious... it does not have the Nadi
-# Dosha"). This is an explicit, clean classical citation, not inferred.
+# V1 calculator: pure binary lookup (same-Nadi=0, different-Nadi=8).
+# No cancellation applied. AstroSage empirical lock, June 2026.
+# Classical cancellation rule (MC p.180, same nakshatra different pada)
+# preserved in NADI_CANCELLATION_RULE_CLASSICAL_V1_1 for V1.1.
 # V1 calculator: pure binary lookup only (same-Nadi=0,
 # different-Nadi=8). No cancellation path. AstroSage empirical lock,
 # June 2026. See NADI_CANCELLATION_RULE_CLASSICAL_V1_1 for V1.1
