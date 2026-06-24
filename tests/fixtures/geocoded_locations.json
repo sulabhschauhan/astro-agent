@@ -77,6 +77,32 @@
       ]
     }
   },
+  "Delhi, India": {
+    "latitude": 28.6138954,
+    "longitude": 77.2090057,
+    "address": "New Delhi, Delhi, India",
+    "raw": {
+      "place_id": 242967045,
+      "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+      "osm_type": "relation",
+      "osm_id": 2763541,
+      "lat": "28.6138954",
+      "lon": "77.2090057",
+      "class": "boundary",
+      "type": "administrative",
+      "place_rank": 9,
+      "importance": 0.7026378883992134,
+      "addresstype": "city",
+      "name": "New Delhi",
+      "display_name": "New Delhi, Delhi, India",
+      "boundingbox": [
+        "28.4812209",
+        "28.6456842",
+        "77.0503708",
+        "77.2551392"
+      ]
+    }
+  },
   "Durban, South Africa": {
     "latitude": -29.861825,
     "longitude": 31.009909,

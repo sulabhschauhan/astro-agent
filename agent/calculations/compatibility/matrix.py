@@ -33,6 +33,13 @@ code-only re-keying (animal name -> row/column position), not a new
 table addition; it mirrors the same index_of pattern already used in
 tests/calculations/compatibility/test__ashtakoot_tables.py's own Mahabair
 matrix check.
+
+V1 Nadi calculator is a pure binary lookup (same-Nadi=0,
+different-Nadi=8) matching AstroSage's empirically confirmed behavior.
+Classical cancellation rules (Muhurtha-Chinthamani p.180) are documented
+in _ashtakoot_tables.NADI_CANCELLATION_RULE_CLASSICAL_V1_1 and surfaced
+in KootaResult.details for the P7 answer layer, but not applied to
+the score in V1.
 """
 
 from agent.calculations.compatibility import _ashtakoot_tables as ak
@@ -69,4 +76,44 @@ def compute_yoni_koota(boy: KootaNatalInfo, girl: KootaNatalInfo) -> KootaResult
             "is_same_yoni": boy_yoni == girl_yoni,
         },
         warnings=(),
+    )
+
+
+def compute_nadi_koota(boy: KootaNatalInfo, girl: KootaNatalInfo) -> KootaResult:
+    """Nadi Koota (max 8). V1: AstroSage-parity binary lookup only (same
+    Nadi = 0, different Nadi = 8) -- no cancellation path applied to the
+    score. See module docstring for the V1/V1.1 scope split and the
+    empirical lock behind it.
+    """
+    _validate_nakshatra(boy, "boy")
+    _validate_nakshatra(girl, "girl")
+
+    boy_nadi = ak.NADI_BY_NAKSHATRA[boy.nakshatra]
+    girl_nadi = ak.NADI_BY_NAKSHATRA[girl.nakshatra]
+    score = float(ak.NADI_SCORE[(boy_nadi, girl_nadi)])
+    dosha = boy_nadi == girl_nadi
+
+    warnings = (
+        (
+            "Nadi dosha active. Classical sources document cancellation"
+            " conditions (same nakshatra different pada; same rashi"
+            " different nakshatra) not applied in this V1 score."
+            " Consult an astrologer if this affects your decision."
+        ),
+    ) if dosha else ()
+
+    return KootaResult(
+        score=score,
+        max_score=8,
+        details={
+            "boy_nadi": boy_nadi,
+            "girl_nadi": girl_nadi,
+            "dosha": dosha,
+            "cancellation": None,  # V1: no cancellation path
+            # surfaces the classical rule for the P7 answer layer, not a
+            # re-transcribed literal -- single source of truth stays the
+            # _ashtakoot_tables.py constant.
+            "cancellation_v1_1": ak.NADI_CANCELLATION_RULE_CLASSICAL_V1_1,
+        },
+        warnings=warnings,
     )

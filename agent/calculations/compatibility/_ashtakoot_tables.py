@@ -479,6 +479,10 @@ BHAKOOT_CANCELLATION_RULES: dict[tuple[int, int], str | None] = {
 # Nakshatras are the same but the quarters [padas] of the Nakshatras are
 # different, it is also regarded auspicious... it does not have the Nadi
 # Dosha"). This is an explicit, clean classical citation, not inferred.
+# V1 calculator: pure binary lookup only (same-Nadi=0,
+# different-Nadi=8). No cancellation path. AstroSage empirical lock,
+# June 2026. See NADI_CANCELLATION_RULE_CLASSICAL_V1_1 for V1.1
+# expansion.
 # ============================================================================
 
 NADI_GROUPS = ("Adi", "Madhya", "Antya")
@@ -519,4 +523,24 @@ NADI_SCORE: dict[tuple[str, str], int] = {
     ("Antya", "Adi"): 8, ("Antya", "Madhya"): 8, ("Antya", "Antya"): 0,
 }
 
-NADI_CANCELLATION_RULE = "same_sign_different_pada"  # locked; see module-section citation above
+NADI_CANCELLATION_RULE_CLASSICAL_V1_1 = "same_nakshatra_different_pada"
+# V1.1 EXPANSION -- NOT applied in V1 Nadi calculator.
+# Classical source: Muhurtha-Chinthamani p.180 ("THE REMOVAL OF
+# NADI DOSHA... if the Nakshatras are the same but the quarters
+# [padas] of the Nakshatras are different, it is also regarded
+# auspicious"). This is an explicit, clean classical citation.
+#
+# WHY NOT IN V1: AstroSage empirical testing (three synthetic pairs
+# designed to isolate Rules #1 and #3 independently, June 2026,
+# P2.4.1c design chat) showed AstroSage applies ZERO cancellation
+# logic -- raw same-Nadi = 0, different-Nadi = 8, always. Per the
+# locked three-tier source hierarchy (AstroSage parity > PyJHora >
+# classical anchor when sources conflict on algorithm behavior),
+# V1 matches AstroSage. Classical rule preserved here for V1.1.
+#
+# NOTE ON MISNOMER FIX: the prior constant was named
+# "same_sign_different_pada" -- this was a misnomer ("sign" !=
+# "nakshatra" in Vedic terminology). The classical citation above
+# uses nakshatra-level granularity (same Nakshatra, different Pada),
+# not sign-level. The rename corrects the terminology for V1.1
+# implementation clarity.

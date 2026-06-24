@@ -36,6 +36,7 @@ import agent.calculations.transits.tarabala as tarabala_module
 from agent.calculations.compatibility import _ashtakoot_tables as ak
 from agent.calculations.compatibility.koota_types import KootaNatalInfo, KootaResult
 from agent.calculations.compatibility.matrix import compute_yoni_koota
+from agent.calculations.compatibility.matrix import compute_nadi_koota
 from agent.chart_calculator import _calc_planets, calculate_chart
 
 _ARBITRARY_VALID_SIGN = 0
@@ -221,3 +222,148 @@ def test_inv4_sulabh_surbhi_yoni_details_swap_on_reversal():
     assert forward.details["boy_yoni"] == reversed_.details["girl_yoni"] == "Vyaghra"
     assert forward.details["girl_yoni"] == reversed_.details["boy_yoni"] == "Ashwa"
     assert forward.score == reversed_.score  # score itself unaffected
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# Nadi -- P2.4.1c Prompt 2 of 2 (AstroSage parity, no cancellation)
+# ═════════════════════════════════════════════════════════════════════════
+
+# ── ND-1: AstroSage reference parity ────────────────────────────────────────
+
+def test_nd1_sulabh_surbhi_astrosage_reference_no_dosha():
+    result = compute_nadi_koota(_sulabh(), _surbhi())
+    assert result.score == 8.0
+    assert result.max_score == 8
+    assert result.details["boy_nadi"] == "Antya"   # Sulabh, Vishakha
+    assert result.details["girl_nadi"] == "Adi"    # Surbhi, Shatabhisha
+    assert result.details["dosha"] is False
+    assert result.warnings == ()
+
+
+# ── ND-2/3/4: AstroSage empirical-lock fixtures (synthetic pairs) ──────────
+# Three synthetic pairs from the P2.4.1c design chat, designed to isolate
+# Nadi cancellation Rule #1 (same Rashi, different Nakshatra) and Rule #3
+# (different Rashi, different Nakshatra) independently from the
+# same-nakshatra-different-pada case -- AstroSage returned 0/8 on all
+# three, confirming NO cancellation logic is applied. See module
+# docstring / ak.NADI_CANCELLATION_RULE_CLASSICAL_V1_1.
+
+def test_nd2_pair1_same_rashi_different_nakshatra_not_cancelled():
+    # Vishakha + Swati, both Antya Nadi (same Libra Rashi, different
+    # Nakshatra) -- AstroSage empirical lock: 0/8, not cancelled.
+    boy = _natal_info("ND2-Boy", "1995-02-27", "12:00", "Delhi, India")
+    girl = _natal_info("ND2-Girl", "1995-01-24", "12:00", "Delhi, India")
+    result = compute_nadi_koota(boy, girl)
+    assert result.details["boy_nadi"] == result.details["girl_nadi"] == "Antya"
+    assert result.score == 0.0
+    assert result.details["dosha"] is True
+    assert result.details["cancellation"] is None
+    assert result.warnings != ()
+
+
+def test_nd3_pair2_same_nakshatra_different_pada_not_cancelled():
+    # Pushya pada 1 + Pushya pada 3 -- same Nakshatra, different Pada --
+    # the EXACT classical cancellation condition (MC p.180), yet AstroSage
+    # empirical lock: 0/8, not cancelled in V1.
+    boy = _natal_info("ND3-Boy", "1995-02-13", "12:00", "Delhi, India")
+    girl = _natal_info("ND3-Girl", "1995-03-13", "12:00", "Delhi, India")
+    result = compute_nadi_koota(boy, girl)
+    assert result.details["boy_nadi"] == result.details["girl_nadi"] == "Madhya"
+    assert result.score == 0.0
+    assert result.details["dosha"] is True
+    assert result.details["cancellation"] is None
+
+
+def test_nd4_pair3_different_rashi_different_nakshatra_not_cancelled():
+    # Bharani + Chitra, both Madhya Nadi (different Rashi, different
+    # Nakshatra) -- AstroSage empirical lock: 0/8, not cancelled.
+    boy = _natal_info("ND4-Boy", "1995-03-06", "12:00", "Delhi, India")
+    girl = _natal_info("ND4-Girl", "1995-02-19", "12:00", "Delhi, India")
+    result = compute_nadi_koota(boy, girl)
+    assert result.details["boy_nadi"] == result.details["girl_nadi"] == "Madhya"
+    assert result.score == 0.0
+    assert result.details["dosha"] is True
+
+
+# ── ND-5: same-Nadi parametrized (all three groups score 0) ────────────────
+
+@pytest.mark.parametrize(
+    "boy_nak,girl_nak,group_name",
+    [
+        (0, 5, "Adi"),       # Ashwini, Ardra
+        (1, 4, "Madhya"),    # Bharani, Mrigashira
+        (2, 3, "Antya"),     # Krittika, Rohini
+    ],
+)
+def test_nd5_same_nadi_group_scores_zero(boy_nak, girl_nak, group_name):
+    result = compute_nadi_koota(_nak(boy_nak), _nak(girl_nak))
+    assert result.score == 0.0, f"{group_name} same-Nadi pair did not score 0"
+    assert result.details["dosha"] is True
+    assert result.details["boy_nadi"] == result.details["girl_nadi"] == group_name
+
+
+# ── ND-6: different-Nadi parametrized (all 3 ordered cross-pairs score 8) ──
+
+@pytest.mark.parametrize(
+    "boy_nak,girl_nak,boy_group,girl_group",
+    [
+        (0, 1, "Adi", "Madhya"),     # Ashwini x Bharani
+        (0, 2, "Adi", "Antya"),      # Ashwini x Krittika
+        (1, 2, "Madhya", "Antya"),   # Bharani x Krittika
+    ],
+)
+def test_nd6_different_nadi_group_scores_max(boy_nak, girl_nak, boy_group, girl_group):
+    result = compute_nadi_koota(_nak(boy_nak), _nak(girl_nak))
+    assert result.score == 8.0
+    assert result.details["dosha"] is False
+    assert result.details["boy_nadi"] == boy_group
+    assert result.details["girl_nadi"] == girl_group
+    assert result.warnings == ()
+
+
+# ── Nadi structural invariants ───────────────────────────────────────────────
+
+# INV-5: score is swap-invariant -- ak.NADI_SCORE is symmetric in both
+# directions (NADI_SCORE[(a,b)] == NADI_SCORE[(b,a)] for every a,b in
+# NADI_GROUPS, already enforced by P2.4.0's own
+# test_nadi_score_same_nadi_is_zero_different_nadi_is_max structural
+# test), so swapping boy/girl can never change the score. Same
+# documentation pattern as the Yoni/Tara/Bhakoot/Graha Maitri
+# swap-invariance tests from P2.4.1a/b/c. Three pairs: two dosha
+# (same-Nadi) cases and one non-dosha (different-Nadi) case.
+@pytest.mark.parametrize(
+    "boy_nak,girl_nak,expected_score",
+    [
+        (0, 5, 0.0),    # Adi x Adi -- dosha case
+        (1, 4, 0.0),    # Madhya x Madhya -- dosha case
+        (0, 1, 8.0),    # Adi x Madhya -- non-dosha case
+    ],
+)
+def test_inv5_nadi_koota_score_is_swap_invariant(boy_nak, girl_nak, expected_score):
+    forward = compute_nadi_koota(_nak(boy_nak), _nak(girl_nak))
+    reversed_ = compute_nadi_koota(_nak(girl_nak), _nak(boy_nak))
+    assert forward.score == reversed_.score == expected_score
+
+
+# INV-6: cancellation_v1_1 is always populated as a V1.1 expansion marker
+# for the answer layer, regardless of dosha/no-dosha outcome -- swept
+# across the full 27x27 nakshatra space, not just the named fixtures.
+def test_inv6_cancellation_v1_1_marker_always_populated_full_space():
+    for boy_nak in range(27):
+        for girl_nak in range(27):
+            result = compute_nadi_koota(_nak(boy_nak), _nak(girl_nak))
+            assert result.details["cancellation_v1_1"] == "same_nakshatra_different_pada"
+            assert result.details["cancellation"] is None
+
+
+# INV-7: ValueError on nakshatra out of 0..26 for both boy and girl.
+@pytest.mark.parametrize("invalid_nak", _INVALID_NAKSHATRAS)
+def test_inv7_raises_value_error_for_invalid_boy_nakshatra_nadi(invalid_nak):
+    with pytest.raises(ValueError):
+        compute_nadi_koota(_nak(invalid_nak), _nak(0))
+
+
+@pytest.mark.parametrize("invalid_nak", _INVALID_NAKSHATRAS)
+def test_inv7_raises_value_error_for_invalid_girl_nakshatra_nadi(invalid_nak):
+    with pytest.raises(ValueError):
+        compute_nadi_koota(_nak(0), _nak(invalid_nak))

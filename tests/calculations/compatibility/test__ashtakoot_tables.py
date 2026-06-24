@@ -349,8 +349,22 @@ def test_nadi_score_same_nadi_is_zero_different_nadi_is_max():
                 assert ak.NADI_SCORE[(a, b)] == 8
 
 
-def test_nadi_cancellation_rule_is_locked():
-    assert ak.NADI_CANCELLATION_RULE == "same_sign_different_pada"
+def test_nadi_cancellation_rule_classical_v1_1_is_locked():
+    # Verifies the corrected constant name and classical citation
+    # string are preserved. "same_nakshatra_different_pada" is
+    # the correct Vedic terminology (nakshatra != sign); the prior
+    # "same_sign_different_pada" name was a misnomer corrected in
+    # P2.4.1c. This constant is NOT consumed by the V1 calculator
+    # -- it documents the V1.1 expansion target only.
+    assert ak.NADI_CANCELLATION_RULE_CLASSICAL_V1_1 == \
+        "same_nakshatra_different_pada"
+
+
+def test_nadi_v1_calculator_uses_no_cancellation_rule():
+    # Confirms the old NADI_CANCELLATION_RULE constant is gone --
+    # the V1 calculator is a pure binary lookup; having the old
+    # constant present would imply cancellation logic exists.
+    assert not hasattr(ak, "NADI_CANCELLATION_RULE")
 
 
 @pytest.mark.parametrize(
