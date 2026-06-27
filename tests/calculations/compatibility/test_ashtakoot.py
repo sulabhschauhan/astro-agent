@@ -26,13 +26,22 @@ asymmetric-Friend, STRICT-rejected, same as sign_lord.py's BK-5) +
 Nadi 0.0 (both Adi) = 16.0, comfortably inside [12.0, 17.5].
 
 AC-3 NOTE: the implementation prompt's locked oracle total for Pair 3
-was "5/36", but hand-verification of all 8 sub-scores against their
-already-locked tables (Varna 1.0, Vashya 1.0, Tara 1.5, Yoni 1.0,
-GrahaMaitri 0.5, Gana 1.0, Bhakoot 0.0, Nadi 0.0) sums to 6.0, and the
-two sub-scores the prompt itself separately locked (Bhakoot 0/7, Nadi
-0/8) both match exactly -- confirming the underlying chart data is
-correct. Flagged to Sulabh; resolved as a transcription slip in the
-design chat, not a code defect. Test asserts the verified 6.0.
+was "5/36". Originally hand-verified against the 8 sub-scores as they
+stood at the time (Varna 1.0, Vashya 1.0, Tara 1.5, Yoni 1.0,
+GrahaMaitri 0.5, Gana 1.0, Bhakoot 0.0, Nadi 0.0 -- summing to 6.0) and
+provisionally written off as a transcription slip, since Bhakoot and
+Nadi both matched their independently-locked values exactly.
+
+Root cause identified: that conclusion was wrong. AstroSage gives 0 for
+Manushya x Rakshasa Gana (this pair's actual cell -- Bharani boy is
+Manushya, Chitra girl is Rakshasa); classical majority (AstroVed,
+AstroBix, multiple other sources) gives 1. _ashtakoot_tables.py's
+GANA_SCORE table was corrected to follow AstroSage per the module's
+locked three-tier source hierarchy (see that file's Gana section
+comment for the full citation). With Gana now 0.0 instead of 1.0, the
+total is 5.0, matching the AstroSage oracle exactly -- not a
+transcription slip after all, but a genuine table defect on this one
+cell, now fixed.
 """
 
 import dataclasses
@@ -114,20 +123,22 @@ def test_ac2_pair2_nadi_dosha_active():
 
 # ── AC-3: Bhakoot dosha active + Nadi dosha active (Pair 3) ────────────────
 
-def test_ac3_pair3_bhakoot_and_nadi_dosha_verified_total_6_of_36():
+def test_ac3_pair3_bhakoot_and_nadi_dosha_verified_total_5_of_36():
     # See module docstring's "AC-3 NOTE" -- the prompt's locked oracle
-    # total (5/36) was a transcription slip, confirmed against Sulabh;
-    # 6.0 is the hand-verified, code-consistent value.
+    # total (5/36) reflects a genuine GANA_SCORE table defect
+    # (Manushya x Rakshasa was 1, corrected to 0 to match AstroSage),
+    # not a transcription slip; 5.0 is the AstroSage-parity value.
     boy = _natal_info("AC3-Boy", "1995-03-06", "12:00", "Delhi, India")
     girl = _natal_info("AC3-Girl", "1995-02-19", "12:00", "Delhi, India")
     result = compute_ashtakoot_compatibility(boy, girl)
 
-    assert result.total_score == 6.0
+    assert result.total_score == 5.0
     assert result.interpretation == "Not Preferable"
     assert any(d.startswith("Bhakoot_") for d in result.doshas)
     assert "Nadi_Dosha" in result.doshas
     assert result.kootas["Bhakoot"].score == 0.0
     assert result.kootas["Nadi"].score == 0.0
+    assert result.kootas["Gana"].score == 0.0
 
 
 # ── AC-4: Bhakoot dosha cancelled (same-lord case) ──────────────────────────

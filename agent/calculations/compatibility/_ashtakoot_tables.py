@@ -346,13 +346,34 @@ SIGN_LORD: dict[int, str] = {
 # Score values: classical source is qualitative only ("excessive love" for
 # same-gana, "average" for Deva-Manushya, "death" for Manushya-Rakshasa,
 # "quarrel" for Deva-Rakshasa) and does not commit to numbers for the two
-# cross-gana-with-Rakshasa cells; AstroSage/modern convention (cited
+# cross-gana-with-Rakshasa cells.
+#
+# Manushya-Rakshasa (both directions) = 0, NOT 1: empirically confirmed
+# against the AstroSage oracle via Pair 3 (Bharani boy x Chitra girl,
+# 1995-03-06 x 1995-02-19, Delhi) in test_ashtakoot.py's AC-3 -- AstroSage's
+# locked total for this pair is 5/36, which only reconciles with this
+# project's other 7 independently-verified sub-scores if Gana scores 0,
+# not 1. Classical majority web convention (AstroVed, AstroBix, and
+# several other sites) gives 1 for this cell, but AstroSage is chosen per
+# this module's locked three-tier source hierarchy (AstroSage parity >
+# PyJHora > classical anchor on divergence) -- the divergence from
+# classical-majority is intentional and documented here, not an oversight.
+# (Prior version of this comment block claimed AstroSage agreed with the
+# classical-majority value of 1 for this cell; that claim was incorrect
+# and is corrected here based on the Pair 3 empirical evidence above.)
+#
+# Deva-Manushya (both directions) = 5: AstroSage/modern convention (cited
 # consistently across anytimeastro.com, astroassured.com, et al.) gives an
-# explicit, internally consistent numeric table -- used here per this
-# module's AstroSage-on-divergence rule. The qualitative-vs-numeric
-# severity tension (is "death" worse than "quarrel", and does that imply
-# Manushya-Rakshasa should score lower than Deva-Rakshasa?) is flagged
-# here, not silently resolved by re-deriving numbers from the prose.
+# explicit, internally consistent numeric table here -- used per the same
+# AstroSage-on-divergence rule, and unaffected by the Manushya-Rakshasa
+# correction above (no empirical evidence contradicts 5 for this cell).
+#
+# The qualitative-vs-numeric severity tension (is "death" worse than
+# "quarrel", and does that imply Manushya-Rakshasa should score lower than
+# Deva-Rakshasa?) is flagged here, not silently resolved by re-deriving
+# numbers from the prose. With Manushya-Rakshasa now at 0, it is tied with
+# Deva-Rakshasa (also 0) rather than scoring higher -- consistent with
+# "death" being at least as severe as "quarrel".
 # ============================================================================
 
 GANA_GROUPS = ("Deva", "Manushya", "Rakshasa")
@@ -390,7 +411,7 @@ GANA_BY_NAKSHATRA: dict[int, str] = {
 GANA_SCORE: dict[tuple[str, str], int] = {
     ("Deva", "Deva"): 6, ("Manushya", "Manushya"): 6, ("Rakshasa", "Rakshasa"): 6,
     ("Deva", "Manushya"): 5, ("Manushya", "Deva"): 5,
-    ("Manushya", "Rakshasa"): 1, ("Rakshasa", "Manushya"): 1,
+    ("Manushya", "Rakshasa"): 0, ("Rakshasa", "Manushya"): 0,
     ("Deva", "Rakshasa"): 0, ("Rakshasa", "Deva"): 0,
 }
 

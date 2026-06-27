@@ -139,6 +139,32 @@ def test_gana_koota_reversed_pair_equal_symmetric_by_design():
     assert reversed_.score == forward.score == 6
 
 
+def test_gana_score_full_matrix_astrosage_parity_locked():
+    # Direct GANA_SCORE table assertion -- all 9 (boy_gana, girl_gana)
+    # cells against the locked AstroSage-parity matrix, not routed
+    # through the calculator. TASK 0 ahead of the Manushya<->Rakshasa
+    # correction: this proves the bug exists before the fix and proves
+    # the fix is complete/universal (no regression on the other cells)
+    # after it.
+    expected = {
+        ("Deva", "Deva"): 6,
+        ("Manushya", "Manushya"): 6,
+        ("Rakshasa", "Rakshasa"): 6,
+        ("Deva", "Manushya"): 5,
+        ("Manushya", "Deva"): 5,
+        ("Deva", "Rakshasa"): 0,
+        ("Rakshasa", "Deva"): 0,
+        ("Manushya", "Rakshasa"): 0,
+        ("Rakshasa", "Manushya"): 0,
+    }
+    mismatches = {
+        cell: (ak.GANA_SCORE[cell], expected_score)
+        for cell, expected_score in expected.items()
+        if ak.GANA_SCORE[cell] != expected_score
+    }
+    assert mismatches == {}, f"GANA_SCORE mismatches (actual, expected): {mismatches}"
+
+
 # ── 2. Structural invariants across the full relevant input space ──────────────
 
 _ARBITRARY_VALID_NAK = 0
