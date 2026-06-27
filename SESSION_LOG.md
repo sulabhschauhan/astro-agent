@@ -357,3 +357,115 @@ Backlog items added this session:
 Next session entry point: Session 26 -- `helpers/discrete_scan.py` extraction (refactor chandrabala.py / tarabala.py / panchaka.py to import the shared helper). Then P2.3.5 Muhurta composite scorer.
 
 Session close: committed and pushed as commit `23f0c31` on `origin/main` (`89cd330..23f0c31`).
+
+## Session 26 — helpers/discrete_scan.py extraction + deterministic geocoder fixture
+
+**Date:** 2026-06-22
+**Phase tag:** helpers/discrete_scan.py — CLOSED; conftest geocoder monkeypatch — ADDED
+
+Work completed:
+1. `helpers/discrete_scan.py` extracted: generic `StateSegment[T]` + `find_state_segments()` bisection range-scan helper, after a caller audit confirmed all three transit modules' `_bisect_transition` implementations match on boundary semantics, constant-state behavior, near-boundary transitions, inverted/empty windows, and exception propagation. 10 new structural/synthetic-state tests in `tests/calculations/helpers/test_discrete_scan.py`. Callers migrated as three follow-up commits (Tasks C/D/E): chandrabala.py, tarabala.py, panchaka.py all refactored to import `find_state_segments` and delete local `_bisect_transition`. `_BISECT_TOL_JD` removed from all three callers (absorbed into the helper); `_COARSE_STEP_JD` retained per-caller since step size is caller-specific.
+2. Deterministic geocoder fixture added: session-scoped autouse `_patch_geocoder` in `tests/conftest.py`, backed by `_FakeNominatim` reading from `tests/fixtures/geocoded_locations.json`. Eliminates live Nominatim calls during pytest (was ~26 HTTP calls/run; triggering HTTP 429s on repeated full-suite runs). No agent/ edits; no fall-through to live geocoding on a fixture miss (KeyError on cache miss). Verified 3x back-to-back byte-identical.
+
+Decisions locked this session:
+- `find_state_segments()` is the public surface; `StateSegment[T]` (frozen dataclass) is the return element. The `classify` callable is `Callable[[float], T]`. Boundary semantics: bisects until `|jd_b - jd_a| < tol`; tolerance absorbed into the helper, not exposed to callers.
+- All three transit modules now delegate to the shared helper — the Session 24-locked "extract at third module" threshold was met and acted on promptly.
+- `tests/conftest.py` monkeypatch is session-scoped autouse; no individual test needs an explicit fixture argument.
+
+Files shipped:
+- `agent/calculations/helpers/discrete_scan.py` — `StateSegment`, `find_state_segments()`
+- `tests/calculations/helpers/__init__.py`
+- `tests/calculations/helpers/test_discrete_scan.py` — 10 tests
+- `tests/conftest.py` — `_patch_geocoder` autouse fixture, `_FakeNominatim`
+- `tests/fixtures/geocoded_locations.json` — 4 birthplace geocode cache entries
+- `agent/calculations/transits/chandrabala.py`, `tarabala.py`, `panchaka.py` — refactored (no new tests; 689/3 confirmed after each migration)
+
+Test baseline: 680 passed/3 skipped (Session 25 close) → 689 passed/3 skipped (+9 net: 10 new discrete_scan unit tests, minus 1 net change from refactor verification; zero regressions).
+
+Session close: committed and pushed across 5 commits (`f1facd5`…`d6d43ba`) on `origin/main`.
+
+## Session 27 — P2.3.5 Muhurta composite scorer
+
+**Date:** 2026-06-23
+**Phase tag:** P2.3.5 Muhurta composite scorer (instant + range-scan) — CLOSED. P2.3 Muhurta engine CLOSED.
+
+Work completed:
+1. `agent/calculations/transits/muhurta_scorer.py` implemented: `compute_muhurta_score(jd_ut, natal_moon_sign, natal_nakshatra) -> MuhurtaScore` composes Chandrabala, Tarabala, and Panchaka into a four-tier classification (TIER_1 through TIER_3 + PANCHAKA_VETO). Tier logic: Panchaka IS_PANCHAK overrides to TIER_3 unconditionally (veto); otherwise Chandrabala + Tarabala favorable-count drives TIER_1/TIER_2/TIER_3. 16 tests in `tests/calculations/transits/test_muhurta_scorer.py` (structural, Sulabh + David fixtures, tier boundary isolation). 705 passed/3 skipped after instant scorer.
+2. `find_muhurta_windows(start_jd, end_jd, natal_moon_sign, natal_nakshatra) -> list[MuhurtaWindow]` added to same file: uses interval algebra over the three sibling limb finders (union of their window boundaries, midpoint-scored via `compute_muhurta_score`) rather than a new ephemeris scan. 13 new tests in `tests/calculations/transits/test_muhurta_windows.py` (Sulabh/Surbhi/David fixtures + mechanical unit tests). 718 passed/3 skipped after range-scan addition.
+3. JHora v8 reference data for Sulabh's canonical chart parked (commit `1ff9fc1`) for future parity validation of the composite scorer.
+
+Decisions locked this session:
+- Interval algebra over sibling finders (not a new ephemeris scan) is the locked composition pattern for `find_muhurta_windows()` — avoids duplicating the Moon's position computation and guarantees the composite window boundaries are exactly the union of the limb boundaries.
+- Panchaka IS_PANCHAK is a hard veto (always TIER_3), not a soft modifier — preserves the classical "avoid entirely" semantics.
+- `MuhurtaScore` and `MuhurtaWindow` are frozen dataclasses; tier enum is `MuhurtaTier`.
+
+Files shipped:
+- `agent/calculations/transits/muhurta_scorer.py` — `compute_muhurta_score()`, `find_muhurta_windows()`, `MuhurtaScore`, `MuhurtaWindow`, `MuhurtaTier`
+- `tests/calculations/transits/test_muhurta_scorer.py` — 16 tests
+- `tests/calculations/transits/test_muhurta_windows.py` — 13 tests
+
+Test baseline: 689 passed/3 skipped (Session 26 close) → 718 passed/3 skipped (+29; zero regressions).
+
+Session close: committed and pushed as commits `8a31271`, `1ff9fc1`, `cd2e685` on `origin/main`.
+
+## Session 28 — P2.4.0 through P2.4.2 Ashtakoot 8-koota compatibility engine
+
+**Date:** 2026-06-23/2026-06-24
+**Phase tag:** P2.4.0 Ashtakoot tables — CLOSED; P2.4.1a/b/c koota calculators — CLOSED; P2.4.2 composite scorer — CLOSED.
+
+Work completed:
+1. P2.4.0 `_ashtakoot_tables.py` (498 lines): all lookup tables for 8 kootas (Varna, Vashya, Tara, Yoni, GrahaMaitri, Gana, Bhakoot, Nadi) + `KOOTA_SCORE_WEIGHTS`. Structural invariants tests in `test__ashtakoot_tables.py` (360 lines). `compatibility/__init__.py` and `tests/calculations/compatibility/__init__.py` created.
+2. P2.4.1a `trivial.py` (200 lines): Varna, Vashya, Tara, Gana calculators (pure table lookup over nakshatra/moon_sign inputs). `KootaNatalInfo` + `KootaResult` frozen dataclasses in `koota_types.py`. `test_trivial.py` (319 lines) + AstroSage reference fixture file `tests/fixtures/astrosage_sulabh_surbhi_kundli_milan.md`.
+3. P2.4.1b `sign_lord.py` (269 lines): Graha Maitri and Bhakoot calculators. Bhakoot cancellation matrix locked: 6/8 pair cancels when both signs share a lord (Aries/Scorpio via Mars, Taurus/Libra via Venus, Gemini/Virgo via Mercury, Capricorn/Aquarius via Saturn); 2/12 pair cancels when lords are mutual friends. Navamsa-based cancellation pathway deferred to V1.1. `test_sign_lord.py` (324 lines).
+4. P2.4.1c `matrix.py` (47 lines): Yoni and Nadi calculators. Nadi V1 = table lookup only (AstroSage parity confirmed on all 4 reference pairs); classical cancellation rules for Nadi (same gotra, same nakshatra exceptions) deferred to V1.1 pending AstroSage ground-truth on which rule set they apply. `test_matrix.py` (146 lines). Delhi geocode entry added to `tests/fixtures/geocoded_locations.json`.
+5. P2.4.2 `ashtakoot.py` (134 lines): `compute_ashtakoot_compatibility(boy, girl) -> AshtakootResult` composite scorer over all 8 kootas. Dosha detection (Nadi_Dosha, Bhakoot_*_Dosha). Interpretation bands: ≥26 Excellent, ≥18 Preferable, ≥12 Marginal, <12 Not Preferable. `AshtakootResult` frozen dataclass added to `koota_types.py`. `test_ashtakoot.py` (223 lines): AC-1 Sulabh×Surbhi AstroSage full-parity (27.5/36, Preferable, all 8 per-koota scores locked), AC-2/AC-3 Nadi+Bhakoot dosha fixtures, AC-4 cancellation case, AC-5 Marginal band, structural invariant tests.
+
+Decisions locked this session:
+- Sign convention 0-11 (0=Aries) throughout compatibility package.
+- Frozen dataclasses for all result types (FrozenInstanceError on mutation).
+- `calculate_chart()` key structure: `["planetary_positions"][planet]["sign"]` → sign string; `["lagna_chart"]["ascendant"]` → Lagna sign string (confirmed by reading chart_calculator.py).
+- Three-tier source hierarchy: AstroSage parity > PyJHora > classical anchor; AstroSage wins on contested cells.
+- AC-3 Pair 3 total provisionally logged as 5/36 (AstroSage oracle); at time of writing, the code produced 6/36 — noted as a possible transcription slip, pending root-cause investigation (carried forward as a known discrepancy, not resolved this session).
+
+Files shipped:
+- `agent/calculations/compatibility/_ashtakoot_tables.py`, `koota_types.py`, `trivial.py`, `sign_lord.py`, `matrix.py`, `ashtakoot.py`
+- `tests/calculations/compatibility/test__ashtakoot_tables.py`, `test_trivial.py`, `test_sign_lord.py`, `test_matrix.py`, `test_ashtakoot.py`
+- `tests/fixtures/astrosage_sulabh_surbhi_kundli_milan.md`, `tests/fixtures/geocoded_locations.json` (Delhi entry added)
+
+Test baseline: 718 passed/3 skipped (Session 27 close) → ~991 passed/3 skipped (293 new tests across 5 test files; zero regressions).
+
+Session close: committed and pushed across 7 commits (`5a342fa`…`2d8878d`) on `origin/main`.
+
+## Session 29 — P2.4.3 Gana table fix (AstroSage parity) + P2.4.5 Mangal Dosha
+
+**Date:** 2026-06-27
+**Phase tag:** P2.4.3 GANA_SCORE fix — CLOSED; P2.4.5 Mangal Dosha — CLOSED.
+
+Work completed:
+1. Diagnostic investigation (scratchpad-only, no file changes): confirmed Pair 3 (6 Mar 1995 × 19 Feb 1995, Delhi 12:00 IST) is a Manushya×Rakshasa cell; raw `GANA_SCORE[("Manushya","Rakshasa")]` was 1; AstroSage oracle gives 5/36 total only if that cell is 0. Classical majority (AstroVed, AstroBix) gives 1; AstroSage gives 0. Per the locked three-tier source hierarchy (AstroSage > classical majority), the table value was wrong.
+2. TASK 0 (test-first): `test_gana_score_full_matrix_astrosage_parity_locked()` added to `test_trivial.py` — exhaustiveness test over all 9 GANA_SCORE cells, collects all mismatches into a dict for one-shot failure reporting. Confirmed exactly 2 failures before the fix (Manushya×Rakshasa and Rakshasa×Manushya), zero after.
+3. TASK 1 (table fix): `GANA_SCORE[("Manushya","Rakshasa")]` and `[("Rakshasa","Manushya")]` changed from 1 to 0 in `_ashtakoot_tables.py`. Gana section docstring rewritten: removed the prior incorrect AstroSage-agrees-with-1 claim; added empirical evidence from Pair 3; documented the classical-majority vs. AstroSage divergence; noted Manushya-Rakshasa=0 now tied with Deva-Rakshasa=0, consistent with "death ≥ quarrel."
+4. TASK 2 (AC-3 fixture): test renamed `test_ac3_pair3_bhakoot_and_nadi_dosha_verified_total_5_of_36`; assertion changed `total_score 6.0 → 5.0`; `result.kootas["Gana"].score == 0.0` assertion added; module docstring "AC-3 NOTE" rewritten — retracted prior "transcription slip" conclusion, documented root cause as a genuine table defect now corrected.
+5. TASK 3 (regression): full suite 1011 passed/3 skipped — Sulabh×Surbhi total still 27.5, all previously passing tests pass.
+6. P2.4.5 `agent/calculations/compatibility/mangal_dosha.py` (187 lines): `compute_mangal_dosha(chart_data) -> MangalDoshaResult`. Mars in {1,2,4,7,8,12} from any of Lagna/Moon/Venus (whole-sign house arithmetic). V1 cancellation rules: C1 (Mars own sign: Aries/Scorpio), C2 (exalted: Capricorn), C3 (debilitated: Cancer), C5 (Jupiter conjunct or 5th/7th/9th Whole Sign aspect), C7 (Lagna Cancer or Leo, Yogakaraka). Excluded from V1: C4 (movable sign — fragmented sources), C6 (mutual Manglik — two-chart concern, caller-level only), navamsa-based rules, age-28 rule. `MangalDoshaResult` frozen dataclass (has_dosha, dosha_triggers, cancellations, is_cancelled, details, warnings).
+7. `tests/calculations/compatibility/test_mangal_dosha.py` (222 lines): 20 tests across 4 layers — A (structural/constant/house-arithmetic, no ephemeris), B (AstroSage parity via `calculate_chart()`: Sulabh no-dosha, Surbhi no-dosha, Pair1-boy has-dosha "Low Mangal Dosha", Pair1-girl no-dosha), C (cancellation isolation: C1/C2/C3/C5-conjunction/C5-aspect/C7-cancer/C7-leo/no-cancellation-fires), D (no-dosha cases). All 20 passing.
+
+Decisions locked this session:
+- GANA_SCORE Manushya×Rakshasa = 0, locked to AstroSage parity (over AstroVed/AstroBix classical majority of 1). Root-cause evidence from Pair 3 AstroSage oracle.
+- Mangal Dosha Whole Sign house arithmetic: `_house_from(mars_sign, ref_sign) = ((mars_sign - ref_sign) % 12) + 1`.
+- C5 Jupiter aspect formula: `((jupiter_sign - mars_sign) % 12) + 1 in {5, 7, 9}` (equivalent to asking whether Jupiter's 5th/7th/9th Whole Sign aspect lands on Mars).
+- C6 mutual Manglik is a two-chart concern; `MANGAL_CANCELLATION_C6_MUTUAL_MANGLIK` sentinel exported for callers (future ashtakoot.py integration point).
+- V1 severity classification (Low/Medium/High) deferred to V1.1 — `is_cancelled` (boolean) only in V1.
+- `_SIGN_TO_IDX` dict within mangal_dosha.py for string→int conversion; no shared sign-conversion helper imported cross-module.
+- Test-first discipline applied: gana exhaustiveness test written and confirmed failing before the table fix, then confirmed passing after.
+
+Files shipped:
+- `agent/calculations/compatibility/_ashtakoot_tables.py` — GANA_SCORE fix + docstring
+- `tests/calculations/compatibility/test_trivial.py` — exhaustiveness test added
+- `tests/calculations/compatibility/test_ashtakoot.py` — AC-3 fixture updated
+- `agent/calculations/compatibility/mangal_dosha.py` — P2.4.5 (new)
+- `tests/calculations/compatibility/test_mangal_dosha.py` — 20 tests (new)
+
+Test baseline: ~991 passed/3 skipped (Session 28 close) → 1011 passed/3 skipped (+20 Mangal Dosha tests +1 Gana exhaustiveness test −1 AC-3 was not deleted just renamed; net +21 but some previously failing AC-3 assertion is now corrected; zero regressions on Sulabh×Surbhi total 27.5).
+
+Session close: committed and pushed as commit `cbabe76` on `origin/main` (`2d8878d..cbabe76`).
