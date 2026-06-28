@@ -200,16 +200,15 @@ def _paksha_bala(jd_ut: float) -> dict:
         benefic_val = (30.0 - tithi_f) * 4.0
         malefic_val = (tithi_f - 15.0) * 4.0
 
-    # Permanent benefics: Jupiter, Venus
-    # Permanent malefics: Sun, Mars, Saturn
-    # Moon: benefic in Shukla, malefic in Krishna (no doubling — AstroSage parity)
-    # Mercury: benefic classification
-    _benefic_planets = {"Jupiter", "Venus", "Moon", "Mercury"}
+    # Paksha Bala: only Jupiter/Venus are benefics per Raman + AstroSage parity.
+    # Moon and Mercury use malefic formula regardless of waxing/waning.
+    # Source: AstroSage Sulabh fixture (all non-Jup/Ven = 13.24 in Krishna paksha).
+    _PAKSHA_BENEFICS = {"Jupiter", "Venus"}
     result = {}
     for p in _PLANETS:
-        if p in _benefic_planets:
+        if p in _PAKSHA_BENEFICS:   # benefic formula
             result[p] = round(benefic_val, 4)
-        else:
+        else:                        # malefic formula for all others
             result[p] = round(malefic_val, 4)
     return result
 
@@ -347,10 +346,13 @@ def _ayana_bala(birth_jd: float) -> dict:
     Mercury uses absolute declination (always positive).
     """
     swe.set_sid_mode(swe.SIDM_LAHIRI)
+    # Declination is equatorial, not ecliptic — FLG_SIDEREAL must NOT be
+    # applied here. Ayanamsa shifts ecliptic longitude, not equatorial latitude.
+    flags_eq = swe.FLG_SWIEPH | swe.FLG_EQUATORIAL
     result = {}
     for p in _PLANETS:
         pid = _SWE_IDS[p]
-        xx, _ = swe.calc_ut(birth_jd, pid, _FLAGS_EQ)
+        xx, _ = swe.calc_ut(birth_jd, pid, flags_eq)
         decl = xx[1]  # ecliptic latitude when equatorial flag used gives declination
 
         if p in ("Moon", "Saturn"):
@@ -388,7 +390,7 @@ def _yuddha_bala(
     Strength transfer = (victor's subtotal - defeated's subtotal) /
                         abs(disc_diameter[v] - disc_diameter[d]).
     """
-    yuddha = {p: 0.0 for p in _PLANETS}
+    yuddha = {p.lower(): 0.0 for p in _PLANETS}
 
     if sthana_result is None or dig_result is None:
         logger.warning("_yuddha_bala: sthana_result or dig_result is None; skipping Yuddha")
@@ -437,8 +439,8 @@ def _yuddha_bala(
                 continue
 
             yb = (tri_v - tri_d) / denom
-            yuddha[victor]   = round(yuddha[victor] + yb, 4)
-            yuddha[defeated] = round(yuddha[defeated] - yb, 4)
+            yuddha[victor.lower()]   = round(yuddha[victor.lower()] + yb, 4)
+            yuddha[defeated.lower()] = round(yuddha[defeated.lower()] - yb, 4)
 
     return yuddha
 
@@ -498,7 +500,7 @@ def compute_kala_bala(
     for p in _PLANETS:
         key = p.lower()
         total = (nath[p] + paksha[p] + thrib[p] + abda[p] +
-                 masa[p] + vara[p] + hora[p] + ayana[p] + yuddha[p])
+                 masa[p] + vara[p] + hora[p] + ayana[p] + yuddha[key])
         result[key] = {
             "nathonnatha": round(nath[p],   4),
             "paksha":      round(paksha[p], 4),
@@ -508,7 +510,7 @@ def compute_kala_bala(
             "vara":        round(vara[p],   4),
             "hora":        round(hora[p],   4),
             "ayana":       round(ayana[p],  4),
-            "yuddha":      round(yuddha[p], 4),
+            "yuddha":      round(yuddha[key], 4),
             "kala_total":  round(total,     4),
         }
     return result
