@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**P2.5.2 Dig Bala DONE (1132 passed, 3 skipped). Next: P2.5.3 Kala Bala — Nathonnatha, Paksha, Thribhaga, Abda, Masa, Vara, Hora, Ayana, Yuddha sub-components. Pre-prompt: search jhora_sulabh.md for Kala Bala fixture values before drafting prompt.**
+**P2.5.3 Kala Bala DONE (1213 passed, 3 skipped). Ayana Bala Moon/Venus divergence accepted and documented — do not re-investigate without reading CLAUDE.md §Ayana Bala entry. Next: P2.5.4 Chesta Bala (motional strength).**
 - `agent/calculations/transits/chandrabala.py`, `tarabala.py`
 - `tests/calculations/transits/test_chandrabala.py`, `test_chandrabala_windows.py`, `test_tarabala.py`, `test_tarabala_windows.py`
 - Session 24 sub-step numbering (now locked): P2.3.1=Chandrabala instant, P2.3.2=Chandrabala range-scan, P2.3.3=Tarabala instant+range-scan, P2.3.4=Panchaka (shipped Session 25), P2.3.5=Muhurta composite scorer (next, after `helpers/discrete_scan.py` extraction). Earlier entries in this session may carry the pre-renumbering sequence (Tarabala as P2.3.2) — not retroactively edited in SESSION_LOG.md.
@@ -108,3 +108,12 @@ Every new calculation module lives in its `calculations/` subpackage; never add 
 ### Shadbala Drekkana Bala
 - **Spec source:** AstroSage + JHora convergence on 1 Virupa flat constant for all planets (three-tier hierarchy rule).
 - **BPHS divergence:** BPHS 27.6 specifies 15/0 binary by gender×decanate. Locked at 1 Virupa per AstroSage parity.
+
+### Ayana Bala — Moon/Venus high-declination edge case (V1 accepted gap)
+- **Spec source:** PyJHora `(24.0 + adj_decl) * 1.25` formula.
+- **Validation oracle:** AstroSage Kundli PDFs (4 charts).
+- **Pass tolerance:** ±2.0 Virupa for 5/7 planets; ±6.0 Virupa for Moon and Venus.
+- **Delta magnitude:** Moon and Venus at near-maximum declination (≈23.8°) compute to ~59.7 and ~59.9 respectively; AstroSage shows 54.45 and 56.21. Other 5 planets (Sun, Mars, Mercury, Jupiter, Saturn) match within ±2.
+- **User impact:** Moon Shadbala total delta ~1.1% (5.27 of 483.91). Negligible for Shadbala threshold checks (min_required=6.0 Rupa, computed ~8.07, delta does not change strong/weak classification).
+- **Revisit trigger:** If user testing surfaces complaints about Moon/Venus Shadbala values being off, investigate AstroSage's exact Ayana algorithm by reverse-engineering against a chart with Moon/Venus at moderate declination (≈10°) where the formula deltas should be smaller.
+- **Root cause hypothesis (not yet confirmed):** AstroSage may use a different obliquity constant or apply a soft cap below 60 Virupa for high-declination cases. PyJHora's calibrated constant (24.0) matches Sun within 0.30 but diverges for outer planets at extreme declination.

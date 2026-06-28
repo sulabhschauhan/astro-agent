@@ -3,7 +3,10 @@
 BPHS 27.7-20, Raman "Graha and Bhava Balas" Ch. 4-7.
 
 Known divergences (V1):
-- Ayana Bala: uses PyJHora constants (24.0 + adj) * 1.25, not Raman's 23.45 * 1.2793.
+- Ayana Bala: PyJHora calibrated formula (24.0 + adj_decl) * 1.25.
+  Sun doubled. Matches AstroSage within ±2 Virupa for 5/7 planets;
+  Moon and Venus diverge by up to 6 Virupa at near-maximum declination
+  (~23.8°). See CLAUDE.md §Ayana Bala Moon/Venus high-declination edge case.
 - Paksha Bala Moon: not doubled (AstroSage shows Moon=13.24, same as malefic value).
   PyJHora doubles Moon; BPHS 27.11 text is ambiguous; AstroSage wins.
 - Abda/Masa Bala: BPHS-compliant (Mesha Sankranti weekday / solar month ingress weekday).
