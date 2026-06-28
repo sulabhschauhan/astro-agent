@@ -185,7 +185,9 @@ def _paksha_bala(jd_ut: float) -> dict:
     """Paksha Bala: strength from lunar phase (Moon–Sun elongation).
 
     Benefics strong in Shukla (waxing); malefics strong in Krishna (waning).
-    Moon and Mercury follow their classification (no doubling of Moon).
+    Moon and Mercury are paksha-dependent: benefic in Shukla (waxing),
+    malefic in Krishna (waning). Jupiter and Venus are always benefic.
+    Sun, Mars, Saturn are always malefic.
     """
     swe.set_sid_mode(swe.SIDM_LAHIRI)
     moon_lon = swe.calc_ut(jd_ut, swe.MOON, _FLAGS_SID)[0][0] % 360.0
@@ -200,16 +202,18 @@ def _paksha_bala(jd_ut: float) -> dict:
         benefic_val = (30.0 - tithi_f) * 4.0
         malefic_val = (tithi_f - 15.0) * 4.0
 
-    # Paksha Bala: only Jupiter/Venus are benefics per Raman + AstroSage parity.
-    # Moon and Mercury use malefic formula regardless of waxing/waning.
-    # Source: AstroSage Sulabh fixture (all non-Jup/Ven = 13.24 in Krishna paksha).
-    _PAKSHA_BENEFICS = {"Jupiter", "Venus"}
+    if tithi_f < 15.0:  # Shukla paksha (waxing)
+        _benefics = {"Jupiter", "Venus", "Moon", "Mercury"}
+    else:               # Krishna paksha (waning)
+        _benefics = {"Jupiter", "Venus"}
+
     result = {}
     for p in _PLANETS:
-        if p in _PAKSHA_BENEFICS:   # benefic formula
-            result[p] = round(benefic_val, 4)
-        else:                        # malefic formula for all others
-            result[p] = round(malefic_val, 4)
+        if p in _benefics:
+            val = tithi_f * 4.0 if tithi_f < 15.0 else (30.0 - tithi_f) * 4.0
+        else:
+            val = (15.0 - tithi_f) * 4.0 if tithi_f < 15.0 else (tithi_f - 15.0) * 4.0
+        result[p] = round(min(60.0, max(0.0, val)), 4)
     return result
 
 
@@ -346,9 +350,7 @@ def _ayana_bala(birth_jd: float) -> dict:
     Mercury uses absolute declination (always positive).
     """
     swe.set_sid_mode(swe.SIDM_LAHIRI)
-    # Declination is equatorial, not ecliptic — FLG_SIDEREAL must NOT be
-    # applied here. Ayanamsa shifts ecliptic longitude, not equatorial latitude.
-    flags_eq = swe.FLG_SWIEPH | swe.FLG_EQUATORIAL
+    flags_eq = swe.FLG_SWIEPH | swe.FLG_SIDEREAL | swe.FLG_EQUATORIAL
     result = {}
     for p in _PLANETS:
         pid = _SWE_IDS[p]

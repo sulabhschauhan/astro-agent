@@ -124,20 +124,29 @@ class TestYuddhaBala:
         assert result["jupiter"] == pytest.approx(0.0)
 
     def test_at_war_higher_lat_wins(self):
-        # Mars and Jupiter at same longitude, Mars lat > Jupiter lat → Mars is victor
-        planet_lons = {p: 90.0 for p in _PLANETS}
-        planet_lats = {p: 0.0 for p in _PLANETS}
-        planet_lats["Mars"]    = 1.0   # higher latitude
-        planet_lats["Jupiter"] = -1.0
+        # Mars and Jupiter within 1° — isolated war, all others far apart
+        planet_lons = {
+            "Sun": 0.0, "Moon": 50.0,
+            "Mars": 90.0, "Mercury": 200.0, "Jupiter": 90.5,
+            "Venus": 200.0, "Saturn": 200.0,
+        }
+        planet_lats = {
+            "Sun": 0.0, "Moon": 0.0,
+            "Mars": 1.0, "Mercury": 0.0, "Jupiter": -1.0,
+            "Venus": 0.0, "Saturn": 0.0,
+        }
+        # Mars lat=+1 > Jupiter lat=-1 → Mars is victor
 
-        # Give Mars and Jupiter some distinguishable strength so yb != 0
         zeros = {p: 0.0 for p in _PLANETS}
         nath = {p: 0.0 for p in _PLANETS}
         nath["Mars"] = 50.0
 
-        sthana = {"mars": {"sthan_total": 100.0}, "jupiter": {"sthan_total": 50.0}}
-        for key in ["sun","moon","mercury","venus","saturn"]:
-            sthana[key] = {"sthan_total": 0.0}
+        sthana = {
+            "mars": {"sthan_total": 100.0}, "jupiter": {"sthan_total": 50.0},
+            "mercury": {"sthan_total": 0.0}, "venus": {"sthan_total": 0.0},
+            "saturn": {"sthan_total": 0.0}, "sun": {"sthan_total": 0.0},
+            "moon": {"sthan_total": 0.0},
+        }
         dig = {p.lower(): {"dig": 0.0} for p in _PLANETS}
 
         result = _yuddha_bala(0.0, planet_lons, planet_lats, sthana, dig,
