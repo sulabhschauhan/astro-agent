@@ -1,3 +1,28 @@
+## ACTUAL STATE (Session 31 baseline)
+
+**Tests:** 1119 passed, 3 skipped, 0 failures
+**Last commit:** Session 30 close
+
+**Completed phases (verified):**
+- P1 Foundation ✅ — calculations/ package refactor; Panchanga
+  (tithi/vara/nakshatra/yoga/karana/hora); Choghadiya, Rahu Kalam,
+  Yamaganda, Gulika, Abhijit; Dignity + Aspects.
+- P2.1 Navamsa (D9) ✅
+- P2.2 Gochara ✅, Sade Sati ✅
+- P2.3 Muhurta engine ✅ — Chandrabala, Tarabala, Panchaka (instant +
+  range-scan), composite Muhurta scorer.
+- P2.4 Ashtakoot ✅ — all 8 kootas + Mangal Dosha (V1 cancellations).
+- P2.5.0 Shadbala fixtures ✅ — 4 charts × 7 planets × 25 keys.
+- P2.5.1 Sthana Bala ✅ — Ochcha, Saptavargaja, Ojayugma, Kendra, Drekkana.
+- helpers/discrete_scan.py ✅ — generic bisection range-scan extracted.
+
+**Active task:** P2.5.2 Dig Bala.
+
+**Session-numbering note:** This plan's "Session 30/31/32" headers
+predate the actual timeline. The phase-task hierarchy (P2.5.2, P2.5.3
+etc.) is the canonical reference; session numbers in headings below are
+illustrative ordering only.
+
 Goal: Answer "everything like the best astrologer"
 STACK & CONVENTIONS (LOCKED)
 Python 3.11, pyswisseph, SIDM_LAHIRI, Whole Sign houses, Mean Node
@@ -85,38 +110,50 @@ QUESTION DOMAINS A TOP ASTROLOGER MUST ANSWER
 17	Muhurta (Auspicious Time)	—	—	Muhurta Scorer, Panchanga	DONE
 18	Psychological Traits	1, 4, 5	Moon, Mer	Nakshatra, Moon sign, Mercury strength	PARTIAL
 SESSION-WISE BUILD PLAN
-PHASE 0 — INFRASTRUCTURE (Sessions 30-32)
-Prerequisite for everything. Build the skeleton that all later sessions plug into.
-Session 30: helpers/ephemeris.py — Shared Ephemeris Wrapper
-Priority: CRITICAL (blocks multiple sessions)File: agent/calculations/helpers/ephemeris.pyTask: Extract duplicated swe.calc_ut calls from gochara.py, navamsa.py, chart_calculator.py into one shared wrapper.Functions:
+## PHASE 0 — DISSOLVED (was Sessions 30-32)
 
-sidereal_lon(jd_ut, planet) -> float — returns sidereal longitude 0-360
-sidereal_lon_with_retro(jd_ut, planet) -> tuple[float, bool] — longitude + retrograde flag
-tropical_to_sidereal(tropical_lon, jd_ut) -> float — apply Lahiri ayanamsa
-moon_sign(jd_ut) -> int — Moon's rasi (0-11)
-moon_nakshatra(jd_ut) -> tuple[int, int, float] — (nakshatra_index 0-26, pada 0-3, longitude_in_nakshatra)
-all_planet_positions(jd_ut) -> dict[str, dict] — all 9 bodies with sign, degree, nakshatra, retrogradeTests: 20+ (4 reference charts × 5 planets minimum, boundary cases)Unlocks: Clean code for every subsequent session that needs ephemeris data
-Session 31: sign_convention.py — Normalize 0-11 Everywhere
-Priority: HIGHFile: agent/calculations/helpers/sign_convention.pyTask: gochara.py uses 1-12, everything else uses 0-11. Create conversion helpers and audit all modules.Functions:
+All three originally planned tasks are deprecated or relocated:
 
-to_zero_indexed(sign_1based: int) -> int
-to_one_indexed(sign_0based: int) -> int
-normalize_sign(value: int, convention: str) -> intAlso: Fix gochara.py to use 0-11 internally, output 0-11. This is a find-and-replace audit, not complex logic.Tests: 15+ (boundary: 0↔1, 11↔12, round-trip, all callers tested)Unlocks: Eliminates a class of cross-module bugs
-Session 32: chart_profile.py — Pre-computation Schema + Orchestrator
-Priority: CRITICAL (blocks answer pipeline)Files:
+- **helpers/ephemeris.py wrapper** — DEPRECATED per locked decision.
+  helpers/ephemeris.py remains a stub; swe.calc_ut is called directly
+  with a TODO comment per the established pattern (sthana_bala.py,
+  gochara.py). Extracting now would force touching chart_calculator.py
+  which has no regression coverage.
+- **sign_convention.py normalization** — DEPRECATED. Documented gap:
+  gochara.py uses 1-12, newer modules use 0-11. Both convention sets
+  are independently tested; no cross-convention bugs have surfaced.
+  Revisit only on a real bug.
+- **chart_profile schema** — RELOCATED to Phase 10 prep (just-in-time
+  before Calc Router). Building the cache schema before knowing all
+  consumer fields creates rework.
 
-agent/calculations/infra/__init__.py
-agent/calculations/infra/chart_profile.py
-agent/calculations/infra/profile_schema.pyTask: Design the chart_profile.json schema and build the orchestrator that runs ALL natal calculations once and caches results.Schema (chart_profile.json):
-@dataclass(frozen=True)class ChartProfile:    # Identity    name: str    dob: str    tob: str    place: str    ayanamsa: float    # D1 Basics    lagna: str  # sign name    lagna_longitude: float    moon_sign: int  # 0-11    moon_nakshatra: int  # 0-26    planetary_positions: dict  # {planet: {sign, degree, nakshatra, pada, retrograde, dignity, ishta_kashta}}    # Dignity    dignities: dict  # {planet: "Exalted"|"Debilitated"|"Own"|"Moolatrikona"|None}    # Friendship    pancha_dha_maitri: dict  # {(planet_a, planet_b): "Adhimitra"|...}    # Aspects    aspect_table: dict  # {planet: [list of aspected signs 0-11]}    # Navamsa    navamsa_chart: dict  # {planet: {sign, degree, pada}}    # Strength    shadbala: dict | None  # filled in Session 33    bhava_bala: dict | None  # filled in Session 34    ishta_kashta: dict | None  # filled in Session 35    # Yogas    yogas: list[dict] | None  # filled in Sessions 40-44    # Dashas    vimshottari: list[dict] | None  # filled in Session 45    # Ashtakavarga    bav: dict | None  # filled in Session 47    sav: list[int] | None  # filled in Session 48    # Jaimini    jaimini_karakas: dict | None  # filled in Session 50    arudha_lagna: int | None  # filled in Session 51    # Vargas    varga_charts: dict | None  # {D2: {...}, D7: {...}, D10: {...}, ...} filled in Sessions 36-39
-Orchestrator function: build_chart_profile(chart_data: dict) -> ChartProfile
+Phase 1 (Shadbala) is therefore the actual starting phase of the
+remaining build.
 
-Calls calculate_chart() from chart_calculator.py (DO NOT refactor chart_calculator.py — locked decision)
-Extracts D1 data, calls navamsa, dignity, friendship, aspects modules
-Leaves strength/yogas/dashas/AV/Jaimini as None initially (filled as modules are built)
-Saves to chart_profiles/{session_id}.json
-Tests: 10+ (schema validation, 4 reference charts produce valid profiles)
-Unlocks: The entire "compute once, serve many questions" architecture
+## PHASE 0.6 — JHORA PARSER (parallel track, time-permitting)
+
+**File:** agent/calculations/parsers/jhora_parser.py (NEW)
+**Priority:** MEDIUM — does not block any calculation phase.
+
+**Task:** Programmatic extraction from JHora v8 PDF exports. All JHora
+fixtures today are hand-captured (tests/fixtures/jhora_sulabh.md was
+typed from screenshots). Required to scale validation beyond the 4
+reference charts without per-chart manual transcription.
+
+**Separate JHora report parsers needed:**
+- Natal positions (D1, D9, vargas)
+- Yoga catalog
+- Jaimini Karakas
+- Chara Dasha
+- Drishti / aspect tables
+- Sade Sati windows
+- Shadbala tables
+
+**Tests:** Round-trip parse of jhora_sulabh.md fixture, fail-soft on
+missing sections, per-report parser unit tests.
+
+**Unlocks:** Cheap reference-chart additions; cross-validation across
+every later phase at zero manual cost.
 PHASE 1 — PLANETARY STRENGTH (Sessions 33-35)
 Why first: Strength is referenced by yoga detection, ashtakavarga, varga assessment, and remedy recommendations. Everything downstream depends on knowing how strong a planet is.
 Session 33: Shadbala — Six-fold Planetary Strength
@@ -191,6 +228,36 @@ Net = Ishta - Kashta (positive = overall benefic)
 Output: IshtaKashtaResult frozen dataclass per planet
 Tests: 25+
 Question domains unlocked: Gem recommendation, overall chart positivity, remedy prioritization
+
+## CHECKPOINT — THIN-SLICE ANSWER PIPELINE (after Phase 1 completes)
+
+**Why here:** Building all of Phases 2-9 before any user-visible answer
+pipeline is 20+ sessions of zero user feedback. Sthana + Dig Bala +
+Ashtakoot + Mangal Dosha + Vimshottari (already in chart_calculator)
+is enough to answer 3-4 common question domains right now. Validate
+pipeline shape on a thin slice BEFORE committing to vargas/yogas/dashas
+at full scope.
+
+**Scope (deliberately narrow):**
+- Calc Router covering 3 domains only: marriage compatibility, career
+  strength, current dasha period.
+- Result Formatter for the modules each domain uses.
+- prompt_builder + astrologer wiring (full Sessions 60-61 logic, but
+  guarded by domain whitelist).
+- Persona lock + 5-user dogfooding on these 3 domains (folds Phase A
+  persona/user-testing work into this checkpoint).
+
+**Deliverables:** 3-domain answer pipeline live; persona response style
+calibrated against real user questions; UX-gap list captured.
+
+**Decision gate:** Continue to Phase 2 (Vargas) as planned ONLY IF
+thin-slice validates pipeline assumptions. If thin-slice reveals
+fundamental issues (router miss-rate, formatter token blowup, persona
+mismatch), pause Phase 2 and fix before adding modules.
+
+**Tests:** 4 reference charts × 3 domains = 12 end-to-end cases; full
+fixture suite remains green.
+
 PHASE 2 — DIVISIONAL CHARTS (Sessions 36-39)
 Why second: Vargas provide domain-specific depth. D10 for career, D7 for children, D9 already done.
 Session 36: Varga Engine + D2, D3, D4
@@ -697,6 +764,23 @@ Session 58 (Calc Router) ──→ Session 59 (Result Formatter) ──→ Sessi
 Session 63 (Gemstones)
          ↓
 Session 64 (E2E Tests) ──→ Session 65 (Full chart_profile builder)
+
+**Validation checkpoint cadence:** Every 5-6 sessions, insert a
+regression gate that re-runs the full fixture suite across all 4
+reference charts (Sulabh, Surbhi, Sheridan, David). Scheduled after:
+  - Session 33 (Shadbala complete)
+  - Session 39 (all vargas)
+  - Session 44 (all yogas)
+  - Session 48 (Ashtakavarga)
+  - Session 57 (combustion/maraka)
+  - Session 62 (full answer pipeline)
+Any chart that regresses past tolerance is triaged BEFORE the next
+session starts.
+
+**Session-count estimate revision:** The 65-session estimate is ~15-20%
+optimistic vs actual cadence (P2.4 Ashtakoot alone consumed 4 sessions
+against an implied 1). Realistic target: 75-80 sessions. Treat 65 as
+floor, not ceiling.
 ESTIMATED TEST COUNT GROWTH
 After Session
 Cumulative Tests
@@ -734,6 +818,10 @@ text
 
 This is ~65 sessions. Each session is one focused task. Any AI (Claude, GPT, etc.) reading this + `CLAUDE.md` + `SESSION_LOG.md` will know exactly what to build, in what order, with what conventions, what tests, and what it unlocks.
 
-Suggested next step: Start from **Session 30** (ephemeris wrapper) — it's the cleanest starting point, unblocks multiple later sessions, and follows the locked "hardest-case-first" principle.
+Suggested next step: Complete remaining Shadbala sub-tasks
+(P2.5.2 Dig Bala → P2.5.7 total aggregator), then Phase 1 (Bhava Bala +
+Ishta/Kashta) → CHECKPOINT (thin-slice pipeline) → Phase 2 (Vargas).
+Phase 0 is dissolved; Phase 0.6 (JHora parser) runs in parallel
+time-permitting.
 
 
