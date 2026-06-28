@@ -469,3 +469,41 @@ Files shipped:
 Test baseline: ~991 passed/3 skipped (Session 28 close) → 1011 passed/3 skipped (+20 Mangal Dosha tests +1 Gana exhaustiveness test −1 AC-3 was not deleted just renamed; net +21 but some previously failing AC-3 assertion is now corrected; zero regressions on Sulabh×Surbhi total 27.5).
 
 Session close: committed and pushed as commit `cbabe76` on `origin/main` (`2d8878d..cbabe76`).
+
+## Session 30 — P2.5 Shadbala: Fixture + Sthana Bala
+
+### What landed
+- P2.5.0: tests/fixtures/shadbala_fixtures.py — 4 charts × 7 planets,
+  32 smoke tests, virupa/rupa consistency verified across all 28 cells.
+- P2.5.1: agent/calculations/strength/sthana_bala.py — all 5 Sthana Bala
+  sub-components (Ochcha, Saptavargaja, Ojayugmarasyamsa, Kendra, Drekkana).
+  D2/D3/D7/D12/D30 varga calculators built inline as private functions
+  tagged # TODO: extract to calculations/vargas/ once ≥2 consumers exist.
+- CLAUDE.md: "Known Source Divergences (V1)" section added — Saptavargaja
+  and Drekkana Bala gaps documented with spec source, delta, user impact,
+  revisit trigger.
+
+### Key decisions (locked, carry forward)
+1. Saptavargaja scoring: BPHS 27.2-4 literal (Mooltrikona=45, Own=30,
+   Pramudita=20, Shanta=15, Din=10, Duhkhita=4, Khala=2). AstroSage
+   Saptavargaja fixture values are INFORMATIONAL — AstroSage uses an
+   unpublished table not reverse-engineerable from public data. All 7
+   planets' AstroSage Saptavargaja assertions collapsed to informational
+   comments; sthan_total tolerance widened to abs=40.
+2. Drekkana Bala: 1 Virupa flat constant (AstroSage+JHora convergence wins
+   over BPHS 27.6 binary 15/0).
+3. Acceptable gap protocol (locked this session): every accepted divergence
+   must be written to CLAUDE.md + test file comment + module docstring
+   CITATION block before session closes. SESSION_LOG.md alone is
+   insufficient — Claude Code cannot read it at prompt time.
+4. Pre-prompt research discipline (locked this session): design chat must
+   project_knowledge_search existing repo before drafting any Claude Code
+   prompt. Duplicate friendship table in P2.5.1 first draft cost ~75k
+   tokens — avoidable with one search.
+
+### Test baseline
+1119 passed, 3 skipped, 0 failures.
+
+### Next task
+P2.5.2 Dig Bala — directional strength. AstroSage fixture values are
+primary oracle (published, no source divergence expected).
