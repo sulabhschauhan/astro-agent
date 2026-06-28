@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**P2.3.1-P2.3.4 DONE: Chandrabala, Tarabala, Panchaka (all instant + range-scan where applicable). Next: `helpers/discrete_scan.py` extraction, then P2.3.5 Muhurta composite scorer.** 680 passed, 3 skipped.
+**P2.5.2 Dig Bala DONE (1132 passed, 3 skipped). Next: P2.5.3 Kala Bala — Nathonnatha, Paksha, Thribhaga, Abda, Masa, Vara, Hora, Ayana, Yuddha sub-components. Pre-prompt: search jhora_sulabh.md for Kala Bala fixture values before drafting prompt.**
 - `agent/calculations/transits/chandrabala.py`, `tarabala.py`
 - `tests/calculations/transits/test_chandrabala.py`, `test_chandrabala_windows.py`, `test_tarabala.py`, `test_tarabala_windows.py`
 - Session 24 sub-step numbering (now locked): P2.3.1=Chandrabala instant, P2.3.2=Chandrabala range-scan, P2.3.3=Tarabala instant+range-scan, P2.3.4=Panchaka (shipped Session 25), P2.3.5=Muhurta composite scorer (next, after `helpers/discrete_scan.py` extraction). Earlier entries in this session may carry the pre-renumbering sequence (Tarabala as P2.3.2) — not retroactively edited in SESSION_LOG.md.

@@ -507,3 +507,47 @@ Session close: committed and pushed as commit `cbabe76` on `origin/main` (`2d887
 ### Next task
 P2.5.2 Dig Bala — directional strength. AstroSage fixture values are
 primary oracle (published, no source divergence expected).
+
+## Session 31 — P2.5.2 Dig Bala + Master Plan Reconciliation
+
+### What landed
+- P2.5.2: agent/calculations/strength/dig_bala.py — Directional strength
+  for all 7 classical planets. True sidereal MC via swe.houses_ex (not
+  Lagna+270°); documented in module docstring. Locked: Sun/Mars → MC,
+  Mercury/Jupiter → ASC, Moon/Venus → IC, Saturn → DSC.
+- tests/calculations/strength/test_dig_bala.py — 13 tests (Layer A
+  structural formula, Layer B Sulabh all-7-planets AstroSage parity,
+  Layer C Surbhi Sun spot-check). 13/13 passed.
+- "ASTRO AGENT — MASTER BUILD PLAN.md" — 6 surgical edits:
+  (1) ACTUAL STATE block (1119 baseline, all completed phases);
+  (2) Phase 0 dissolved with locked rationale;
+  (3) Phase 0.6 JHora Parser tracked;
+  (4) CHECKPOINT thin-slice pipeline block after Phase 1;
+  (5) Validation cadence + 75-80 session revised estimate added to
+      dependency graph;
+  (6) Closing sentence updated.
+
+### Key decisions (locked, carry forward)
+1. Dig Bala uses true sidereal MC from swe.houses_ex, NOT Lagna+270°.
+   At non-equatorial latitudes the approximation breaks Sun parity
+   (verified on Sulabh, Calcutta 22.5°N). Documented in module docstring
+   and now in SESSION_LOG.
+2. saturn dig fixture = 4.64 (confirmed correct). The spec inline doc
+   had a copy-paste error (56.49 = surbhi.moon.dig). Test reads fixture
+   directly — was never wrong.
+3. Thin-slice answer pipeline checkpoint: after P2.5 Shadbala completes
+   and Phase 1 (Bhava Bala + Ishta/Kashta) completes, build a 3-domain
+   router (marriage/career/dasha) BEFORE starting Phase 2 vargas.
+   Locked in Master Plan.
+4. chart_profile schema build deferred to just-in-time before Calc
+   Router (Phase 10 prep), not Phase 0.
+
+### Test baseline
+1132 passed, 3 skipped, 0 failures.
+
+### Next task
+P2.5.3 Kala Bala (temporal strength) — most complex Shadbala component:
+Nathonnatha, Paksha, Thribhaga, Abda, Masa, Vara, Hora, Ayana, Yuddha.
+JHora fixture in tests/fixtures/jhora_sulabh.md; AstroSage fixture in
+tests/fixtures/shadbala_fixtures.py. Pre-prompt research required:
+search jhora_sulabh.md for Kala Bala values before drafting.
