@@ -9,22 +9,21 @@ ALGORITHM: BPHS 27.24-25.
 
 ORACLES: JHora v8 + AstroSage converge ±0.25 Virupa all 7 planets (Sulabh).
 KNOWN DIVERGENCES (V1):
-- Sun: Chesta = Ayana Bala (BPHS 27.18). Ayana Bala directional issue
-  suspected in kala_bala.py (Session 33); investigate separately there.
-- Moon: Chesta = benefic Paksha Bala (BPHS 27.18). Confirmed 3/3 charts.
-- Inner planets (Mercury/Venus): heliocentric + sun formula applied
-  uniformly. Inner planet geocentric mean longitude derivation differs
-  from outer planets in classical texts; validate against JHora fixture.
-- Session 33 investigation: speed-based (Option A) rejected 1/7 ranking.
-  Discrete lookup rejected — bucket errors from mean_lon approximation.
-  Synodic-midpoint approximation rejected — 60°+ error for Mars.
-  Final: heliocentric-derived mean longitude + continuous CK/3.
+- Sun: Chesta = Ayana Bala (BPHS 27.18). Delta ~40 Virupa vs JHora/AstroSage.
+  Ayana Bala direction suspected inverted in kala_bala.py for Sun.
+  Investigate separately in P2.5.5 before Vimshopaka.
+- Moon: Chesta = benefic Paksha Bala (BPHS 27.18). Confirmed exact 3/3 charts.
+- Tara Grahas: elongation formula (CK = sun_lon - planet_true_lon, /3).
+  JHora uses Surya Siddhanta mean daily motion constants for mean longitude —
+  not derivable from Swiss Ephemeris. Tagged V1.1.
+  Deltas vs JHora v8: Jupiter/Saturn ±2, Mars/Mercury/Venus ±10 (Surbhi worst).
+  Do NOT re-investigate. 5 approaches tested and rejected across sessions 33-35.
+  See CLAUDE.md §Chesta Bala.
 """
 
 import swisseph as swe
 
 _FLAGS_SID  = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
-_FLAGS_HELI = swe.FLG_SWIEPH | swe.FLG_HELCTR   # heliocentric, tropical
 
 _SWE_IDS = {
     "Sun": swe.SUN, "Moon": swe.MOON, "Mars": swe.MARS,
@@ -80,21 +79,13 @@ def compute_chesta_bala(
     else:
         result["moon"] = {"chesta": round(60.0 - moon_paksha, 4)}
 
-    # ── Tara Grahas: heliocentric mean longitude + CK/3 (BPHS 27.24-25) ─────
-    ayanamsa = swe.get_ayanamsa_ut(jd_ut)
-
+    # ── Tara Grahas: elongation formula CK/3 (BPHS 27.24-25) ────────────────
     for planet in _TARA_GRAHAS:
         pid = _SWE_IDS[planet]
-
-        geo_true  = swe.calc_ut(jd_ut, pid, _FLAGS_SID )[0][0] % 360.0  # noqa: F841
-        heli_trop = swe.calc_ut(jd_ut, pid, _FLAGS_HELI)[0][0] % 360.0
-        heli_sid  = (heli_trop - ayanamsa) % 360.0
-        mean_lon  = (heli_sid + sun_lon) % 360.0
-
-        CK = (sun_lon - mean_lon) % 360.0
-        if CK > 180:
-            CK = 360 - CK
-
-        result[planet.lower()] = {"chesta": round(CK / 3, 4)}
+        geo_lon = swe.calc_ut(jd_ut, pid, _FLAGS_SID)[0][0] % 360.0
+        CK = (sun_lon - geo_lon) % 360.0
+        if CK > 180.0:
+            CK = 360.0 - CK
+        result[planet.lower()] = {"chesta": round(CK / 3.0, 4)}
 
     return result
