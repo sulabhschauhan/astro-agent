@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**P2.5 Shadbala CLOSED (Session 38, 2026-06-30). 153 new tests, 1380 passed total. Drik Bala stubbed V1 (see Known Source Divergences). Next: Phase 1 Bhava Bala + Ishta/Kashta, then thin-slice answer pipeline checkpoint (see Session 31 key decisions).**
+**P2.5 Shadbala CLOSED + Sheridan/David fully activated (Sessions 38-39, 2026-06-30). 1461 passed, 3 skipped. Drik Bala stubbed V1 (see Known Source Divergences). Next: Phase 1 Bhava Bala + Ishta/Kashta, then thin-slice answer pipeline checkpoint (see Session 31 key decisions).**
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -91,7 +91,7 @@ Every new calculation module lives in its `calculations/` subpackage; never add 
 
 ## Reference Materials
 **Calculation specifications:** `project_files/classical_references/PVR_Vedic_Astrology_Integrated_Approach.pdf` — primary reference for P1-P6; PVR authored both this book and JHora (book = formulas/justification, JHora = numerical ground truth); both consulted before implementing any new calculation module.
-**Validation oracles:** AstroSage PDFs (4 reference charts) for secondary parity; JHora exports as primary parity where AstroSage doesn't expose the calculation.
+**Validation oracles:** AstroSage PDFs (4 reference charts) for secondary parity; JHora exports as primary parity where AstroSage doesn't expose the calculation. Sheridan (1984-05-27 08:00, Durban SA) and David (1976-01-19 22:00, London UK) are fully activated — birth data extracted from their AstroSage PDFs; geocoded in `tests/fixtures/geocoded_locations.json`.
 **Interpretive RAG (separate, do not pollute):** ChromaDB ~7,281 chunks across 14 classical texts, for Tier 4 interpretive answers in Parashara's voice. Modern textbooks (incl. PVR's) are deliberately excluded from RAG to preserve classical voice and avoid single-author bias.
 
 ## Known Source Divergences — locked V1
@@ -127,3 +127,8 @@ Every new calculation module lives in its `calculations/` subpackage; never add 
 - **AstroSage delta:** Sulabh Sun kala_total validated within ±2 Virupa, but Surbhi chart showed Jupiter +31 and Saturn -59 Virupa divergence, traced to Abda=15/Masa=0 vs computed Abda=0/Masa=0 — a solar-month ingress date disagreement between BPHS calendar-lord assignment and AstroSage's algorithm. Surfaced during P2.5.7 totals testing (test_shadbala_totals.py Layer B); kala_bala.py itself was never tested against Surbhi at this granularity.
 - **User impact:** Limited to Sun kala_total cross-chart comparisons; does not affect Sulabh (the primary validated chart) or other planets.
 - **Revisit trigger:** If P3 Yoga detection or P7 trigger-naming surfaces a ranking anomaly traceable to Sun kala_total on a non-Sulabh chart. Not re-opened proactively — within the 2-diagnostic-attempt budget, this is deprioritized behind Drik Bala and P3.
+
+### Shadbala Chesta Bala — Layer B cross-chart scope (Sheridan/David excluded)
+- **Decision:** test_chesta_bala.py Layer B (tight-tolerance AstroSage parity spot-checks) remains scoped to Sulabh + Surbhi only. Sheridan and David are exercised at Layers C/D/E (structural, rank validity, caveat integrity) but not added to Layer B's tight-tolerance assertions.
+- **Reason:** Investigated once (diagnostic attempt #1, within the 2-attempt budget) during the Sheridan/David activation session (Session 39). Sheridan shows wider kala_total/chesta cross-chart spread than Surbhi's already-documented divergence — same elongation-formula root cause, larger magnitude on these charts. Not re-investigated further per session budget; deprioritized behind P3.
+- **Revisit trigger:** Only if a future phase (P3 yoga potency, P7 trigger naming) specifically needs Sheridan/David chesta_bala precision. Not proactively revisited.

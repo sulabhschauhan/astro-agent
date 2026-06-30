@@ -658,3 +658,47 @@ search jhora_sulabh.md for Kala Bala values before drafting.
 Phase 1: Bhava Bala + Ishta/Kashta Bala. After both complete, build the
 thin-slice answer pipeline (3-domain router: marriage/career/dasha) before
 starting Phase 2 vargas — locked in Session 31 key decision 3.
+
+## Session 39 — Sheridan/David birth data activation (2026-06-30)
+
+### What landed
+- tests/fixtures/shadbala_fixtures.py: Sheridan and David meta blocks
+  updated from "unknown" placeholders to real birth data, extracted
+  directly from their AstroSage PDF "Basic Details" pages:
+    Sheridan: 1984-05-27, 08:00, Durban, South Africa
+    David: 1976-01-19, 22:00, London, UK
+- Both place strings confirmed already present in
+  tests/fixtures/geocoded_locations.json — no new live geocoding needed.
+- test_chesta_bala.py: activated test_c2_david_moon_krishna_chesta;
+  replaced skip stub with real david_chesta module fixture. Delta 0.003
+  vs fixture, within ±1.0 tolerance.
+- test_shadbala_totals.py: added sheridan_totals/david_totals/all_totals
+  module fixtures; expanded _ALL_CHART_KEYS constant; promoted Layers
+  C/D/E from 2-chart to 4-chart parametrize; added 14 sheridan/david
+  rows to test_c_min_required_exact.
+- CLAUDE.md: Current Session Focus updated to 1461 total; new "Shadbala
+  Chesta Bala — Layer B cross-chart scope" entry added to Known Source
+  Divergences; Validation oracles note updated with Sheridan/David status.
+- SESSION_LOG.md and Master Build Plan updated (this entry).
+- Test baseline: 1380 → 1461 passed (+81), 3 skipped, 0 failures.
+
+### Key decisions (locked, carry forward)
+1. test_chesta_bala.py Layer B (tight AstroSage-parity tolerance) stays
+   Sulabh + Surbhi only — Sheridan/David activated at Layers C/D/E
+   (structural/rank/caveat) only. STOP documented as diagnostic attempt #1
+   in CLAUDE.md Known Source Divergences; not pursued further.
+   Specific deltas that triggered the STOP:
+     Sheridan Sun:     computed 113.33, fixture  52.05, delta +61.28 (tol ±41)
+     Sheridan Mercury: computed   8.00, fixture  21.53, delta −13.53 (tol ±10)
+     David Mercury:    computed   2.44, fixture  55.64, delta −53.20 (tol ±10)
+     David Venus:      computed  12.23, fixture  22.43, delta −10.20 (tol ±10)
+2. Precedent confirmed: meta "unknown" placeholders in shadbala_fixtures.py
+   should be checked against source PDFs before being treated as a
+   permanent data gap. Session 38 key decision 3 flagged David's real data
+   as activatable; Session 39 executed that activation for both charts.
+
+### Test baseline
+1461 passed, 3 skipped, 0 failures.
+
+### Next task
+P3 Yoga detection engine — Pancha Mahapurusha yogas first.

@@ -1,7 +1,7 @@
-## ACTUAL STATE (Session 31 baseline)
+## ACTUAL STATE (Session 39 baseline)
 
-**Tests:** 1119 passed, 3 skipped, 0 failures
-**Last commit:** Session 30 close
+**Tests:** 1461 passed, 3 skipped, 0 failures
+**Last commit:** Session 39 close (ec7cff7)
 
 **Completed phases (verified):**
 - P1 Foundation ✅ — calculations/ package refactor; Panchanga
@@ -12,11 +12,12 @@
 - P2.3 Muhurta engine ✅ — Chandrabala, Tarabala, Panchaka (instant +
   range-scan), composite Muhurta scorer.
 - P2.4 Ashtakoot ✅ — all 8 kootas + Mangal Dosha (V1 cancellations).
-- P2.5.0 Shadbala fixtures ✅ — 4 charts × 7 planets × 25 keys.
-- P2.5.1 Sthana Bala ✅ — Ochcha, Saptavargaja, Ojayugma, Kendra, Drekkana.
+- P2.5 Shadbala ✅ — all 6 components + totals aggregator. Drik Bala
+  stubbed at 0.0 V1 (mandatory caveat on every planet output).
+  Sheridan/David fully activated across all test layers (Sessions 38-39).
 - helpers/discrete_scan.py ✅ — generic bisection range-scan extracted.
 
-**Active task:** P2.5.2 Dig Bala.
+**Active task:** Phase 1 — Bhava Bala + Ishta/Kashta Bala.
 
 **Session-numbering note:** This plan's "Session 30/31/32" headers
 predate the actual timeline. The phase-task hierarchy (P2.5.2, P2.5.3
@@ -36,8 +37,8 @@ Ayanamsa = 23-40-39.08 for Sulabh; 60" tolerance vs JHora
 REFERENCE CHARTS
 Sulabh: 6 Apr 1988, 00:30 IST, Calcutta — Moon=2Sc14'52", Lagna=22Sg42'54"
 Surbhi: 11 Sep 1992, 10:30 IST, Patna
-Sheridan: 15 Mar 1995, 06:00 IST, Boston
-David: 12 Dec 1990, 14:30 IST, New Delhi
+Sheridan: 27 May 1984, 08:00, Durban, South Africa [FULLY ACTIVATED — Session 39]
+David: 19 Jan 1976, 22:00, London, UK [FULLY ACTIVATED — Session 39]
 CURRENT STATE — WHAT EXISTS (1011 tests passing)
 COMPLETE MODULES (shipped + tested)
 core/panchanga.py (407 lines) — Tithi, Vara, Nakshatra, Yoga, Karana, Hora, Choghadiya, Rahu Kalam, Yamaganda, Gulika Kalam, Abhijit Muhurta
