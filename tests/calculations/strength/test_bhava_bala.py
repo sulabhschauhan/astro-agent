@@ -1,29 +1,30 @@
-"""Tests for agent/calculations/strength/bhava_bala.py — Bhavadhipati Bala.
+"""Tests for agent/calculations/strength/bhava_bala.py.
 
-Layer A: Full 12-house validation, all 4 charts (48 parametrized assertions).
-         Oracle: AstroSage fixture shadbala_virupa values for each chart's
-         ruling planets. Uses fixture-based shadbala_totals, NOT live
-         compute_shadbala_totals(), because the V1 Drik Bala stub causes
-         divergence of up to ~20 Virupa per planet between live compute and
-         AstroSage — making the required ±0.5 tolerance infeasible with live
-         compute. Fixture values == AstroSage oracle, which is exactly what
-         compute_bhavadhipati_bala is supposed to return.
+Layer A: Full 12-house Bhavadhipati Bala validation, all 4 charts (48
+         parametrized assertions). Oracle: AstroSage fixture shadbala_virupa.
+         Uses fixture-based shadbala_totals (NOT live compute_shadbala_totals)
+         because the V1 Drik Bala stub causes up to ~20 Virupa divergence per
+         planet, making ±0.5 tolerance infeasible with live compute.
 
 Layer B: Same-lord pair — two houses sharing a lord return identical Virupa.
 
-Layer C: Error handling — 4 scenarios, each must raise ValueError naming the
-         specific problem (house key, sign string, or missing planet).
+Layer C: Error handling for compute_bhavadhipati_bala — 4 ValueError scenarios.
 
-Layer D: Output shape — returned dict has exactly keys 1-12, all float values.
+Layer D: Output shape — exactly keys 1-12, all float values.
 
-Source divergence note: Bhavadhipati Bala is a pure lookup (no new computation).
-Expected values are fixture shadbala_virupa values for the house's sign lord.
+Layer E: Live-compute wiring smoke (compute_shadbala_totals → bhavadhipati).
+
+Layer F: compute_bhava_dig_bala stub — 12 zeros + ValueError on bad input.
+
+Layer G: compute_bhava_drishti_bala stub — same shape as Layer F.
+
+Layer H: compute_bhava_bala_totals aggregator — arithmetic correctness (stubs
+         make AstroSage total parity impossible; same precedent as
+         shadbala_totals.py Layer C), rank full-permutation validity, and
+         caveat/stub-flag integrity.
 
 Reference: reference_charts.md for Lagna signs.
-  Sulabh=Sagittarius  (AstroSage Vedic Report PDF)
-  Surbhi=Libra        (reference_charts.md: ASC Libra 29-52-55)
-  Sheridan=Taurus     (reference_charts.md: ASC Taurus 28-46-17)
-  David=Virgo         (reference_charts.md: ASC Virgo 05-16-57)
+  Sulabh=Sagittarius, Surbhi=Libra, Sheridan=Taurus, David=Virgo
 """
 
 import sys
@@ -33,7 +34,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 import pytest
 
-from agent.calculations.strength.bhava_bala import compute_bhavadhipati_bala
+from agent.calculations.strength.bhava_bala import (
+    compute_bhavadhipati_bala,
+    compute_bhava_dig_bala,
+    compute_bhava_drishti_bala,
+    compute_bhava_bala_totals,
+)
 from agent.chart_calculator import SIGN_LORDS
 from tests.fixtures.shadbala_fixtures import SHADBALA_FIXTURES
 
@@ -190,3 +196,166 @@ def test_d_output_has_exactly_keys_1_to_12_all_float(chart_name):
         assert isinstance(val, float), (
             f"{chart_name} house {house}: value {val!r} is {type(val).__name__}, expected float"
         )
+
+
+# ── Layer E: Live-compute wiring smoke test ───────────────────────────────────
+
+def test_e_live_compute_wiring_smoke():
+    """Integration smoke: live compute_shadbala_totals() -> compute_bhavadhipati_bala() wiring.
+
+    Does NOT validate numeric parity with AstroSage — Layer A handles that using
+    fixture-based input (required because the V1 Drik Bala stub causes >0.5 Virupa
+    divergence per planet). This test guards only that the live integration path
+    wires together without error and produces a structurally valid result.
+
+    Assertions: 12 entries, all positive floats, non-degenerate spread (max - min > 0).
+    The spread check detects silent wiring failures where every house collapses to the
+    same value (e.g. wrong dict shape passed to compute_bhavadhipati_bala causing all
+    lookups to resolve via some unexpected default).
+    """
+    from agent.chart_calculator import calculate_chart
+    from agent.calculations.strength.shadbala_totals import compute_shadbala_totals
+
+    chart = calculate_chart("Sulabh", "6 Apr 1988", "00:30", "Calcutta, India")
+    raw_totals = compute_shadbala_totals(chart)
+    # compute_shadbala_totals keys are lowercase; SIGN_LORDS values are Title-case.
+    live_totals = {p.capitalize(): raw_totals[p]["shadbala_virupa"] for p in raw_totals}
+
+    result = compute_bhavadhipati_bala(_HOUSE_SIGNS["sulabh"], live_totals)
+
+    assert set(result.keys()) == set(range(1, 13)), \
+        f"Expected keys 1-12, got {sorted(result.keys())}"
+    for house, val in result.items():
+        assert isinstance(val, float) and val > 0, \
+            f"House {house}: expected positive float, got {val!r}"
+    spread = max(result.values()) - min(result.values())
+    assert spread > 0, (
+        "All 12 Bhavadhipati Bala values are identical — "
+        "likely a wiring bug (wrong dict shape passed to compute_bhavadhipati_bala)"
+    )
+
+
+# ── Layer F: Bhava Dig Bala stub ─────────────────────────────────────────────
+
+def test_f_dig_bala_stub_returns_twelve_zeros():
+    """compute_bhava_dig_bala returns exactly 12 zero floats (V1 stub)."""
+    result = compute_bhava_dig_bala(_HOUSE_SIGNS["sulabh"])
+    assert set(result.keys()) == set(range(1, 13)), (
+        f"Expected keys 1-12, got {sorted(result.keys())}"
+    )
+    for house, val in result.items():
+        assert val == 0.0, f"House {house}: expected 0.0, got {val!r}"
+
+
+def test_f_dig_bala_stub_raises_on_missing_house():
+    """compute_bhava_dig_bala raises ValueError when a house key is absent."""
+    bad = {k: v for k, v in _HOUSE_SIGNS["sulabh"].items() if k != 6}
+    with pytest.raises(ValueError, match="1-12"):
+        compute_bhava_dig_bala(bad)
+
+
+def test_f_dig_bala_stub_raises_on_extra_key():
+    """compute_bhava_dig_bala raises ValueError when an out-of-range key is present."""
+    bad = {**_HOUSE_SIGNS["sulabh"], 13: "Aries"}
+    with pytest.raises(ValueError, match="1-12"):
+        compute_bhava_dig_bala(bad)
+
+
+# ── Layer G: Bhava Drishti Bala stub ─────────────────────────────────────────
+
+def test_g_drishti_bala_stub_returns_twelve_zeros():
+    """compute_bhava_drishti_bala returns exactly 12 zero floats (V1 stub)."""
+    result = compute_bhava_drishti_bala(_HOUSE_SIGNS["sulabh"])
+    assert set(result.keys()) == set(range(1, 13)), (
+        f"Expected keys 1-12, got {sorted(result.keys())}"
+    )
+    for house, val in result.items():
+        assert val == 0.0, f"House {house}: expected 0.0, got {val!r}"
+
+
+def test_g_drishti_bala_stub_raises_on_missing_house():
+    """compute_bhava_drishti_bala raises ValueError when a house key is absent."""
+    bad = {k: v for k, v in _HOUSE_SIGNS["sulabh"].items() if k != 9}
+    with pytest.raises(ValueError, match="1-12"):
+        compute_bhava_drishti_bala(bad)
+
+
+def test_g_drishti_bala_stub_raises_on_extra_key():
+    """compute_bhava_drishti_bala raises ValueError when an out-of-range key is present."""
+    bad = {**_HOUSE_SIGNS["sulabh"], 0: "Sagittarius"}
+    with pytest.raises(ValueError, match="1-12"):
+        compute_bhava_drishti_bala(bad)
+
+
+# ── Layer H: compute_bhava_bala_totals aggregator ────────────────────────────
+
+def test_h_totals_arithmetic_matches_components():
+    """total_virupa = bhavadhipati + 0.0 + 0.0; total_rupa = round(total_virupa/60, 2).
+
+    Does NOT compare against AstroSage's total — stubs make that impossible.
+    Validates internal arithmetic only (same precedent as shadbala_totals.py Layer C).
+    """
+    totals = compute_bhava_bala_totals(_HOUSE_SIGNS["sulabh"], _totals_from_fixture("sulabh"))
+    bhav = compute_bhavadhipati_bala(_HOUSE_SIGNS["sulabh"], _totals_from_fixture("sulabh"))
+    for h in range(1, 13):
+        assert totals[h]["bhavadhipati"] == bhav[h], f"House {h}: bhavadhipati mismatch"
+        assert totals[h]["bhava_dig"] == 0.0, f"House {h}: bhava_dig should be 0.0"
+        assert totals[h]["bhava_drishti"] == 0.0, f"House {h}: bhava_drishti should be 0.0"
+        assert totals[h]["total_virupa"] == bhav[h], (
+            f"House {h}: total_virupa should equal bhavadhipati (stubs are 0.0)"
+        )
+        assert totals[h]["total_rupa"] == round(bhav[h] / 60, 2), (
+            f"House {h}: total_rupa = round(total_virupa/60, 2) mismatch"
+        )
+
+
+def test_h_rank_is_full_permutation_of_1_to_12():
+    """Ranks across all 12 houses form exactly {1, ..., 12} — no gaps, no duplicates."""
+    totals = compute_bhava_bala_totals(_HOUSE_SIGNS["sulabh"], _totals_from_fixture("sulabh"))
+    ranks = [totals[h]["rank"] for h in range(1, 13)]
+    assert sorted(ranks) == list(range(1, 13)), (
+        f"Ranks are not a full 1-12 permutation: {ranks}"
+    )
+
+
+def test_h_rank_ordering_consistent_with_total_virupa():
+    """Higher total_virupa → lower rank number; equal virupa → lower house wins."""
+    totals = compute_bhava_bala_totals(_HOUSE_SIGNS["sulabh"], _totals_from_fixture("sulabh"))
+    for ha in range(1, 13):
+        for hb in range(ha + 1, 13):
+            va, vb = totals[ha]["total_virupa"], totals[hb]["total_virupa"]
+            ra, rb = totals[ha]["rank"], totals[hb]["rank"]
+            if va > vb:
+                assert ra < rb, (
+                    f"House {ha} (virupa={va}) > house {hb} (virupa={vb}) "
+                    f"but rank {ra} >= {rb}"
+                )
+            elif vb > va:
+                assert rb < ra, (
+                    f"House {hb} (virupa={vb}) > house {ha} (virupa={va}) "
+                    f"but rank {rb} >= {ra}"
+                )
+            else:
+                # tie: lower house number must get the better (lower) rank
+                assert ra < rb, (
+                    f"Houses {ha} and {hb} tied at virupa={va}; "
+                    f"expected house {ha} rank < house {hb} rank, got {ra} vs {rb}"
+                )
+
+
+def test_h_stub_flags_and_caveat_integrity():
+    """dig_is_stubbed and drishti_is_stubbed are True; caveat is non-empty — all 12 houses."""
+    totals = compute_bhava_bala_totals(_HOUSE_SIGNS["david"], _totals_from_fixture("david"))
+    for h in range(1, 13):
+        assert totals[h]["dig_is_stubbed"] is True, f"House {h}: dig_is_stubbed should be True"
+        assert totals[h]["drishti_is_stubbed"] is True, f"House {h}: drishti_is_stubbed should be True"
+        assert isinstance(totals[h]["caveat"], str) and totals[h]["caveat"], (
+            f"House {h}: caveat must be a non-empty string"
+        )
+
+
+def test_h_totals_raises_on_malformed_house_signs():
+    """compute_bhava_bala_totals propagates ValueError from sub-components on bad input."""
+    bad = {k: v for k, v in _HOUSE_SIGNS["sulabh"].items() if k != 3}
+    with pytest.raises(ValueError, match="1-12"):
+        compute_bhava_bala_totals(bad, _totals_from_fixture("sulabh"))
