@@ -16,10 +16,16 @@ Layer E: Caveat/stub field integrity — drik_is_stubbed=True, caveat string
 Layer F: Error propagation — missing "meta" key surfaces ValueError or
          RuntimeError from the first failing component; aggregator does not swallow it.
 
-Charts: Sulabh (1988-04-06, Calcutta) and Surbhi (1992-09-11, Patna) only.
-Sheridan and David omitted — birth date/time/place are "unknown" in
-shadbala_fixtures.py; ephemeris computation is not possible.
-Precedent: test_chesta_bala.py and test_sthana_bala.py make the same exclusion.
+Charts: all 4 (Sulabh, Surbhi, Sheridan, David) for Layers C/D/E.
+Layer B chesta restricted to Sulabh + Surbhi only — Sheridan/David chesta
+diverges from fixture beyond the calibrated tolerances (same elongation-formula
+gaps as test_chesta_bala.py, but larger across these charts):
+  Sheridan Sun:    computed 113.33, fixture  52.05, delta +61.28 (tol ±41)
+  Sheridan Mercury: computed   8.00, fixture  21.53, delta −13.53 (tol ±10)
+  David Mercury:   computed   2.44, fixture  55.64, delta −53.20 (tol ±10)
+  David Venus:     computed  12.23, fixture  22.43, delta −10.20 (tol ±10)
+Do NOT widen these tolerances without new source material (see CLAUDE.md
+§Chesta Bala — rejected pattern). This is diagnostic attempt #1.
 
 Geocoder monkeypatched by tests/conftest.py; all places must be in
 tests/fixtures/geocoded_locations.json.
@@ -38,13 +44,15 @@ from agent.calculations.strength.shadbala_totals import (
 )
 from tests.fixtures.shadbala_fixtures import SHADBALA_FIXTURES
 
-_PLANETS   = ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"]
-_CHART_KEYS = ["sulabh", "surbhi"]
+_PLANETS        = ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"]
+_CHART_KEYS     = ["sulabh", "surbhi"]               # Layer B only (chesta tolerance constraint)
+_ALL_CHART_KEYS = ["sulabh", "surbhi", "sheridan", "david"]  # Layers C/D/E
 
 
 # ── Module-scope computed fixtures ────────────────────────────────────────────
-# One calculate_chart() + compute_shadbala_totals() call per chart, shared across
-# all layers. Sheridan/David omitted — birth data unknown (see module docstring).
+# One calculate_chart() + compute_shadbala_totals() call per chart, cached for
+# the entire module. All 4 charts now active (Sheridan/David birth data confirmed
+# in shadbala_fixtures.py meta from source PDFs).
 
 @pytest.fixture(scope="module")
 def sulabh_totals():
@@ -61,8 +69,27 @@ def surbhi_totals():
 
 
 @pytest.fixture(scope="module")
-def all_totals(sulabh_totals, surbhi_totals):
-    return {"sulabh": sulabh_totals, "surbhi": surbhi_totals}
+def sheridan_totals():
+    from agent.chart_calculator import calculate_chart
+    chart = calculate_chart("Sheridan", "27 May 1984", "08:00", "Durban, South Africa")
+    return compute_shadbala_totals(chart)
+
+
+@pytest.fixture(scope="module")
+def david_totals():
+    from agent.chart_calculator import calculate_chart
+    chart = calculate_chart("David", "19 Jan 1976", "22:00", "London, UK")
+    return compute_shadbala_totals(chart)
+
+
+@pytest.fixture(scope="module")
+def all_totals(sulabh_totals, surbhi_totals, sheridan_totals, david_totals):
+    return {
+        "sulabh":   sulabh_totals,
+        "surbhi":   surbhi_totals,
+        "sheridan": sheridan_totals,
+        "david":    david_totals,
+    }
 
 
 # ── Layer A: NAISARGIKA_BALA constant ────────────────────────────────────────
@@ -177,7 +204,7 @@ def test_b_naisargika_passthrough(chart_key, planet, all_totals):
 # the fixture's shadbala_virupa (which includes real Drik Bala). This isolates
 # the arithmetic correctness of the aggregator from component-level formula gaps.
 
-@pytest.mark.parametrize("chart_key", _CHART_KEYS)
+@pytest.mark.parametrize("chart_key", _ALL_CHART_KEYS)
 @pytest.mark.parametrize("planet", _PLANETS)
 def test_c_virupa_is_sum_of_components(chart_key, planet, all_totals):
     row = all_totals[chart_key][planet]
@@ -192,7 +219,7 @@ def test_c_virupa_is_sum_of_components(chart_key, planet, all_totals):
     )
 
 
-@pytest.mark.parametrize("chart_key", _CHART_KEYS)
+@pytest.mark.parametrize("chart_key", _ALL_CHART_KEYS)
 @pytest.mark.parametrize("planet", _PLANETS)
 def test_c_rupa_is_virupa_over_60(chart_key, planet, all_totals):
     row = all_totals[chart_key][planet]
@@ -203,7 +230,7 @@ def test_c_rupa_is_virupa_over_60(chart_key, planet, all_totals):
     )
 
 
-@pytest.mark.parametrize("chart_key", _CHART_KEYS)
+@pytest.mark.parametrize("chart_key", _ALL_CHART_KEYS)
 @pytest.mark.parametrize("planet", _PLANETS)
 def test_c_ratio_is_rupa_over_min_required(chart_key, planet, all_totals):
     row = all_totals[chart_key][planet]
@@ -215,20 +242,34 @@ def test_c_ratio_is_rupa_over_min_required(chart_key, planet, all_totals):
 
 
 @pytest.mark.parametrize("chart_key,planet,expected_min", [
-    ("sulabh",  "sun",     5.0),
-    ("sulabh",  "moon",    6.0),
-    ("sulabh",  "mars",    5.0),
-    ("sulabh",  "mercury", 7.0),
-    ("sulabh",  "jupiter", 6.5),
-    ("sulabh",  "venus",   5.5),
-    ("sulabh",  "saturn",  5.0),
-    ("surbhi",  "sun",     5.0),
-    ("surbhi",  "moon",    6.0),
-    ("surbhi",  "mars",    5.0),
-    ("surbhi",  "mercury", 7.0),
-    ("surbhi",  "jupiter", 6.5),
-    ("surbhi",  "venus",   5.5),
-    ("surbhi",  "saturn",  5.0),
+    ("sulabh",   "sun",     5.0),
+    ("sulabh",   "moon",    6.0),
+    ("sulabh",   "mars",    5.0),
+    ("sulabh",   "mercury", 7.0),
+    ("sulabh",   "jupiter", 6.5),
+    ("sulabh",   "venus",   5.5),
+    ("sulabh",   "saturn",  5.0),
+    ("surbhi",   "sun",     5.0),
+    ("surbhi",   "moon",    6.0),
+    ("surbhi",   "mars",    5.0),
+    ("surbhi",   "mercury", 7.0),
+    ("surbhi",   "jupiter", 6.5),
+    ("surbhi",   "venus",   5.5),
+    ("surbhi",   "saturn",  5.0),
+    ("sheridan", "sun",     5.0),
+    ("sheridan", "moon",    6.0),
+    ("sheridan", "mars",    5.0),
+    ("sheridan", "mercury", 7.0),
+    ("sheridan", "jupiter", 6.5),
+    ("sheridan", "venus",   5.5),
+    ("sheridan", "saturn",  5.0),
+    ("david",    "sun",     5.0),
+    ("david",    "moon",    6.0),
+    ("david",    "mars",    5.0),
+    ("david",    "mercury", 7.0),
+    ("david",    "jupiter", 6.5),
+    ("david",    "venus",   5.5),
+    ("david",    "saturn",  5.0),
 ])
 def test_c_min_required_exact(chart_key, planet, expected_min, all_totals):
     # min_required is a table lookup — must be exact, no floating-point tolerance.
@@ -242,7 +283,7 @@ def test_c_min_required_exact(chart_key, planet, expected_min, all_totals):
 # Rank is tested for internal self-consistency only — fixture ranks used real Drik
 # Bala so our stub-based ranks cannot be asserted against fixture rank values.
 
-@pytest.mark.parametrize("chart_key", _CHART_KEYS)
+@pytest.mark.parametrize("chart_key", _ALL_CHART_KEYS)
 def test_d_ranks_are_complete_permutation(chart_key, all_totals):
     ranks = {p: all_totals[chart_key][p]["rank"] for p in _PLANETS}
     assert set(ranks.values()) == set(range(1, 8)), (
@@ -251,7 +292,7 @@ def test_d_ranks_are_complete_permutation(chart_key, all_totals):
     )
 
 
-@pytest.mark.parametrize("chart_key", _CHART_KEYS)
+@pytest.mark.parametrize("chart_key", _ALL_CHART_KEYS)
 def test_d_rank1_has_highest_virupa(chart_key, all_totals):
     result      = all_totals[chart_key]
     rank1_p     = next(p for p in _PLANETS if result[p]["rank"] == 1)
@@ -263,7 +304,7 @@ def test_d_rank1_has_highest_virupa(chart_key, all_totals):
         )
 
 
-@pytest.mark.parametrize("chart_key", _CHART_KEYS)
+@pytest.mark.parametrize("chart_key", _ALL_CHART_KEYS)
 def test_d_rank7_has_lowest_virupa(chart_key, all_totals):
     result       = all_totals[chart_key]
     rank7_p      = next(p for p in _PLANETS if result[p]["rank"] == 7)
@@ -314,7 +355,7 @@ def test_d_sulabh_closest_pair_not_exact_tie(sulabh_totals):
 
 # ── Layer E: caveat/stub field integrity ──────────────────────────────────────
 
-@pytest.mark.parametrize("chart_key", _CHART_KEYS)
+@pytest.mark.parametrize("chart_key", _ALL_CHART_KEYS)
 @pytest.mark.parametrize("planet", _PLANETS)
 def test_e_drik_is_stubbed_true(chart_key, planet, all_totals):
     assert all_totals[chart_key][planet]["drik_is_stubbed"] is True, (
@@ -322,7 +363,7 @@ def test_e_drik_is_stubbed_true(chart_key, planet, all_totals):
     )
 
 
-@pytest.mark.parametrize("chart_key", _CHART_KEYS)
+@pytest.mark.parametrize("chart_key", _ALL_CHART_KEYS)
 def test_e_caveat_non_empty_and_contains_sentinel(chart_key, all_totals):
     result = all_totals[chart_key]
     for p in _PLANETS:
@@ -335,7 +376,7 @@ def test_e_caveat_non_empty_and_contains_sentinel(chart_key, all_totals):
         )
 
 
-@pytest.mark.parametrize("chart_key", _CHART_KEYS)
+@pytest.mark.parametrize("chart_key", _ALL_CHART_KEYS)
 def test_e_caveat_identical_across_all_planets(chart_key, all_totals):
     # Caveat is a fixed module-level constant — must be identical for every planet,
     # not vary per-planet. A consumer must never miss it by checking only "problem" planets.

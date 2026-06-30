@@ -410,9 +410,12 @@ SHADBALA_FIXTURES: dict[str, dict] = {
     },
     "sheridan": {
         "meta": {
-            "birth_date": "unknown",
-            "birth_time": "unknown",
-            "place": "unknown",
+            "birth_date": "1984-05-27",
+            "birth_time": "08:00",
+            "place": "Durban, South Africa",
+            "timezone_offset_hours": 2.0,
+            "lat": -29.85,
+            "lon": 31.0167,
             "source": "AstroSage Kundli PDF (Sheridan_Kundli.pdf)",
         },
         "planets": {
@@ -609,9 +612,12 @@ SHADBALA_FIXTURES: dict[str, dict] = {
     },
     "david": {
         "meta": {
-            "birth_date": "unknown",
-            "birth_time": "unknown",
-            "place": "unknown",
+            "birth_date": "1976-01-19",
+            "birth_time": "22:00",
+            "place": "London, UK",
+            "timezone_offset_hours": 0.0,
+            "lat": 51.5,
+            "lon": -0.1167,
             "source": "AstroSage Kundli PDF (David_Kundli.pdf)",
         },
         "planets": {

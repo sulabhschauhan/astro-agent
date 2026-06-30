@@ -6,7 +6,7 @@ Layer A: structural unit tests (A1-A3 use real ephemeris at J2000 for Tara
 Layer B: AstroSage parity, Sulabh chart — all 7 planets.
          Sun tolerance ±40.0 (accepted BPHS-vs-AstroSage gap).
          Mercury tolerance ±8.0 (synodic-midpoint approximation error).
-Layer C: cross-chart spot-checks (Surbhi Moon, David Moon skipped, Surbhi Mars).
+Layer C: cross-chart spot-checks (Surbhi Moon, David Moon [Krishna paksha], Surbhi Mars).
 
 Note on ayana_result key casing: chesta_bala.py line 75 accesses
 ayana_result["Sun"] (capitalized). The test-prompt fixture snippet omitted
@@ -202,10 +202,23 @@ def test_c1_surbhi_moon_shukla_chesta(surbhi_chesta):
     )
 
 
-def test_c2_david_moon_krishna_chesta():
-    # David: Krishna paksha (fixture paksha=12.07 → chesta=47.93 = 60-12.07).
-    # Birth location is "unknown" in shadbala_fixtures.py meta — cannot compute ephemeris.
-    pytest.skip("David birth location unknown — cannot compute ephemeris")
+@pytest.fixture(scope="module")
+def david_chesta():
+    from agent.chart_calculator import calculate_chart
+    from agent.calculations.strength.kala_bala import compute_kala_bala
+
+    chart = calculate_chart("David", "19 Jan 1976", "22:00", "London, UK")
+    kala = compute_kala_bala(chart)
+    return _build_chesta(chart, kala)
+
+
+def test_c2_david_moon_krishna_chesta(david_chesta):
+    # David: Krishna paksha (fixture paksha=12.07 → chesta = 60 - paksha = 47.93).
+    expected = SHADBALA_FIXTURES["david"]["planets"]["moon"]["chesta"]  # 47.93
+    got = david_chesta["moon"]["chesta"]
+    assert got == pytest.approx(expected, abs=1.0), (
+        f"David moon chesta: got {got:.4f}, expected {expected:.4f}"
+    )
 
 
 def test_c3_surbhi_mars_chesta(surbhi_chesta):
