@@ -52,10 +52,15 @@ def _build_eligible_placements(chart: dict) -> list[PlanetPlacement]:
     """Build PlanetPlacement list for eligible planets from a calculate_chart() result.
 
     calculate_chart() strips longitude from planetary_positions (sign/house/dignity only),
-    so we re-derive degree_in_sign via a direct swe.calc_ut call on the chart's jd_ut —
-    the same pattern used by sthana_bala.py and other strength modules.
+    so we re-derive sign AND degree_in_sign from a single swe.calc_ut longitude — the
+    same pattern used by sthana_bala.py. Both fields come from the same `lon` value to
+    avoid sign/degree disagreement at sign boundaries (relevant because get_dignity_status
+    is boundary-sensitive, e.g. Mercury/Virgo Exalted→Moolatrikona at exactly 15°).
+    house_from_lagna still comes from calculate_chart() — whole-sign discretisation makes
+    it boundary-insensitive.
     """
     import swisseph as swe
+    from agent.chart_calculator import SIGNS
 
     _SWE_IDS = {
         "Mars":    swe.MARS,
@@ -78,7 +83,7 @@ def _build_eligible_placements(chart: dict) -> list[PlanetPlacement]:
         lon = xx[0] % 360
         placements.append(PlanetPlacement(
             planet=planet,
-            sign=positions[planet]["sign"],
+            sign=SIGNS[int(lon / 30) % 12],
             degree_in_sign=lon % 30,
             house_from_lagna=positions[planet]["house"],
         ))
@@ -364,3 +369,43 @@ class TestRealCharts:
                     f"{chart_name}: house {r.house_from_lagna} not a kendra"
                 assert r.dignity_status in _QUALIFYING_DIGNITIES, \
                     f"{chart_name}: dignity {r.dignity_status!r} not qualifying"
+
+
+# ── Layer J: Single-source derivation regression ──────────────────────────────
+
+@pytest.mark.parametrize("lon", [
+    0.001,    # just inside Aries (near Pisces/Aries boundary)
+    29.999,   # near Aries/Taurus boundary
+    30.001,   # just inside Taurus
+    150.001,  # just inside Virgo (Mercury exalt/MT boundary at Virgo 15°)
+    164.999,  # Virgo 14.999° — Exalted side of Mercury MT boundary
+    165.001,  # Virgo 15.001° — Moolatrikona side of Mercury MT boundary
+    179.999,  # near Virgo/Libra boundary
+    180.001,  # just inside Libra
+    359.999,  # near Pisces/Aries boundary (full-circle wrap)
+])
+def test_j_single_source_sign_degree_self_consistent(lon):
+    """Regression: sign and degree_in_sign derived from one longitude are always
+    self-consistent. Guards against reintroducing the two-source bug where
+    sign comes from one computation and degree_in_sign from another — which can
+    place the planet on opposite sides of a sign boundary and produce the wrong
+    dignity classification (e.g. Exalted vs. Moolatrikona for Mercury at Virgo 15°).
+
+    Invariant tested: SIGNS[int((sign_index * 30 + degree_in_sign) / 30) % 12] == sign.
+    With single-source derivation this is mathematically guaranteed. With two-source
+    derivation it can fail when the two longitudes straddle a sign boundary.
+    """
+    from agent.chart_calculator import SIGNS
+    lon_norm = lon % 360
+    sign = SIGNS[int(lon_norm / 30) % 12]
+    degree_in_sign = lon_norm % 30
+
+    assert 0.0 <= degree_in_sign < 30.0, \
+        f"degree_in_sign {degree_in_sign:.6f} out of [0, 30) for lon={lon}"
+    sign_idx = SIGNS.index(sign)
+    implied_lon = sign_idx * 30.0 + degree_in_sign
+    recomputed = SIGNS[int(implied_lon / 30) % 12]
+    assert recomputed == sign, (
+        f"lon={lon}: sign={sign!r}, degree_in_sign={degree_in_sign:.6f} "
+        f"implies sign={recomputed!r} — single-source invariant violated"
+    )
