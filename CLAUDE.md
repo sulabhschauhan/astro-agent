@@ -128,6 +128,11 @@ Every new calculation module lives in its `calculations/` subpackage; never add 
 - **User impact:** Limited to Sun kala_total cross-chart comparisons; does not affect Sulabh (the primary validated chart) or other planets.
 - **Revisit trigger:** If P3 Yoga detection or P7 trigger-naming surfaces a ranking anomaly traceable to Sun kala_total on a non-Sulabh chart. Not re-opened proactively — within the 2-diagnostic-attempt budget, this is deprioritized behind Drik Bala and P3.
 
+### Pancha Mahapurusha real-chart validation (Session 40)
+- **Sulabh zero-yoga result:** Confirmed against `tests/fixtures/jhora_sulabh.md` independent JHora yoga table — no Ruchaka/Bhadra/Hamsa/Malavya/Shasha listed there.
+- **Surbhi (Shasha/Saturn/house4), Sheridan (Malavya/Venus/house1), David (Hamsa/Jupiter/house7):** NOT independently cross-validated. No JHora yoga-tab screenshot or AstroSage "Yogas in your horoscope" section is captured in project fixtures for these three charts. Results were derived from `kendra_bala=60` + `ochcha_bala`/`ojayugma_bala` reverse-inference from `shadbala_fixtures.py` and confirmed by the passing test assertions, but no independent oracle cross-check exists yet.
+- **Revisit trigger:** When JHora yoga-tab screenshots are captured for Surbhi/Sheridan/David (same process as `jhora_sulabh.md`), re-run the Layer I real-chart tests and add oracle citation comments to `test_pancha_mahapurusha.py` TestRealCharts.
+
 ### Shadbala Chesta Bala — Layer B cross-chart scope (Sheridan/David excluded)
 - **Decision:** test_chesta_bala.py Layer B (tight-tolerance AstroSage parity spot-checks) remains scoped to Sulabh + Surbhi only. Sheridan and David are exercised at Layers C/D/E (structural, rank validity, caveat integrity) but not added to Layer B's tight-tolerance assertions.
 - **Reason:** Investigated once (diagnostic attempt #1, within the 2-attempt budget) during the Sheridan/David activation session (Session 39). Sheridan shows wider kala_total/chesta cross-chart spread than Surbhi's already-documented divergence — same elongation-formula root cause, larger magnitude on these charts. Not re-investigated further per session budget; deprioritized behind P3.
