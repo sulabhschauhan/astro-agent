@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**P2.5 Shadbala CLOSED + Sheridan/David fully activated (Sessions 38-39, 2026-06-30). 1461 passed, 3 skipped. Drik Bala stubbed V1 (see Known Source Divergences). Next: Phase 1 Bhava Bala + Ishta/Kashta, then thin-slice answer pipeline checkpoint (see Session 31 key decisions).**
+**P3.0 Pancha Mahapurusha CLOSED (Session 40, 2026-06-30). 1495 passed, 3 skipped. Next: Phase 1 Bhava Bala + Ishta/Kashta, then thin-slice answer pipeline checkpoint (see Session 31 key decisions).**
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -132,6 +132,11 @@ Every new calculation module lives in its `calculations/` subpackage; never add 
 - **Sulabh zero-yoga result:** Confirmed against `tests/fixtures/jhora_sulabh.md` independent JHora yoga table — no Ruchaka/Bhadra/Hamsa/Malavya/Shasha listed there.
 - **Surbhi (Shasha/Saturn/house4), Sheridan (Malavya/Venus/house1), David (Hamsa/Jupiter/house7):** NOT independently cross-validated. No JHora yoga-tab screenshot or AstroSage "Yogas in your horoscope" section is captured in project fixtures for these three charts. Results were derived from `kendra_bala=60` + `ochcha_bala`/`ojayugma_bala` reverse-inference from `shadbala_fixtures.py` and confirmed by the passing test assertions, but no independent oracle cross-check exists yet.
 - **Revisit trigger:** When JHora yoga-tab screenshots are captured for Surbhi/Sheridan/David (same process as `jhora_sulabh.md`), re-run the Layer I real-chart tests and add oracle citation comments to `test_pancha_mahapurusha.py` TestRealCharts.
+
+### Sequencing lock violation (Session 40)
+- **Deviation:** Session 31's locked decision (Phase 1 Bhava Bala + Ishta/Kashta, then thin-slice pipeline checkpoint, BEFORE Phase 2 vargas, BEFORE Phase 3 yogas per Master Build Plan's own "Why third: need Phases 1-2 complete") was not followed — Session 40 proceeded directly to Phase 3 Pancha Mahapurusha yoga detection with neither Phase 1 nor the Phase 2 checkpoint done.
+- **Realized risk:** Low in this specific case (Pancha Mahapurusha depends only on dignity + kendra house, confirmed independent of varga/Bhava Bala data), but the deviation was unflagged and undocumented until caught retroactively.
+- **Going forward:** Phase 1 (Bhava Bala + Ishta/Kashta) resumes next, per the original Session 31 lock — no further Phase 3 sessions (Raja/Dhana/Neecha Bhanga/Special yogas) until Phase 1 + the thin-slice pipeline checkpoint are complete, unless a future deviation is explicitly proposed and confirmed in design chat first, not inferred from a session handover summary.
 
 ### Shadbala Chesta Bala — Layer B cross-chart scope (Sheridan/David excluded)
 - **Decision:** test_chesta_bala.py Layer B (tight-tolerance AstroSage parity spot-checks) remains scoped to Sulabh + Surbhi only. Sheridan and David are exercised at Layers C/D/E (structural, rank validity, caveat integrity) but not added to Layer B's tight-tolerance assertions.
