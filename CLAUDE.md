@@ -5,10 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**P2.5.3 Kala Bala DONE (1213 passed, 3 skipped). Ayana Bala Moon/Venus divergence accepted and documented — do not re-investigate without reading CLAUDE.md §Ayana Bala entry. Next: P2.5.4 Chesta Bala (motional strength).**
-- `agent/calculations/transits/chandrabala.py`, `tarabala.py`
-- `tests/calculations/transits/test_chandrabala.py`, `test_chandrabala_windows.py`, `test_tarabala.py`, `test_tarabala_windows.py`
-- Session 24 sub-step numbering (now locked): P2.3.1=Chandrabala instant, P2.3.2=Chandrabala range-scan, P2.3.3=Tarabala instant+range-scan, P2.3.4=Panchaka (shipped Session 25), P2.3.5=Muhurta composite scorer (next, after `helpers/discrete_scan.py` extraction). Earlier entries in this session may carry the pre-renumbering sequence (Tarabala as P2.3.2) — not retroactively edited in SESSION_LOG.md.
+**P2.5 Shadbala CLOSED (Session 38, 2026-06-30). 153 new tests, 1380 passed total. Drik Bala stubbed V1 (see Known Source Divergences). Next: Phase 1 Bhava Bala + Ishta/Kashta, then thin-slice answer pipeline checkpoint (see Session 31 key decisions).**
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -118,8 +115,15 @@ Every new calculation module lives in its `calculations/` subpackage; never add 
 - **Revisit trigger:** If user testing surfaces complaints about Moon/Venus Shadbala values being off, investigate AstroSage's exact Ayana algorithm by reverse-engineering against a chart with Moon/Venus at moderate declination (≈10°) where the formula deltas should be smaller.
 - **Root cause hypothesis (not yet confirmed):** AstroSage may use a different obliquity constant or apply a soft cap below 60 Virupa for high-declination cases. PyJHora's calibrated constant (24.0) matches Sun within 0.30 but diverges for outer planets at extreme declination.
 
-### Drik Bala — STUBBED, returns 0.0 all planets (V1)
-- **Status:** Stub. PyJHora kernel ported and validated session 37: 7/7 on Surbhi, 4/7 on Sulabh. Moon/Venus diverged from BOTH AstroSage and JHora despite those two oracles agreeing with each other (Moon: AS +5.83/JHora +5.84; Venus: AS +1.46/JHora +1.46) — confirms real formula gap, not classical ambiguity. Saturn diverged from AstroSage but matched JHora closely — likely genuine AstroSage/JHora divergence.
-- **Tried and rejected:** Moon paksha-dependent benefic/malefic classification (made results worse, 4/7 → 1/7).
-- **V1.1 path:** Try `__drik_bala_calc_1_pvr` (untested alternative) or source AstroSage's actual formula if it surfaces. Do not re-attempt kernel port without new source material. See `drik_bala.py` module docstring for full pairwise angle/score data (session 37 investigation).
-- **User impact:** Shadbala totals understated by |actual Drik Bala| per planet (AstroSage range: −20.44 to +22.15 Virupa). Rank order usually preserved; could flip for planets within ~20 Virupa of each other. Yoga detection (P3) unaffected.
+### Shadbala Drik Bala (V1 stub)
+- **Spec source:** BPHS 27.26. PyJHora `__drik_bala_calc_1` kernel ported and tested as primary implementation path.
+- **AstroSage/JHora delta:** Port matched AstroSage within ±5 Virupa for Surbhi (7/7 planets) but diverged on Sulabh Moon (+16.4) and Venus (+7.7), despite AstroSage and JHora agreeing closely with each other on those exact two values. Root cause unresolved after two kernel variants and two Moon benefic/malefic classification approaches tested across sessions 36-37.
+- **Resolution:** Stubbed at 0.0 for all planets in V1. shadbala_totals.py (P2.5.7) exposes this via a mandatory `drik_is_stubbed: bool` and `caveat: str` field on every planet's output — not optional, not silent.
+- **User impact:** Shadbala totals understated by the true Drik Bala magnitude per planet (AstroSage fixture range observed: -20.44 to +22.15 Virupa). Ratio (Rupas/minimum) may read "above minimum" when the true ratio is below. Rank order usually preserved but not guaranteed within ~20 Virupa.
+- **Revisit trigger:** New source material only — AstroSage's published Drik Bala formula (not currently public) or the untested PyJHora `__drik_bala_calc_1_pvr` kernel variant. DO NOT re-attempt by fitting parameters against fixture output (rejected pattern, see session 36-37 history) — only fresh hypothesis testing.
+
+### Shadbala Kala Bala — Sun cross-chart Abda/Masa divergence
+- **Spec source:** BPHS 27.7-13 (Abda/Masa/Vara/Hora Bala — calendar-lord assignment by solar month/day ingress).
+- **AstroSage delta:** Sulabh Sun kala_total validated within ±2 Virupa, but Surbhi chart showed Jupiter +31 and Saturn -59 Virupa divergence, traced to Abda=15/Masa=0 vs computed Abda=0/Masa=0 — a solar-month ingress date disagreement between BPHS calendar-lord assignment and AstroSage's algorithm. Surfaced during P2.5.7 totals testing (test_shadbala_totals.py Layer B); kala_bala.py itself was never tested against Surbhi at this granularity.
+- **User impact:** Limited to Sun kala_total cross-chart comparisons; does not affect Sulabh (the primary validated chart) or other planets.
+- **Revisit trigger:** If P3 Yoga detection or P7 trigger-naming surfaces a ranking anomaly traceable to Sun kala_total on a non-Sulabh chart. Not re-opened proactively — within the 2-diagnostic-attempt budget, this is deprioritized behind Drik Bala and P3.

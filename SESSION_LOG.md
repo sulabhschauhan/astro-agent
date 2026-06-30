@@ -605,3 +605,56 @@ Nathonnatha, Paksha, Thribhaga, Abda, Masa, Vara, Hora, Ayana, Yuddha.
 JHora fixture in tests/fixtures/jhora_sulabh.md; AstroSage fixture in
 tests/fixtures/shadbala_fixtures.py. Pre-prompt research required:
 search jhora_sulabh.md for Kala Bala values before drafting.
+
+## Session 38 — P2.5.6 Drik Bala (investigation closed) + P2.5.7 shadbala_totals (2026-06-30)
+
+### What landed
+- P2.5.6: agent/calculations/strength/drik_bala.py — investigation closed.
+  PyJHora `__drik_bala_calc_1` kernel ported and validated sessions 36-37:
+  7/7 on Surbhi, 4/7 on Sulabh. Moon (+16.4) and Venus (+7.7) diverged from
+  both AstroSage and JHora despite those two oracles agreeing closely —
+  confirmed real formula gap, not classical ambiguity. Two kernel variants and
+  two Moon benefic/malefic classification approaches tried and rejected. Stub
+  locked at 0.0 all planets for V1.
+- P2.5.7: agent/calculations/strength/shadbala_totals.py — full aggregator.
+  Sums Sthana, Dig, Kala, Chesta, Naisargika, Drik (0.0 stub) per planet;
+  converts to Rupas; ratio against BPHS minimum requirements; rank 1-7 by
+  virupa descending (stable sort, _PLANETS iteration order tie-break).
+  Mandatory `drik_is_stubbed: bool` and `caveat: str` on every planet output
+  — not optional, not silent.
+- tests/calculations/strength/test_shadbala_totals.py — 153 tests, all
+  passed. Layers A-F: NAISARGIKA_BALA constant (BPHS 60/7 series), component
+  pass-through tolerance (sthan_total ±40, dig ±0.5, kala_total Sulabh-only
+  ±2/6, chesta per-planet ±1–41), aggregator arithmetic correctness (virupa =
+  sum of own components, not fixture totals which include real Drik Bala),
+  rank validity (complete permutation + Sulabh closest-pair tie-gap check),
+  caveat/stub integrity, error propagation.
+- CLAUDE.md: "Known Source Divergences (V1)" updated — Drik Bala entry
+  expanded with investigation closure and V1.1 path; new Kala Bala
+  cross-chart Abda/Masa divergence entry added (Jupiter/Saturn Surbhi ±31/±59
+  Virupa cross-chart gap surfaced during totals Layer B testing).
+
+### Key decisions (locked, carry forward)
+1. Drik Bala stubbed at 0.0 V1. DO NOT re-attempt kernel port without new
+   source material (AstroSage formula or untested `__drik_bala_calc_1_pvr`).
+   Fitting parameters against fixture output is a rejected pattern.
+2. shadbala_totals.py Layer C arithmetic test uses the aggregator's own
+   computed component fields (not fixture shadbala_virupa), because the
+   fixture includes real Drik Bala which our stub cannot match. This is the
+   only correct way to test aggregator arithmetic without re-solving Drik Bala.
+3. Sheridan/David remain excluded from cross-chart assertions (birth data
+   "unknown" precedent, same as test_chesta_bala.py and test_sthana_bala.py).
+   NOTE: David_Kundli.pdf actually contains full birth details (19 Jan 1976,
+   22:00, London) — flagged for review, not yet activated as a test chart.
+4. Surbhi kala_total for Jupiter/Saturn diverges ±31/±59 Virupa from
+   AstroSage fixture (Hora/Masa Bala day-specific differences not validated
+   by test_kala_bala.py cross-chart). Documented in CLAUDE.md §Kala Bala
+   cross-chart entry. Not re-opened proactively.
+
+### Test baseline
+1380 passed, 4 skipped, 0 failures.
+
+### Next task
+Phase 1: Bhava Bala + Ishta/Kashta Bala. After both complete, build the
+thin-slice answer pipeline (3-domain router: marriage/career/dasha) before
+starting Phase 2 vargas — locked in Session 31 key decision 3.
