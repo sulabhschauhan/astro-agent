@@ -117,3 +117,9 @@ Every new calculation module lives in its `calculations/` subpackage; never add 
 - **User impact:** Moon Shadbala total delta ~1.1% (5.27 of 483.91). Negligible for Shadbala threshold checks (min_required=6.0 Rupa, computed ~8.07, delta does not change strong/weak classification).
 - **Revisit trigger:** If user testing surfaces complaints about Moon/Venus Shadbala values being off, investigate AstroSage's exact Ayana algorithm by reverse-engineering against a chart with Moon/Venus at moderate declination (≈10°) where the formula deltas should be smaller.
 - **Root cause hypothesis (not yet confirmed):** AstroSage may use a different obliquity constant or apply a soft cap below 60 Virupa for high-declination cases. PyJHora's calibrated constant (24.0) matches Sun within 0.30 but diverges for outer planets at extreme declination.
+
+### Drik Bala — STUBBED, returns 0.0 all planets (V1)
+- **Status:** Stub. PyJHora kernel ported and validated session 37: 7/7 on Surbhi, 4/7 on Sulabh. Moon/Venus diverged from BOTH AstroSage and JHora despite those two oracles agreeing with each other (Moon: AS +5.83/JHora +5.84; Venus: AS +1.46/JHora +1.46) — confirms real formula gap, not classical ambiguity. Saturn diverged from AstroSage but matched JHora closely — likely genuine AstroSage/JHora divergence.
+- **Tried and rejected:** Moon paksha-dependent benefic/malefic classification (made results worse, 4/7 → 1/7).
+- **V1.1 path:** Try `__drik_bala_calc_1_pvr` (untested alternative) or source AstroSage's actual formula if it surfaces. Do not re-attempt kernel port without new source material. See `drik_bala.py` module docstring for full pairwise angle/score data (session 37 investigation).
+- **User impact:** Shadbala totals understated by |actual Drik Bala| per planet (AstroSage range: −20.44 to +22.15 Virupa). Rank order usually preserved; could flip for planets within ~20 Virupa of each other. Yoga detection (P3) unaffected.
