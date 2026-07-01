@@ -1259,3 +1259,40 @@ def calculate_mudda_dasha(natal_data: dict, varshaphal_data: dict, target_year: 
         cursor = period_end
 
     return periods
+
+
+def compute_porphyry_house_cusps(jd_ut: float, lat: float, lon: float) -> dict[int, float]:
+    """Sidereal Porphyry ('Sripati' in JHora) house cusp longitudes.
+
+    Distinct from the whole-sign house scheme used elsewhere in this module.
+    Required by Bhava Dig Bala (agent/calculations/strength/bhava_bala.py),
+    which needs real trisected cusps — PyJHora's own Bhava Dig Bala formula
+    reads these via bhava_method=2 ('Sripati method' in its drik.bhaava_madhya),
+    which is mathematically equivalent to pyswisseph's hsys=b'O' (Porphyry):
+    both trisect the arc between the four angular cusps (Asc/IC/Desc/MC, which
+    are house-system-invariant) to place the eight intermediate cusps. See
+    this session's PyJHora investigation report for the verbatim source.
+
+    Args:
+        jd_ut: Julian Day (UT).
+        lat: birth latitude.
+        lon: birth longitude.
+
+    Returns:
+        {1: cusp1_lon, ..., 12: cusp12_lon} — absolute sidereal longitude
+        (0-360, house 1 = Ascendant) of each house cusp.
+
+    Raises:
+        RuntimeError: pyswisseph failure.
+    """
+    swe.set_sid_mode(swe.SIDM_LAHIRI)
+    try:
+        cusps, _ascmc = swe.houses_ex(jd_ut, lat, lon, b'O', swe.FLG_SIDEREAL)
+    except Exception as exc:
+        raise RuntimeError(
+            f"compute_porphyry_house_cusps: swe.houses_ex raised "
+            f"at jd_ut={jd_ut}, lat={lat}, lon={lon}: {exc}"
+        ) from exc
+    # pyswisseph's houses_ex cusps tuple is 0-indexed with cusps[0] == house 1
+    # (unlike the underlying C API, which is 1-indexed with a dummy slot 0).
+    return {h: cusps[h - 1] % 360.0 for h in range(1, 13)}

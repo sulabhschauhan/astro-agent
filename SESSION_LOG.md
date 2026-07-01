@@ -702,3 +702,86 @@ starting Phase 2 vargas — locked in Session 31 key decision 3.
 
 ### Next task
 P3 Yoga detection engine — Pancha Mahapurusha yogas first.
+
+## Session 42 — Phase 1 CLOSED: Bhava Dig Bala stub → real (2026-07-01)
+
+### What landed
+- Bhava Dig Bala moved from V1 stub to real implementation, across a
+  3-prompt sequence:
+  1. Implementation prompt — `compute_bhava_dig_bala` rewritten against
+     PyJHora's `strength.py::_bhava_dig_bala` (rasi-animal-group discrete
+     taper on Porphyry/Sripati cusps, NOT the Session 41 equal-house
+     hypothesis that was tested and rejected). Blocked mid-prompt on a
+     signature conflict (real Dig Bala needs jd_ut/lat/lon-derived cusps;
+     the stub's `house_signs`-only signature can't carry them) — resolved
+     via a design-chat decision to add `compute_porphyry_house_cusps()`
+     to `chart_calculator.py` and thread a `house_cusps` param through
+     `compute_bhava_dig_bala`/`compute_bhava_bala_totals`, deliberately
+     leaving the 7 (actually 8, corrected on recount) now-broken test call
+     sites unfixed for the next prompt.
+  2. (Folded into prompt 1's design-chat, not a separate prompt): verbatim
+     re-extraction of the exact rasi-group longitude boundary constants
+     from PyJHora's `const.py`, after an earlier investigation report had
+     paraphrased/summarized them and corrupted a value — caught before
+     implementation, not after.
+  3. Fixture + test rewrite prompt — blocked once more: the prompt asked
+     for an "AstroSage-sourced" fixture file, but no such source data
+     existed anywhere in the repo and the PDF-read path was non-functional
+     (see new CLAUDE.md entry, "PDF-read tooling gap"). Resolved via a
+     design-chat decision: user transcribed the 4 charts' AstroSage
+     Bhavdig Bala tables directly into chat. `tests/fixtures/
+     bhava_dig_bala_astrosage.py` created citing that provenance;
+     `test_bhava_bala.py` Layer F/H rewritten against the new signature
+     (8 broken call sites fixed, not the originally-estimated 6); new
+     48-case exact-match parametrize sweep (4 charts × 12 houses) plus a
+     dedicated hardest-case-first test for Sulabh's two AstroSage zeros
+     (houses 4 and 7) ahead of the general sweep.
+- Result: 48/48 exact match, all 4 charts, first run, no tolerance band
+  needed (rasi-group taper only produces clean multiples of 10).
+  `multi_match_houses` (a new field surfacing an upstream PyJHora
+  last-write-wins quirk) returned empty on all 4 charts — untested by
+  real data, flagged in CLAUDE.md rather than assumed safe.
+- CLAUDE.md: Bhava Dig Bala entry marked RESOLVED; Drik Bala and Bhava
+  Drishti Bala entries updated (stub status unchanged, but their shared
+  revisit-trigger kernel `__drik_bala_calc_1_pvr` is now located and
+  extractable — deliberately not actioned, per the Session 31 sequencing
+  lock); new PDF-read tooling gap entry added.
+- Master Build Plan: Phase 1 (Bhava Bala + Ishta/Kashta) marked CLOSED,
+  with Bhava Drishti Bala noted as a deliberate, documented stub within
+  the closed phase — not an open item blocking closure.
+
+### Methodology note — fingerprint-first investigation (template for future stuck sessions)
+When a formula is genuinely unknown and a prior direct-port attempt has
+stalled (as Drik Bala did, sessions 36-37), this session's 4-step sequence
+resolved Bhava Dig Bala where the Session 41 direct-hypothesis approach
+had failed:
+  1. **Fingerprint the target output BEFORE reading source code.** AstroSage's
+     Bhavdig Bala values were all clean multiples of 10 across all 4 charts
+     — this alone ruled out a continuous-arc formula and pointed at a
+     discrete/tiered one, before any PyJHora code was opened.
+  2. **Verbatim-extraction-only, never paraphrase-and-summarize.** A first
+     investigation pass summarized PyJHora's formula in prose and silently
+     corrupted a boundary constant, producing a false negative on House 1.
+     A dedicated re-extraction prompt requesting exact literal source lines
+     (not a re-summarization) caught and fixed this before implementation.
+  3. **Hand-verify 1-2 points before implementing at scale**, per Working
+     Style #2 (SAMPLE before SCALE) — Sulabh's houses 4 and 7 (the two
+     AstroSage zeros) were checked by hand against the extracted formula
+     before writing the full 12-house/4-chart implementation.
+  4. **Implement, then validate exhaustively** — 48/48 exact match, not a
+     sampled subset, once the formula was locked.
+Reference this session as the template for any future Drik Bala /
+Bhava Drishti Bala V1.1 attempt, or any other stalled-investigation module.
+
+### Test baseline
+1495 → 1664 passed (+169: +120 in test_bhava_bala.py's full run, remainder
+from suite-wide re-collection with the new fixture import), 3 skipped,
+3 xfailed (unchanged — the 3 known Ishta/Kashta Sun cases).
+
+### Next task
+Thin-slice answer pipeline checkpoint (3-domain router: marriage/career/
+dasha) — per Session 31 key decision 3 and the Session 42 handover.
+Pre-prompt research required before drafting the implementation prompt
+(unchanged scope from prior handovers; not superseded by this session's
+Bhava Dig Bala work, which was itself the last blocking item ahead of it
+per the Session 31 lock).

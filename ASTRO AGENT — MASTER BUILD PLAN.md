@@ -1,7 +1,7 @@
-## ACTUAL STATE (Session 39 baseline)
+## ACTUAL STATE (Session 42 baseline)
 
-**Tests:** 1461 passed, 3 skipped, 0 failures
-**Last commit:** Session 39 close (ec7cff7)
+**Tests:** 1664 passed, 3 skipped, 3 xfailed
+**Last commit:** Session 39 close (ec7cff7) — Session 40-42 commits pending
 
 **Completed phases (verified):**
 - P1 Foundation ✅ — calculations/ package refactor; Panchanga
@@ -16,8 +16,10 @@
   stubbed at 0.0 V1 (mandatory caveat on every planet output).
   Sheridan/David fully activated across all test layers (Sessions 38-39).
 - helpers/discrete_scan.py ✅ — generic bisection range-scan extracted.
+- Phase 1 (Bhava Bala + Ishta/Kashta) ✅ CLOSED (Session 42) — see PHASE 1
+  section below for the Bhava Drishti Bala stub caveat carried into closure.
 
-**Active task:** Phase 1 — Bhava Bala + Ishta/Kashta Bala.
+**Active task:** CHECKPOINT — thin-slice answer pipeline (see below).
 
 **Session-numbering note:** This plan's "Session 30/31/32" headers
 predate the actual timeline. The phase-task hierarchy (P2.5.2, P2.5.3
@@ -155,8 +157,17 @@ missing sections, per-report parser unit tests.
 
 **Unlocks:** Cheap reference-chart additions; cross-validation across
 every later phase at zero manual cost.
-PHASE 1 — PLANETARY STRENGTH (Sessions 33-35)
+PHASE 1 — PLANETARY STRENGTH (Sessions 33-35) — ✅ CLOSED (Session 42, 2026-07-01)
 Why first: Strength is referenced by yoga detection, ashtakavarga, varga assessment, and remedy recommendations. Everything downstream depends on knowing how strong a planet is.
+
+**Closure note:** Bhavadhipati Bala and Bhava Dig Bala are real,
+AstroSage-validated implementations (Dig Bala: Session 42, 48/48 exact
+match — see CLAUDE.md). Bhava Drishti Bala remains a deliberate,
+documented V1 stub (shares Drik Bala's unresolved aspect-strength
+kernel — see CLAUDE.md Known Source Divergences). This is a carried,
+scoped caveat within an otherwise-closed phase, not an open item
+blocking closure — same precedent as P2.5 Shadbala closing with Drik
+Bala stubbed.
 Session 33: Shadbala — Six-fold Planetary Strength
 Priority: HIGHEST (most referenced classical calculation)
 File: agent/calculations/strength/shadbala.py
@@ -819,9 +830,9 @@ text
 
 This is ~65 sessions. Each session is one focused task. Any AI (Claude, GPT, etc.) reading this + `CLAUDE.md` + `SESSION_LOG.md` will know exactly what to build, in what order, with what conventions, what tests, and what it unlocks.
 
-Suggested next step: Complete remaining Shadbala sub-tasks
-(P2.5.2 Dig Bala → P2.5.7 total aggregator), then Phase 1 (Bhava Bala +
-Ishta/Kashta) → CHECKPOINT (thin-slice pipeline) → Phase 2 (Vargas).
+Suggested next step: Phase 1 (Bhava Bala + Ishta/Kashta) is CLOSED as of
+Session 42 → CHECKPOINT (thin-slice pipeline) is next, per the Session 31
+lock → then Phase 2 (Vargas).
 Phase 0 is dissolved; Phase 0.6 (JHora parser) runs in parallel
 time-permitting.
 
