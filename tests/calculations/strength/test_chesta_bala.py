@@ -70,6 +70,13 @@ class TestA2Shape:
 
 
 class TestA3Range:
+    # NOTE: this range assertion only exercises synthetic input (ayana_val=30.0).
+    # Real ephemeris output for Sun exceeds 60 Virupa on 3 of 4 reference charts
+    # due to _ayana_bala's Sun *2.0 doubling without an upper clamp.
+    # See CLAUDE.md 'Ishta/Kashta Phala -- Sun Ayana Bala doubling' for full
+    # investigation and V1.1 fix path. Not added as a hard range assertion here
+    # to avoid conflicting with AstroSage-parity tests that already accept and
+    # pass on uncapped Sun Ayana values.
     def test_a3_all_chesta_in_range_0_to_60(self):
         # ayana["Sun"]=30.0 → sun chesta=30.0 ≤ 60.
         # Moon chesta = 20.0 or 40.0 depending on J2000 paksha state.

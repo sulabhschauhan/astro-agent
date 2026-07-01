@@ -24,3 +24,6 @@ data/*.log
 # ChromaDB snapshot/restore dumps — generated, not source (full embeddings,
 # can exceed GitHub's 100MB per-file push limit); kept on local disk only
 diagnostics/*snapshot*.jsonl
+
+# Vendored third-party JHora reference library — not our source, kept local only
+PyJHora-main/
