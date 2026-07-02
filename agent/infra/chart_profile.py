@@ -59,6 +59,12 @@ class DomainChartProfile:
     payload: dict[str, Any]            # domain-specific raw results, stored as-is (see build_domain_profile branches)
     stub_caveats: tuple[str, ...]      # every True-flagged drik/dig/drishti stub caveat, verbatim, deduped
     uncertainty_virupa: float          # max known error envelope across this domain's contributing metrics
+    # Time-axis envelope, currently only the current_dasha domain -- +/-37.0
+    # days documented Antardasha drift vs AstroSage (see chart_calculator.py's
+    # _calc_dasha DASHA ACCURACY NOTE). Virupa and day envelopes are
+    # orthogonal axes; router demotion logic must check BOTH (rank_gap vs
+    # virupa; boundary proximity vs days).
+    uncertainty_days: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -77,6 +83,15 @@ class DomainAnswer:
     uncertainty_virupa: float
     demotion_reason: str | None        # always None here; router sets it when rank_gap <= uncertainty_virupa forces T1->T2
     sources: tuple[str, ...]           # contributing module names, for audit
+    # Time-axis envelope, currently only the current_dasha domain -- +/-37.0
+    # days documented Antardasha drift vs AstroSage (see chart_calculator.py's
+    # _calc_dasha DASHA ACCURACY NOTE). Virupa and day envelopes are
+    # orthogonal axes; router demotion logic must check BOTH (rank_gap vs
+    # virupa; boundary proximity vs days). Placed last, not directly after
+    # uncertainty_virupa, because demotion_reason/sources (no defaults)
+    # already follow uncertainty_virupa here -- a defaulted field cannot
+    # precede them without breaking Python's dataclass field-ordering rule.
+    uncertainty_days: float = 0.0
 
 
 def _koota_natal_info_from_chart(chart_data: dict) -> KootaNatalInfo:
@@ -223,6 +238,7 @@ def build_domain_profile(
         # "Mangal Dosha" section) are missing RULES, not a numeric error envelope --
         # they do not contribute an uncertainty_virupa figure.
         uncertainty_virupa = 0.0
+        uncertainty_days = 0.0  # no time-axis envelope for this domain
 
     elif domain == "career_strength":
         try:
@@ -285,6 +301,7 @@ def build_domain_profile(
         # range) -- its caveat string is still surfaced via stub_caveats above, but
         # it is deliberately NOT folded into uncertainty_virupa as a second additive
         # term; tracked as an open gap, not silently assumed zero.
+        uncertainty_days = 0.0  # no time-axis envelope for this domain
 
     else:  # current_dasha
         dasha = chart_data["dasha"]
@@ -299,6 +316,11 @@ def build_domain_profile(
         }
         stub_caveats = ()
         uncertainty_virupa = 0.0
+        # +/-37.0 days documented Antardasha drift vs AstroSage -- see
+        # chart_calculator.py's _calc_dasha DASHA ACCURACY NOTE. Boundary
+        # proximity (is evaluated_at_jd near a period transition?) is NOT
+        # computed here -- that comparison is router logic (S44.3).
+        uncertainty_days = 37.0
 
     return DomainChartProfile(
         domain=domain,
@@ -307,4 +329,5 @@ def build_domain_profile(
         payload=payload,
         stub_caveats=stub_caveats,
         uncertainty_virupa=uncertainty_virupa,
+        uncertainty_days=uncertainty_days,
     )
