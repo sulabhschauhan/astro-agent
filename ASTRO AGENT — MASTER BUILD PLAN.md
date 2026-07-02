@@ -26,6 +26,14 @@ predate the actual timeline. The phase-task hierarchy (P2.5.2, P2.5.3
 etc.) is the canonical reference; session numbers in headings below are
 illustrative ordering only.
 
+## V1 SCOPE (Session 44 redefinition)
+
+V1 = 3-domain deterministic calc Q&A (marriage_compatibility,
+career_strength, current_dasha) + AstroSage-paragraph + palm reading
+(T4, non-pipeline) + refusal tier. P6 Jaimini extensions and P7 annual
+charts (Varshaphal depth) move to V2. No LLM-synthesized answer text in
+the calc pipeline (Session 23 lock, reaffirmed Session 43).
+
 Goal: Answer "everything like the best astrologer"
 STACK & CONVENTIONS (LOCKED)
 Python 3.11, pyswisseph, SIDM_LAHIRI, Whole Sign houses, Mean Node
@@ -262,15 +270,81 @@ at full scope.
 **Deliverables:** 3-domain answer pipeline live; persona response style
 calibrated against real user questions; UX-gap list captured.
 
-**Decision gate:** Continue to Phase 2 (Vargas) as planned ONLY IF
-thin-slice validates pipeline assumptions. If thin-slice reveals
+**Decision gate:** Continue to POST-CHECKPOINT PHASE ORDER (below) ONLY
+IF thin-slice validates pipeline assumptions. If thin-slice reveals
 fundamental issues (router miss-rate, formatter token blowup, persona
-mismatch), pause Phase 2 and fix before adding modules.
+mismatch), pause and fix before adding modules. (Session 44: this gate
+previously named "Phase 2 (Vargas)" as the fixed next step — superseded,
+see POST-CHECKPOINT PHASE ORDER below.)
 
 **Tests:** 4 reference charts × 3 domains = 12 end-to-end cases; full
 fixture suite remains green.
 
+### Uncertainty-Aware Tiering (Session 44)
+
+`DomainChartProfile` and `DomainAnswer` (`agent/infra/chart_profile.py`,
+built S44.1) carry `uncertainty_virupa: float` and
+`demotion_reason: str | None`. Demotion logic (`rank_gap <=
+uncertainty_virupa` -> TIER_1_EXACT demotes to TIER_2_RANGE) lives in
+the router (S44.3, not yet built), NOT in chart_profile.py —
+chart_profile.py only carries the fields and never sets
+`demotion_reason` itself (always `None` from that file). Reference
+chart_profile.py's exact field names when building the router; do not
+re-derive a parallel envelope-comparison mechanism.
+
+### Answer Scorecard (Session 44)
+
+Defined quality metric for dogfooding (5 users, 3 domains):
+- **Calculation parity** — existing test suites (unchanged).
+- **Tier-assignment correctness** — does `demotion_reason` fire when
+  `rank_gap <= uncertainty_virupa`? Spot-check against known envelopes
+  (Drik Bala stub ±20.0 Virupa; Surbhi-chart Kala Bala Jupiter/Saturn
+  cross-chart divergence ±59.0 Virupa — both constants live in
+  `agent/infra/chart_profile.py`, cited to their CLAUDE.md entries).
+- **Refusal correctness** — 3+ out-of-scope questions per domain must
+  return `AnswerTier.REFUSAL`, not a best-effort guess.
+
+Captured per-domain; feeds the re-plan gate in POST-CHECKPOINT PHASE
+ORDER's closing note below.
+
+## POST-CHECKPOINT PHASE ORDER (Session 44, supersedes the P2→P3→P4→P5→P6→P7 reading order below)
+
+After thin-slice checkpoint validates (S44.1-S44.6):
+
+a. Drik Bala + Bhava Drishti Bala verbatim extraction
+   (`__drik_bala_calc_1_pvr`, Session 42 method) — ABORT GATE locked
+   Session 44: hand-verify Sulabh Moon+Venus before any implementation
+   prompt; max 2 diagnostic attempts; success = 7/7 planets ±0.5 Virupa
+   on BOTH Sulabh and Surbhi before implementation drafted; partial
+   match = failure, stub stays at 0.0.
+b. Ephemeris consolidation (NEW, elevated Session 44): 12 independent
+   `swe.calc_ut()` call sites identified (chesta_bala, kala_bala,
+   dig_bala, sthana_bala, panchaka, tarabala, chandrabala, sade_sati,
+   gochara, navamsa, panchanga, chart_profile bridge). Extract to
+   `helpers/ephemeris.py` per the existing TODO marker. Priority: cheap,
+   mechanical, bounded — ahead of (a) because (a) has open-ended
+   investigation risk and this doesn't. One file, one prompt;
+   regression-gate against the full 1664-test baseline after.
+c. TIMING BLOCK (replaces standalone Phase 4): Phase 4 Yogini/Ashtottari
+   dashas + Phase 5 Gochara/Sade Sati/BAV-SAV together — dasha alone is
+   insufficient for timing precision (Pratyantar suppressed, ±37-day
+   drift; Antardasha window is finest T2 granularity); timing accuracy
+   needs dasha+transit convergence.
+d. Phase 2 remaining vargas — D10/D7 first (career/children depth beats
+   D6/D12/D16/D20 by real-question frequency, not classical order).
+e. Phase 3 yoga catalog (Raja/Dhana/Neecha Bhanga/Special) — resumes
+   here, not before (c)/(d), per the Session 40 sequencing-lock
+   correction.
+
+Re-validate this order against dogfooding question logs (see Answer
+Scorecard above) before locking further — this is a working hypothesis,
+not scripture.
+
 PHASE 2 — DIVISIONAL CHARTS (Sessions 36-39)
+**Sequencing note (Session 44):** superseded by POST-CHECKPOINT PHASE
+ORDER item (d) above — D10/D7 run first (career/children depth), not
+D2/D3/D4 as numbered below. Task/file content below remains valid
+reference material; only the reading order is superseded.
 Why second: Vargas provide domain-specific depth. D10 for career, D7 for children, D9 already done.
 Session 36: Varga Engine + D2, D3, D4
 Priority: HIGH
@@ -336,6 +410,10 @@ Tests: 20+
 Question domains unlocked: Cross-varga planet strength, refines yoga/dasha interpretation
 
 PHASE 3 — YOGA DETECTION (Sessions 40-44)
+**Sequencing note (Session 44):** superseded by POST-CHECKPOINT PHASE
+ORDER item (e) above — resumes only after the TIMING BLOCK (c) and
+vargas (d), not immediately after Phase 2 as numbered below. Per the
+Session 40 sequencing-lock correction.
 Why third: Yogas combine dignity + house + varga data. Need Phases 1-2 complete.
 Session 40: Pancha Mahapurusha Yogas
 Priority: HIGH
@@ -409,6 +487,11 @@ Returns consolidated list with priority ranking
 Tests: 50+ across all modules
 Question domains unlocked: Complete yoga inventory for any chart
 PHASE 4 — DASHA SYSTEMS (Sessions 45-46)
+**Sequencing note (Session 44):** folded into POST-CHECKPOINT PHASE
+ORDER item (c), TIMING BLOCK — Yogini/Ashtottari run together with
+Phase 5's Gochara/Sade Sati/BAV-SAV, not as a standalone phase.
+Vimshottari's current-period lookup is already covered by the
+checkpoint's current_dasha domain.
 Why fourth: Timing questions require dasha periods mapped to houses/lords.
 Session 45: Vimshottari Dasha (Full Extraction + Enhancement)
 Priority: HIGHEST (most commonly asked timing question)
@@ -450,6 +533,9 @@ Counts signs from Lagna based on a specific order
 Tests: 30+ per system
 Question domains unlocked: Alternative timing systems, cross-validation of Vimshottari predictions
 PHASE 5 — ASHTAKAVARGA (Sessions 47-48)
+**Sequencing note (Session 44):** folded into POST-CHECKPOINT PHASE
+ORDER item (c), TIMING BLOCK, together with Phase 4's Yogini/Ashtottari
+dashas and Gochara/Sade Sati — not a standalone phase.
 Why fifth: Transits use AV points to assess transit strength. Also directly answers "how strong is my wealth/health house."
 Session 47: Bhinnashtakavarga (BAV)
 Priority: HIGH
@@ -480,6 +566,9 @@ Also: Identify benefic vs malefic transit zones for each house
 Tests: 25+ (structural + 4 fixture charts)
 Question domains unlocked: "Is my career house strong?", transit prediction refinement
 PHASE 6 — JAIMINI ASTROLOGY (Sessions 50-51)
+**Scope note (Session 44):** MOVED TO V2 per the V1 SCOPE section near
+the top of this document — Jaimini extensions are out of V1's 3-domain
+calc-Q&A scope.
 Why sixth: Provides alternative perspective. Jaimini Karakas identify key life themes.
 Session 50: Jaimini Karakas
 Priority: MEDIUM
@@ -511,6 +600,10 @@ Upapada (UL) — from 12th house pada, shows actual spouse
 Tests: 30+
 Question domains unlocked: Public image, marriage manifestation, how life areas actually express
 PHASE 7 — ANNUAL CHARTS (Sessions 52-53)
+**Scope note (Session 44):** MOVED TO V2 per the V1 SCOPE section near
+the top of this document — annual-chart depth (Varshaphal/Sahams) is
+out of V1's 3-domain calc-Q&A scope. Muntha/Mudda Dasha basics already
+exist in chart_calculator.py and remain available.
 Why seventh: "What about this year?" questions.
 Session 52: Varshaphal + Muntha Extraction
 Priority: MEDIUM
@@ -617,6 +710,10 @@ Layer A (Rule-based, tried first): Keyword/pattern matching to select modules
 Layer B (LLM fallback, when A confidence < threshold): Send question to GPT-4o-mini to classify which modules are needed
 Only used when Layer A can't match or confidence is low
 Returns list of module names + confidence scores
+NOTE: Layer B LLM fallback performs MODULE-SELECTION CLASSIFICATION
+only (question -> list of module names) — this is NOT the excluded
+answer-synthesis pattern (Session 23/43 lock). Do not conflate with
+Session 60-61 GPT synthesis, which is separately scoped below.
 Output: CalcRouteResult — list of (module_name, relevance_score) pairs
 Tests: 40+ (rule coverage for all 15+ domains, LLM fallback mock, edge cases)
 Unlocks: The entire computation → answer bridge
@@ -657,7 +754,14 @@ Add clear separator: === COMPUTED ASTROLOGICAL DATA === ... === CLASSICAL REFERE
 GPT sees: system prompt + computed data + RAG passages + user question
 Token budget: Computation context gets up to 2000 tokens, RAG gets remainder
 Tests: 15+ (integration tests with mock computation data)
-Unlocks: GPT now has BOTH computation AND classical text to synthesize answers
+Unlocks: GPT has BOTH computation AND classical text available for
+Tier 4 interpretive output ONLY (AstroSage paragraph + palm reading —
+see V1 SCOPE section). The deterministic calc pipeline (Tiers 1-3)
+NEVER routes through GPT for answer text — Session 23 lock,
+reaffirmed Session 43, reaffirmed here Session 44. If these Session
+60-61 tasks are ever revived, they scope to T4 only, and require an
+explicit design-chat unlock before implementation — not inferred from
+this file.
 Session 61: Wire Calc Router into astrologer.py
 Priority: CRITICAL
 Files: Modify agent/astrologer.py
@@ -671,7 +775,9 @@ Run required computations (or pull from cached chart_profile)
 Format results via Result Formatter
 RAG retrieval (existing)
 Build prompt with computation + RAG (modified prompt_builder)
-GPT synthesis (existing)
+GPT has BOTH computation AND classical text available for Tier 4
+interpretive output ONLY (see the Session 60 note above; deterministic
+Tiers 1-3 never route through GPT for answer text)
 Backward compatibility: If no chart data exists (palmistry-only, general knowledge questions), skip steps 2-5 and use existing RAG-only path.
 Tests: 20+ (end-to-end with mock data, backward compatibility, chart-missing fallback)
 Unlocks: THE COMPLETE PIPELINE. This is the moment calculations become visible to users.
@@ -831,8 +937,14 @@ text
 This is ~65 sessions. Each session is one focused task. Any AI (Claude, GPT, etc.) reading this + `CLAUDE.md` + `SESSION_LOG.md` will know exactly what to build, in what order, with what conventions, what tests, and what it unlocks.
 
 Suggested next step: Phase 1 (Bhava Bala + Ishta/Kashta) is CLOSED as of
-Session 42 → CHECKPOINT (thin-slice pipeline) is next, per the Session 31
-lock → then Phase 2 (Vargas).
+Session 42 → CHECKPOINT (thin-slice pipeline, S44.1-S44.6) is next, per
+the Session 31 lock → then POST-CHECKPOINT PHASE ORDER (Session 44):
+(a) Drik Bala/Bhava Drishti Bala extraction attempt, (b) ephemeris
+consolidation, (c) TIMING BLOCK (Phase 4 + Phase 5 combined), (d) Phase 2
+vargas (D10/D7 first), (e) Phase 3 yoga catalog — see that section
+(under CHECKPOINT, above) for the full rationale; this order is a
+working hypothesis, re-validated against dogfooding logs before being
+locked further.
 Phase 0 is dissolved; Phase 0.6 (JHora parser) runs in parallel
 time-permitting.
 
