@@ -222,13 +222,21 @@ def build_domain_profile(
         except Exception as exc:
             raise RuntimeError(f"mangal_dosha.compute_mangal_dosha (partner) failed: {exc}") from exc
 
+        # Role-keyed, not primary/partner-keyed: DomainChartProfile carries no
+        # primary_role field, so boy/girl must be resolved here -- the Result
+        # Formatter (S44.4) needs Ashtakoot-consistent boy/girl labels.
+        if primary_role == "boy":
+            mangal_boy, mangal_girl = mangal_primary, mangal_partner
+        else:
+            mangal_boy, mangal_girl = mangal_partner, mangal_primary
+
         payload: dict[str, Any] = {
             "ashtakoot": ashtakoot,
-            "mangal_dosha_primary": mangal_primary,
+            "mangal_dosha_boy": mangal_boy,
             # C6 mutual-manglik is a router-level concern per mangal_dosha.py's own
             # docstring -- both single-native results are carried so the router can
             # cross-evaluate them; this file does not apply C6 itself.
-            "mangal_dosha_partner": mangal_partner,
+            "mangal_dosha_girl": mangal_girl,
         }
         # Ashtakoot and Mangal Dosha carry no drik_is_stubbed/dig_is_stubbed/
         # drishti_is_stubbed metrics -- neither pulls from Shadbala or Bhava Bala.
@@ -269,7 +277,23 @@ def build_domain_profile(
         except Exception as exc:
             raise RuntimeError(f"bhava_bala.compute_bhava_bala_totals failed: {exc}") from exc
 
-        payload = {"shadbala": shadbala, "bhava_bala": bhava_bala}
+        if "house_lord_mapping" not in chart_data:
+            raise ValueError(
+                "career_strength requires chart_data['house_lord_mapping'] "
+                "(set by chart_calculator.calculate_chart()) to resolve the 10th house lord"
+            )
+        tenth_lord_entry = next(
+            (entry for entry in chart_data["house_lord_mapping"] if entry["house"] == 10),
+            None,
+        )
+        if tenth_lord_entry is None:
+            raise ValueError("career_strength: house_lord_mapping has no entry for house 10")
+
+        payload = {
+            "shadbala": shadbala,
+            "bhava_bala": bhava_bala,
+            "tenth_lord": tenth_lord_entry["lord"].lower(),
+        }
 
         caveats: list[str] = []
         for row in shadbala.values():

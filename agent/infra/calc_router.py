@@ -329,16 +329,17 @@ def route_question(
             requires_partner=False,
         )
 
-    # current_dasha
-    demotion_reason = _DASHA_DEMOTION_REASON
+    # current_dasha -- T2 only within the +/-37-day AD boundary window;
+    # mid-period, the current lord has zero ambiguity, so T1 is correct.
     if chart_data is not None and _near_dasha_boundary(chart_data):
-        demotion_reason += (
-            " WARNING: evaluation date is within 37-day boundary window "
-            "-- current AD lord uncertain."
-        )
+        dasha_tier = AnswerTier.TIER_2_RANGE
+        demotion_reason = _DASHA_DEMOTION_REASON
+    else:
+        dasha_tier = AnswerTier.TIER_1_EXACT
+        demotion_reason = None
     return RouteResult(
         domain="current_dasha",
-        tier=AnswerTier.TIER_2_RANGE,
+        tier=dasha_tier,
         confidence=best_score,
         demotion_reason=demotion_reason,
         requires_partner=False,

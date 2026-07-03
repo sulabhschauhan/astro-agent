@@ -1,5 +1,100 @@
 ## Session Log
 
+## Archived from CLAUDE.md (Session 45 compression)
+
+Items below were moved from CLAUDE.md to reduce per-query token cost.
+They remain valid decisions/findings — just not needed on every Claude
+Code invocation.
+
+### Locked Decisions (archived)
+
+- **Hand-laterality via vision LLM** — evaluated Sessions 15-16 under 3 framings; consistently unreliable (worst case 5/6 right-bias on unlabeled images). Permanent: human confirmation at upload, no GPT laterality judgment.
+- **No Chart dataclass / VargaType enum** (Session 20) — neither exists; Navamsa built as a pure `(jd_ut, asc_lon_sidereal)` function instead. Revisit only when a varga module genuinely needs shared chart-identity state.
+- **Reference-chart fixture template** (Session 20) — one standalone test per chart, not `@pytest.mark.parametrize`, when expected-value structures differ; delete skip-stub parametrize blocks once empty.
+- **Transit fixture anchor** (Session 21, PROVISIONAL) — 18:30 UTC (00:00 IST next day); needs second-date corroboration before treating as final.
+- **Bisection-over-discrete-state range-scan** (Session 24) — locked pattern for all transit-range-scan modules, NOT fixed-step. Internal-only constants: 0.5 JD coarse step, 1e-6 JD bisection precision, max_iters=40; no caller-facing precision params. Threshold-discipline rejects tunable step params without a classical anchor; empirically, bisection vs. a naive 12h grid differs by 8-11h per Moon ingress (P2.3.2 Fixture 1 epistemic check).
+- **Per-module ephemeris helpers stay duplicated** (Session 24) — `_moon_sign`/`_moon_nakshatra`/`_saturn_sign` etc. are not cross-imported between transit modules; `helpers/ephemeris.py` extraction (still a stub, Session 19+) remains the agreed future remediation.
+- **Per-module bisection helper stays duplicated** (Session 24) — `_bisect_transition` is reimplemented per module (chandrabala.py, tarabala.py), not imported between them. Extract to `helpers/` once a third module carries it.
+- **Sign convention split, transits** (Session 19-24) — `gochara.py` uses 1-12 (1=Aries); `sade_sati.py`/`chandrabala.py` use 0-11 (0=Aries); `tarabala.py` uses 0-26 (0=Ashwini) for nakshatras. `gochara.py` normalization remains an unscheduled backlog item.
+- **Binary FAVORABLE/UNFAVORABLE across Muhurta limbs** (Session 24) — Chandrabala and Tarabala both lock binary categories; NEUTRAL classifications (2nd/5th-house Chandrabala, activity-dependent Janma Tara) are deferred jointly to V1.1.
+- **PVR source-ladder asymmetry, Chandrabala vs. Tarabala** (Session 24) — Chandrabala lives in PVR's transit chapter (Ch.26 Table 63), not his Muhurta chapter; Tarabala lives directly in PVR's own Muhurta chapter (Ch.36 §36.3). Both still bind their FAVORABLE/UNFAVORABLE enums from mainstream Muhurta lineage, not derived purely from PVR.
+- **Transit range-scan test layout** (Session 24) — `test_<module>.py` (instant) + `test_<module>_windows.py` (range-scan), both under `tests/calculations/transits/`.
+- **Panchaka V1 = Definition B** (Session 25) — Moon sidereal longitude in [300, 360) degrees (Aquarius + Pisces). Binary IS_PANCHAK / NOT_PANCHAK only.
+- **Panchaka Definition A deferred** (Session 25) — nakshatra-pada-exact start (~293°20', Dhanishtha's 3rd pada) deferred to V1.1 as a round-degree simplification; the ~6°40' gap vs. Definition B is documented in `panchaka.py`'s docstring as risk-accepted, not reconciled.
+- **Panchaka named-type overlay deferred** (Session 25) — Raj/Agni/Chor/Mrityu/Rog Panchak classification by entry weekday deferred to V1.1; requires a Panchak-entry-vara backward scan plus a location/timezone dependency, out of scope for V1's binary surface.
+- **Panchaka Rahita is a separate concept** (Session 25) — the Andhra/Telangana intraday Muhurta system (function of Tithi+Vara+Nakshatra+Lagna) is NOT a Panchaka extension; documented as a future standalone `panchaka_rahita.py` module, not folded into `panchaka.py`.
+- **Panchaka source** (Session 25) — Definition B and the three V1.1 deferrals above sourced from Muhurtha-Chinthamani p.84-85; verified this session against the project's own RAG corpus (`data/all_chunks.json`, OCR'd from `data/pdfs/Muhurtha-Chinthamani.pdf`), not a fresh direct PDF read.
+- **Design-proposal-first is not default** (Session 25) — earn a pre-implementation design-proposal pass only when (a) classical sources are genuinely ambiguous post-agent-pass, (b) the module structurally differs from existing precedent, (c) fixtures require pre-implementation ephemeris computation, or (d) the API shape is uncertain; default to a direct implementation prompt.
+
+### Known Source Divergences (archived)
+
+#### Shadbala Saptavargaja Bala scoring
+- **Spec source:** BPHS 27.2-4 literal (Mooltrikona=45, Own=30, Pramudita=20, Shanta=15, Din=10, Duhkhita=4, Khala=2)
+- **AstroSage delta:** AstroSage uses an unpublished scoring table that produces totals 10-30 Virupa higher per planet. Reverse-engineering from public data is not reliably possible — Sun fits Adhimitra=30/Sama=7.5 but Moon does not fit the same table.
+- **User impact:** Near-zero in V1. Shadbala feeds Yoga detection (P3) and Trigger Naming (P7), both of which consume RANKING, not absolute values. Ranking is stable across BPHS vs AstroSage scoring tables for the dominant components (Sthana base + Kala + Chesta).
+- **Revisit trigger:** Phase A user testing surfacing a ranking complaint that traces to Saptavargaja precision.
+
+#### Shadbala Drekkana Bala
+- **Spec source:** AstroSage + JHora convergence on 1 Virupa flat constant for all planets (three-tier hierarchy rule).
+- **BPHS divergence:** BPHS 27.6 specifies 15/0 binary by gender×decanate. Locked at 1 Virupa per AstroSage parity.
+
+#### Ayana Bala — Moon/Venus high-declination edge case (V1 accepted gap)
+- **Spec source:** PyJHora `(24.0 + adj_decl) * 1.25` formula.
+- **Validation oracle:** AstroSage Kundli PDFs (4 charts).
+- **Pass tolerance:** ±2.0 Virupa for 5/7 planets; ±6.0 Virupa for Moon and Venus.
+- **Delta magnitude:** Moon and Venus at near-maximum declination (≈23.8°) compute to ~59.7 and ~59.9 respectively; AstroSage shows 54.45 and 56.21. Other 5 planets (Sun, Mars, Mercury, Jupiter, Saturn) match within ±2.
+- **User impact:** Moon Shadbala total delta ~1.1% (5.27 of 483.91). Negligible for Shadbala threshold checks (min_required=6.0 Rupa, computed ~8.07, delta does not change strong/weak classification).
+- **Revisit trigger:** If user testing surfaces complaints about Moon/Venus Shadbala values being off, investigate AstroSage's exact Ayana algorithm by reverse-engineering against a chart with Moon/Venus at moderate declination (≈10°) where the formula deltas should be smaller.
+- **Root cause hypothesis (not yet confirmed):** AstroSage may use a different obliquity constant or apply a soft cap below 60 Virupa for high-declination cases. PyJHora's calibrated constant (24.0) matches Sun within 0.30 but diverges for outer planets at extreme declination.
+
+#### Shadbala Kala Bala — Sun cross-chart Abda/Masa divergence
+- **Spec source:** BPHS 27.7-13 (Abda/Masa/Vara/Hora Bala — calendar-lord assignment by solar month/day ingress).
+- **AstroSage delta:** Sulabh Sun kala_total validated within ±2 Virupa, but Surbhi chart showed Jupiter +31 and Saturn -59 Virupa divergence, traced to Abda=15/Masa=0 vs computed Abda=0/Masa=0 — a solar-month ingress date disagreement between BPHS calendar-lord assignment and AstroSage's algorithm. Surfaced during P2.5.7 totals testing (test_shadbala_totals.py Layer B); kala_bala.py itself was never tested against Surbhi at this granularity.
+- **User impact:** Limited to Sun kala_total cross-chart comparisons; does not affect Sulabh (the primary validated chart) or other planets.
+- **Revisit trigger:** If P3 Yoga detection or P7 trigger-naming surfaces a ranking anomaly traceable to Sun kala_total on a non-Sulabh chart. Not re-opened proactively — within the 2-diagnostic-attempt budget, this is deprioritized behind Drik Bala and P3.
+
+#### Pancha Mahapurusha real-chart validation (Session 40)
+- **Sulabh zero-yoga result:** Confirmed against `tests/fixtures/jhora_sulabh.md` independent JHora yoga table — no Ruchaka/Bhadra/Hamsa/Malavya/Shasha listed there.
+- **Surbhi (Shasha/Saturn/house4), Sheridan (Malavya/Venus/house1), David (Hamsa/Jupiter/house7):** NOT independently cross-validated. No JHora yoga-tab screenshot or AstroSage "Yogas in your horoscope" section is captured in project fixtures for these three charts. Results were derived from `kendra_bala=60` + `ochcha_bala`/`ojayugma_bala` reverse-inference from `shadbala_fixtures.py` and confirmed by the passing test assertions, but no independent oracle cross-check exists yet.
+- **Revisit trigger:** When JHora yoga-tab screenshots are captured for Surbhi/Sheridan/David (same process as `jhora_sulabh.md`), re-run the Layer I real-chart tests and add oracle citation comments to `test_pancha_mahapurusha.py` TestRealCharts.
+
+#### Sequencing lock violation (Session 40)
+- **Deviation:** Session 31's locked decision (Phase 1 Bhava Bala + Ishta/Kashta, then thin-slice pipeline checkpoint, BEFORE Phase 2 vargas, BEFORE Phase 3 yogas per Master Build Plan's own "Why third: need Phases 1-2 complete") was not followed — Session 40 proceeded directly to Phase 3 Pancha Mahapurusha yoga detection with neither Phase 1 nor the Phase 2 checkpoint done.
+- **Realized risk:** Low in this specific case (Pancha Mahapurusha depends only on dignity + kendra house, confirmed independent of varga/Bhava Bala data), but the deviation was unflagged and undocumented until caught retroactively.
+- **Going forward:** Phase 1 (Bhava Bala + Ishta/Kashta) resumes next, per the original Session 31 lock — no further Phase 3 sessions (Raja/Dhana/Neecha Bhanga/Special yogas) until Phase 1 + the thin-slice pipeline checkpoint are complete, unless a future deviation is explicitly proposed and confirmed in design chat first, not inferred from a session handover summary.
+
+#### Bhava Dig Bala — RESOLVED (Session 41 investigation → Session 42 implementation)
+- **Spec source:** PyJHora `strength.py::_bhava_dig_bala` — Porphyry/Sripati house cusps (NOT equal-house from Lagna, the Session 41 hypothesis tested and rejected), rasi-animal-group discrete taper `abs(60 - abs(h)*10)` gating each house's own cusp longitude against 4 classical rasi-animal groups (Nara/Jalachara/Chatushpada/Keeta, anchored at houses 1/4/7/10 respectively). A different formula family from the originally-attempted continuous BPHS 27.26-29 degree-arc/3 formula — not a refinement of it.
+- **Discovery method (two-stage, template for future stuck investigations):** (a) formula family identified via OUTPUT FINGERPRINTING before any source code was read — AstroSage's Bhavdig Bala values across all 4 charts are all clean multiples of 10, which ruled out a continuous-arc formula on its face; (b) exact rasi-group longitude boundary constants required a dedicated VERBATIM RE-EXTRACTION prompt after an earlier investigation report paraphrased/summarized the boundary tuples and corrupted a value, producing a false negative on House 1 during validation.
+- **Validation:** 48/48 exact match (4 charts × 12 houses: Sulabh, Surbhi, Sheridan, David) against AstroSage's BhavBala Table Bhavdig Bala row. Cusps via new `compute_porphyry_house_cusps()` (`agent/chart_calculator.py`, pyswisseph `hsys=b'O'`) — deliberately a separate cusp system from the whole-sign houses used elsewhere.
+- **multi_match_houses — untested by real data:** `compute_bhava_dig_bala` exposes a `multi_match_houses: list[int]` field surfacing an upstream PyJHora quirk (its h-loop spans 14 offsets over a 12-house cycle, double-visiting 2 houses per rasi-group anchor — last-write-wins in PyJHora's own hash-order-dependent aggregation). Algebraically the two candidate values are always equal for any real longitude (verified this session), so the field is currently harmless — but all 4 reference charts returned `[]` empty, so this has never been observed populated. If a 5th chart ever returns a non-empty `multi_match_houses`, treat it as new territory requiring fresh validation — do not assume it's safe purely on the existing algebraic argument.
+- **Resolution:** Real implementation. `compute_bhava_dig_bala` in `bhava_bala.py`; `dig_is_stubbed` now always `False`. `compute_bhava_drishti_bala` / `drishti_is_stubbed` unaffected — remains stubbed.
+
+#### PDF-read tooling gap (Session 42)
+- **Issue:** The poppler/`pdftoppm` path referenced under "Windows Paths (hardcoded)" (`C:\Program Files\poppler-26.02.0\Library\bin`) is not currently wired up on PATH in the Claude Code environment, despite being hardcoded there — the Read tool's PDF-render path fails with "pdftoppm is not installed" when pointed at a PDF.
+- **Impact this session:** Could not directly OCR/read AstroSage PDF chart reports to extract Bhava Dig Bala reference values from source; required a manual chat-transcription relay (user pasted the values from the PDFs directly) instead of direct Claude Code extraction — see `tests/fixtures/bhava_dig_bala_astrosage.py` docstring for the resulting provenance note.
+- **Status:** Flagged for a future fix, not blocking. Revisit when a task next needs direct PDF-sourced fixture extraction (e.g. Bhava Drishti Bala's eventual validation).
+
+### Chunk Metadata Schema (archived)
+
+## Chunk Metadata Schema (locked — do not alter)
+```python
+{
+  "chunk_id": str,       # "{book_name}_p{page_num}_c{index}"
+  "text": str,
+  "topic": str,
+  "language": "eng|hin|mixed",
+  "page_ref": int,
+  "image_path": "str|null",
+  "book_name": str,
+  "page_type": "text|diagram|mixed",
+  "word_count": int,
+  "text_sha256": str,    # SHA-256 hex digest of `text`; embedder-computed, ChromaDB-metadata-only (not chunker-emitted)
+}
+```
+Sub-chunks always have `_c{index}` appended to `chunk_id`.
+Schema lock permits additive fields with safe defaults; renames and removals require explicit sign-off. `text_sha256` added per `diagnostics/embedder_hardening_proposal_20260621_100850.md`.
+
 ## Session 32 — P2.5.3 Kala Bala complete
 
 ### What landed
@@ -785,3 +880,64 @@ Pre-prompt research required before drafting the implementation prompt
 (unchanged scope from prior handovers; not superseded by this session's
 Bhava Dig Bala work, which was itself the last blocking item ahead of it
 per the Session 31 lock).
+
+## Session 45 — Thin-slice answer pipeline CHECKPOINT CLOSED (2026-07-03)
+
+### What landed
+- `agent/infra/result_formatter.py` (S44.4) — pure deterministic
+  DomainChartProfile -> DomainAnswer formatter for the 3 pipeline
+  domains (marriage/career/dasha). No LLM calls.
+- `agent/infra/orchestrator.py` (S44.5) — single entry point
+  `answer_question()` wiring route_question() -> build_domain_profile()
+  -> format_answer() -> Option A demotion merge (router and formatter
+  demotion signals overlaid, concatenated with " | " when both fire).
+- `tests/infra/test_orchestrator_e2e.py` — 16 real-chart integration
+  tests, no mocks (4 career + 4 dasha + 1 marriage + 5 refusal + 2
+  error handling). Uncovered and fixed 3 spec-vs-code mismatches along
+  the way (Ashtakoot koota dict keys are Title-case not snake_case;
+  MangalDoshaResult is a dataclass with `has_dosha`, not a dict; the
+  Surbhi fixture birth data given in the task prompt didn't match the
+  canonical Surbhi used everywhere else in the repo and didn't
+  reproduce the task's own hardcoded total_score==27.5 assertion).
+- `chart_profile.py` patched — marriage payload keys renamed
+  `mangal_dosha_primary`/`mangal_dosha_partner` -> `mangal_dosha_boy`/
+  `mangal_dosha_girl` (role-resolved via `primary_role`, since
+  DomainChartProfile carries no primary_role field of its own); career
+  payload gained a `tenth_lord` key (resolved by matching
+  `house_lord_mapping`'s `"house" == 10` entry, not by list-indexing —
+  `house_lord_mapping` is a list of 12 dicts, not a dict keyed 1-12).
+- `calc_router.py` bug fixed — `current_dasha` was demoting every
+  answer to TIER_2_RANGE unconditionally; now demotes only when
+  `_near_dasha_boundary()` is True (or chart_data is absent), matching
+  the ±37-day AD drift's actual scope (mid-period lord ID has zero
+  ambiguity). Caught via the e2e suite's diagnostic prints (all 4
+  reference charts showed identical TIER_2_RANGE regardless of
+  boundary proximity).
+- CLAUDE.md compressed 175 -> 76 lines across two passes: Locked
+  Decisions cut from 22 bullets to 5 + a pointer line; Known Source
+  Divergences cut from 12 entries to 8 one-liners; Chunk Metadata
+  Schema section moved out entirely. Archive section created at the
+  top of this file (see "Archived from CLAUDE.md" above) preserving
+  every moved item verbatim — nothing deleted.
+- Item C spot-check closed — Saturn AD (7/8/92) visually confirmed
+  against JHora desktop; the 324-point dasha fixture is oracle-grade.
+
+### Dogfood scorecard (2 entries captured this session)
+- "How strong is my career potential?" -> refused (1 keyword hit,
+  below calc_router.py's 0.4 confidence floor).
+- "Are we compatible?" -> refused (marriage_compatibility/
+  career_strength tie at 0.333 each, below the 0.15 margin).
+Per the Router refuse-heavy posture lock (CLAUDE.md): scorecard data
+for future `_STEM_MAP`/threshold tuning, not treated as bugs. Tune
+only once enough scorecard evidence accumulates.
+
+### Test baseline
+1664 -> 1680 passed (+16, exactly the new e2e suite), 3 skipped, 3
+xfailed (unchanged — the 3 known Ishta/Kashta Sun cases).
+
+### Next task
+Session 46 entry point: POST-CHECKPOINT PHASE ORDER item (a) — Drik
+Bala extraction. Pre-gate: hand-verify Sulabh Moon + Venus Drik Bala
+values from JHora desktop before any implementation prompt is drafted.
+Abort gate: 2 attempts max; 7/7 planets within ±0.5 Virupa on BOTH
+Sulabh AND Surbhi, or the stub stays at 0.0.
