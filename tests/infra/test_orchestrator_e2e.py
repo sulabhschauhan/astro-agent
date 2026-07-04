@@ -21,11 +21,12 @@ PROCEED working style -- not silently accepted from the prompt as given):
    prompt. The prompt's own data produces total_score=16.5 for Group C,
    not the 27.5 the prompt itself asserts; the canonical data is the only
    one that produces 27.5. Confirmed by computing both and diffing.
-3. test_career_surbhi asserts uncertainty_virupa == 59.0, not 20.0 --
+3. test_career_surbhi asserts uncertainty_virupa == 59.0, not 6.0 --
    chart_profile.py has a documented Surbhi-specific override (Kala Bala
    Sun/Jupiter/Saturn Abda/Masa cross-chart divergence, see CLAUDE.md
-   "Shadbala Kala Bala" section) that is NOT the general V1 constant used
-   for the other 3 charts.
+   "Shadbala Kala Bala" section) that is NOT the general Ayana Bala
+   Moon/Venus envelope constant used for the other 3 charts (see CLAUDE.md
+   "Known Source Divergences (V1)" -> Ayana Bala).
 4. test_refusal_marriage_no_partner uses "Check our marriage
    compatibility" instead of "Are we compatible?". The latter ties
    marriage_compatibility/career_strength at 0.333 confidence each and is
@@ -93,7 +94,7 @@ def _assert_career_answer(result, *, expected_uncertainty_virupa: float) -> None
     assert result.domain == "career_strength"
     assert result.tier == AnswerTier.TIER_2_RANGE
     assert result.demotion_reason is not None
-    assert "Drik" in result.demotion_reason
+    assert "envelope" in result.demotion_reason
     assert result.uncertainty_virupa == expected_uncertainty_virupa
 
     payload = result.answer_payload
@@ -126,24 +127,24 @@ def _assert_refusal(result) -> None:
 
 def test_career_david(david_chart):
     result = answer_question(_CAREER_QUESTION, david_chart)
-    _assert_career_answer(result, expected_uncertainty_virupa=20.0)
+    _assert_career_answer(result, expected_uncertainty_virupa=6.0)
 
 
 def test_career_sheridan(sheridan_chart):
     result = answer_question(_CAREER_QUESTION, sheridan_chart)
-    _assert_career_answer(result, expected_uncertainty_virupa=20.0)
+    _assert_career_answer(result, expected_uncertainty_virupa=6.0)
 
 
 def test_career_surbhi(surbhi_chart):
     # See deviation #3 above -- Surbhi carries a documented 59.0 Virupa
-    # override, not the general 20.0 V1 constant.
+    # override, not the general 6.0 Ayana Bala Moon/Venus envelope constant.
     result = answer_question(_CAREER_QUESTION, surbhi_chart)
     _assert_career_answer(result, expected_uncertainty_virupa=59.0)
 
 
 def test_career_sulabh(sulabh_chart):
     result = answer_question(_CAREER_QUESTION, sulabh_chart)
-    _assert_career_answer(result, expected_uncertainty_virupa=20.0)
+    _assert_career_answer(result, expected_uncertainty_virupa=6.0)
 
 
 # ─── Group B: Dasha domain (David first -- hardest case) ───────────────────

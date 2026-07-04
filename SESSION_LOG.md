@@ -941,3 +941,57 @@ Bala extraction. Pre-gate: hand-verify Sulabh Moon + Venus Drik Bala
 values from JHora desktop before any implementation prompt is drafted.
 Abort gate: 2 attempts max; 7/7 planets within ±0.5 Virupa on BOTH
 Sulabh AND Surbhi, or the stub stays at 0.0.
+
+## Session 46 — Drik Bala SOLVED: stub → real, 28/28 JHora parity (2026-07-04)
+
+### What landed
+- drik_bala.py: real implementation. BPHS Ch.28 Sphuta Drishti kernel
+  (triangulated: Scribd DRISTI doc + B.V. Raman Art.114 + PyJHora) +
+  Raman Art.120 aggregation (Drishti Pinda/4) + smooth-taper corrections
+  at 3 BPHS segment boundaries (Saturn 60-90: 90-D/2; Jupiter 120-150:
+  2*(150-D); Jupiter 210-270: D/2-60 then 420-3D/2), each back-computed
+  from a single divergent JHora pair then cross-validated.
+- Classification: Moon benefic iff 90<=elongation<270 (Ashtami-to-
+  Ashtami, classical — not paksha; Session 32/38 paksha attempts were
+  the actual root cause of prior failures). Mercury: same-rasi count
+  INCLUDING Moon. Sheridan was the exposing edge case (elongation
+  319.67, Mercury sharing Moon's rasi) — initial ship was 2/7 there.
+- test_drik_bala.py: 86 tests (kernel boundary continuity, 28-point
+  JHora parity all 4 charts, error contract).
+- Stale-stub cleanup chain: shadbala_totals.py (drik_is_stubbed=False,
+  Ayana-envelope caveat), test Layer E, chart_profile.py (20.0→6.0
+  general envelope + caveat-gate fix), calc_router.py (envelope-driven
+  career demotion reason), test_orchestrator_e2e.py (6.0 + sentinel).
+- CLAUDE.md: Drik Bala divergence entry replaced; Ayana Bala
+  re-investigation lock LIFTED with pre-gate; baseline bumped. 77 lines.
+
+### Key decisions locked
+1. Career stays TIER_2 despite real Drik Bala — residual envelopes
+   (±6 Ayana general, ±59 Surbhi Kala) still make exact ranks dishonest.
+   Revisit T1 after Ayana investigation.
+2. uncertainty_virupa 6.0 = Ayana Moon/Venus envelope only; honest-scope
+   tuning note in chart_profile.py.
+3. AstroSage parity NOT expected on Drik Bala — genuine JHora-vs-
+   AstroSage divergence (Sulabh Saturn 17.46 vs 10.89). JHora primary.
+4. Mars 180-210 plateau: continuity-derived, zero data coverage, open.
+5. Methodology validated: back-solve single divergent pairs against
+   oracle, one principle (boundary continuity), zero free parameters —
+   distinct from the rejected parameter-fitting pattern.
+
+### Bugs caught mid-session
+- Shipped v1 Mercury classification excluded Moon from same-rasi count
+  AND hardcoded Moon always-benefic — 2/7 on Sheridan. Both fixed via
+  4-combination back-solve before any speculation committed.
+- Prompt 3e fallout miscounted (3 expected, 4 actual — Surbhi shares
+  the chart-agnostic demotion string).
+
+### Test baseline
+1766 passed, 3 skipped, 3 xfailed.
+
+### Next task
+Ayana Bala investigation, Drik-style. Pre-gate: read-only convergence
+diagnostic — JHora fixture kala_bala_breakdown Ayana vs AstroSage
+fixture Ayana vs computed, all 7 planets, Sulabh (+ Surbhi if breakdown
+exists). Sun doubling/inversion (~40 Virupa via Sun Chesta) primary
+target; Moon/Venus ±5-6 secondary. Multi-source validation planned
+(user will supply sources Claude cannot access).

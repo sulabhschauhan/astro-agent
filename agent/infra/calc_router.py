@@ -115,9 +115,16 @@ _CONFIDENCE_MARGIN = 0.15
 # value requires a new cross-oracle study, not a router-local decision.
 _DASHA_BOUNDARY_WINDOW_DAYS = 37
 
+# Decision (Session 46, design chat): career stays T2 despite Drik Bala
+# being real (28/28 JHora parity). Rationale: residual documented envelopes
+# still make exact ranks dishonest for closely-ranked planets; consistent
+# with V1 refuse-heavy posture. Revisit T1 promotion when the Ayana Bala
+# investigation closes.
 _CAREER_DEMOTION_REASON = (
-    "Drik Bala stubbed at 0.0 (±20 Virupa envelope); planet rank "
-    "within envelope should be treated as approximate"
+    "Career strength held at Tier 2 (range): residual Shadbala uncertainty "
+    "envelopes (±6 Virupa Ayana Bala general; ±59 Virupa Surbhi Kala Bala "
+    "chart-specific) can flip close planet rankings; rank within envelope "
+    "should be treated as approximate"
 )
 _DASHA_DEMOTION_REASON = (
     "Antardasha boundaries carry ±37-day drift vs AstroSage; current "

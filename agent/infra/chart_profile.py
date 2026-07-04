@@ -297,32 +297,32 @@ def build_domain_profile(
 
         caveats: list[str] = []
         for row in shadbala.values():
-            if row.get("drik_is_stubbed") and row.get("caveat"):
+            if row.get("caveat"):
                 caveats.append(row["caveat"])
         for row in bhava_bala.values():
             if (row.get("dig_is_stubbed") or row.get("drishti_is_stubbed")) and row.get("caveat"):
                 caveats.append(row["caveat"])
         stub_caveats = tuple(dict.fromkeys(caveats))  # dedupe, preserve first-seen order
 
-        # Drik Bala stub: fixed Virupa envelope from the AstroSage 4-chart fixture
-        # range (-20.44..+22.15). See CLAUDE.md "Known Source Divergences (V1)" ->
-        # "Shadbala Drik Bala (V1 stub)".
-        uncertainty_virupa = 20.0
+        # 6.0 = documented Ayana Bala Moon/Venus divergence envelope
+        # (+5.26/+3.69 max observed, see CLAUDE.md "Known Source Divergences
+        # (V1)" -> Ayana Bala). Drik Bala no longer contributes (real since
+        # Session 46, 28/28 JHora parity +/-0.5).
+        uncertainty_virupa = 6.0
         chart_name = chart_data.get("birth_details", {}).get("name", "").strip().lower()
         if chart_name == "surbhi":
-            # Surbhi-chart-specific: Kala Bala Sun/Jupiter/Saturn Abda/Masa cross-chart
-            # divergence, max observed 59.0 Virupa (Saturn). See CLAUDE.md ->
-            # "Shadbala Kala Bala -- Sun cross-chart Abda/Masa divergence". NOT a
-            # general V1 constant -- do not apply to other charts.
+            # SCOPE GUARD: applies to non-Surbhi charts only. Surbhi-chart-specific:
+            # Kala Bala Sun/Jupiter/Saturn Abda/Masa cross-chart divergence, max
+            # observed 59.0 Virupa (Saturn). See CLAUDE.md -> "Shadbala Kala Bala --
+            # Sun cross-chart Abda/Masa divergence". Takes precedence over the 6.0
+            # Ayana envelope above -- NOT a general constant, do not apply elsewhere.
             uncertainty_virupa = 59.0
-        # TUNING NOTE: both constants are frozen V1 estimates from the sessions
-        # 36-39 fixture investigation. Re-derive when Drik Bala's V1.1 kernel fix
-        # (CLAUDE.md's __drik_bala_calc_1_pvr, located Session 42 but not yet
-        # actioned) lands -- do not hand-tune against new fixtures in the meantime
-        # (rejected pattern, see CLAUDE.md Drik Bala revisit trigger).
+        # TUNING NOTE: revisit to 0.0-2.0 if the Ayana Bala investigation (next
+        # open item) closes the Moon/Venus gap; revisit upward only with new
+        # documented divergence.
         # Bhava Drishti Bala's stub (bhava_bala's drishti_is_stubbed=True) has no
-        # documented numeric envelope of its own (unlike Drik Bala's fixture-derived
-        # range) -- its caveat string is still surfaced via stub_caveats above, but
+        # documented numeric envelope of its own (unlike the Ayana envelope above)
+        # -- its caveat string is still surfaced via stub_caveats above, but
         # it is deliberately NOT folded into uncertainty_virupa as a second additive
         # term; tracked as an open gap, not silently assumed zero.
         uncertainty_days = 0.0  # no time-axis envelope for this domain

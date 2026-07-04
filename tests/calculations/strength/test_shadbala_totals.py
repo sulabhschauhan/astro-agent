@@ -11,8 +11,10 @@ Layer C: Aggregator arithmetic — shadbala_virupa is the sum of the result's
          ratio derivation also checked. min_required is an exact table lookup.
 Layer D: Rank validity — complete permutation {1..7}, internal self-consistency.
          Sulabh hardest-case tie-gap check.
-Layer E: Caveat/stub field integrity — drik_is_stubbed=True, caveat string
-         contains sentinel, uniform across all 7 planets within a chart.
+Layer E: Caveat/stub field integrity — drik_is_stubbed=False (real since
+         Session 46), caveat now documents the residual Ayana Bala
+         Moon/Venus envelope (not a Drik stub) and contains that sentinel,
+         uniform across all 7 planets within a chart.
 Layer F: Error propagation — missing "meta" key surfaces ValueError or
          RuntimeError from the first failing component; aggregator does not swallow it.
 
@@ -357,9 +359,9 @@ def test_d_sulabh_closest_pair_not_exact_tie(sulabh_totals):
 
 @pytest.mark.parametrize("chart_key", _ALL_CHART_KEYS)
 @pytest.mark.parametrize("planet", _PLANETS)
-def test_e_drik_is_stubbed_true(chart_key, planet, all_totals):
-    assert all_totals[chart_key][planet]["drik_is_stubbed"] is True, (
-        f"{chart_key} {planet}: drik_is_stubbed is not True"
+def test_e_drik_is_stubbed_false(chart_key, planet, all_totals):
+    assert all_totals[chart_key][planet]["drik_is_stubbed"] is False, (
+        f"{chart_key} {planet}: drik_is_stubbed is not False"
     )
 
 
@@ -371,8 +373,8 @@ def test_e_caveat_non_empty_and_contains_sentinel(chart_key, all_totals):
         assert isinstance(caveat, str) and len(caveat) > 0, (
             f"{chart_key} {p}: caveat is missing or empty"
         )
-        assert "Drik Bala stubbed" in caveat, (
-            f"{chart_key} {p}: caveat does not contain 'Drik Bala stubbed'"
+        assert "Ayana Bala" in caveat, (
+            f"{chart_key} {p}: caveat does not contain 'Ayana Bala'"
         )
 
 

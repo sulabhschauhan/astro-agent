@@ -4,11 +4,9 @@ Sums Sthana, Dig, Kala, Chesta, Naisargika, and Drik Bala into per-planet
 Virupa totals, converts to Rupas, computes ratio against BPHS minimum
 requirements, and ranks all 7 planets.
 
-V1 CAVEAT: Drik Bala is stubbed at 0.0 for all planets. Totals, ratios, and
-ranks are computed WITHOUT true Drik Bala. AstroSage fixture range for true
-Drik Bala is -20.44 to +22.15 Virupa per planet — rank order is usually
-preserved but not guaranteed within ~20 Virupa. See CLAUDE.md
-'Known Source Divergences (V1)' -> Drik Bala.
+Drik Bala is a real implementation validated 28/28 (4 charts × 7 planets,
+±0.5 Virupa) against JHora v8 — see drik_bala.py docstring for formula
+provenance.
 """
 
 from agent.calculations.strength.chesta_bala import compute_chesta_bala
@@ -42,12 +40,10 @@ _MIN_REQUIRED: dict[str, float] = {
 _PLANETS: list[str] = ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"]
 
 _CAVEAT: str = (
-    "Drik Bala stubbed at 0.0 (V1) — shadbala_virupa, shadbala_rupa, ratio, "
-    "and rank are computed WITHOUT true Drik Bala. AstroSage fixture range "
-    "for true Drik Bala is -20.44 to +22.15 Virupa per planet. Ratio may "
-    "read 'above minimum' when true ratio is below. Rank order usually "
-    "preserved but not guaranteed within ~20 Virupa. See CLAUDE.md "
-    "'Known Source Divergences (V1)' -> Drik Bala."
+    "Shadbala totals carry a residual +/-6 Virupa envelope from the "
+    "documented Ayana Bala Moon/Venus divergence (see CLAUDE.md 'Known "
+    "Source Divergences (V1)' -> Ayana Bala). Drik Bala is real "
+    "(JHora-validated); it no longer contributes stub uncertainty."
 )
 
 
@@ -69,7 +65,7 @@ def compute_shadbala_totals(chart_data: dict) -> dict:
             min_required: float — BPHS fixed threshold (see table below)
             ratio: float — shadbala_rupa / min_required, rounded 2dp
             rank: int — 1 (strongest) to 7 (weakest), by shadbala_virupa descending
-            drik_is_stubbed: bool — always True in V1
+            drik_is_stubbed: bool — always False (real since Session 46)
             caveat: str — fixed string present on every planet
 
     Minimum requirements (BPHS, confirmed against AstroSage fixture rows):
@@ -122,7 +118,7 @@ def compute_shadbala_totals(chart_data: dict) -> dict:
             "min_required":    min_r,
             "ratio":           round(rupa / min_r, 2),
             "rank":            ranks[p],
-            "drik_is_stubbed": True,
+            "drik_is_stubbed": False,
             "caveat":          _CAVEAT,
         }
     return result
