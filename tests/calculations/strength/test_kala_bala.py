@@ -161,14 +161,28 @@ class TestYuddhaBala:
 _SULABH_PLANETS = ["sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"]
 _TOL = 0.5
 
-AYANA_TOLERANCE_RELAXED = {"moon", "venus"}
+# Moon/Venus high-declination gap RESOLVED this session (Sayana-longitude Kranti,
+# fixed 24° obliquity, Raman Art. 72-73 — see kala_bala.py _ayana_bala() docstring).
+# Single tier for all 7 planets: observed worst-case 0.45 (Sheridan Sun), 28/28
+# cells across 4 charts, + margin for ephemeris-version drift. Scope: AstroSage
+# oracle parity only. Tuning note: a breach beyond 0.75 on any future chart means
+# investigate before widening — do not silently re-relax.
+_AYANA_TOL = 0.75
+
+# kala_total aggregates 9 sub-components (nathonnatha, paksha, thribhaga, abda,
+# masa, vara, hora, ayana, yuddha); ayana's own ≤0.45 residual plus each other
+# component's own ±0.5-ish drift accumulate across the sum — NOT covered by the
+# ayana-only 0.75 derivation above. Scope: excludes Surbhi Sun/Jupiter/Saturn
+# (Abda/Masa divergence, CLAUDE.md §Kala Bala Sun cross-chart). Tuning note: a
+# breach beyond 2.0 means investigate before widening.
+_KALA_TOTAL_TOL = 2.0
 
 
 def _tolerance(planet: str, sub_component: str) -> float:
-    if sub_component in ("ayana", "kala_total"):
-        if planet in AYANA_TOLERANCE_RELAXED:
-            return 6.0
-        return 2.0  # 5/7 planets: current formula within ±2 Virupa of AstroSage
+    if sub_component == "ayana":
+        return _AYANA_TOL
+    if sub_component == "kala_total":
+        return _KALA_TOTAL_TOL
     return _TOL
 
 

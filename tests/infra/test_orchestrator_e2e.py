@@ -21,12 +21,14 @@ PROCEED working style -- not silently accepted from the prompt as given):
    prompt. The prompt's own data produces total_score=16.5 for Group C,
    not the 27.5 the prompt itself asserts; the canonical data is the only
    one that produces 27.5. Confirmed by computing both and diffing.
-3. test_career_surbhi asserts uncertainty_virupa == 59.0, not 6.0 --
+3. test_career_surbhi asserts uncertainty_virupa == 59.0, not 2.0 --
    chart_profile.py has a documented Surbhi-specific override (Kala Bala
    Sun/Jupiter/Saturn Abda/Masa cross-chart divergence, see CLAUDE.md
-   "Shadbala Kala Bala" section) that is NOT the general Ayana Bala
-   Moon/Venus envelope constant used for the other 3 charts (see CLAUDE.md
-   "Known Source Divergences (V1)" -> Ayana Bala).
+   "Shadbala Kala Bala" section) that is NOT the general envelope constant
+   used for the other 3 charts. That general envelope was lowered 6.0 -> 2.0
+   Session 47: envelope basis = AstroSage parity, Ayana Bala Kranti + Sun
+   Chesta both RESOLVED Session 47 (see CLAUDE.md "Known Source Divergences
+   (V1)" -> "Ayana Bala Kranti"); Surbhi's 59.0 override is unchanged.
 4. test_refusal_marriage_no_partner uses "Check our marriage
    compatibility" instead of "Are we compatible?". The latter ties
    marriage_compatibility/career_strength at 0.333 confidence each and is
@@ -126,25 +128,35 @@ def _assert_refusal(result) -> None:
 
 
 def test_career_david(david_chart):
+    # envelope basis = AstroSage parity; Ayana Bala Kranti + Sun Chesta both
+    # RESOLVED Session 47 -- general envelope lowered 6.0 -> 2.0. Surbhi's
+    # ±59 Kala Bala Abda/Masa override (test_career_surbhi below) is unchanged.
     result = answer_question(_CAREER_QUESTION, david_chart)
-    _assert_career_answer(result, expected_uncertainty_virupa=6.0)
+    _assert_career_answer(result, expected_uncertainty_virupa=2.0)
 
 
 def test_career_sheridan(sheridan_chart):
+    # envelope basis = AstroSage parity; Ayana Bala Kranti + Sun Chesta both
+    # RESOLVED Session 47 -- general envelope lowered 6.0 -> 2.0. Surbhi's
+    # ±59 Kala Bala Abda/Masa override (test_career_surbhi below) is unchanged.
     result = answer_question(_CAREER_QUESTION, sheridan_chart)
-    _assert_career_answer(result, expected_uncertainty_virupa=6.0)
+    _assert_career_answer(result, expected_uncertainty_virupa=2.0)
 
 
 def test_career_surbhi(surbhi_chart):
     # See deviation #3 above -- Surbhi carries a documented 59.0 Virupa
-    # override, not the general 6.0 Ayana Bala Moon/Venus envelope constant.
+    # override, not the general 2.0 envelope constant used by the other 3
+    # charts.
     result = answer_question(_CAREER_QUESTION, surbhi_chart)
     _assert_career_answer(result, expected_uncertainty_virupa=59.0)
 
 
 def test_career_sulabh(sulabh_chart):
+    # envelope basis = AstroSage parity; Ayana Bala Kranti + Sun Chesta both
+    # RESOLVED Session 47 -- general envelope lowered 6.0 -> 2.0. Surbhi's
+    # ±59 Kala Bala Abda/Masa override (test_career_surbhi above) is unchanged.
     result = answer_question(_CAREER_QUESTION, sulabh_chart)
-    _assert_career_answer(result, expected_uncertainty_virupa=6.0)
+    _assert_career_answer(result, expected_uncertainty_virupa=2.0)
 
 
 # ─── Group B: Dasha domain (David first -- hardest case) ───────────────────

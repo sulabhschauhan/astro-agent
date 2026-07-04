@@ -304,22 +304,30 @@ def build_domain_profile(
                 caveats.append(row["caveat"])
         stub_caveats = tuple(dict.fromkeys(caveats))  # dedupe, preserve first-seen order
 
-        # 6.0 = documented Ayana Bala Moon/Venus divergence envelope
-        # (+5.26/+3.69 max observed, see CLAUDE.md "Known Source Divergences
-        # (V1)" -> Ayana Bala). Drik Bala no longer contributes (real since
-        # Session 46, 28/28 JHora parity +/-0.5).
-        uncertainty_virupa = 6.0
+        # 2.0 = general uncertainty envelope, lowered from 6.0 Session 47.
+        # Ayana Bala Kranti RESOLVED Session 47 (Sayana-longitude Kranti, fixed
+        # 24 deg obliquity, Raman Art. 72-73; validated +/-0.45 vs AstroSage,
+        # 28/28 cells, 4 charts) -- see CLAUDE.md "Known Source Divergences
+        # (V1)" -> "Ayana Bala Kranti". Envelope basis = AstroSage parity
+        # (user-perceived correctness wins per the tiebreaker principle,
+        # CLAUDE.md Locked Decisions). Drik Bala no longer contributes (real
+        # since Session 46, 28/28 JHora parity +/-0.5).
+        # SCOPE GUARD: Chesta Bala AstroSage-parity validated Sulabh/Surbhi
+        # only (Sheridan/David remain a documented divergence, see CLAUDE.md
+        # "Chesta Bala cross-chart divergence") -- this 2.0 general envelope
+        # does not extend Chesta parity claims beyond that validated scope.
+        uncertainty_virupa = 2.0
         chart_name = chart_data.get("birth_details", {}).get("name", "").strip().lower()
         if chart_name == "surbhi":
             # SCOPE GUARD: applies to non-Surbhi charts only. Surbhi-chart-specific:
             # Kala Bala Sun/Jupiter/Saturn Abda/Masa cross-chart divergence, max
             # observed 59.0 Virupa (Saturn). See CLAUDE.md -> "Shadbala Kala Bala --
-            # Sun cross-chart Abda/Masa divergence". Takes precedence over the 6.0
-            # Ayana envelope above -- NOT a general constant, do not apply elsewhere.
+            # Sun cross-chart Abda/Masa divergence". Takes precedence over the
+            # general 2.0 envelope above -- NOT a general constant, do not apply
+            # elsewhere, UNCHANGED by this Session 47 update.
             uncertainty_virupa = 59.0
-        # TUNING NOTE: revisit to 0.0-2.0 if the Ayana Bala investigation (next
-        # open item) closes the Moon/Venus gap; revisit upward only with new
-        # documented divergence.
+        # TUNING NOTE: a breach beyond 2.0 on any future chart means
+        # investigate before widening back up -- do not silently re-relax.
         # Bhava Drishti Bala's stub (bhava_bala's drishti_is_stubbed=True) has no
         # documented numeric envelope of its own (unlike the Ayana envelope above)
         # -- its caveat string is still surfaced via stub_caveats above, but

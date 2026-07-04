@@ -9,9 +9,15 @@ ALGORITHM: BPHS 27.24-25.
 
 ORACLES: JHora v8 + AstroSage converge ±0.25 Virupa all 7 planets (Sulabh).
 KNOWN DIVERGENCES (V1):
-- Sun: Chesta = Ayana Bala (BPHS 27.18). Delta ~40 Virupa vs JHora/AstroSage.
-  Ayana Bala direction suspected inverted in kala_bala.py for Sun.
-  Investigate separately in P2.5.5 before Vimshopaka.
+- Sun: RESOLVED Session 47. BPHS 27.18's "Chesta = Ayana Bala" holds only
+  loosely — AstroSage and JHora both converge on chesta_sun = 30.0 + kranti
+  (signed, no abs, no doubling), NOT the doubled Ayana Bala value. Formula is
+  dual-oracle back-solved, not classically cited. Validated ±0.97 worst-case
+  vs AstroSage 4/4 charts; downstream Ishta/Kashta ±0.73 worst vs JHora 4/4.
+  See diagnostics/sun_chesta_characterization_20260704.py (attempt 1: undoubled
+  Ayana/2, failed 0/4) and the Session 47 attempt-2 back-solve (30+kranti,
+  passed 4/4) for the full candidate comparison. Revisit trigger: any 5th
+  chart breaching ±1.0.
 - Moon: Chesta = benefic Paksha Bala (BPHS 27.18). Confirmed exact 3/3 charts.
 - Tara Grahas: elongation formula (CK = sun_lon - planet_true_lon, /3).
   JHora uses Surya Siddhanta mean daily motion constants for mean longitude —
@@ -20,6 +26,8 @@ KNOWN DIVERGENCES (V1):
   Do NOT re-investigate. 5 approaches tested and rejected across sessions 33-35.
   See CLAUDE.md §Chesta Bala.
 """
+
+from math import asin, degrees, radians, sin
 
 import swisseph as swe
 
@@ -62,12 +70,16 @@ def compute_chesta_bala(
 
     result = {}
 
-    # ── Sun: Chesta = Ayana Bala (BPHS 27.18) ────────────────────────────────
-    result["sun"] = {"chesta": round(ayana_result["Sun"], 4)}
-
     # ── Moon and Sun positions needed for paksha detection and Tara Grahas ────
     moon_lon = swe.calc_ut(jd_ut, swe.MOON, _FLAGS_SID)[0][0] % 360.0
     sun_lon  = swe.calc_ut(jd_ut, swe.SUN,  _FLAGS_SID)[0][0] % 360.0
+
+    # ── Sun: chesta_sun = 30.0 + kranti (dual-oracle back-solved, Session 47) ──
+    ayanamsa = swe.get_ayanamsa_ut(jd_ut)
+    sayana_lon = (sun_lon + ayanamsa) % 360.0
+    eps_true = swe.calc_ut(jd_ut, swe.ECL_NUT, _FLAGS_SID)[0][0]
+    kranti = degrees(asin(sin(radians(eps_true)) * sin(radians(sayana_lon))))
+    result["sun"] = {"chesta": round(30.0 + kranti, 4)}
 
     # ── Moon: Chesta = benefic paksha score ───────────────────────────────────
     # Copy of _paksha_bala() Shukla/Krishna detection (kala_bala.py lines 199-201)

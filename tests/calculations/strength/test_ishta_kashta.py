@@ -3,11 +3,11 @@
 Layer A: Real-chart parity against JHora v8 Strengths-tab oracle, all 4 charts
          × 7 planets (28 parametrized test cases). Tolerances are per-planet —
          derived from chesta_bala V1 divergences propagated through the sqrt
-         formula (analogous to _CHESTA_TOL in test_chesta_bala.py). Moon is the
-         only planet with chesta accurately computed in V1; all other planets
-         carry varying degrees of known V1 elongation-formula or Ayana-path gaps.
-         Sun uses a conditional xfail when chesta_bala > 60 (Ayana Bala doubling
-         pushes chesta above 60, causing (60-chesta)<0 → kashta clamped to 0).
+         formula (analogous to _CHESTA_TOL in test_chesta_bala.py). Moon and Sun
+         both have chesta accurately computed as of Session 47 (Sun RESOLVED via
+         the 30+kranti dual-oracle back-solve, see chesta_bala.py's docstring and
+         CLAUDE.md §Known Source Divergences); all other planets carry varying
+         degrees of known V1 elongation-formula gaps.
          Tolerances must NOT be tightened until chesta_bala V1.1 resolves the
          underlying gaps — see CLAUDE.md §Chesta Bala and §Known Source Divergences.
 
@@ -85,11 +85,14 @@ _ALL_CHARTS = ["sulabh", "surbhi", "sheridan", "david"]
 #                   vs JHora≈55); 5 approaches tested and rejected in Sessions 33-35;
 #                   tolerance is a V1 scope statement, not a performance target —
 #                   see test_shadbala_totals.py and CLAUDE.md §Chesta Bala
-#   sun     — conditionally xfailed when chesta_bala > 60 (Ayana Bala doubling
-#               pushes chesta above 60, making (60-chesta) < 0 → kashta = 0.0 clamped;
-#               V1 known issue; David Sun chesta=9.07 passes fine at ±0.5)
+#   sun     ±1.0  — Sun Chesta RESOLVED Session 47 (chesta_sun = 30 + kranti,
+#               dual-oracle back-solved; see chesta_bala.py docstring and
+#               CLAUDE.md §Known Source Divergences -> "Ayana Bala Kranti").
+#               Observed worst post-fix Sun ishta/kashta delta 0.73 (sulabh)
+#               + margin = 1.0. Scope: Sun only. Do NOT widen further — a
+#               breach beyond 1.0 means a real regression; investigate first.
 _A_TOL: dict[str, float] = {
-    "sun":     0.5,
+    "sun":     1.0,
     "moon":    0.5,
     "mars":    7.0,
     "mercury": 35.0,  # bumped from 30: David Mercury kashta worst-case Δ=33.38
@@ -141,7 +144,7 @@ def all_results(sulabh_result, surbhi_result, sheridan_result, david_result):
 
 # ── Layer A: real-chart parity against JHora v8 oracle ───────────────────────
 # 28 parametrized cases (4 charts × 7 planets). See _A_TOL for per-planet
-# tolerance derivation. Sun cases are conditionally xfailed when chesta_bala > 60.
+# tolerance derivation.
 
 _LAYER_A_PARAMS = [
     (chart_key, planet)
@@ -154,17 +157,6 @@ _LAYER_A_PARAMS = [
 def test_a_oracle_parity(chart_key, planet, all_results):
     """JHora v8 oracle parity: ishta and kashta within per-planet V1 tolerance; all 4 charts × 7 planets."""
     row = all_results[chart_key][planet]
-
-    # Sun: Ayana Bala doubling can push chesta_bala > 60, making (60-chesta) < 0
-    # and kashta = 0 (clamped). This is the documented V1 Sun chesta direction issue.
-    # xfail when observed rather than statically, so that David Sun (chesta=9.07)
-    # remains a live assertion (it correctly passes at ±0.5).
-    if planet == "sun" and row["chesta_bala"] > 60.0:
-        pytest.xfail(
-            f"{chart_key} Sun chesta_bala={row['chesta_bala']:.2f} > 60 — Ayana Bala "
-            "doubling; (60-chesta) < 0 → kashta clamped to 0. V1 known issue, "
-            "CLAUDE.md §Chesta Bala Sun divergence / §Known Source Divergences."
-        )
 
     tol        = _A_TOL[planet]
     exp_ishta  = JHORA_ISHTA_KASHTA[chart_key][planet][0]

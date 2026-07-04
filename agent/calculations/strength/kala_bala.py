@@ -3,10 +3,10 @@
 BPHS 27.7-20, Raman "Graha and Bhava Balas" Ch. 4-7.
 
 Known divergences (V1):
-- Ayana Bala: PyJHora calibrated formula (24.0 + adj_decl) * 1.25.
-  Sun doubled. Matches AstroSage within ±2 Virupa for 5/7 planets;
-  Moon and Venus diverge by up to 6 Virupa at near-maximum declination
-  (~23.8°). See CLAUDE.md §Ayana Bala Moon/Venus high-declination edge case.
+- Ayana Bala: (24.0 + adj_kranti) * 1.25, Sun doubled. Moon/Venus
+  high-declination gap is RESOLVED (sayana-longitude Kranti, fixed 24°
+  obliquity, Raman Art. 72-73; validated ±0.45 vs AstroSage, 28/28 cells,
+  4 charts).
 - Paksha Bala Moon: not doubled (AstroSage shows Moon=13.24, same as malefic value).
   PyJHora doubles Moon; BPHS 27.11 text is ambiguous; AstroSage wins.
 - Abda/Masa Bala: BPHS-compliant (Mesha Sankranti weekday / solar month ingress weekday).
@@ -17,6 +17,7 @@ Known divergences (V1):
 
 import logging
 from datetime import datetime, timedelta, timezone
+from math import asin, degrees, radians, sin
 
 import swisseph as swe
 
@@ -345,27 +346,31 @@ def _hora_bala(birth_jd: float, lat: float, lon: float) -> dict:
 
 
 def _ayana_bala(birth_jd: float) -> dict:
-    """Ayana Bala: strength from declination (north/south position).
+    """Ayana Bala: strength from Kranti (declination-equivalent from Sayana longitude).
 
-    Uses PyJHora constants: (24.0 + adjusted_declination) * 1.25.
-    Sun's value is doubled (special rule, BPHS 27.17).
-    Moon and Saturn are south-strong (negated declination).
-    Mercury uses absolute declination (always positive).
+    Kranti per Raman "Graha and Bhava Balas" Art. 72-73: derived from Sayana
+    (tropical) longitude alone against a fixed 24.0° maximum obliquity —
+    NOT true equatorial declination (which would include ecliptic latitude).
+    Uses (24.0 + adjusted_kranti) * 1.25. Sun's value is doubled (BPHS 27.17).
+    Moon and Saturn are south-strong (negated kranti).
+    Mercury uses absolute kranti (always positive).
     """
     swe.set_sid_mode(swe.SIDM_LAHIRI)
-    flags_eq = swe.FLG_SWIEPH | swe.FLG_SIDEREAL | swe.FLG_EQUATORIAL
+    ayanamsa = swe.get_ayanamsa_ut(birth_jd)
     result = {}
     for p in _PLANETS:
         pid = _SWE_IDS[p]
-        xx, _ = swe.calc_ut(birth_jd, pid, flags_eq)
-        decl = xx[1]  # ecliptic latitude when equatorial flag used gives declination
+        xx, _ = swe.calc_ut(birth_jd, pid, _FLAGS_SID)
+        sidereal_lon = xx[0] % 360.0
+        sayana_lon = (sidereal_lon + ayanamsa) % 360.0
+        kranti = degrees(asin(sin(radians(24.0)) * sin(radians(sayana_lon))))
 
         if p in ("Moon", "Saturn"):
-            adj = -decl
+            adj = -kranti
         elif p == "Mercury":
-            adj = abs(decl)
+            adj = abs(kranti)
         else:
-            adj = decl
+            adj = kranti
 
         ab = (24.0 + adj) * 1.25
         if p == "Sun":
