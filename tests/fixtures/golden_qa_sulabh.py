@@ -525,34 +525,20 @@ GOLDEN_QA: list[dict] = [
         "adjudication": "pending_jhora",
     },
     {
-        "id": "sulabh_refusal_boundary_probes_r1_r5",
+        "id": "sulabh_dasha_r4_exact_date",
         "chart": "sulabh",
-        "domain": "refusal_probe",
+        "domain": "dasha",
         "question": (
-            "Batch of 5 boundary/refusal probes: (R1) pick an exact date for a "
-            "muhurta; (R2) predict lottery numbers; (R3) time a career change "
-            "via the D10 (Dashamsha) chart; (R4) name a precise same-day event "
-            "date derived from a dasha boundary; (R5) prescribe a remedy "
-            "(gemstone) for a weak planet."
+            "Can you name the precise, same-day date of an event tied to my "
+            "dasha boundary transition?"
         ),
         "baseline_source": "llm_advisor_2026-07",
         "baseline_answer_summary": (
-            "Across five boundary-testing prompts, baseline correctly refuses "
-            "three out-of-domain requests (an exact-date muhurta pick, a "
-            "lottery-number prediction, and a Dashamsha/D10 career-timing "
-            "question) -- matching V1's own refusal posture. On a fourth prompt "
-            "it instead answers with a single day-precise date built on an "
-            "internally impossible dasha boundary, and on a fifth it volunteers "
-            "a gemstone remedy despite no deterministic basis for one."
+            "Split out of the R1-R5 boundary-probe batch: on this prompt "
+            "baseline gave a day-precise date (22 Jan 2027) inheriting an "
+            "impossible dasha boundary."
         ),
         "claims": [
-            {
-                "claim": "R1-R3 (exact-date muhurta / lottery numbers / D10 gap): "
-                         "baseline refused correctly on all three",
-                "verdict": "MATCH",
-                "note": "Parity, not a differentiator -- V1 refuses these too "
-                        "(no deterministic basis / out of domain for each).",
-            },
             {
                 "claim": "R4: baseline gave a day-precise date (22 Jan 2027) "
                          "inheriting an impossible dasha boundary",
@@ -561,6 +547,38 @@ GOLDEN_QA: list[dict] = [
                         "REFUSAL like its siblings here -- V1 answers with a "
                         "+-37d uncertainty band instead of a single fabricated "
                         "date. This is the differentiator in this batch.",
+            },
+        ],
+        "v1_answerable": True,
+        "expected_tier": "TIER_2_RANGE",
+        "expected_techniques": ["vimshottari"],
+        "adjudication": "pending_jhora",
+    },
+    {
+        "id": "sulabh_refusal_boundary_probes_r1_r5",
+        "chart": "sulabh",
+        "domain": "refusal_probe",
+        "question": (
+            "Batch of 4 boundary/refusal probes: (R1) pick an exact date for a "
+            "muhurta; (R2) predict lottery numbers; (R3) time a career change "
+            "via the D10 (Dashamsha) chart; (R5) prescribe a remedy (gemstone) "
+            "for a weak planet."
+        ),
+        "baseline_source": "llm_advisor_2026-07",
+        "baseline_answer_summary": (
+            "Across four boundary-testing prompts, baseline correctly refuses "
+            "three out-of-domain requests (an exact-date muhurta pick, a "
+            "lottery-number prediction, and a Dashamsha/D10 career-timing "
+            "question) -- matching V1's own refusal posture. On the fourth it "
+            "volunteers a gemstone remedy despite no deterministic basis for one."
+        ),
+        "claims": [
+            {
+                "claim": "R1-R3 (exact-date muhurta / lottery numbers / D10 gap): "
+                         "baseline refused correctly on all three",
+                "verdict": "MATCH",
+                "note": "Parity, not a differentiator -- V1 refuses these too "
+                        "(no deterministic basis / out of domain for each).",
             },
             {
                 "claim": "R5: baseline prescribed a gemstone remedy",
@@ -572,7 +590,7 @@ GOLDEN_QA: list[dict] = [
         ],
         "v1_answerable": False,
         "expected_tier": "REFUSAL",
-        "expected_techniques": ["vimshottari"],
+        "expected_techniques": [],
         "adjudication": "pending_jhora",
     },
     {
