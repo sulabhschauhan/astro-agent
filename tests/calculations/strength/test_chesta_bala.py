@@ -4,7 +4,8 @@ Layer A: structural unit tests (A1-A3 use real ephemeris at J2000 for Tara
          Graha paths; A4-A5 monkeypatch swe.calc_ut to inject synthetic
          Moon/Sun positions for paksha-branch isolation).
 Layer B: AstroSage parity, Sulabh chart — all 7 planets.
-         Sun tolerance ±40.0 (accepted BPHS-vs-AstroSage gap).
+         Sun tolerance ±1.25 (RESOLVED Session 47 — see chesta_bala.py docstring;
+         observed worst post-fix delta +0.97 sulabh vs AstroSage, + margin).
          Mercury tolerance ±8.0 (synodic-midpoint approximation error).
 Layer C: cross-chart spot-checks (Surbhi Moon, David Moon [Krishna paksha], Surbhi Mars).
 
@@ -70,13 +71,10 @@ class TestA2Shape:
 
 
 class TestA3Range:
-    # NOTE: this range assertion only exercises synthetic input (ayana_val=30.0).
-    # Real ephemeris output for Sun exceeds 60 Virupa on 3 of 4 reference charts
-    # due to _ayana_bala's Sun *2.0 doubling without an upper clamp.
-    # See CLAUDE.md 'Ishta/Kashta Phala -- Sun Ayana Bala doubling' for full
-    # investigation and V1.1 fix path. Not added as a hard range assertion here
-    # to avoid conflicting with AstroSage-parity tests that already accept and
-    # pass on uncapped Sun Ayana values.
+    # NOTE: this range assertion only exercises synthetic input (ayana_val=30.0)
+    # for the Tara Graha/Moon paths. Sun chesta (RESOLVED Session 47: chesta =
+    # 30 + kranti — see chesta_bala.py docstring) ignores ayana_val entirely and
+    # is bounded within [0, 60] by construction (kranti in [-24, 24]).
     def test_a3_all_chesta_in_range_0_to_60(self):
         # ayana["Sun"]=30.0 → sun chesta=30.0 ≤ 60.
         # Moon chesta = 20.0 or 40.0 depending on J2000 paksha state.
@@ -134,14 +132,17 @@ class TestA5MoonShukla:
 # ── Layer B: AstroSage parity, Sulabh chart, all 7 planets ───────────────────
 
 # Tolerances calibrated to elongation formula (CK = sun_lon - planet_true_lon, /3).
-# Sun ±41: Ayana Bala path (BPHS 27.18), actual delta 40.53. Direction suspected
-# inverted in kala_bala.py for Sun. Investigate in P2.5.5. See CLAUDE.md §Chesta Bala.
+# Sun ±1.25: RESOLVED Session 47 (chesta = 30 + kranti, dual-oracle back-solved;
+# see chesta_bala.py docstring). Justification: worst observed AstroSage delta
+# +0.97 Virupa (sulabh), 4/4 charts, + margin. Scope: AstroSage-parity assertion
+# only (Layer B, Sulabh chart). Tuning note: a breach of this tolerance is a
+# REGRESSION in the Sun formula — investigate, do not widen to paper over it.
 # Mars/Mercury/Venus ±10: JHora uses Surya Siddhanta mean daily motion constants
 # for mean longitude — not derivable from Swiss Ephemeris. V1.1 target.
 _CHESTA_TOL: dict[str, float] = {
-    "sun":      41.0,   # Ayana Bala path (BPHS 27.18); actual delta 40.53.
-                        # Direction suspected inverted in kala_bala.py for Sun.
-                        # Investigate in P2.5.5. See CLAUDE.md §Chesta Bala.
+    "sun":       1.25,  # RESOLVED Session 47. Justification: worst observed
+                        # AstroSage delta +0.97 (sulabh) + margin. Scope: AstroSage
+                        # parity only. Breach = regression, investigate — do not widen.
     "moon":      1.0,
     "mars":     10.0,   # elongation formula gap vs JHora. JHora uses Surya Siddhanta
     "mercury":  10.0,   # mean daily motion constants (not Swiss Ephemeris). V1.1.
@@ -167,14 +168,7 @@ def test_b_sulabh_chesta(planet, sulabh_chesta):
     got = sulabh_chesta[planet]["chesta"]
     tol = _CHESTA_TOL[planet]
 
-    if planet == "sun":
-        # Sun Chesta: accepted gap — BPHS rule (Ayana Bala) vs AstroSage undocumented
-        # seeghrochcha. Delta ~40 Virupa. See CLAUDE.md §Chesta Bala. Informational only.
-        assert got == pytest.approx(expected, abs=tol), (
-            f"Sulabh sun chesta: got {got:.4f}, expected {expected:.4f} "
-            f"(accepted gap ±40.0; BPHS Ayana path vs AstroSage undocumented method)"
-        )
-    elif planet == "mercury":
+    if planet == "mercury":
         # Mercury Chesta: synodic-midpoint approximation error. Canary=10.92, fixture=3.37.
         # Delta within expected range for half-synodic method on high-eccentricity orbit.
         # Tolerance widened to ±8.0 per design-chat decision Session 33.
