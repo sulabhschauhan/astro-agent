@@ -59,6 +59,11 @@ _VALID_PLANETS = {"sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn"
 _CAREER_QUESTION = "How is my career and job strength?"
 _DASHA_QUESTION = "What dasha period am I in right now?"
 
+# Golden q14's exact wording (tests/fixtures/golden_qa_sulabh.py) -- routes
+# via calc_router._BUILT_MODULE_FASTPATH (Session 50/P7.2c), never through
+# domain-keyword scoring.
+_SADE_SATI_QUESTION = "Am I currently in Sade Sati, and when does the next cycle begin?"
+
 
 # ─── Fixtures ──────────────────────────────────────────────────────────────
 
@@ -291,6 +296,118 @@ def test_refusal_marriage_no_partner(sulabh_chart):
     # route_question's has_partner_data guard specifically.
     result = answer_question("Check our marriage compatibility", sulabh_chart)
     _assert_refusal(result)
+
+
+# ─── Group F: Sade Sati domain (Session 50/P7.2c-e) ────────────────────
+#
+# sade_sati routes via calc_router._BUILT_MODULE_FASTPATH, a deterministic
+# phrase match checked BEFORE domain-keyword scoring -- never through
+# _score_domain, never through Stage 2 (test_sade_sati_never_reaches_
+# stage2 below guards that). Always TIER_1_EXACT, always
+# demotion_reason=None (chart_profile.py's sade_sati payload carries no
+# dated dasha claims, so it never inherits current_dasha's ALWAYS-T2 rule
+# -- Session 49/P7.0c "tier = payload property" principle).
+#
+# Hardest case first (CLAUDE.md Working Style #3): the NOT-active branch
+# (Sulabh) is structurally more interesting than the active one -- it must
+# correctly OMIT current_cycle_start/end while still reporting
+# previous_cycle_end + next_cycle_start.
+
+
+def test_sade_sati_sulabh(sulabh_chart):
+    """WALL-CLOCK COUPLING (P7.2e item 6, comment only, no machinery):
+    these exact dates hold until Sulabh's own next Sade Sati cycle begins
+    (27 Jan 2041, per the P7.2a/golden q14 verified ephemeris scan) -- a
+    real astronomical fact, not a maintenance burden before then.
+    """
+    result = answer_question(_SADE_SATI_QUESTION, sulabh_chart)
+
+    assert result.domain == "sade_sati"
+    assert result.tier == AnswerTier.TIER_1_EXACT
+    assert result.demotion_reason is None
+
+    payload = result.answer_payload
+    assert payload["active"] is False
+    assert payload["previous_cycle_end"] == "24 Jan 2020"
+    assert payload["next_cycle_start"] == "27 Jan 2041"
+
+    # Payload-property tier lock, asserted structurally: sade_sati earns
+    # TIER_1_EXACT BECAUSE this payload carries no dated Mahadasha/
+    # Antardasha claims, unlike current_dasha's (always demoted). If a
+    # future edit ever merged the two payload shapes, this catches it.
+    assert "mahadasha" not in payload
+    assert "antardasha" not in payload
+    assert "current_cycle_start" not in payload  # only present when active
+    assert "current_cycle_end" not in payload
+
+
+def test_sade_sati_surbhi_active(surbhi_chart):
+    """Active-case coverage. Verified (not guessed) which of the 4
+    reference charts is currently in an active Sade Sati cycle by a
+    direct answer_question() call before writing this test: as of this
+    session, Surbhi (SETTING) and Sheridan (RISING) both are; Sulabh and
+    David are not. Uses the real, no-mocks answer_question() path (this
+    file's own convention) -- the task's historical-evaluated_at_jd
+    build_domain_profile() fallback (for when no reference chart is
+    currently active) was not needed here.
+
+    WALL-CLOCK COUPLING: Surbhi's current cycle ends 23 Feb 2028 (this
+    session's verified value) -- a shorter runway than
+    test_sade_sati_sulabh's ~2041. Comment only, no machinery.
+    """
+    result = answer_question(_SADE_SATI_QUESTION, surbhi_chart)
+
+    assert result.domain == "sade_sati"
+    assert result.tier == AnswerTier.TIER_1_EXACT
+    assert result.demotion_reason is None
+
+    payload = result.answer_payload
+    assert payload["active"] is True
+    assert payload["phase"] == "SETTING"
+    assert payload["current_cycle_start"] == "24 Jan 2020"
+    assert payload["current_cycle_end"] == "23 Feb 2028"
+    assert payload["next_cycle_start"] == "20 Oct 2027"
+    assert "previous_cycle_end" not in payload  # only present when NOT active
+    assert "mahadasha" not in payload
+    assert "antardasha" not in payload
+
+
+def test_sade_sati_never_reaches_stage2(sulabh_chart, monkeypatch):
+    """Determinism guard: the sade_sati fast-path must resolve entirely
+    within Stage 1, never falling through to Stage 2.
+
+    Patches calc_router._stage2_fallback, NOT _stage2_classify --
+    verified this is the correct seam: _stage2_classify's exceptions are
+    caught by _stage2_fallback's own fail-closed except-Exception (Stage 2
+    always fails CLOSED to REFUSAL), so patching _stage2_classify to raise
+    would be silently swallowed into an ordinary REFUSAL and never surface
+    as a visible test failure -- the same trap documented in
+    tests/conftest.py's Stage 2 stub. _stage2_fallback itself is called
+    directly from route_question() with no enclosing try/except, so an
+    exception raised here propagates all the way up through
+    answer_question() uncaught, which is what actually proves
+    non-invocation.
+    """
+    def _explode(*args, **kwargs):
+        raise AssertionError("Stage 2 must not fire for a sade_sati fast-path question")
+
+    monkeypatch.setattr("agent.infra.calc_router._stage2_fallback", _explode)
+
+    result = answer_question(_SADE_SATI_QUESTION, sulabh_chart)
+    assert result.domain == "sade_sati"
+    assert result.tier == AnswerTier.TIER_1_EXACT
+
+
+def test_refusal_ashtakavarga_still_unbuilt(sulabh_chart):
+    """Regression guard for the fastpath insertion-point ordering (P7.2c):
+    _BUILT_MODULE_FASTPATH is checked AFTER _UNBUILT_MODULE_KEYWORDS --
+    confirms adding the new sade_sati fast-path didn't accidentally
+    reorder or short-circuit the pre-existing unbuilt-module refusal for
+    a genuinely unbuilt module.
+    """
+    result = answer_question("What is my Ashtakavarga strength?", sulabh_chart)
+    _assert_refusal(result)
+    assert "Ashtakavarga" in result.demotion_reason
 
 
 # ─── Group E: Error handling ────────────────────────────────────────────
