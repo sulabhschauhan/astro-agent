@@ -10,11 +10,27 @@ Router, calc_router.py) and does not compute tier-demotion logic beyond the
 one dasha-domain boundary check already carried on the profile by the
 router -- it only reads pre-assembled DomainChartProfile.payload and renders
 the DomainAnswer contract fixed by chart_profile.py.
+
+Session 50/P7.2b adds a 4th domain, "sade_sati" -- a TIER_1_EXACT-only
+render (no ±37-day-style drift language anywhere in that branch: the
+payload carries no dated dasha claims, per the "tier = payload property"
+lock, chart_profile.py's own P7.2a docstring). It is also this file's
+first JD->human-date conversion: current_dasha's mahadasha/antardasha
+date strings arrive from chart_profile.py already formatted (chart_
+calculator._fmt()'s "D Mon YYYY", day-level, no time-of-day), so this file
+never needed its own JD conversion before. _format_jd() below mirrors that
+exact "D Mon YYYY" output convention, sourced via panchanga.py's
+swe.revjul()-based conversion pattern (this project's own existing
+JD->datetime precedent) -- not a second, independently-invented
+conversion path.
 """
 
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
+
+import swisseph as swe
 
 from agent.infra.chart_profile import AnswerTier, DomainAnswer, DomainChartProfile
 
@@ -48,6 +64,13 @@ _DASHA_DEMOTION_REASON = (
     "lord is reliable except near period boundaries"
 )
 
+# SENSITIVE_TO chart_profile.py's _SADE_SATI_ADJACENT_CYCLE_SCAN_YEARS (=40):
+# this literal must stay in sync with that constant if it's ever changed --
+# not imported (this module's contract: no dependency on chart_profile.py
+# internals, only its public DomainChartProfile/AnswerTier/DomainAnswer
+# contract), same encapsulation as _DASHA_DEMOTION_REASON above.
+_SADE_SATI_UNKNOWN_BOUNDARY = "not determinable within ±40y scan window"
+
 
 def format_answer(profile: DomainChartProfile) -> DomainAnswer:
     """Route to the domain-specific formatter based on profile.domain."""
@@ -57,7 +80,33 @@ def format_answer(profile: DomainChartProfile) -> DomainAnswer:
         return _format_career(profile)
     if profile.domain == "current_dasha":
         return _format_dasha(profile)
+    if profile.domain == "sade_sati":
+        return _format_sade_sati(profile)
     raise ValueError(f"result_formatter: unknown domain {profile.domain!r}")
+
+
+def _format_jd(jd_ut: float) -> str:
+    """JD (UT) -> "D Mon YYYY" string -- matches chart_calculator._fmt()'s
+    exact output convention (day-level precision, no time-of-day; the only
+    human-date format used anywhere in this pipeline's payloads so far --
+    current_dasha's mahadasha/antardasha start/end strings arrive already
+    formatted this way from chart_profile.py, see module docstring).
+    Conversion mechanics (swe.revjul() + timedelta) mirror panchanga.py's
+    _julian_day_ut_to_datetime -- this project's own existing JD->datetime
+    precedent -- rather than inventing a second one.
+    """
+    y, mo, dy, hr = swe.revjul(jd_ut)
+    dt = datetime(y, mo, dy, tzinfo=timezone.utc) + timedelta(hours=hr)
+    return f"{dt.day} {dt.strftime('%b')} {dt.year}"
+
+
+def _format_jd_or_unknown(jd_ut: float | None) -> str:
+    """None-safe wrapper: chart_profile.py's sade_sati payload uses None for
+    a boundary genuinely not found within its +/-40y scan window (not an
+    error) -- must not crash, must not fabricate a date."""
+    if jd_ut is None:
+        return _SADE_SATI_UNKNOWN_BOUNDARY
+    return _format_jd(jd_ut)
 
 
 def _planet_label(ratio: float) -> str:
@@ -211,5 +260,50 @@ def _format_dasha(profile: DomainChartProfile) -> DomainAnswer:
         uncertainty_virupa=profile.uncertainty_virupa,
         demotion_reason=demotion_reason,
         sources=("vimshottari_dasha",),
+        uncertainty_days=profile.uncertainty_days,
+    )
+
+
+def _format_sade_sati(profile: DomainChartProfile) -> DomainAnswer:
+    """Always TIER_1_EXACT, always demotion_reason=None -- no ±37-day-style
+    drift language anywhere in this branch (design lock: tier is a payload
+    property, and this payload carries no dated dasha claims, unlike
+    current_dasha's). All 4 boundary fields are rendered None-safely via
+    _format_jd_or_unknown() regardless of `active` (chart_profile.py's own
+    P7.2a docstring notes current_cycle_start/end are populated "if
+    active", but does not guarantee active=True always implies a found
+    macro envelope -- rendering must not assume it and must not crash).
+    """
+    active = profile.payload["active"]
+    phase = profile.payload["phase"]
+
+    # Rendering rule (P7.2b contract): active -> phase + current cycle span
+    # + next cycle start; not active -> not-active + previous cycle end +
+    # next cycle start. Both branches always report next_cycle_start.
+    answer_payload: dict = {
+        "active": active,
+        "phase": phase,
+        "next_cycle_start": _format_jd_or_unknown(profile.payload["next_cycle_start_jd"]),
+    }
+    if active:
+        answer_payload["current_cycle_start"] = _format_jd_or_unknown(
+            profile.payload["current_cycle_start_jd"]
+        )
+        answer_payload["current_cycle_end"] = _format_jd_or_unknown(
+            profile.payload["current_cycle_end_jd"]
+        )
+    else:
+        answer_payload["previous_cycle_end"] = _format_jd_or_unknown(
+            profile.payload["previous_cycle_end_jd"]
+        )
+
+    return DomainAnswer(
+        domain=profile.domain,
+        tier=AnswerTier.TIER_1_EXACT,
+        answer_payload=answer_payload,
+        stub_caveats=profile.stub_caveats,
+        uncertainty_virupa=profile.uncertainty_virupa,
+        demotion_reason=None,
+        sources=("sade_sati",),
         uncertainty_days=profile.uncertainty_days,
     )
