@@ -1,10 +1,15 @@
-# test_ephemeris.py sid_mode leak fix (Session 52)
+# 3-file ephemeris migration: chandrabala/tarabala/panchaka (Session 52)
 
-**Fixed:** `test_sidereal_longitude_ignores_prior_global_sid_mode` set
-SIDM_RAMAN and never restored Lahiri, risking a silent ayanamsa leak into
-legacy modules' tests (panchaka.py, chandrabala.py, tarabala.py, etc. rely
-on ambient Lahiri state pending ephemeris-wrapper migration). Wrapped in
-try/finally restoring SIDM_LAHIRI unconditionally.
+**Migrated:** `_moon_sign`/`_moon_nakshatra`/`_moon_sidereal_longitude` now
+delegate to `helpers.ephemeris.sidereal_longitude()`; each module's local
+`EphemerisError` replaced with `EphemerisError = ephemeris.EphemerisError`
+alias. TODO markers removed; docstrings updated to cite Session 52.
+Existing `monkeypatch.setattr(<module>.swe, "calc_ut", ...)` tests still
+pass unchanged -- `swisseph` is a shared sys.modules singleton, so
+patching it via any module's `swe` name also patches ephemeris.py's calls.
 
 ## Result
-Full suite (`pytest tests/`): **1841 passed, 3 skipped**, no regressions.
+Full suite (`pytest tests/`): **1841 passed, 3 skipped**, zero regressions.
+10 of 13 debt call sites remain (chesta_bala, kala_bala, dig_bala,
+sthana_bala, sade_sati, gochara, navamsa, panchanga, chart_profile,
+combustion).

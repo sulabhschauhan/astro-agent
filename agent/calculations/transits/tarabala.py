@@ -56,9 +56,9 @@ LOCKED DECISIONS (P2.3.3):
 - Ephemeris dependency: independent _moon_nakshatra(jd_ut) helper, NOT a
   call into chandrabala.py's _moon_sign() or any other cross-module
   dependency -- avoids cross-module coupling, same rationale as
-  chandrabala.py's _moon_sign() vs gochara.compute_gochara().
-  helpers/ephemeris.py consolidation remains tracked as a separate
-  backlog item (Session 19+).
+  chandrabala.py's _moon_sign() vs gochara.compute_gochara(). swe
+  convention now delegated to helpers/ephemeris.py (Session 52 migration);
+  _moon_nakshatra itself remains a thin per-module wrapper.
 - V1 scope: instant primitive + range-scan only, this single file, no
   Panchaka (P2.3.4) hooks and no Chandrabala+Tarabala composite/
   aggregation hooks -- deferred to the Muhurta composite phase.
@@ -109,6 +109,7 @@ from enum import Enum
 
 import swisseph as swe
 
+from agent.calculations.helpers import ephemeris
 from agent.calculations.helpers.discrete_scan import find_state_segments
 
 _NAK_SPAN = 360.0 / 27.0
@@ -148,16 +149,9 @@ class TarabalaCategory(Enum):
     UNFAVORABLE = "UNFAVORABLE"
 
 
-class EphemerisError(RuntimeError):
-    """A pyswisseph ephemeris calculation failed for a specific planet/JD."""
-
-    def __init__(self, jd_ut: float, planet: str, detail: str):
-        self.jd_ut = jd_ut
-        self.planet = planet
-        super().__init__(
-            f"compute_tarabala: ephemeris failure for {planet} at "
-            f"jd_ut={jd_ut}: {detail}"
-        )
+# Session 52 migration: delegates to helpers/ephemeris.py's canonical
+# EphemerisError rather than keeping a module-local copy.
+EphemerisError = ephemeris.EphemerisError
 
 
 @dataclass(frozen=True)
@@ -174,17 +168,10 @@ class TarabalaStatus:
 def _moon_nakshatra(jd_ut: float) -> int:
     """Moon's sidereal nakshatra (0=Ashwini..26=Revati) at jd_ut.
 
-    TODO: migrate to helpers/ephemeris.py once that wrapper is built out
-    (currently a stub per Session 19); direct swe.calc_ut matches the
-    chandrabala.py / sade_sati.py / gochara.py / navamsa.py convention.
+    Delegates to helpers/ephemeris.py's sidereal_longitude() (Session 52
+    migration) for the underlying swe.calc_ut convention.
     """
-    try:
-        xx, ret = swe.calc_ut(jd_ut, swe.MOON, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
-    except Exception as exc:
-        raise EphemerisError(jd_ut, "Moon", str(exc)) from exc
-    if ret < 0:
-        raise EphemerisError(jd_ut, "Moon", f"retflag={ret}")
-    return int((xx[0] % 360.0) / _NAK_SPAN) % 27
+    return int(ephemeris.sidereal_longitude(jd_ut, swe.MOON) / _NAK_SPAN) % 27
 
 
 def compute_tarabala(natal_nakshatra: int, transit_jd: float) -> TarabalaStatus:

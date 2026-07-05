@@ -46,7 +46,9 @@ LOCKED DECISIONS (P2.3.4):
 - Ephemeris dependency: independent _moon_sidereal_longitude(jd_ut) helper,
   not cross-imported from chandrabala.py's _moon_sign() or tarabala.py's
   _moon_nakshatra() -- same cross-module-coupling avoidance rationale as
-  those two modules.
+  those two modules. swe convention now delegated to helpers/ephemeris.py
+  (Session 52 migration); _moon_sidereal_longitude itself remains a thin
+  per-module wrapper.
 
 Range-scan (P2.3.4 continued):
 - find_panchaka_windows(start_jd, end_jd) returns the contiguous
@@ -88,6 +90,7 @@ from enum import Enum
 
 import swisseph as swe
 
+from agent.calculations.helpers import ephemeris
 from agent.calculations.helpers.discrete_scan import find_state_segments
 
 _PANCHAK_START_DEG = 300.0   # inclusive
@@ -99,16 +102,9 @@ class PanchakaCategory(Enum):
     NOT_PANCHAK = "NOT_PANCHAK"
 
 
-class EphemerisError(RuntimeError):
-    """A pyswisseph ephemeris calculation failed for a specific planet/JD."""
-
-    def __init__(self, jd_ut: float, planet: str, detail: str):
-        self.jd_ut = jd_ut
-        self.planet = planet
-        super().__init__(
-            f"compute_panchaka: ephemeris failure for {planet} at "
-            f"jd_ut={jd_ut}: {detail}"
-        )
+# Session 52 migration: delegates to helpers/ephemeris.py's canonical
+# EphemerisError rather than keeping a module-local copy.
+EphemerisError = ephemeris.EphemerisError
 
 
 @dataclass(frozen=True)
@@ -121,20 +117,10 @@ class PanchakaStatus:
 def _moon_sidereal_longitude(jd_ut: float) -> float:
     """Moon's sidereal longitude (degrees, [0, 360)) at jd_ut.
 
-    TODO: migrate to helpers/ephemeris.py once that wrapper is built out
-    (currently a stub per Session 19); direct swe.calc_ut matches the
-    chandrabala.py / tarabala.py / gochara.py / sade_sati.py / navamsa.py
-    convention.
+    Delegates to helpers/ephemeris.py's sidereal_longitude() (Session 52
+    migration) for the underlying swe.calc_ut convention.
     """
-    try:
-        xx, ret = swe.calc_ut(
-            jd_ut, swe.MOON, swe.FLG_SWIEPH | swe.FLG_SIDEREAL
-        )
-    except Exception as exc:
-        raise EphemerisError(jd_ut, "Moon", str(exc)) from exc
-    if ret < 0:
-        raise EphemerisError(jd_ut, "Moon", f"retflag={ret}")
-    return xx[0] % 360.0
+    return ephemeris.sidereal_longitude(jd_ut, swe.MOON)
 
 
 def compute_panchaka(jd_ut: float) -> PanchakaStatus:

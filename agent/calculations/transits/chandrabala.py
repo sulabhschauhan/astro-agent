@@ -36,8 +36,9 @@ LOCKED DECISIONS (P2.3.1):
   house_from_moon naming.
 - Ephemeris dependency: independent _moon_sign(jd_ut) helper, NOT a call
   into gochara.compute_gochara() -- avoids a new cross-module dependency
-  and an 8-planet computation for a 1-planet need. helpers/ephemeris.py
-  consolidation remains tracked as a separate backlog item (Session 19+).
+  and an 8-planet computation for a 1-planet need. swe convention now
+  delegated to helpers/ephemeris.py (Session 52 migration); _moon_sign
+  itself remains a thin per-module wrapper, not inlined at its call site.
 - V1 scope: instant primitive only -- given (natal_moon_sign, transit_jd),
   returns one classification. No range-scan (P2.3.2), no Tarabala/Panchaka
   aggregation hooks.
@@ -80,6 +81,7 @@ from enum import Enum
 
 import swisseph as swe
 
+from agent.calculations.helpers import ephemeris
 from agent.calculations.helpers.discrete_scan import find_state_segments
 
 _FAVORABLE_HOUSES = frozenset({1, 3, 6, 7, 10, 11})
@@ -90,16 +92,9 @@ class ChandrabalaCategory(Enum):
     UNFAVORABLE = "UNFAVORABLE"
 
 
-class EphemerisError(RuntimeError):
-    """A pyswisseph ephemeris calculation failed for a specific planet/JD."""
-
-    def __init__(self, jd_ut: float, planet: str, detail: str):
-        self.jd_ut = jd_ut
-        self.planet = planet
-        super().__init__(
-            f"compute_chandrabala: ephemeris failure for {planet} at "
-            f"jd_ut={jd_ut}: {detail}"
-        )
+# Session 52 migration: delegates to helpers/ephemeris.py's canonical
+# EphemerisError rather than keeping a module-local copy.
+EphemerisError = ephemeris.EphemerisError
 
 
 @dataclass(frozen=True)
@@ -114,17 +109,10 @@ class ChandrabalaStatus:
 def _moon_sign(jd_ut: float) -> int:
     """Moon's sidereal sign (0=Aries..11=Pisces) at jd_ut.
 
-    TODO: migrate to helpers/ephemeris.py once that wrapper is built out
-    (currently a stub per Session 19); direct swe.calc_ut matches the
-    gochara.py / sade_sati.py / navamsa.py convention.
+    Delegates to helpers/ephemeris.py's sidereal_longitude() (Session 52
+    migration) for the underlying swe.calc_ut convention.
     """
-    try:
-        xx, ret = swe.calc_ut(jd_ut, swe.MOON, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
-    except Exception as exc:
-        raise EphemerisError(jd_ut, "Moon", str(exc)) from exc
-    if ret < 0:
-        raise EphemerisError(jd_ut, "Moon", f"retflag={ret}")
-    return int((xx[0] % 360.0) / 30.0) % 12
+    return int(ephemeris.sidereal_longitude(jd_ut, swe.MOON) / 30.0) % 12
 
 
 def compute_chandrabala(natal_moon_sign: int, transit_jd: float) -> ChandrabalaStatus:
