@@ -329,12 +329,15 @@ scorecard: match=12, design_debt=0, known_gap=4 (all STAGE2_VARIABLE,
 expected cross-run variance — see CLAUDE.md Locked Decisions), new_gap=0.
 1790 passed, 3 skipped. Full detail: SESSION_LOG.md Session 50.
 
-Items (a)-(e) below are now UNBLOCKED. **Combustion thin-slice (Session
-56 below) is next**, opening with a design-chat-first decision: PVR-first
-orb sourcing (PVR's retrograde-orb distinction vs. this Master Build
-Plan's own "Standard combustion degrees" list below) must be resolved
-before any implementation prompt is drafted — same discipline as every
-other contested-source module in this project.
+**DONE (Session 51):** combustion thin-slice shipped — `combustion.py`
+(PVR book SILENT on orbs, design-chat-resolved to Surya Siddhanta
+convention) + 31 tests; `chart_calculator.py` FLG_SPEED retrograde bug
+fixed (flag was always False since inception). 1821 passed, 3 skipped.
+Full detail: SESSION_LOG.md Session 51.
+
+Items (a)-(e) below are now UNBLOCKED. **Next: sequencing decision in
+design chat** between (a) Drik/Bhava-Drishti verbatim extraction and (b)
+ephemeris consolidation, below.
 
 After thin-slice checkpoint validates (S44.1-S44.6):
 
