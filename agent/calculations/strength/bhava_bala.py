@@ -7,18 +7,22 @@ Sub-components:
   compute_bhava_dig_bala     — real implementation, ported from PyJHora's
                                rasi-animal-group taper formula (Porphyry
                                cusps required — see function docstring).
-  compute_bhava_drishti_bala — V1 STUB (shares Drik Bala's unresolved kernel).
+  compute_bhava_drishti_bala — real implementation, Session 53. Bhava-level
+                               Sphuta Drishti (see function docstring for
+                               the full CITATION).
 
 Aggregate:
   compute_bhava_bala_totals  — combines all three; carries dig_is_stubbed and
-                               drishti_is_stubbed flags on every house entry.
+                               drishti_is_stubbed flags on every house entry
+                               (drishti_is_stubbed is now always False).
 
-See CLAUDE.md Known Source Divergences for the drishti stub rationale (and
-the now-superseded dig rationale, pending a SESSION_LOG/CLAUDE.md update).
+See CLAUDE.md Known Source Divergences for the now-superseded dig/drishti
+stub rationale, pending a SESSION_LOG/CLAUDE.md update.
 """
 
 from __future__ import annotations
 
+from agent.calculations.strength.drik_bala import _classify_mercury, _classify_moon
 from agent.chart_calculator import SIGN_LORDS
 
 _EXPECTED_HOUSES = frozenset(range(1, 13))
@@ -207,28 +211,171 @@ def compute_bhava_dig_bala(
     return {"values": values, "multi_match_houses": multi_match_houses}
 
 
-def compute_bhava_drishti_bala(house_signs: dict[int, str]) -> dict[int, float]:
-    """V1 STUB — always returns 0.0 for all 12 houses.
+_BHAVA_DRISHTI_PLANETS: list[str] = [
+    "Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn",
+]
+_BHAVA_DRISHTI_NATURAL_BENEFICS: set[str] = {"Jupiter", "Venus"}
+_BHAVA_DRISHTI_NATURAL_MALEFICS: set[str] = {"Sun", "Mars", "Saturn"}
 
-    Shares its root cause with drik_bala.py's stub: both depend on the
-    same Drishti Kendra aspect-strength kernel, which has an unresolved
-    divergence from AstroSage (see CLAUDE.md Known Source Divergences —
-    'Bhava Drishti Bala' and 'Drik Bala'). DO NOT re-derive this kernel
-    independently of resolving Drik Bala first — they are the same
-    underlying formula gap, not two separate problems.
+# Mercury and Jupiter contribute their full Sphuta Drishti value to a house;
+# every other planet is quartered (BPHS-derived "quarter rule" for
+# bhava-level, as opposed to graha-level, aspect strength — see CITATION
+# point (a) below for why this is a DIFFERENT kernel from drik_bala.py's).
+_BHAVA_DRISHTI_FULL_VALUE_PLANETS: frozenset[str] = frozenset({"Mercury", "Jupiter"})
+
+
+def _bhava_drishti_base(D: float) -> float:
+    """Raw BPHS Ch.28 base taper for bhava (house-madhya) Sphuta Drishti.
+
+    Transcribed verbatim from PyJHora's __bhava_drik_bala_calc_1 piecewise
+    (see module CITATION point (a) in compute_bhava_drishti_bala) — this is
+    NOT drik_bala.py's smooth-taper graha kernel; the two intentionally
+    diverge (each independently oracle-validated). No continuity
+    corrections applied here, unlike drik_bala.py's SMOOTH-TAPER
+    CORRECTIONS — the raw piecewise form is what back-solved against the
+    AstroSage BhavBala oracle.
     """
-    if set(house_signs.keys()) != set(range(1, 13)):
+    if D < 30.0:
+        return 0.0
+    elif D < 60.0:
+        return (D - 30.0) / 2.0
+    elif D < 90.0:
+        return D - 45.0
+    elif D < 120.0:
+        return 30.0 + (120.0 - D) / 2.0
+    elif D < 150.0:
+        return 150.0 - D
+    elif D < 180.0:
+        return 2.0 * (D - 150.0)
+    elif D < 300.0:
+        return (300.0 - D) / 2.0
+    else:
+        return 0.0
+
+
+def _bhava_drishti_addon(planet: str, D: float) -> float:
+    """Planet-specific ADD-ON specials — additive on top of the base taper,
+    not an override/replacement (deliberately different shape from
+    drik_bala.py's per-planet formula overrides). Session 53 back-solve
+    against the AstroSage BhavBala oracle; see module CITATION.
+    """
+    if planet == "Saturn" and (60.0 < D <= 90.0 or 270.0 < D < 300.0):
+        return 45.0
+    if planet == "Mars" and (90.0 < D <= 120.0 or 210.0 < D < 240.0):
+        return 15.0
+    if planet == "Jupiter" and (120.0 < D <= 150.0 or 240.0 < D < 270.0):
+        return 30.0
+    return 0.0
+
+
+def _sphuta_bhava_drishti(planet: str, D: float) -> float:
+    """S(planet, D) = base taper + planet add-on. NO clamp to [0, 60] —
+    unlike drik_bala.py's graha-level _sphuta_drishti, the bhava kernel's
+    add-on specials can push S above 60 and that is the oracle-validated
+    behavior (see module CITATION point (a))."""
+    return _bhava_drishti_base(D) + _bhava_drishti_addon(planet, D)
+
+
+def compute_bhava_drishti_bala(
+    house_cusps: dict[int, float],
+    planet_lons: dict[str, float],
+) -> dict[int, float]:
+    """Bhava Drishti Bala — real implementation, Session 53.
+
+    For each house, sums each of the 7 classical planets' Sphuta Drishti
+    cast on that house's Bhava Madhya, signed by the planet's benefic/
+    malefic classification, with Mercury and Jupiter contributing their
+    full value and every other planet quartered.
+
+    CITATION:
+      (a) Kernel: the raw PyJHora __bhava_drik_bala_calc_1 piecewise
+          (BPHS Ch.28 base taper + Saturn/Mars/Jupiter ADD-ON specials),
+          NOT drik_bala.py's smooth-taper graha kernel — the two
+          components intentionally use DIFFERENT kernels (this one raw/
+          additive/unclamped, drik_bala.py's continuity-corrected/
+          clamped-to-60), each independently oracle-validated on its own
+          terms; one is not a refinement of the other.
+      (b) PyJHora's own aggregation was NOT ported: it has a row/column
+          indexing bug and hardcodes a fixed benefic/malefic planet list.
+          Both were empirically ruled out this session against the
+          AstroSage oracle (a fixed list mismatches Sulabh/David, where
+          Mercury classifies malefic — see point (c)).
+      (c) Classification uses drik_bala.py's dynamic Session 46 rules
+          (_classify_moon elongation rule, _classify_mercury same-rasi
+          association), imported and reused rather than re-derived — the
+          4-chart validation matrix confirmed the dynamic rules over
+          PyJHora's fixed list precisely because Sulabh's and David's
+          Mercury flip malefic under it.
+      (d) Oracle: AstroSage BhavBala table, all 4 reference charts
+          (Sulabh, Surbhi, Sheridan, David) — 48/48 houses within ±0.16
+          Virupa max |delta|. JHora bhava-level parity was NOT checked
+          for this component.
+
+    Args:
+        house_cusps: {1: cusp1_lon, ..., 12: cusp12_lon} — Porphyry/Sripati
+            Bhava Madhya absolute sidereal longitude (0-360), same dict
+            shape compute_bhava_dig_bala takes. See agent.chart_calculator.
+            compute_porphyry_house_cusps().
+        planet_lons: {"Sun": lon, ..., "Saturn": lon} — title-case, exactly
+            the 7 classical planets, sidereal longitude in [0, 360).
+
+    Returns:
+        {1: float, ..., 12: float} — Virupa, rounded to 2 dp. No clamp to
+        any range (see point (a) above): can be negative (malefic-
+        dominated house) or exceed the [0, 60] band a single graha's
+        Drishti Pinda is clamped to in drik_bala.py.
+
+    Raises:
+        ValueError: house_cusps missing/extra keys (must be exactly 1-12),
+            or planet_lons missing any of the 7 classical planets.
+    """
+    if set(house_cusps.keys()) != set(range(1, 13)):
         raise ValueError(
-            f"house_signs must have exactly keys 1-12, got {sorted(house_signs.keys())}"
+            f"house_cusps must have exactly keys 1-12, got {sorted(house_cusps.keys())}"
         )
-    return {h: 0.0 for h in range(1, 13)}
+    missing_planets = set(_BHAVA_DRISHTI_PLANETS) - set(planet_lons.keys())
+    if missing_planets:
+        raise ValueError(
+            f"planet_lons missing required planet(s): {sorted(missing_planets)} "
+            f"(got keys {sorted(planet_lons.keys())})"
+        )
+
+    moon_is_benefic = _classify_moon(planet_lons)
+    mercury_is_benefic = _classify_mercury(planet_lons, moon_is_benefic)
+    benefics = set(_BHAVA_DRISHTI_NATURAL_BENEFICS)
+    malefics = set(_BHAVA_DRISHTI_NATURAL_MALEFICS)
+    if moon_is_benefic:
+        benefics.add("Moon")
+    else:
+        malefics.add("Moon")
+    if mercury_is_benefic:
+        benefics.add("Mercury")
+    else:
+        malefics.add("Mercury")
+
+    result: dict[int, float] = {}
+    for h in range(1, 13):
+        madhya = house_cusps[h] % 360.0
+        value = 0.0
+        for planet in _BHAVA_DRISHTI_PLANETS:
+            D = (madhya - planet_lons[planet]) % 360.0
+            S = _sphuta_bhava_drishti(planet, D)
+            if planet not in _BHAVA_DRISHTI_FULL_VALUE_PLANETS:
+                S *= 0.25
+            value += S if planet in benefics else -S
+        result[h] = round(value, 2)
+
+    return result
 
 
 _BHAVA_BALA_V1_CAVEAT = (
-    "V1: bhava_drishti is stubbed at 0.0 "
-    "(see CLAUDE.md Known Source Divergences). bhava_dig is real (PyJHora "
-    "rasi-animal-group formula, Porphyry cusps). total_virupa omits the "
-    "drishti contribution; rank may shift when that stub is resolved."
+    "All 3 Bhava Bala sub-components are real as of Session 53 "
+    "(bhavadhipati, bhava_dig PyJHora rasi-animal-group formula, "
+    "bhava_drishti bhava-level Sphuta Drishti). total_virupa includes all "
+    "three. bhava_drishti validated against AstroSage's BhavBala table "
+    "only (48/48 houses, 4 charts, max |delta| 0.16 Virupa); JHora "
+    "bhava-level parity not checked — see compute_bhava_drishti_bala "
+    "CITATION for the full provenance."
 )
 
 
@@ -236,6 +383,7 @@ def compute_bhava_bala_totals(
     house_signs: dict[int, str],
     shadbala_totals: dict[str, float],
     house_cusps: dict[int, float],
+    planet_lons: dict[str, float],
 ) -> dict[int, dict]:
     """Aggregate all 3 Bhava Bala sub-components per house.
 
@@ -243,14 +391,15 @@ def compute_bhava_bala_totals(
         bhavadhipati: float  — real computation
         bhava_dig: float     — real computation (PyJHora rasi-animal-group
                                formula; see compute_bhava_dig_bala)
-        bhava_drishti: float — always 0.0 V1 (stub)
+        bhava_drishti: float — real computation (Session 53; see
+                               compute_bhava_drishti_bala)
         total_virupa: float  — sum of the 3 components
         total_rupa: float    — total_virupa / 60, rounded to 2 dp
         rank: int            — 1 (strongest) to 12 (weakest), by total_virupa
                                descending; lower house number wins ties
         dig_is_stubbed: bool     — always False (Dig Bala is real, this session)
-        drishti_is_stubbed: bool — always True V1
-        caveat: str          — fixed note on the remaining stub (mirrors
+        drishti_is_stubbed: bool — always False (real, Session 53)
+        caveat: str          — provenance/validation-scope note (mirrors
                                shadbala_totals.py)
 
     shadbala_totals must use title-case keys ('Sun', 'Jupiter', ...) — see
@@ -259,10 +408,13 @@ def compute_bhava_bala_totals(
     house_cusps must be Porphyry/Sripati cusps (see compute_bhava_dig_bala
     and agent.chart_calculator.compute_porphyry_house_cusps) — NOT the same
     cusps as house_signs, which is whole-sign.
+
+    planet_lons: title-case, exactly the 7 classical planets, sidereal
+    longitude in [0, 360) — passed through to compute_bhava_drishti_bala.
     """
     bhavadhipati = compute_bhavadhipati_bala(house_signs, shadbala_totals)
     dig = compute_bhava_dig_bala(house_signs, house_cusps)["values"]
-    drishti = compute_bhava_drishti_bala(house_signs)
+    drishti = compute_bhava_drishti_bala(house_cusps, planet_lons)
 
     result: dict[int, dict] = {}
     for h in range(1, 13):
@@ -275,7 +427,7 @@ def compute_bhava_bala_totals(
             "total_rupa": round(total_v / 60, 2),
             "rank": 0,  # filled in the ranking pass below
             "dig_is_stubbed": False,
-            "drishti_is_stubbed": True,
+            "drishti_is_stubbed": False,
             "caveat": _BHAVA_BALA_V1_CAVEAT,
         }
 
