@@ -1,14 +1,15 @@
-# helpers/ephemeris.py created (Session 52)
+# tests/calculations/helpers/test_ephemeris.py added (Session 52)
 
-**Added:** `agent/calculations/helpers/ephemeris.py` — replaces the 1-line
-stub with `sidereal_longitude()`, `sidereal_position()` (frozen
-`SiderealPosition` dataclass: longitude + signed speed), and canonical
-`EphemerisError`. Convention confirmed against panchaka.py,
-chart_profile.py, combustion.py before writing.
+**Added:** 20 tests for `agent/calculations/helpers/ephemeris.py` — local
+swe.calc_ut reference parity (Moon/MeanNode/Saturn, 1e-9), sidereal_position
+speed sign (David Mercury retrograde <0, Sulabh Sun >0), longitude
+normalization across all 11 bodies SUN..MEAN_NODE, sid_mode independence
+(prior SIDM_RAMAN doesn't leak), chained EphemerisError on invalid planet
+99999, and sidereal_position/sidereal_longitude longitude consistency.
+jd_ut values derived via calculate_chart(), not hardcoded, reusing
+test_combustion.py's known David-Mercury-retrograde fixture.
 
-## Scope
-File only. No call-site migration, no tests (none reference this file
-yet). 13 pending TODO-marked call sites listed in the module CITATION;
-migrations are separate follow-up prompts.
-
-Not run: pytest (explicitly out of scope for this prompt).
+## Result
+New file alone: 20 passed.
+Full suite (`pytest tests/`): **1841 passed, 3 skipped** (1821 + 20 new,
+delta exact, no regressions).
