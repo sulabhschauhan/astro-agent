@@ -1,31 +1,16 @@
-# P7.2f — Harness dead-entry cleanup
+# P9 thin-slice — combustion.py
 
 **Date:** 2026-07-05 (Session 50)
-**Task source:** pasted prompt, "Session 50 — P7.2f"
-**File touched:** `agent/eval/golden_harness.py` only (trivial surgical edit).
+**File created:** `agent/calculations/core/combustion.py` (implementation only).
 
-## What changed
+## What was built
+`compute_combustion(chart_data)` — Asta detection for Moon/Mars/Mercury/
+Jupiter/Venus/Saturn. Orb table: Surya Siddhanta convention (12/17/14/11/10/15
+deg), retro overrides Mercury 12, Venus 8. PVR silent on combustion orbs;
+PyJHora Jupiter/Venus-swap and non-classical retro divergence documented in
+module CITATION block, not followed.
 
-Deleted the dead `_DESIGN_DEBT["sulabh_dasha_q14"]` entry — verified MATCH
-in `diagnostics/golden_scorecard_20260705_085333.md` (P7.2d's run) before
-deleting; deletion is behavior-neutral since `MATCH` is checked before
-this dict is ever consulted. `_DESIGN_DEBT` is now `{}`, kept (dict +
-category machinery) as the correct slot for the next genuine, un-locked
-product gap, per a one-line comment.
-
-## Harness re-run (once)
-
-```
-runnable=16 non_runnable_batch=2 match=12 design_debt=0 known_gap=4 new_gap=0 error=0
-report: diagnostics/golden_scorecard_20260705_090311.md
-```
-Matches exactly as expected. All 4 STAGE2_VARIABLE rows
-(`sulabh_career_q4`, `sulabh_marriage_q9`, `sulabh_marriage_q10`,
-`sulabh_dasha_q15`) identical to the P7.2d run — **no flip this run**.
-
-## Full suite
-
-```
-1790 passed, 3 skipped, 1 warning in 82.47s
-```
-Unchanged.
+## Smoke result
+Import OK. Ad hoc functional check against calculate_chart() for Sulabh and
+Surbhi matched documented anchors exactly: Sulabh zero combust (Mercury-Sun
+14.6501 > 14 orb); Surbhi Mercury 3.6018 and Jupiter 4.9738 both combust.
