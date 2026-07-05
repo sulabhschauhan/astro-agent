@@ -1,11 +1,14 @@
-# test_combustion.py (Session 51)
+# helpers/ephemeris.py created (Session 52)
 
-**Added:** `tests/calculations/core/test_combustion.py` — 31 tests
-(18 Layer A real-chart oracle rows, not 22 as the task text said — the
-prompt's row list only enumerated 18; used the explicit list verbatim,
-6 Layer B retro-band, 3 Layer C error-contract, 4 Layer D shape).
+**Added:** `agent/calculations/helpers/ephemeris.py` — replaces the 1-line
+stub with `sidereal_longitude()`, `sidereal_position()` (frozen
+`SiderealPosition` dataclass: longitude + signed speed), and canonical
+`EphemerisError`. Convention confirmed against panchaka.py,
+chart_profile.py, combustion.py before writing.
 
-## Result
-New file alone: 31 passed.
-Full suite: **1821 passed, 3 skipped** (was 1790 + 31 new = 1821; delta
-matches exactly, no other test affected).
+## Scope
+File only. No call-site migration, no tests (none reference this file
+yet). 13 pending TODO-marked call sites listed in the module CITATION;
+migrations are separate follow-up prompts.
+
+Not run: pytest (explicitly out of scope for this prompt).
