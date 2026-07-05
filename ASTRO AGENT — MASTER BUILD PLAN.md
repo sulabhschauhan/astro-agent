@@ -335,9 +335,23 @@ convention) + 31 tests; `chart_calculator.py` FLG_SPEED retrograde bug
 fixed (flag was always False since inception). 1821 passed, 3 skipped.
 Full detail: SESSION_LOG.md Session 51.
 
-Items (a)-(e) below are now UNBLOCKED. **Next: sequencing decision in
-design chat** between (a) Drik/Bhava-Drishti verbatim extraction and (b)
-ephemeris consolidation, below.
+**DONE (Session 52) — post-checkpoint item (b), ephemeris consolidation:**
+`helpers/ephemeris.py` built out from its 1-line stub
+(`sidereal_longitude`/`sidereal_position`/`EphemerisError`) and adopted
+across 8 prompts in one session. 11 of the 13 originally-catalogued
+`swe.calc_ut()` call sites are now fully migrated; 3 individual sites
+(chesta_bala.py's non-planet `swe.ECL_NUT` call; kala_bala.py's Ayana
+Bala loop, which feeds the Session 47 oracle-locked Kranti formula and
+was left untouched out of caution despite its flags actually being
+sidereal-standard; kala_bala.py's Yuddha-Bala loop, which needs ecliptic
+latitude the helper doesn't expose) stay direct-by-design, not debt. A
+dormant FLG_SPEED retrograde bug in gochara.py/navamsa.py (same class as
+Session 51's chart_calculator fix) was found incidentally during
+migration and is now pinned by regression tests. 1843 passed, 3 skipped,
+zero regressions throughout. Full detail: SESSION_LOG.md Session 52.
+
+**Next: post-checkpoint item (a)** — Drik/Bhava-Drishti verbatim
+extraction. ABORT GATE unchanged (see item (a) below).
 
 After thin-slice checkpoint validates (S44.1-S44.6):
 
@@ -347,14 +361,10 @@ a. Drik Bala + Bhava Drishti Bala verbatim extraction
    prompt; max 2 diagnostic attempts; success = 7/7 planets ±0.5 Virupa
    on BOTH Sulabh and Surbhi before implementation drafted; partial
    match = failure, stub stays at 0.0.
-b. Ephemeris consolidation (NEW, elevated Session 44): 12 independent
-   `swe.calc_ut()` call sites identified (chesta_bala, kala_bala,
-   dig_bala, sthana_bala, panchaka, tarabala, chandrabala, sade_sati,
-   gochara, navamsa, panchanga, chart_profile bridge). Extract to
-   `helpers/ephemeris.py` per the existing TODO marker. Priority: cheap,
-   mechanical, bounded — ahead of (a) because (a) has open-ended
-   investigation risk and this doesn't. One file, one prompt;
-   regression-gate against the full 1664-test baseline after.
+b. Ephemeris consolidation — **DONE (Session 52).** `helpers/ephemeris.py`
+   built out; 11/13 originally-catalogued call sites migrated, 3 stay
+   direct-by-design (documented rationale, not debt). 1843 passed, 3
+   skipped, zero regressions. Full detail: SESSION_LOG.md Session 52.
 c. TIMING BLOCK (replaces standalone Phase 4): Phase 4 Yogini/Ashtottari
    dashas + Phase 5 Gochara/Sade Sati/BAV-SAV together — dasha alone is
    insufficient for timing precision (Pratyantar suppressed, ±37-day

@@ -1289,3 +1289,120 @@ Sequencing decision in design chat (fresh session): ephemeris
 consolidation helpers/ephemeris.py (now 13 swe.calc_ut call sites,
 combustion.py added one) vs Drik/Bhava-Drishti verbatim extraction —
 Master Build Plan post-checkpoint items (b) vs (a).
+
+## Session 52 — Ephemeris consolidation (Master Build Plan post-checkpoint item (b)) CLOSED (2026-07-05)
+
+### What landed
+Sequencing decision: ephemeris consolidation (b) run first, ahead of
+Drik/Bhava-Drishti extraction (a) — cheap/mechanical/bounded vs (a)'s
+open-ended investigation risk, per Session 44's own priority note.
+Ran across 8 prompts in one session:
+
+1. `agent/calculations/helpers/ephemeris.py` created (was a 1-line stub):
+   `sidereal_longitude()`, `sidereal_position()` (frozen `SiderealPosition`
+   dataclass: longitude + signed speed), canonical `EphemerisError`.
+   Convention (`swe.set_sid_mode(SIDM_LAHIRI)` + `FLG_SWIEPH|FLG_SIDEREAL`
+   [`|FLG_SPEED`]) confirmed by reading panchaka.py/chart_profile.py/
+   combustion.py before writing, not assumed. (26e9e1b)
+2. `tests/calculations/helpers/test_ephemeris.py` — 20 tests: local-swe
+   reference parity, retrograde speed-sign (David Mercury / Sulabh Sun),
+   longitude normalization across all 11 SUN..MEAN_NODE bodies, per-call
+   sid_mode independence, chained EphemerisError, cross-function
+   consistency. 1841 passed, 3 skipped (+20). (c23f4e1)
+3. Fix: the sid_mode-independence test set SIDM_RAMAN and never restored
+   Lahiri, risking a silent ayanamsa leak into later-run legacy-module
+   tests. try/finally now restores Lahiri unconditionally — always
+   restore to the project's one true convention (Lahiri), not a save/
+   restore-to-whatever-was-there-before pattern, since every module in
+   this codebase already assumes Lahiri globally. (cedf390)
+4. Batch 1 migration: chandrabala.py/tarabala.py/panchaka.py's
+   `_moon_sign`/`_moon_nakshatra`/`_moon_sidereal_longitude` delegate to
+   `sidereal_longitude()`; local `EphemerisError` classes aliased to the
+   canonical one. Verified `swisseph` is a shared sys.modules singleton
+   first — existing `monkeypatch.setattr(<module>.swe, "calc_ut", ...)`
+   tests keep working through the new indirection because every
+   importer's `swe` name resolves to the same module object at call time.
+   1841 passed, 3 skipped. (e7f1eda)
+5. Batch 2 migration: gochara.py/navamsa.py's `_calc_transit_graha`/
+   `_calc_graha` delegate to `sidereal_position()`; sade_sati.py's
+   `_saturn_sign` to `sidereal_longitude()` (local EphemerisError aliased).
+   Incidental find: gochara.py/navamsa.py's own flags omitted FLG_SPEED,
+   so `is_retrograde`/`retrograde` was always False for the 7 non-node
+   grahas — same bug class as this session's own chart_calculator fix
+   (Session 51). No test asserted False for a real graha, so zero test
+   impact from the fix. 1841 passed, 3 skipped. (d3d8676)
+6. `tests/calculations/transits/test_gochara.py` — 2 new tests pinning
+   the FLG_SPEED fix (David Mercury retrograde=True; Sulabh Sun
+   retrograde=False, guarding the inverse failure mode). Neither case was
+   previously covered. 1843 passed, 3 skipped (+2). (c219cc9)
+7. Batch 3 migration: chesta_bala.py/kala_bala.py/dig_bala.py, with a
+   mandatory per-site classification step (SIDEREAL-STANDARD vs
+   NON-STANDARD) before any edit. 6 sites migrated; 3 left direct by
+   design: chesta_bala.py's `swe.ECL_NUT` call (not a planet id — true
+   obliquity, outside the helper's swe.SUN..swe.MEAN_NODE contract);
+   kala_bala.py's Ayana Bala loop (PROMPT-PREMISE CORRECTION: its flags
+   are actually sidereal-standard, not tropical as assumed going in — left
+   unmigrated anyway because it feeds the Session 47 oracle-locked Ayana
+   Bala Kranti formula, ±0.45 AstroSage parity, too fragile to touch for a
+   value-neutral refactor); kala_bala.py's Yuddha-Bala longitude/latitude
+   loop (needs `xx[1]` ecliptic latitude, which the helper does not
+   expose — a real capability gap, not a flag mismatch). 1843 passed,
+   3 skipped, zero regressions; Sulabh's Kala/Chesta/Dig values
+   spot-checked bit-identical pre/post. (8b32505)
+8. Batch 4 migration: sthana_bala.py/panchanga.py/chart_profile.py/
+   combustion.py — the last 4 files. All sites here were migratable.
+   PROMPT-PREMISE CORRECTION: combustion.py was expected to need
+   `sidereal_position()` for retro-orb overrides, but its retrograde flag
+   is actually sourced from `chart_data` (chart_calculator.py's own
+   already-computed field), never from this call, which only ever reads
+   `xx[0]` — migrated to `sidereal_longitude()` to match actual usage,
+   confirmed numerically identical either way. combustion.py's Layer C
+   test asserts `pytest.raises(RuntimeError, match="Sun")`; letting
+   `ephemeris.EphemerisError` propagate unwrapped would have swapped the
+   planet NAME for ephemeris.py's numeric swe id in the message, breaking
+   it — kept a thin `except EphemerisError` wrapper that re-raises as this
+   module's own RuntimeError, preserving "Sun". chart_profile.py has no
+   dedicated test file (covered only via test_orchestrator_e2e.py /
+   test_calc_router_stage2.py, neither asserts on message wording).
+   1843 passed, 3 skipped, zero regressions. (66df0e4)
+
+### Key decisions (locked, carry forward)
+1. Batching 3-4 files per migration prompt (Batches 3-4), gated by a full
+   pytest run each time, is an accepted deviation from a stricter
+   one-file-per-prompt pace for this specific class of work: mechanical,
+   value-preserving delegation with an unambiguous pass/fail gate (the
+   full suite). Not a general precedent for riskier/interpretive changes.
+2. Any future ephemeris-migration-style prompt MUST classify every
+   candidate call site (SIDEREAL-STANDARD vs NON-STANDARD/other) by
+   actually reading its flags before editing — two of this session's own
+   prompts assumed a site's classification incorrectly (see corrections
+   below); the classification step is what caught both before they became
+   silent mistakes.
+3. sid_mode teardown convention: tests that mutate ambient `swe.set_sid_
+   mode` restore to `SIDM_LAHIRI` directly in a `finally` block, not a
+   captured-prior-value restore — Lahiri is the codebase's only actual
+   convention, so restoring to "whatever was there before" would be
+   over-engineering for a value nothing else ever sets differently.
+4. Deferred-site terminal-state rule: kala_bala.py's Yuddha-Bala
+   ecliptic-latitude gap does NOT justify extending helpers/ephemeris.py's
+   API (e.g. adding a latitude field). It is a permanent direct-call site
+   by design (YAGNI), not a queued follow-up — do not reopen this as debt
+   in a future session without a concrete new caller that needs it.
+5. Two prompt-premise corrections caught by reading the code instead of
+   trusting the prompt's description (both documented inline at their
+   call sites and in diagnostics/latest_run.md at the time): kala_bala.py's
+   Ayana Bala loop flags are sidereal-standard, not tropical; combustion.py
+   never reads ephemeris speed (retrograde comes from chart_data).
+
+### Test baseline
+1821 passed, 3 skipped -> 1841 (+20, test_ephemeris.py) -> 1843 (+2,
+gochara retro-pin tests) -> 1843 passed, 3 skipped (Batches 3-4:
+regression-neutral, zero new tests, zero value changes).
+
+### Next task
+Master Build Plan post-checkpoint item (a): Drik Bala + Bhava Drishti
+Bala verbatim extraction (`__drik_bala_calc_1_pvr`, Session 42 method).
+ABORT GATE locked Session 44 unchanged: hand-verify Sulabh Moon+Venus
+before any implementation prompt; max 2 diagnostic attempts; success =
+7/7 planets ±0.5 Virupa on BOTH Sulabh and Surbhi before implementation
+drafted; partial match = failure, stub stays at 0.0.
