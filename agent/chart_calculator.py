@@ -379,7 +379,9 @@ def to_julian_day(dob: str, tob: str, lat: float, lon: float) -> tuple[float, da
 
 def _calc_planets(jd_ut: float, asc_lon: float) -> dict:
     """Compute sidereal (Lahiri) positions for all 9 grahas."""
-    flags = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
+    # FLG_SPEED is required for xx[3] (daily motion) to be populated; without
+    # it calc_ut hardcodes xx[3]=0.0 and "retrograde" is always False.
+    flags = swe.FLG_SWIEPH | swe.FLG_SIDEREAL | swe.FLG_SPEED
     planets: dict[str, dict] = {}
 
     for name, pid in _SWE_IDS.items():
