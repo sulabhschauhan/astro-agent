@@ -35,6 +35,7 @@ import swisseph as swe
 from agent.calculations.compatibility.ashtakoot import compute_ashtakoot_compatibility
 from agent.calculations.compatibility.koota_types import AshtakootResult, KootaNatalInfo
 from agent.calculations.compatibility.mangal_dosha import compute_mangal_dosha
+from agent.calculations.helpers import ephemeris
 from agent.calculations.helpers.discrete_scan import find_state_segments
 from agent.calculations.strength.bhava_bala import compute_bhava_bala_totals
 from agent.calculations.strength.shadbala_totals import compute_shadbala_totals
@@ -146,40 +147,18 @@ def _koota_natal_info_from_chart(chart_data: dict) -> KootaNatalInfo:
     moon_longitude: calculate_chart()'s public output does NOT expose planet
     longitudes -- planetary_positions strips _calc_planets()'s internal
     "longitude" field down to house/sign/dignity/retrograde only. Recomputed
-    here via a direct swe.calc_ut() call, mirroring _calc_planets()'s own
-    sidereal-Lahiri approach exactly (same set_sid_mode call, same flags),
-    per CLAUDE.md's helpers/ephemeris.py interim convention ("direct
-    swe.calc_ut() + TODO marker per call site"). Precision matters here:
-    Vashya Koota's Sagittarius/Capricorn half-sign split (trivial.py
-    _vashya_group) compares against an exact 15.0-degree boundary, which a
-    pada-bucket (3.33-degree resolution) reconstruction could not resolve
-    safely.
-
-    CITATION: this is another hand-rolled swe.calc_ut() call site outside
-    the still-stubbed helpers/ephemeris.py (CLAUDE.md's interim convention:
-    "direct swe.calc_ut() + TODO marker per call site"). A repo-wide grep
-    at S44.1 review time found direct swe.calc_ut() usage already present
-    in 11 calculations/ modules (chesta_bala.py, kala_bala.py, dig_bala.py,
-    sthana_bala.py, panchaka.py, tarabala.py, chandrabala.py, sade_sati.py,
-    gochara.py, navamsa.py, panchanga.py) -- this file adds a 12th. Flagged
-    as a named post-checkpoint task (helpers/ephemeris.py extraction) for
-    the CLAUDE.md divergence/debt section, not actioned here.
-    # TODO: extract to helpers/ephemeris.py once the extraction task lands.
+    here via helpers/ephemeris.py's sidereal_longitude() (Session 52
+    migration), matching _calc_planets()'s own sidereal-Lahiri convention.
+    Precision matters here: Vashya Koota's Sagittarius/Capricorn half-sign
+    split (trivial.py _vashya_group) compares against an exact 15.0-degree
+    boundary, which a pada-bucket (3.33-degree resolution) reconstruction
+    could not resolve safely.
     """
     lagna = chart_data["lagna_chart"]
     moon_sign = SIGNS.index(lagna["rasi"])
     nakshatra = NAKSHATRAS.index(lagna["nakshatra"])
 
-    try:
-        swe.set_sid_mode(swe.SIDM_LAHIRI)
-        xx, ret = swe.calc_ut(
-            chart_data["meta"]["jd_ut"], swe.MOON, swe.FLG_SWIEPH | swe.FLG_SIDEREAL
-        )
-        if ret < 0:
-            raise RuntimeError(f"pyswisseph error recomputing Moon longitude (retflag={ret})")
-    except Exception as exc:
-        raise RuntimeError(f"swisseph.calc_ut (Moon longitude bridge) failed: {exc}") from exc
-    moon_longitude = xx[0] % 360
+    moon_longitude = ephemeris.sidereal_longitude(chart_data["meta"]["jd_ut"], swe.MOON)
 
     return KootaNatalInfo(moon_sign=moon_sign, moon_longitude=moon_longitude, nakshatra=nakshatra)
 
@@ -187,30 +166,17 @@ def _koota_natal_info_from_chart(chart_data: dict) -> KootaNatalInfo:
 def _saturn_sidereal_sign(jd_ut: float) -> int:
     """Saturn's sidereal sign (0=Aries..11=Pisces) at jd_ut.
 
-    Direct swe.calc_ut, NOT sade_sati.compute_sade_sati() -- that function
-    runs two full multi-year ephemeris window scans per call (~0.8s each,
-    measured), which would make the 80-year find_state_segments() scan in
+    Direct swe.calc_ut (via helpers/ephemeris.py, Session 52 migration),
+    NOT sade_sati.compute_sade_sati() -- that function runs two full
+    multi-year ephemeris window scans per call (~0.8s each, measured),
+    which would make the 80-year find_state_segments() scan in
     _sade_sati_adjacent_cycle_boundaries() below prohibitively slow (tens
     of seconds). This mirrors sade_sati.py's own private _saturn_sign()
-    formula exactly (same set_sid_mode call, same flags, same //30
-    bucketing) -- read that function's source before reimplementing here
-    rather than importing it, since it is module-private.
-
-    CITATION: another hand-rolled swe.calc_ut() call site outside the
-    still-stubbed helpers/ephemeris.py -- see the CITATION note on
-    _koota_natal_info_from_chart above for the same interim convention.
-    # TODO: extract to helpers/ephemeris.py once the extraction task lands.
+    formula exactly (same //30 bucketing) -- read that function's source
+    before reimplementing here rather than importing it, since it is
+    module-private.
     """
-    try:
-        swe.set_sid_mode(swe.SIDM_LAHIRI)
-        xx, ret = swe.calc_ut(jd_ut, swe.SATURN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
-        if ret < 0:
-            raise RuntimeError(f"pyswisseph error computing Saturn sign (retflag={ret})")
-    except Exception as exc:
-        raise RuntimeError(
-            f"swisseph.calc_ut (Saturn sign, Sade Sati adjacent-cycle scan) failed: {exc}"
-        ) from exc
-    return int((xx[0] % 360.0) / 30.0) % 12
+    return int(ephemeris.sidereal_longitude(jd_ut, swe.SATURN) / 30.0) % 12
 
 
 def _sade_sati_adjacent_cycle_boundaries(

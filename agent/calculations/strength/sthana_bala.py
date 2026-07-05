@@ -24,12 +24,16 @@ SOURCE DIVERGENCE — Saptavargaja scoring tiers:
   AstroSage (observed):        unpublished — cannot be reverse-engineered
                                consistently from public PDFs.
   AstroSage Saptavargaja fixtures are INFORMATIONAL, not test oracles.
+
+EPHEMERIS NOTE (Session 52 migration): the per-planet sidereal longitude
+loop delegates to helpers/ephemeris.py's sidereal_longitude().
 """
 
 import swisseph as swe
 
 from agent.calculations.core._dignity_tables import MOOLATRIKONA
 from agent.calculations.core.friendship import natural_friendship, pancha_dha_maitri
+from agent.calculations.helpers import ephemeris
 from agent.calculations.vargas.navamsa import compute_navamsa
 
 _SIGN_NAMES: list[str] = [
@@ -277,7 +281,8 @@ def compute_sthana_bala(chart_data: dict) -> dict:
 
     Raises:
         ValueError: required key absent in chart_data.
-        RuntimeError: pyswisseph ephemeris calculation failed.
+        RuntimeError: (as ephemeris.EphemerisError, a RuntimeError
+            subclass) a pyswisseph ephemeris calculation failed.
     """
     try:
         jd_ut: float = chart_data["meta"]["jd_ut"]
@@ -288,25 +293,16 @@ def compute_sthana_bala(chart_data: dict) -> dict:
         ) from exc
 
     swe.set_sid_mode(swe.SIDM_LAHIRI)
-    flags = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
 
-    # chart_data["planetary_positions"] carries sign/house/dignity but not longitude.
-    # Re-derive precise sidereal longitudes from the ephemeris.
+    # chart_data["planetary_positions"] carries sign/house/dignity but not
+    # longitude. Re-derive precise sidereal longitudes from the ephemeris.
+    # Session 52 migration: delegates to helpers/ephemeris.py's
+    # sidereal_longitude(); calc_ut failures now surface as
+    # ephemeris.EphemerisError (a RuntimeError subclass) naming the planet
+    # id and jd_ut, rather than this module's own RuntimeError wording.
     planet_lons: dict[str, float] = {}
     for planet, pid in _SWE_IDS.items():
-        try:
-            xx, ret = swe.calc_ut(jd_ut, pid, flags)
-        except Exception as exc:
-            raise RuntimeError(
-                f"compute_sthana_bala: swe.calc_ut raised for {planet} "
-                f"at jd_ut={jd_ut}: {exc}"
-            ) from exc
-        if ret < 0:
-            raise RuntimeError(
-                f"compute_sthana_bala: pyswisseph error for {planet} "
-                f"at jd_ut={jd_ut} (retflag={ret})"
-            )
-        planet_lons[planet] = xx[0] % 360.0
+        planet_lons[planet] = ephemeris.sidereal_longitude(jd_ut, pid)
 
     # Single navamsa call provides D9 signs for Saptavargaja and Ojayugma.
     navamsa_chart = compute_navamsa(jd_ut, asc_lon)

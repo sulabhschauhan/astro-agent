@@ -28,9 +28,18 @@ CITATION:
   Validation anchors (informational): Sulabh — zero combust planets
   (Mercury-Sun 14.65 deg > 14; AstroSage p.23 Deeptadi shows no Vikala).
   Surbhi — Mercury ~3.59 deg and Jupiter ~4.98 deg from Sun, both combust.
+
+EPHEMERIS NOTE (Session 52 migration): the per-planet sidereal longitude
+loop delegates to helpers/ephemeris.py's sidereal_longitude() (not
+sidereal_position() -- retrograde is sourced from chart_data, not from a
+speed reading here). See inline comment at the call site for why the
+RuntimeError wrapping is kept rather than letting ephemeris.EphemerisError
+propagate unwrapped.
 """
 
 import swisseph as swe
+
+from agent.calculations.helpers import ephemeris
 
 _PLANETS: list[str] = ["Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]
 
@@ -88,25 +97,26 @@ def compute_combustion(chart_data: dict) -> dict:
         ) from exc
 
     swe.set_sid_mode(swe.SIDM_LAHIRI)
-    flags = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
 
     # chart_data["planetary_positions"] carries retrograde flags but not
     # longitude. Re-derive precise sidereal longitudes from the ephemeris.
+    # Session 52 migration: delegates to helpers/ephemeris.py's
+    # sidereal_longitude() (only longitude is read here -- retrograde
+    # comes from chart_data above, not from this call, so sidereal_
+    # position()'s speed field would go unused). The except clause below
+    # re-wraps ephemeris.EphemerisError into this module's own RuntimeError
+    # wording, preserving the planet NAME (not ephemeris.py's numeric swe
+    # id) in the message -- test_c_calc_ut_raising_surfaces_runtimeerror
+    # asserts pytest.raises(RuntimeError, match="Sun").
     planet_lons: dict[str, float] = {}
     for planet, pid in _SWE_IDS.items():
         try:
-            xx, ret = swe.calc_ut(jd_ut, pid, flags)
-        except Exception as exc:
+            planet_lons[planet] = ephemeris.sidereal_longitude(jd_ut, pid)
+        except ephemeris.EphemerisError as exc:
             raise RuntimeError(
-                f"compute_combustion: swe.calc_ut raised for {planet} "
-                f"at jd_ut={jd_ut}: {exc}"
+                f"compute_combustion: ephemeris failure for {planet} "
+                f"at jd_ut={jd_ut}: {exc.detail}"
             ) from exc
-        if ret < 0:
-            raise RuntimeError(
-                f"compute_combustion: pyswisseph error for {planet} "
-                f"at jd_ut={jd_ut} (retflag={ret})"
-            )
-        planet_lons[planet] = xx[0] % 360.0
 
     lon_sun = planet_lons["Sun"]
 

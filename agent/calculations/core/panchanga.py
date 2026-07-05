@@ -1,10 +1,19 @@
-"""Panchanga: tithi, vara, nakshatra, yoga, karana, hora, choghadiya, and muhurta-avoidance windows. Drik (ephemeris-based) calculation using Lahiri ayanamsa."""
+"""Panchanga: tithi, vara, nakshatra, yoga, karana, hora, choghadiya, and muhurta-avoidance windows. Drik (ephemeris-based) calculation using Lahiri ayanamsa.
+
+EPHEMERIS NOTE (Session 52 migration): calculate_panchanga()'s Moon/Sun
+longitude+speed lookups delegate to helpers/ephemeris.py's
+sidereal_position(). calculate_sunrise()/calculate_sunset()'s
+swe.rise_trans() calls are a separate pyswisseph API (not swe.calc_ut())
+and are out of this migration's scope.
+"""
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import swisseph as swe
+
+from agent.calculations.helpers import ephemeris
 
 from ._panchanga_tables import (
     TITHI_NAMES, NAKSHATRA_NAMES, YOGA_NAMES, KARANA_SEQ,
@@ -188,25 +197,23 @@ def calculate_panchanga(moment: datetime, latitude: float,
 
     swe.set_sid_mode(AYANAMSA_FLAG)
     jd_ut = _datetime_to_julian_day_ut(moment)
-    # Inlined rather than via a shared helper — no ayanamsa wrapper exists yet
-    # (chart_calculator.py repeats this same set_sid_mode + get_ayanamsa_ut
-    # pair inline in 3 places). Consolidate into calculations/helpers/
-    # ephemeris.py once that module is built out (still a docstring-only
-    # placeholder as of this writing).
+    # get_ayanamsa_ut() is a separate pyswisseph API (not swe.calc_ut()) --
+    # inlined here, out of this migration's scope (chart_calculator.py
+    # repeats this same set_sid_mode + get_ayanamsa_ut pair inline in 3
+    # places; no shared wrapper for it exists).
     ayanamsa = swe.get_ayanamsa_ut(jd_ut)
-    flags = swe.FLG_SWIEPH | swe.FLG_SIDEREAL | swe.FLG_SPEED
 
-    xx_moon, ret_moon = swe.calc_ut(jd_ut, swe.MOON, flags)
-    if ret_moon < 0:
-        raise RuntimeError(f"pyswisseph Moon calculation failed (ret={ret_moon})")
-    xx_sun, ret_sun = swe.calc_ut(jd_ut, swe.SUN, flags)
-    if ret_sun < 0:
-        raise RuntimeError(f"pyswisseph Sun calculation failed (ret={ret_sun})")
+    # Session 52 migration: delegates to helpers/ephemeris.py's
+    # sidereal_position() (Moon/Sun both need longitude + signed speed
+    # here); calc_ut failures now surface as ephemeris.EphemerisError (a
+    # RuntimeError subclass) naming the planet id and jd_ut.
+    moon_pos = ephemeris.sidereal_position(jd_ut, swe.MOON)
+    sun_pos = ephemeris.sidereal_position(jd_ut, swe.SUN)
 
-    moon_lon: float = xx_moon[0] % 360
-    moon_speed: float = xx_moon[3]   # deg/day; positive = direct
-    sun_lon: float = xx_sun[0] % 360
-    sun_speed: float = xx_sun[3]
+    moon_lon: float = moon_pos.longitude
+    moon_speed: float = moon_pos.speed   # deg/day; positive = direct
+    sun_lon: float = sun_pos.longitude
+    sun_speed: float = sun_pos.speed
 
     # Elongation: sidereal Moon minus Sun, forced into [0, 360)
     elong: float = (moon_lon - sun_lon) % 360

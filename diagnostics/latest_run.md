@@ -1,21 +1,26 @@
-# Batch 3 ephemeris migration: chesta_bala/kala_bala/dig_bala (Session 52)
+# Batch 4 ephemeris migration: sthana_bala/panchanga/chart_profile/combustion (Session 52)
 
 ## Site classification
 | File | Site | Flags | Verdict |
 |---|---|---|---|
-| chesta_bala.py | Moon/Sun lon (compute_chesta_bala) | SIDEREAL-STD | migrated |
-| chesta_bala.py | Tara Grahas loop | SIDEREAL-STD | migrated |
-| chesta_bala.py | swe.ECL_NUT (Sun kranti) | SIDEREAL-flag but not a planet id | NOT migrated — outside helper's SUN..MEAN_NODE contract |
-| kala_bala.py | `_sun_sign` | SIDEREAL-STD | migrated |
-| kala_bala.py | `_paksha_bala` Moon/Sun | SIDEREAL-STD | migrated |
-| kala_bala.py | `_ayana_bala` per-planet loop | SIDEREAL-STD (flags), feeds Sayana via Python math | NOT migrated — task-flagged as sensitive; feeds Session 47 oracle-locked Kranti formula; left untouched out of caution (discrepancy vs actual flags noted) |
-| kala_bala.py | `compute_kala_bala` Yuddha lon/lat loop | SIDEREAL-STD | NOT migrated — also needs xx[1] latitude, unsupported by helper |
-| dig_bala.py | per-planet longitude loop | SIDEREAL-STD | migrated |
+| sthana_bala.py | per-planet longitude loop | SIDEREAL-STD | migrated → sidereal_longitude() |
+| panchanga.py | Moon + Sun (calculate_panchanga) | SIDEREAL-STD + FLG_SPEED | migrated → sidereal_position() (both lon+speed used) |
+| panchanga.py | calculate_sunrise/sunset (swe.rise_trans) | different API, not calc_ut | out of scope, untouched |
+| chart_profile.py | `_koota_natal_info_from_chart` (Moon) | SIDEREAL-STD | migrated → sidereal_longitude() |
+| chart_profile.py | `_saturn_sidereal_sign` | SIDEREAL-STD | migrated → sidereal_longitude() |
+| combustion.py | per-planet longitude loop (incl. Sun) | SIDEREAL-STD, longitude-only | migrated → sidereal_longitude() — task described this as needing sidereal_position() for retro overrides, but retrograde is actually read from chart_data, never from this call (only xx[0] used); used sidereal_longitude() to match actual usage, confirmed numerically identical |
 
-No local EphemerisError in any of the 3 files (only bare RuntimeError in
-dig_bala.py); no test in any of the 3 test files monkeypatches calc_ut or
-asserts on message wording (verified before migrating).
+No local EphemerisError in any of the 4 files. No test asserts message
+wording EXCEPT test_combustion.py's `test_c_calc_ut_raising_surfaces_
+runtimeerror` (`pytest.raises(RuntimeError, match="Sun")`) — migrating
+naively would have replaced the planet name with ephemeris.py's numeric
+swe id, breaking it. Kept a thin except-wrapper there that re-raises
+`ephemeris.EphemerisError` as this module's own RuntimeError, preserving
+"Sun" in the message; verified directly (see smoke test) and via full
+suite. No test file exists for chart_profile.py directly (covered via
+test_orchestrator_e2e.py / test_calc_router_stage2.py, no message asserts).
 
 ## Result
-Full suite: **1843 passed, 3 skipped**, zero regressions. Smoke-tested
-Sulabh's Kala/Chesta/Dig values before and after — bit-identical.
+Full suite: **1843 passed, 3 skipped**, zero regressions. All 13
+original Session 44 debt call sites now migrated or explicitly deferred
+with inline rationale (Batches 1-4 complete).
