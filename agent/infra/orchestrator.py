@@ -39,7 +39,15 @@ from agent.infra.result_formatter import format_answer
 
 logger = logging.getLogger(__name__)
 
-_VALID_DOMAINS = {"marriage_compatibility", "career_strength", "current_dasha"}
+# "sade_sati" added Session 50/P7.2d (calc_router.py's own deterministic
+# fast-path + Stage 2 support landed P7.2c; this was the only remaining
+# blocker -- see diagnostics/latest_run.md P7.2c entry).
+_VALID_DOMAINS = {
+    "marriage_compatibility",
+    "career_strength",
+    "current_dasha",
+    "sade_sati",
+}
 
 
 def answer_question(
@@ -69,9 +77,19 @@ def answer_question(
             router routed to marriage_compatibility without partner
             data (defensive -- route_question's own has_partner_data
             guard should already prevent this); router returned a
-            domain outside the 3-domain whitelist (defensive).
+            domain outside the routable whitelist (defensive).
         RuntimeError: propagated, uncaught, from build_domain_profile()
             or format_answer() on any underlying calculation failure.
+
+    NOTE (Session 50/P7.2d, item 1 verification): the marriage-only
+    partner-data guard (below) and the is_marriage-gated
+    partner_chart_data/primary_role pass-through into build_domain_profile()
+    are the only domain-specific branches in this function. Both
+    special-case ONLY "marriage_compatibility" and evaluate to their
+    False/None branch for every other domain -- confirmed by reading, not
+    assumed -- so "sade_sati" (and "career_strength"/"current_dasha")
+    pass through them unchanged, exactly as career_strength/current_dasha
+    already did before this domain existed.
     """
     if partner_chart_data is not None and primary_role is None:
         raise ValueError(
@@ -100,7 +118,7 @@ def answer_question(
     if route_result.domain not in _VALID_DOMAINS:
         raise ValueError(
             f"answer_question: router returned unrecognized domain "
-            f"{route_result.domain!r} outside the 3-domain whitelist "
+            f"{route_result.domain!r} outside the routable whitelist "
             f"{sorted(_VALID_DOMAINS)}"
         )
 
