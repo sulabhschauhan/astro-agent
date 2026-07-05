@@ -97,8 +97,15 @@ def test_sidereal_longitude_normalized(sulabh_jd, planet):
 def test_sidereal_longitude_ignores_prior_global_sid_mode(sulabh_jd):
     expected = _reference_longitude(sulabh_jd, swe.MOON)
 
-    swe.set_sid_mode(swe.SIDM_RAMAN)
-    actual = sidereal_longitude(sulabh_jd, swe.MOON)
+    # Restore Lahiri no matter what: legacy call sites (panchaka.py,
+    # chandrabala.py, tarabala.py, etc.) rely on ambient Lahiri state until
+    # they migrate to this wrapper -- leaking SIDM_RAMAN past this test
+    # would silently skew their results in later-run tests.
+    try:
+        swe.set_sid_mode(swe.SIDM_RAMAN)
+        actual = sidereal_longitude(sulabh_jd, swe.MOON)
+    finally:
+        swe.set_sid_mode(swe.SIDM_LAHIRI)
 
     assert actual == pytest.approx(expected, abs=1e-9)
 
