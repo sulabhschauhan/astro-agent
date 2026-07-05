@@ -49,6 +49,15 @@ _VALID_DOMAINS = {
     "sade_sati",
 }
 
+# career_strength's compute_bhava_bala_totals() call needs planet_lons
+# (Session 53 bhava_bala.py signature change, for compute_bhava_drishti_bala) --
+# title-case to match bhava_bala.py/drik_bala.py's classification helpers.
+_CAREER_PLANET_SWE_IDS: dict[str, int] = {
+    "Sun": swe.SUN, "Moon": swe.MOON, "Mars": swe.MARS,
+    "Mercury": swe.MERCURY, "Jupiter": swe.JUPITER,
+    "Venus": swe.VENUS, "Saturn": swe.SATURN,
+}
+
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4) -- both constants below
 # size _sade_sati_adjacent_cycle_boundaries()'s find_state_segments() scan.
 #
@@ -358,18 +367,35 @@ def build_domain_profile(
         shadbala_titlecase = {p.capitalize(): shadbala[p]["shadbala_virupa"] for p in shadbala}
 
         house_signs = {entry["house"]: entry["sign"] for entry in chart_data["house_lord_mapping"]}
+        jd_ut = chart_data["meta"]["jd_ut"]
 
         try:
             house_cusps = compute_porphyry_house_cusps(
-                chart_data["meta"]["jd_ut"],
+                jd_ut,
                 chart_data["birth_details"]["lat"],
                 chart_data["birth_details"]["lon"],
             )
         except Exception as exc:
             raise RuntimeError(f"chart_calculator.compute_porphyry_house_cusps failed: {exc}") from exc
 
+        # Session 53: compute_bhava_bala_totals now needs planet_lons for
+        # compute_bhava_drishti_bala. Delegates to helpers/ephemeris.py
+        # (Session 52 convention) rather than a new direct swe.calc_ut call.
         try:
-            bhava_bala = compute_bhava_bala_totals(house_signs, shadbala_titlecase, house_cusps)
+            planet_lons = {
+                name: ephemeris.sidereal_longitude(jd_ut, swe_id)
+                for name, swe_id in _CAREER_PLANET_SWE_IDS.items()
+            }
+        except ephemeris.EphemerisError as exc:
+            raise RuntimeError(
+                f"helpers.ephemeris.sidereal_longitude failed (career_strength "
+                f"planet_lons): {exc}"
+            ) from exc
+
+        try:
+            bhava_bala = compute_bhava_bala_totals(
+                house_signs, shadbala_titlecase, house_cusps, planet_lons
+            )
         except Exception as exc:
             raise RuntimeError(f"bhava_bala.compute_bhava_bala_totals failed: {exc}") from exc
 
@@ -395,6 +421,13 @@ def build_domain_profile(
         for row in shadbala.values():
             if row.get("caveat"):
                 caveats.append(row["caveat"])
+        # bhava_bala's dig_is_stubbed/drishti_is_stubbed are now BOTH always
+        # False (Bhava Dig Bala real since Session 42; Bhava Drishti Bala
+        # real since Session 53, AstroSage-validated 48/48 houses within
+        # ±0.16 Virupa max |delta| -- see bhava_bala.py's
+        # compute_bhava_drishti_bala CITATION) -- this loop is a no-op today
+        # but left in place (not deleted) in case either component is ever
+        # re-stubbed for a future divergence investigation.
         for row in bhava_bala.values():
             if (row.get("dig_is_stubbed") or row.get("drishti_is_stubbed")) and row.get("caveat"):
                 caveats.append(row["caveat"])
@@ -424,11 +457,14 @@ def build_domain_profile(
             uncertainty_virupa = 59.0
         # TUNING NOTE: a breach beyond 2.0 on any future chart means
         # investigate before widening back up -- do not silently re-relax.
-        # Bhava Drishti Bala's stub (bhava_bala's drishti_is_stubbed=True) has no
-        # documented numeric envelope of its own (unlike the Ayana envelope above)
-        # -- its caveat string is still surfaced via stub_caveats above, but
-        # it is deliberately NOT folded into uncertainty_virupa as a second additive
-        # term; tracked as an open gap, not silently assumed zero.
+        # Bhava Drishti Bala is real since Session 53 (AstroSage-validated,
+        # 48/48 houses within ±0.16 Virupa max |delta| -- see bhava_bala.py's
+        # compute_bhava_drishti_bala CITATION); drishti_is_stubbed is now
+        # always False, so no caveat surfaces for it via stub_caveats above.
+        # It never had its own uncertainty_virupa constant to begin with
+        # (confirmed: it was never folded into the 2.0 Ayana envelope above
+        # even while stubbed), so this uncertainty_virupa value is unchanged
+        # by drishti going real -- not touched here (threshold discipline).
         uncertainty_days = 0.0  # no time-axis envelope for this domain
 
     elif domain == "current_dasha":

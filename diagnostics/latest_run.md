@@ -1,22 +1,19 @@
-# Bhava Drishti Bala real implementation (Session 53)
+# chart_profile.py wired to Bhava Drishti Bala (Session 53 follow-up)
 
-**Shipped:** `compute_bhava_drishti_bala(house_cusps, planet_lons)` —
-bhava-level Sphuta Drishti (raw PyJHora piecewise + Saturn/Mars/Jupiter
-additive add-ons, quarter rule except Mercury/Jupiter, dynamic benefic/
-malefic classification reused from `drik_bala.py`'s `_classify_moon`/
-`_classify_mercury`, no clamp). `compute_bhava_bala_totals` gains a
-required `planet_lons` param; `drishti_is_stubbed` now `False`; caveat
-rewritten.
+**Wired:** career_strength's `compute_bhava_bala_totals` call now builds
+`planet_lons` via `ephemeris.sidereal_longitude()` (7 classical planets,
+new `_CAREER_PLANET_SWE_IDS` const) — no new direct `swe.calc_ut` call.
+Stale drishti-stub comments (gating loop + TUNING NOTE) updated to note
+Bhava Drishti Bala is real since Session 53.
 
-## Validation checkpoint (Sulabh, printed not tested)
-All 12 houses within ±0.5 Virupa of the expected oracle array (max
-|delta| 0.15, house 9): 55.63/20.54/-15.52/-20.88/-11.88/-31.27/-35.01/
-12.22/-19.03/-26.95/18.37/23.07. **ALL OK.**
+**Threshold discipline:** no numeric `uncertainty_virupa` envelope exists
+or ever existed specifically for the drishti stub (confirmed via the
+pre-existing comment: it was never folded into the 2.0 Ayana envelope)
+— nothing changed here. Note: this prompt said "48/48 ±0.2 Virupa"; the
+repo's actual validated figure (bhava_bala.py CITATION) is ±0.16 Virupa
+max |delta| — used the verified figure in the updated comments.
 
-## Expected breakage (not patched, per instructions)
-Full suite: **1831 passed, 3 skipped, 12 failed.** 8 in
-`test_bhava_bala.py` (Layer G stub-shape tests, Layer H aggregator calls
-missing `planet_lons`) — direct signature-change fallout. 4 in
-`test_orchestrator_e2e.py` (`test_career_{david,sheridan,surbhi,sulabh}`)
-— `chart_profile.py:372` calls `compute_bhava_bala_totals` with the old
-3-arg signature; out of scope for this bhava_bala.py-only prompt.
+## Result
+Full suite: **1835 passed, 3 skipped, 8 failed** — exact target. The 4
+`test_orchestrator_e2e.py` career failures recovered; only the 8
+`test_bhava_bala.py` failures remain (next prompt, unchanged).
