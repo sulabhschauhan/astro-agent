@@ -21,9 +21,16 @@ True sidereal MC, not Lagna + 270°:
   Sun parity for charts like Sulabh where this drift is significant.
 
 All values in Virupa (1 Rupa = 60 Virupa).
+
+EPHEMERIS NOTE (Session 52 migration): the per-planet sidereal longitude
+loop delegates to helpers/ephemeris.py's sidereal_longitude(). The
+swe.houses_ex() call for ASC/MC is a separate pyswisseph API (not
+swe.calc_ut()) and is out of this migration's scope.
 """
 
 import swisseph as swe
+
+from agent.calculations.helpers import ephemeris
 
 _PLANETS: list[str] = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]
 
@@ -74,7 +81,9 @@ def compute_dig_bala(chart_data: dict) -> dict:
 
     Raises:
         ValueError: required key absent in chart_data.
-        RuntimeError: pyswisseph failure or ASC sanity check mismatch.
+        RuntimeError: ASC sanity check mismatch, or (as
+            ephemeris.EphemerisError, a RuntimeError subclass) a
+            pyswisseph ephemeris calculation failed.
     """
     try:
         jd_ut: float     = chart_data["meta"]["jd_ut"]
@@ -87,24 +96,15 @@ def compute_dig_bala(chart_data: dict) -> dict:
         ) from exc
 
     swe.set_sid_mode(swe.SIDM_LAHIRI)
-    flags = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
 
     # Re-derive precise sidereal longitudes — do not trust chart_data.
+    # Session 52 migration: delegates to helpers/ephemeris.py's
+    # sidereal_longitude(); calc_ut failures now surface as
+    # ephemeris.EphemerisError (a RuntimeError subclass) naming the planet
+    # id and jd_ut, rather than this module's own RuntimeError wording.
     planet_lons: dict[str, float] = {}
     for planet, pid in _SWE_IDS.items():
-        try:
-            xx, ret = swe.calc_ut(jd_ut, pid, flags)
-        except Exception as exc:
-            raise RuntimeError(
-                f"compute_dig_bala: swe.calc_ut raised for {planet} "
-                f"at jd_ut={jd_ut}: {exc}"
-            ) from exc
-        if ret < 0:
-            raise RuntimeError(
-                f"compute_dig_bala: pyswisseph error for {planet} "
-                f"at jd_ut={jd_ut} (retflag={ret})"
-            )
-        planet_lons[planet] = xx[0] % 360.0
+        planet_lons[planet] = ephemeris.sidereal_longitude(jd_ut, pid)
 
     # True sidereal ASC and MC (Whole Sign, Lahiri ayanamsa).
     try:

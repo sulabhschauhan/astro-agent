@@ -25,11 +25,19 @@ KNOWN DIVERGENCES (V1):
   Deltas vs JHora v8: Jupiter/Saturn ±2, Mars/Mercury/Venus ±10 (Surbhi worst).
   Do NOT re-investigate. 5 approaches tested and rejected across sessions 33-35.
   See CLAUDE.md §Chesta Bala.
+
+EPHEMERIS NOTE (Session 52 migration): the Moon/Sun/Tara-Graha sidereal
+longitude lookups delegate to helpers/ephemeris.py's sidereal_longitude().
+The swe.ECL_NUT (true obliquity) call feeding the Sun's kranti term is NOT
+migrated -- it is not a planet id in helpers/ephemeris.py's swe.SUN..
+swe.MEAN_NODE contract (see inline comment at the call site).
 """
 
 from math import asin, degrees, radians, sin
 
 import swisseph as swe
+
+from agent.calculations.helpers import ephemeris
 
 _FLAGS_SID  = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
 
@@ -71,12 +79,20 @@ def compute_chesta_bala(
     result = {}
 
     # ── Moon and Sun positions needed for paksha detection and Tara Grahas ────
-    moon_lon = swe.calc_ut(jd_ut, swe.MOON, _FLAGS_SID)[0][0] % 360.0
-    sun_lon  = swe.calc_ut(jd_ut, swe.SUN,  _FLAGS_SID)[0][0] % 360.0
+    # Session 52 migration: delegates to helpers/ephemeris.py's
+    # sidereal_longitude() for the underlying swe.calc_ut convention.
+    moon_lon = ephemeris.sidereal_longitude(jd_ut, swe.MOON)
+    sun_lon  = ephemeris.sidereal_longitude(jd_ut, swe.SUN)
 
     # ── Sun: chesta_sun = 30.0 + kranti (dual-oracle back-solved, Session 47) ──
     ayanamsa = swe.get_ayanamsa_ut(jd_ut)
     sayana_lon = (sun_lon + ayanamsa) % 360.0
+    # NOT MIGRATED (Session 52 Batch 3 classification): swe.ECL_NUT is not a
+    # planet id (outside helpers/ephemeris.py's documented swe.SUN..
+    # swe.MEAN_NODE contract) -- xx[0] here is the true obliquity of the
+    # ecliptic, not a sidereal planet longitude, even though it reuses
+    # _FLAGS_SID. helpers/ephemeris.py lacks non-planet/obliquity support;
+    # migration deferred (Session 52 Batch 3 classification).
     eps_true = swe.calc_ut(jd_ut, swe.ECL_NUT, _FLAGS_SID)[0][0]
     kranti = degrees(asin(sin(radians(eps_true)) * sin(radians(sayana_lon))))
     result["sun"] = {"chesta": round(30.0 + kranti, 4)}
@@ -94,7 +110,7 @@ def compute_chesta_bala(
     # ── Tara Grahas: elongation formula CK/3 (BPHS 27.24-25) ────────────────
     for planet in _TARA_GRAHAS:
         pid = _SWE_IDS[planet]
-        geo_lon = swe.calc_ut(jd_ut, pid, _FLAGS_SID)[0][0] % 360.0
+        geo_lon = ephemeris.sidereal_longitude(jd_ut, pid)
         CK = (sun_lon - geo_lon) % 360.0
         if CK > 180.0:
             CK = 360.0 - CK

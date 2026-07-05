@@ -13,6 +13,14 @@ Known divergences (V1):
   PyJHora incorrectly uses birth weekday for both (placeholder bug).
 - Hora Bala: proportional horas (day_length/12, night_length/12), not fixed 60-min horas.
   AstroSage parity requires proportional; JHora uses fixed-60-min.
+
+EPHEMERIS NOTE (Session 52 migration): _sun_sign and _paksha_bala's Moon/Sun
+lookups delegate to helpers/ephemeris.py's sidereal_longitude(). Two sites
+are deliberately NOT migrated (see inline comments at each): _ayana_bala's
+per-planet loop (flags are sidereal-standard, but feeds the oracle-locked
+Ayana Bala Kranti formula -- left untouched out of caution) and
+compute_kala_bala's Yuddha-Bala longitude/latitude loop (helpers/ephemeris.py
+does not expose ecliptic latitude).
 """
 
 import logging
@@ -22,6 +30,7 @@ from math import asin, degrees, radians, sin
 import swisseph as swe
 
 from agent.calculations.core.panchanga import calculate_sunrise, calculate_sunset
+from agent.calculations.helpers import ephemeris
 
 logger = logging.getLogger(__name__)
 
@@ -86,10 +95,15 @@ def _solar_day_refs(birth_utc: datetime, lat: float, lon: float):
 
 
 def _sun_sign(jd: float) -> int:
-    """Return Sun's sidereal sign 0=Aries…11=Pisces at given JD."""
-    swe.set_sid_mode(swe.SIDM_LAHIRI)
-    xx, _ = swe.calc_ut(jd, swe.SUN, _FLAGS_SID)
-    return int(xx[0] % 360.0 / 30)
+    """Return Sun's sidereal sign 0=Aries…11=Pisces at given JD.
+
+    Delegates to helpers/ephemeris.py's sidereal_longitude() (Session 52
+    migration) for the underlying swe.calc_ut convention. Called
+    thousands of times across _mesha_sankranti_jd / _find_recent_sun_ingress's
+    coarse-scan + bisection loops; the helper's per-call set_sid_mode is a
+    cheap C call, deliberately not cached or hoisted.
+    """
+    return int(ephemeris.sidereal_longitude(jd, swe.SUN) / 30.0)
 
 
 def _mesha_sankranti_jd(birth_jd: float) -> float:
@@ -193,9 +207,10 @@ def _paksha_bala(jd_ut: float) -> dict:
     malefic in Krishna (waning). Jupiter and Venus are always benefic.
     Sun, Mars, Saturn are always malefic.
     """
-    swe.set_sid_mode(swe.SIDM_LAHIRI)
-    moon_lon = swe.calc_ut(jd_ut, swe.MOON, _FLAGS_SID)[0][0] % 360.0
-    sun_lon  = swe.calc_ut(jd_ut, swe.SUN,  _FLAGS_SID)[0][0] % 360.0
+    # Session 52 migration: delegates to helpers/ephemeris.py's
+    # sidereal_longitude() for the underlying swe.calc_ut convention.
+    moon_lon = ephemeris.sidereal_longitude(jd_ut, swe.MOON)
+    sun_lon  = ephemeris.sidereal_longitude(jd_ut, swe.SUN)
 
     tithi_f = ((moon_lon - sun_lon) % 360.0) / 12.0  # 0.0–30.0
 
@@ -360,6 +375,15 @@ def _ayana_bala(birth_jd: float) -> dict:
     result = {}
     for p in _PLANETS:
         pid = _SWE_IDS[p]
+        # NOT MIGRATED (Session 52 Batch 3 classification): flags here are
+        # actually SIDEREAL-STANDARD (_FLAGS_SID), not tropical -- the
+        # Sayana/tropical conversion below is pure Python (+ayanamsa), not a
+        # second ephemeris call. Deferred anyway: this feeds the Session 47
+        # oracle-locked Ayana Bala Kranti formula (CLAUDE.md Locked
+        # Decisions, ±0.45 AstroSage parity, 28/28 cells) -- left untouched
+        # out of caution near an already-fragile, tightly-toleranced
+        # component, per this migration's "leave unmigrated if in doubt"
+        # instruction.
         xx, _ = swe.calc_ut(birth_jd, pid, _FLAGS_SID)
         sidereal_lon = xx[0] % 360.0
         sayana_lon = (sidereal_lon + ayanamsa) % 360.0
@@ -484,6 +508,14 @@ def compute_kala_bala(
 
     swe.set_sid_mode(swe.SIDM_LAHIRI)
 
+    # NOT MIGRATED (Session 52 Batch 3 classification): flags are
+    # SIDEREAL-STANDARD, but this loop also needs ecliptic latitude
+    # (xx[1]) for Yuddha Bala's victor-by-latitude test (_yuddha_bala
+    # below) -- helpers/ephemeris.py's public surface (sidereal_longitude/
+    # sidereal_position) exposes only longitude (+ signed speed), never
+    # latitude. Migrating would mean either dropping planet_lats or adding
+    # a second raw calc_ut call, neither a clean 1:1 substitution; deferred
+    # pending a latitude-aware ephemeris.py addition (out of scope here).
     # Derive planet longitudes and latitudes for Yuddha
     planet_lons: dict[str, float] = {}
     planet_lats: dict[str, float] = {}

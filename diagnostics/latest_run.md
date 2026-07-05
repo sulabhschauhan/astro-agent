@@ -1,13 +1,21 @@
-# test_gochara.py: pin Session 52 FLG_SPEED fix (Session 52)
+# Batch 3 ephemeris migration: chesta_bala/kala_bala/dig_bala (Session 52)
 
-**Added:** 2 tests — Mercury retrograde=True at David's natal JD (reused
-from test_combustion.py/test_ephemeris.py's known real-chart case) and
-Sun retrograde=False at Sulabh's natal JD (inverse-failure guard). Both
-verified against gochara output before writing (is_retrograde field
-confirmed present). Pins the Session 52 migration's incidental FLG_SPEED
-fix against silent regression; no prior test covered a real graha's
-retrograde flag (only Rahu/Ketu's hardcoded True was tested).
+## Site classification
+| File | Site | Flags | Verdict |
+|---|---|---|---|
+| chesta_bala.py | Moon/Sun lon (compute_chesta_bala) | SIDEREAL-STD | migrated |
+| chesta_bala.py | Tara Grahas loop | SIDEREAL-STD | migrated |
+| chesta_bala.py | swe.ECL_NUT (Sun kranti) | SIDEREAL-flag but not a planet id | NOT migrated — outside helper's SUN..MEAN_NODE contract |
+| kala_bala.py | `_sun_sign` | SIDEREAL-STD | migrated |
+| kala_bala.py | `_paksha_bala` Moon/Sun | SIDEREAL-STD | migrated |
+| kala_bala.py | `_ayana_bala` per-planet loop | SIDEREAL-STD (flags), feeds Sayana via Python math | NOT migrated — task-flagged as sensitive; feeds Session 47 oracle-locked Kranti formula; left untouched out of caution (discrepancy vs actual flags noted) |
+| kala_bala.py | `compute_kala_bala` Yuddha lon/lat loop | SIDEREAL-STD | NOT migrated — also needs xx[1] latitude, unsupported by helper |
+| dig_bala.py | per-planet longitude loop | SIDEREAL-STD | migrated |
+
+No local EphemerisError in any of the 3 files (only bare RuntimeError in
+dig_bala.py); no test in any of the 3 test files monkeypatches calc_ut or
+asserts on message wording (verified before migrating).
 
 ## Result
-New tests alone: 2 passed (4 total in file).
-Full suite: **1843 passed, 3 skipped** (1841 + 2 new), zero regressions.
+Full suite: **1843 passed, 3 skipped**, zero regressions. Smoke-tested
+Sulabh's Kala/Chesta/Dig values before and after — bit-identical.
