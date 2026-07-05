@@ -1406,3 +1406,92 @@ ABORT GATE locked Session 44 unchanged: hand-verify Sulabh Moon+Venus
 before any implementation prompt; max 2 diagnostic attempts; success =
 7/7 planets ±0.5 Virupa on BOTH Sulabh and Surbhi before implementation
 drafted; partial match = failure, stub stays at 0.0.
+
+## Session 53 — Bhava Drishti Bala CLOSED: V1 stub → real (2026-07-05)
+
+### What landed
+Design-chat back-solve (separate sandbox conversation, ahead of any
+implementation prompt): the PyJHora wheel was pulled from PyPI and its
+`__bhava_drik_bala_calc_1` kernel extracted verbatim, then a 32-combo
+hypothesis matrix (base taper x add-on-special candidates) was scored
+against the AstroSage Sulabh BhavBala oracle — first-shot RMS 0.07 on
+the winning combo, cross-validated against Surbhi/David/Sheridan (max
+0.07 there too) before any code was written. This falsified Session 41's
+working premise ("port the resolved Drik Bala graha kernel to Bhava
+Madhya inputs") — the bhava kernel is a DIFFERENT formula family
+(raw piecewise + additive add-on specials, no smooth-taper corrections,
+no clamp), not a direct port; and it separately documented a PyJHora
+aggregation bug (row/col indexing + a fixed benefic-planet list, both
+ruled out against the same oracle — see bhava_bala.py CITATION).
+
+Three implementation prompts, on top of that design chat:
+1. `compute_bhava_drishti_bala(house_cusps, planet_lons)` — new
+   signature, replacing the old `house_signs`-only V1 stub (always
+   0.0). Base taper + Saturn/Mars/Jupiter additive add-on specials;
+   quarter rule (×0.25 except Mercury/Jupiter, full value); signed sum
+   (no /4); classification reuses drik_bala.py's `_classify_moon`/
+   `_classify_mercury` (imported, not re-derived). `compute_bhava_bala_
+   totals` gained a required `planet_lons` param to thread through;
+   `drishti_is_stubbed` now always False. Verified Sulabh's 12 houses
+   against the oracle before committing (max delta 0.15). Breaking
+   signature change deliberately left 12 tests red (8 in
+   test_bhava_bala.py, 4 in test_orchestrator_e2e.py via
+   chart_profile.py's un-updated call site) — reported, not patched,
+   per this session's own "stop and report, never patch" convention;
+   held within-session across the next two prompts rather than masked.
+   1843 -> 1831 passed, 3 skipped, 12 failed. (0c5d396)
+2. `chart_profile.py`'s career_strength branch now builds `planet_lons`
+   via `ephemeris.sidereal_longitude()` (Session 52's helper, no new
+   direct `swe.calc_ut` call) and passes it through. Cleared the stale
+   drishti-stub caveat/gating comments (confirmed no drishti-specific
+   `uncertainty_virupa` constant ever existed to adjust — it was never
+   folded into the general 2.0 Ayana envelope even while stubbed, so
+   nothing numeric changed). Recovered the 4 test_orchestrator_e2e.py
+   failures; the 8 test_bhava_bala.py failures remained, as planned.
+   1835 passed, 3 skipped, 8 failed. (946c5aa)
+3. `test_bhava_bala.py` repaired: deleted the obsolete always-0.0 stub
+   tests (not ported — the stub no longer exists); threaded
+   `planet_lons` through the aggregator tests via a new
+   `_planet_lons_by_chart` fixture and recomputed expected totals
+   structurally from the sub-components (not magic numbers). Added a
+   48-parametrized AstroSage BhavBala parity layer (±0.5 Virupa,
+   Sheridan first as the hardest case — the only chart where Moon
+   classifies malefic) and 4 kernel structural spot-checks (Saturn/Mars/
+   Jupiter add-on boundaries + one plain-base case) with an explicit
+   note on why continuity assertions (drik_bala.py's own Layer A
+   pattern) would be WRONG here — the add-on specials are intentionally
+   discontinuous by design. 1895 passed, 3 skipped, 0 failed. (d7f28ef)
+
+### Key decisions (locked, carry forward)
+1. The bhava-level Drishti kernel and drik_bala.py's graha-level
+   Drishti kernel are INTENTIONALLY DISTINCT formula families (raw
+   piecewise + additive add-ons vs. smooth-taper-corrected + clamped),
+   each independently oracle-validated on its own terms. Unifying them
+   in a future cleanup pass would be a REGRESSION, not a simplification
+   — do not attempt it.
+2. A breaking signature change can deliberately leave the full suite in
+   a known-red intermediate state across consecutive prompts WITHIN one
+   session, provided every failure is explicitly reported (not silently
+   left, not patched to green) and a concrete follow-up prompt closes it
+   before the session ends. This is not license to leave red states
+   across session boundaries.
+3. PyJHora's own bhava-aggregation code is not a source of truth here —
+   its row/col indexing bug and fixed benefic-planet list were both
+   empirically falsified against the same 4-chart AstroSage oracle that
+   validated the kernel itself; the dynamic drik_bala.py classification
+   rules were confirmed correct over PyJHora's fixed list precisely
+   because Sulabh's and David's Mercury flip malefic under it.
+
+### Test baseline
+1843 passed, 3 skipped -> 1831/12 failed (bhava_bala.py real impl,
+breaking signature change, expected red) -> 1835/8 failed (chart_profile.py
+wired) -> 1895 passed, 3 skipped, 0 failed (test_bhava_bala.py repaired +
+48-point parity layer + structural spot-checks).
+
+### Next task
+Sequencing decision (fresh design chat): Master Build Plan post-checkpoint
+items (a) and (b) are BOTH now closed. Re-validate the (c) TIMING BLOCK
+vs. (d) Phase 2 remaining vargas (D10/D7 first) vs. (e) Phase 3 yoga
+catalog ordering against dogfooding question logs (Answer Scorecard) —
+per the POST-CHECKPOINT PHASE ORDER section's own closing note ("this is
+a working hypothesis, not scripture") — before locking which runs next.

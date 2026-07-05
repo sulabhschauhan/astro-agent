@@ -1,24 +1,18 @@
-# test_bhava_bala.py: repair + Bhava Drishti oracle parity (Session 53)
+# Docs-only: Session 53 closeout (CLAUDE.md / SESSION_LOG.md / Master Build Plan)
 
-**Part 1:** deleted old Layer G stub-shape tests (obsolete by design,
-noted in module docstring). Layer H (now I) aggregator tests thread
-`planet_lons` (new `_planet_lons_by_chart` fixture, mirrors
-`_house_cusps_by_chart`'s pattern via `ephemeris.sidereal_longitude()`)
-and recompute expected totals structurally from the sub-components, not
-magic numbers; `drishti_is_stubbed` assertion flipped to `False`.
+**Updated:** CLAUDE.md Session Focus + Known Source Divergences (Bhava
+Drishti Bala entry replaced, stub->real); Master Build Plan item (a)
+marked DONE with pointer, closing note updated (both (a)+(b) closed,
+(c)/(d)/(e) sequencing next).
 
-**Part 2:** new Layer H — 48 parametrized AstroSage BhavBala parity
-assertions (±0.5 Virupa, mirrors test_drik_bala.py's tolerance
-convention), Sheridan first (hardest case, Moon malefic). Verified all
-48 values against the repo's own computation before writing (max
-|delta| 0.15) — all 4 birth data points match existing fixtures, no
-discrepancy.
+**Note:** Session 52's SESSION_LOG.md entry already existed (added in
+an earlier prompt this session) — verified accurate against git log,
+not duplicated. Only the new Session 53 entry was appended.
 
-**Part 3:** new Layer G — 4 kernel structural spot-checks (Saturn/Mars/
-Jupiter add-on boundaries + Venus plain-base), with a note on why
-continuity assertions (unlike test_drik_bala.py) would be wrong here —
-the add-on specials are intentionally discontinuous by design.
+**Verified against repo before writing:** all commit hashes (0c5d396,
+946c5aa, d7f28ef) via `git log`; test baseline arc 1843->1831/12
+failed->1835/8 failed->1895/0 failed via the actual runs this session;
+48/48 houses max delta 0.15 via bhava_bala.py's own CITATION. No
+discrepancies found between this prompt and the repo.
 
-## Result
-Full suite: **1895 passed, 3 skipped, 0 failed** (exceeds 1843; net new
-parametrized cases from Layers G/H plus the 12-house Layer H sweep).
+No source or test files touched.

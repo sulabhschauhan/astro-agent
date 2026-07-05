@@ -350,17 +350,37 @@ Session 51's chart_calculator fix) was found incidentally during
 migration and is now pinned by regression tests. 1843 passed, 3 skipped,
 zero regressions throughout. Full detail: SESSION_LOG.md Session 52.
 
-**Next: post-checkpoint item (a)** — Drik/Bhava-Drishti verbatim
-extraction. ABORT GATE unchanged (see item (a) below).
+**DONE (Session 53) — post-checkpoint item (a), Bhava Drishti Bala:**
+`compute_bhava_drishti_bala` replaced its V1 stub (always 0.0) with a
+real implementation — design-chat back-solve against the AstroSage
+BhavBala oracle (PyJHora's `__bhava_drik_bala_calc_1` kernel extracted
+verbatim, a 32-combo hypothesis matrix scored against Sulabh, then
+cross-validated on Surbhi/David/Sheridan) falsified Session 41's
+"port the Drik Bala graha kernel" premise — the bhava kernel is a
+different formula family (raw piecewise + additive Saturn/Mars/Jupiter
+add-on specials), not a port, and PyJHora's own aggregation has a
+documented bug (row/col indexing + fixed benefic list) that was not
+ported either. `chart_profile.py` threaded the new `planet_lons`
+parameter through; the test suite gained a 48-point AstroSage parity
+layer (±0.5 Virupa, measured max 0.15) plus kernel structural
+spot-checks. A deliberate breaking signature change left the suite
+red (12 failures) across two intermediate prompts within this session,
+each explicitly reported, before the final repair. 1895 passed, 3
+skipped, 0 failed. Full detail: SESSION_LOG.md Session 53.
+
+**Next: post-checkpoint items (a) and (b) are BOTH closed.** Sequencing
+decision now needed between (c) TIMING BLOCK, (d) Phase 2 remaining
+vargas, and (e) Phase 3 yoga catalog — re-validate against dogfooding
+question logs first (see this section's own closing note below).
 
 After thin-slice checkpoint validates (S44.1-S44.6):
 
-a. Drik Bala + Bhava Drishti Bala verbatim extraction
-   (`__drik_bala_calc_1_pvr`, Session 42 method) — ABORT GATE locked
-   Session 44: hand-verify Sulabh Moon+Venus before any implementation
-   prompt; max 2 diagnostic attempts; success = 7/7 planets ±0.5 Virupa
-   on BOTH Sulabh and Surbhi before implementation drafted; partial
-   match = failure, stub stays at 0.0.
+a. Drik Bala + Bhava Drishti Bala verbatim extraction — **DONE
+   (Session 53).** Bhava Drishti Bala replaced its V1 stub with a real,
+   AstroSage-oracle-validated implementation (48/48 houses, 4 charts,
+   ±0.5 Virupa, measured max 0.15). Drik Bala itself (the graha-level
+   component) was already resolved earlier, Session 46. 1895 passed, 3
+   skipped, zero regressions. Full detail: SESSION_LOG.md Session 53.
 b. Ephemeris consolidation — **DONE (Session 52).** `helpers/ephemeris.py`
    built out; 11/13 originally-catalogued call sites migrated, 3 stay
    direct-by-design (documented rationale, not debt). 1843 passed, 3
