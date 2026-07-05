@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Thin-slice answer pipeline CHECKPOINT CLOSED (Session 45, 2026-07-03): orchestrator.py wires router→profile→formatter→merge. 16 e2e tests (4 career + 4 dasha + 1 marriage + 5 refusal + 2 error). Dasha conditional demotion bug fixed. 1769 passed, 3 skipped, 0 xfailed, 0 failed. Next: POST-CHECKPOINT PHASE ORDER per Master Build Plan (Drik extraction → ephemeris consolidation → timing block).**
+**Session 49: P7.0 golden eval harness live (agent/eval/golden_harness.py, 5 categories, match=6 design_debt=1 known_gap=9 new_gap=0); calc_router word-boundary fix; dasha ALWAYS TIER_2_RANGE (design-chat reversal of S45 conditional demotion — payload always carries ±37d date claims); e2e dasha tests tightened. 1770 passed, 3 skipped, 0 xfailed, 0 failed. Next: hybrid router design (keyword fast-path + GPT-4o-mini constrained classification fallback) — DESIGN IN CHAT FIRST, no implementation until design chat locks it.**
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -14,6 +14,7 @@ Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → em
 - **P2 order** (locked) — Gochara → Sade Sati → Muhurta engine → Ashtakoot/Mangal dosha → Shadbala → D7 → D10 (demoted); P3+ deferred.
 - **Ephemeris consolidation debt** (Session 44 flag) — 12 independent `swe.calc_ut()` call sites across chesta_bala, kala_bala, dig_bala, sthana_bala, panchaka, tarabala, chandrabala, sade_sati, gochara, navamsa, panchanga, chart_profile bridge. Extract to `helpers/ephemeris.py` per existing TODO markers. Mechanical, bounded, no investigation risk. Scheduled as post-checkpoint item (b) in Master Build Plan.
 - **Router refuse-heavy posture** (Session 44 lock) — calc_router.py requires >=2 keyword hits to route any domain (0.4 floor, 0.15 margin). Single-keyword questions are REFUSED BY DESIGN. Dogfood-observed misses ("career potential" → 1 hit, refused; "Are we compatible?" → tie, refused) are scorecard data for future `_STEM_MAP` tuning, not bugs. Tune only with Answer Scorecard evidence, not preemptive guesses.
+- **Dasha tier = payload property** (Session 49) — current_dasha always TIER_2_RANGE in V1; boundary window selects reason wording only. Tier attaches to answer claims, not evaluation moment.
 
 Older superseded/shipped-feature decisions (Sessions 15-25) archived to SESSION_LOG.md's compression section — not needed per-query once a module ships and its convention lives in the code/tests themselves.
 
@@ -47,6 +48,7 @@ query_engine + chart_calculator → astrologer → session_manager
 7. **AGENT INVOCATION** — auto-invoke all 6 before any design/code decision. Surface conflicts only. New agents need explicit approval.
 8. **LAYER FIRST** — before any fix, state which layer owns the problem: Data, Retrieval, Prompt, or UI. A fix in the wrong layer creates narrow patches and technical debt.
 9. **NO ANCHORED JUDGMENT** — never give an LLM call both a stated expectation and a request to judge against it in the same call. LLM observes independently; Python compares the observation to the expectation deterministically.
+10. **DIAGNOSTIC OUTPUT ROUTING** (Session 49) — full diagnostic output goes to `diagnostics/latest_run.md` and is committed to git; chat gets a ≤10-line summary with test counts only.
 
 ## Varshaphal House-Counting Convention (Session 18)
 `resolve_house_counting_lagna()` is the canonical house-counting reference for any Varshaphal-derived bhav calculation (prefers AstroSage parsed Lagna, year-matched; else computed + boundary flag); call it rather than reading Lagna directly off `varshaphal_data`.

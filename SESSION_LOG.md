@@ -995,3 +995,71 @@ fixture Ayana vs computed, all 7 planets, Sulabh (+ Surbhi if breakdown
 exists). Sun doubling/inversion (~40 Virupa via Sun Chesta) primary
 target; Moon/Venus ±5-6 secondary. Multi-source validation planned
 (user will supply sources Claude cannot access).
+
+## Session 49 — P7.0 golden-set eval harness + router findings (2026-07-05)
+
+### What landed
+- **P7.0a** — `agent/eval/golden_harness.py` + `agent/eval/__init__.py`:
+  drives every RUNNABLE row of `tests/fixtures/golden_qa_sulabh.py`'s
+  GOLDEN_QA through the real `answer_question()` pipeline, writes a
+  markdown scorecard to `diagnostics/`. No LLM calls, read-only golden
+  data.
+- **P7.0b** — `calc_router.py`'s `_UNBUILT_MODULE_KEYWORDS` scan switched
+  from plain substring containment to word-boundary regex
+  (`\b{keyword}s?\b`) — golden row `sulabh_dasha_r4_exact_date` exposed
+  "transition"/"transitional" false-positiving on keyword "transit".
+  Full suite unaffected (1769 passed, 0 failed both before/after).
+- **P7.0c** — design-chat reversal of the Session 45 conditional-demotion
+  behavior: `current_dasha` now ALWAYS resolves TIER_2_RANGE (was
+  TIER_1_EXACT mid-period, TIER_2_RANGE only within the ±37-day boundary
+  window). Rationale: the payload always carries Mahadasha/Antardasha
+  boundary DATES, which always carry the documented ±37-day drift
+  regardless of evaluated_at position — tier is a property of the
+  answer's claims, not the evaluation moment. `_near_dasha_boundary()` /
+  `_DASHA_BOUNDARY_WINDOW_DAYS` kept, repurposed to select between two
+  demotion_reason wordings (dates-only vs identity-also-uncertain) rather
+  than whether to demote at all. Golden rows q11/q12/q13/r4 flipped
+  TIER_1_EXACT → TIER_2_RANGE (all MATCH now).
+- **P7.0d** — `test_orchestrator_e2e.py`: tightened
+  `_assert_dasha_answer_shape`'s `tier in {T1, T2}` set-membership check
+  (which would have silently passed a T1 regression) to
+  `tier == TIER_2_RANGE` + a `"37-day"` demotion_reason substring check.
+  Added `test_dasha_boundary_reason_selection` (+1 test, monkeypatches
+  `calc_router._near_dasha_boundary` to lock both reason-wording branches
+  without coupling to wall-clock boundary proximity). 1770 passed net.
+- **P7.0e** — `_KNOWN_GAPS` reconciliation: deleted 3 dead entries
+  (q11/q12/q13, made dead by P7.0c). Added a 5th row category,
+  DESIGN_DEBT (checked after MATCH, before KNOWN_GAP), seeded with
+  exactly one entry (`sulabh_dasha_q14` — Sade Sati refused via
+  `_UNBUILT_MODULE_KEYWORDS` despite `sade_sati.py` being built and
+  4-chart validated; this is product debt, not a locked decision, unlike
+  q15/Muhurta which is genuinely unwired).
+- **P7.0f** — read-only router-tuning evidence dump,
+  `diagnostics/router_tuning_evidence_20260705_041121.md`: verbatim
+  keyword lists/thresholds/scoring formula, per-row keyword-hit trace for
+  all 10 refused golden rows, q14 Sade-Sati hypothetical. No code changed.
+
+### Key findings for next session (verbatim)
+(a) 9/10 golden refusals are single-hit confidence-floor, 0 margin-ties.
+(b) "job" keyword is dead code — `_STEM_MAP` key collision routes it into
+    the phrase-match branch, never matches (only "job" is affected; it's
+    the sole `_STEM_MAP` key that's also a literal `_DOMAIN_KEYWORDS`
+    entry).
+(c) q14 unblocking requires: keyword removal (drop "sade sati" from
+    `_UNBUILT_MODULE_KEYWORDS`) + dasha-domain sade-sati terms (so it
+    scores confidently) + `chart_profile.py` payload fields (Sade Sati
+    status/dates) + a formatter render path + a T1 sub-path
+    (payload-property-consistent with the P7.0c dasha-tier principle —
+    i.e. tier still keyed to what the payload actually claims).
+(d) q10 (TIER_4_INTERPRETIVE) and q15 (TIER_3_MUHURTA) are unreachable by
+    design — this pipeline never produces those two tiers at all; golden
+    `expected_tier` records design intent, not a gap to close by tuning.
+
+### Test baseline
+1770 passed, 3 skipped, 0 xfailed, 0 failed.
+
+### Next task
+Hybrid router design session (keyword fast-path + GPT-4o-mini
+constrained-classification fallback) — DESIGN IN CHAT FIRST, no
+implementation until locked. Combustion thin-slice (PVR orb table)
+queued behind router work.

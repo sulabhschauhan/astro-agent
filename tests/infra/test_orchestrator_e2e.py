@@ -41,7 +41,10 @@ PROCEED working style -- not silently accepted from the prompt as given):
 
 Import restriction (per task spec): only answer_question (orchestrator)
 and AnswerTier (chart_profile) are imported -- no calc_router,
-chart_profile.DomainAnswer, or result_formatter imports.
+chart_profile.DomainAnswer, or result_formatter imports. P7.0d's
+test_dasha_boundary_reason_selection targets calc_router._near_dasha_boundary
+via monkeypatch.setattr's dotted-string form specifically to respect this
+restriction without adding an import statement.
 """
 
 import pytest
@@ -164,7 +167,19 @@ def test_career_sulabh(sulabh_chart):
 
 def _assert_dasha_answer_shape(result) -> None:
     assert result.domain == "current_dasha"
-    assert result.tier in {AnswerTier.TIER_1_EXACT, AnswerTier.TIER_2_RANGE}
+    # current_dasha is ALWAYS TIER_2_RANGE in V1 (P7.0c design-chat reversal
+    # of the Session 45 conditional-demotion behavior): the payload always
+    # carries Mahadasha/Antardasha boundary DATES, which carry the
+    # documented +/-37-day AstroSage drift regardless of how far
+    # evaluated_at sits from a boundary. The old `tier in {T1, T2}`
+    # set-membership check would pass just as happily on a T1 regression --
+    # tightened to an exact assertion so that can never ship silently again.
+    assert result.tier == AnswerTier.TIER_2_RANGE
+    assert result.demotion_reason
+    # "37-day" is a stable fragment shared by BOTH calc_router demotion_reason
+    # wordings (mid-period and near-boundary) -- asserting the fragment, not
+    # the full string, so a wording-only edit doesn't churn this test.
+    assert "37-day" in result.demotion_reason
     assert "mahadasha" in result.answer_payload
     assert "antardasha" in result.answer_payload
     maha = result.answer_payload["mahadasha"]
@@ -178,38 +193,46 @@ def _assert_dasha_answer_shape(result) -> None:
 def test_dasha_david(david_chart):
     result = answer_question(_DASHA_QUESTION, david_chart)
     _assert_dasha_answer_shape(result)
-    # Diagnostic -- verify dasha demotion is conditional on near_boundary,
-    # not unconditional. If ALL four charts show TIER_2_RANGE, investigate
-    # _near_dasha_boundary logic.
-    print(f"[dasha diagnostic] David: tier={result.tier}, demotion_reason={result.demotion_reason!r}")
 
 
 def test_dasha_sheridan(sheridan_chart):
     result = answer_question(_DASHA_QUESTION, sheridan_chart)
     _assert_dasha_answer_shape(result)
-    # Diagnostic -- verify dasha demotion is conditional on near_boundary,
-    # not unconditional. If ALL four charts show TIER_2_RANGE, investigate
-    # _near_dasha_boundary logic.
-    print(f"[dasha diagnostic] Sheridan: tier={result.tier}, demotion_reason={result.demotion_reason!r}")
 
 
 def test_dasha_surbhi(surbhi_chart):
     result = answer_question(_DASHA_QUESTION, surbhi_chart)
     _assert_dasha_answer_shape(result)
-    # Diagnostic -- verify dasha demotion is conditional on near_boundary,
-    # not unconditional. If ALL four charts show TIER_2_RANGE, investigate
-    # _near_dasha_boundary logic.
-    print(f"[dasha diagnostic] Surbhi: tier={result.tier}, demotion_reason={result.demotion_reason!r}")
 
 
 def test_dasha_sulabh(sulabh_chart):
     result = answer_question(_DASHA_QUESTION, sulabh_chart)
     _assert_dasha_answer_shape(result)
     assert result.answer_payload["mahadasha"]["lord"].lower() == "ketu"
-    # Diagnostic -- verify dasha demotion is conditional on near_boundary,
-    # not unconditional. If ALL four charts show TIER_2_RANGE, investigate
-    # _near_dasha_boundary logic.
-    print(f"[dasha diagnostic] Sulabh: tier={result.tier}, demotion_reason={result.demotion_reason!r}")
+
+
+def test_dasha_boundary_reason_selection(sulabh_chart, monkeypatch):
+    """Lock WHICH demotion_reason wording calc_router selects, independent
+    of wall-clock boundary proximity.
+
+    P7.0c made current_dasha's tier unconditionally TIER_2_RANGE in both
+    branches -- only the reason wording depends on _near_dasha_boundary
+    now. Monkeypatches calc_router._near_dasha_boundary directly (verified
+    call site: route_question's current_dasha branch calls it as a bare
+    module-level name, so patching the module attribute is the correct
+    seam) rather than constructing a chart that happens to sit near a real
+    boundary right now, which would couple this test to wall-clock time.
+    """
+    monkeypatch.setattr("agent.infra.calc_router._near_dasha_boundary", lambda *a, **k: True)
+    near_result = answer_question(_DASHA_QUESTION, sulabh_chart)
+    assert near_result.tier == AnswerTier.TIER_2_RANGE
+    assert "flip which lord is actually current" in near_result.demotion_reason
+
+    monkeypatch.setattr("agent.infra.calc_router._near_dasha_boundary", lambda *a, **k: False)
+    mid_result = answer_question(_DASHA_QUESTION, sulabh_chart)
+    assert mid_result.tier == AnswerTier.TIER_2_RANGE
+    assert "current lord itself is reliable" in mid_result.demotion_reason
+    assert "flip which lord is actually current" not in mid_result.demotion_reason
 
 
 # ─── Group C: Marriage domain ───────────────────────────────────────────

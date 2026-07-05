@@ -127,8 +127,15 @@ _CAREER_DEMOTION_REASON = (
     "should be treated as approximate"
 )
 _DASHA_DEMOTION_REASON = (
-    "Antardasha boundaries carry ±37-day drift vs AstroSage; current "
-    "lord is reliable except near period boundaries"
+    "Antardasha boundaries carry ±37-day drift vs AstroSage; the current "
+    "lord itself is reliable, but any date given for its start/end should "
+    "be treated as approximate"
+)
+_DASHA_DEMOTION_REASON_NEAR_BOUNDARY = (
+    "Antardasha boundaries carry ±37-day drift vs AstroSage; within that "
+    "window of a boundary, the drift can flip which lord is actually "
+    "current -- both the current lord's identity and its dates should be "
+    "treated as approximate"
 )
 
 
@@ -263,8 +270,14 @@ def route_question(
     question_lower = question.lower()
 
     # REFUSAL triggers checked BEFORE domain classification.
+    # Word-boundary match (not plain substring) -- golden-harness row
+    # sulabh_dasha_r4_exact_date exposed "transition"/"transitional"
+    # false-positiving on keyword "transit" under substring containment.
+    # `s?` permits the simple plural (e.g. "transits", "vargas") without
+    # opening the door to unrelated words that merely start with the
+    # keyword (e.g. "characteristics" no longer false-positives on "chara").
     for keyword, module_name in _UNBUILT_MODULE_KEYWORDS.items():
-        if keyword in question_lower:
+        if re.search(rf"\b{re.escape(keyword)}s?\b", question_lower):
             return RouteResult(
                 domain=None,
                 tier=AnswerTier.REFUSAL,
@@ -336,17 +349,25 @@ def route_question(
             requires_partner=False,
         )
 
-    # current_dasha -- T2 only within the +/-37-day AD boundary window;
-    # mid-period, the current lord has zero ambiguity, so T1 is correct.
-    if chart_data is not None and _near_dasha_boundary(chart_data):
-        dasha_tier = AnswerTier.TIER_2_RANGE
-        demotion_reason = _DASHA_DEMOTION_REASON
+    # current_dasha -- ALWAYS TIER_2_RANGE in V1 (design-chat reversal of
+    # the Session 45 conditional-demotion behavior, Session 49/P7.0c;
+    # exposed by golden-harness rows sulabh_dasha_q11/q12/q13/r4_exact_date,
+    # all mid-period and all wrongly resolving TIER_1_EXACT under the old
+    # rule). Rationale: the payload always surfaces Mahadasha/Antardasha
+    # boundary DATES (chart_profile.py's current_dasha payload), and those
+    # dates carry the documented +/-37-day drift vs AstroSage regardless of
+    # how far evaluated_at sits from a boundary -- tier is a property of
+    # the answer's claims (which always include dated boundaries), not of
+    # the evaluation moment. _near_dasha_boundary()/_DASHA_BOUNDARY_WINDOW_DAYS
+    # are kept, repurposed below to choose WHICH demotion_reason applies
+    # (dates-only vs identity-also-uncertain), not whether to demote.
+    if chart_data is None or _near_dasha_boundary(chart_data):
+        demotion_reason = _DASHA_DEMOTION_REASON_NEAR_BOUNDARY
     else:
-        dasha_tier = AnswerTier.TIER_1_EXACT
-        demotion_reason = None
+        demotion_reason = _DASHA_DEMOTION_REASON
     return RouteResult(
         domain="current_dasha",
-        tier=dasha_tier,
+        tier=AnswerTier.TIER_2_RANGE,
         confidence=best_score,
         demotion_reason=demotion_reason,
         requires_partner=False,

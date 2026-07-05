@@ -309,6 +309,17 @@ ORDER's closing note below.
 
 ## POST-CHECKPOINT PHASE ORDER (Session 44, supersedes the P2→P3→P4→P5→P6→P7 reading order below)
 
+**Sequencing note (Session 49):** thin-slice dogfooding (golden-set
+harness, P7.0a-f) surfaced exactly the router miss-rate condition this
+section's own Decision Gate (above) anticipated — 9/10 golden-set
+questions refuse via calc_router.py's refuse-heavy posture, plus one
+Sade Sati design-debt gap (q14, a built/validated module wrongly excluded
+from the Q&A whitelist). Per that Decision Gate, this pauses items
+(a)-(e) below: HYBRID ROUTER DESIGN (keyword fast-path + GPT-4o-mini
+constrained-classification fallback) is now the next task, design-chat-
+first, before phase order resumes. Combustion thin-slice (PVR orb table,
+Session 56 below) remains queued behind router work.
+
 After thin-slice checkpoint validates (S44.1-S44.6):
 
 a. Drik Bala + Bhava Drishti Bala verbatim extraction
