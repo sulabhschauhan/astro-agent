@@ -1223,3 +1223,69 @@ Combustion thin-slice (PVR orb table) — PVR-first orb sourcing decision
 degrees) in design chat FIRST, no implementation until locked. Ephemeris
 consolidation debt (`helpers/ephemeris.py` extraction) remains an
 unscheduled backlog item.
+
+## Session 51 — P9 thin-slice: combustion module + FLG_SPEED retrograde bug fix (2026-07-05)
+
+### What landed
+- Design chat: PVR orb-table sourcing resolved. PVR book is SILENT on
+  combustion orbs (p.114 Budha-Aditya note qualitative only; all 8 mentions
+  verified, no degrees, no retro rule anywhere). Spec fell through hierarchy
+  to Surya Siddhanta convention: Mo12/Ma17/Me14[12R]/Ju11/Ve10[8R]/Sa15.
+- PyJHora const.py:608-609 divergence extracted verbatim in design chat:
+  direct [12,17,14,10,11,15] (Ju/Ve SWAPPED vs classical) and retro
+  [12,8,12,11,8,16] (non-classical Ma8/Sa16), with a commented-out alternate
+  matching the classical retro convention. We follow classical.
+- AstroSage-as-oracle FALSIFIED in design chat: Deeptadi avastha is
+  dignity-only, never assigns Vikala/Asta — Surbhi p.23 shows
+  Mercury=Muditha at 3.6deg from Sun. AstroSage has NO combustion surface.
+  Oracle basis = hand-falsified arithmetic on AstroSage p.3 longitudes
+  (separations ayanamsa-invariant). Also caught in design chat: a
+  wrong-chart JHora screenshot (Surbhi's date at Sulabh's 00:30) and a false
+  "none combust" read from JHora Basics view (which displays no combustion
+  flags at all) — Basics-view absence is not evidence.
+- agent/calculations/core/combustion.py: compute_combustion(), 6 non-Sun
+  planets, sthana_bala ephemeris re-derivation pattern, strict < orb test,
+  retro overrides Me/Ve only. CITATION block documents PVR silence +
+  PyJHora divergence + no deep/casual sub-threshold in V1.
+- chart_calculator.py FLG_SPEED bug FIXED: _calc_planets() lacked
+  swe.FLG_SPEED, so xx[3]=0.0 and retrograde was ALWAYS False since
+  inception, every planet, every chart. Exposed by David-first fixture
+  prep (David has Merc/Mars/Satn retro per AstroSage [R] markers).
+  Retro flip map post-fix: Sulabh none; Surbhi Saturn False->True
+  (matches AstroSage [R] + JHora); David Merc/Mars/Satn; Sheridan
+  Mars/Jupt/Satn. Full 1790-test suite green after fix — no test had
+  encoded the buggy False.
+- tests/calculations/core/test_combustion.py: 31 tests. Layer A 18-row
+  4-chart hand-falsified parity (David first; sulabh/surbhi
+  mars/venus/saturn cells not hand-extracted, deliberately absent rather
+  than silently asserted). Layer B retro-override decisive band via
+  swe.calc_ut monkeypatch (Me 13deg direct/retro flip pair, Ve 9deg pair,
+  exact-12.0 strict-boundary, Mars-orb-unchanged). Layers C/D error
+  contract + shape.
+- CLAUDE.md: Known Source Divergences combustion entry added (3-place
+  rule complete: CLAUDE.md + test comment + module CITATION block);
+  Session Focus updated; file held at 80 lines.
+
+### Key decisions (locked, carry forward)
+1. Combustion orbs = Surya Siddhanta convention, NOT PyJHora's active
+   const line. Outcome-sensitive only for a planet 10-11deg from Sun.
+2. No deep/casual combustion sub-threshold in V1 — no classical source at
+   hand quantifies one; binary flag + exact separation only (threshold
+   discipline).
+3. Moon combustion included per table but flagged as interpretively
+   overlapping Paksha Bala — downstream must not double-penalize.
+4. AstroSage provides no combustion oracle surface; hand-falsified
+   arithmetic fixtures are the accepted validation basis for this module.
+5. Retro-bug reconciliation protocol precedent: option "fix upstream
+   first" chosen over asserting buggy output or patching fixtures —
+   green tests must never mask a live production defect.
+
+### Test baseline
+1790 passed, 3 skipped -> 1821 passed, 3 skipped (+31 combustion tests;
+FLG_SPEED fix itself was regression-neutral).
+
+### Next task
+Sequencing decision in design chat (fresh session): ephemeris
+consolidation helpers/ephemeris.py (now 13 swe.calc_ut call sites,
+combustion.py added one) vs Drik/Bhava-Drishti verbatim extraction —
+Master Build Plan post-checkpoint items (b) vs (a).
