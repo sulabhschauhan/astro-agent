@@ -1,6 +1,20 @@
-"""Deterministic 3-domain question router for the thin-slice answer pipeline,
-with a Stage 2 LLM-constrained-classification fallback (Session 49+, P7.1
-hybrid router).
+"""Deterministic question router for the thin-slice answer pipeline, with
+a Stage 2 LLM-constrained-classification fallback (Session 49+, P7.1
+hybrid router). 4 routable domains as of Session 50/P7.2c: the original
+3-domain whitelist (marriage_compatibility, career_strength, current_dasha)
+plus sade_sati.
+
+sade_sati is routed differently from the other 3: it never goes through
+_DOMAIN_KEYWORDS/_score_domain's floor/margin scoring at all. Instead it
+has its own deterministic _BUILT_MODULE_FASTPATH phrase match, checked
+immediately after the unbuilt-module/out-of-scope REFUSAL checks and
+before domain scoring -- a flagship differentiator (the ONLY module this
+pipeline can answer with zero ambiguity, per golden q14) must never
+depend on Stage 2/GPT-4o-mini being available or correct. Stage 2 can
+still independently classify a question as sade_sati (added to
+_STAGE2_VALID_DOMAINS) for questions the fast-path phrase list doesn't
+literally catch -- both paths converge on the same _route_to_domain()
+sade_sati branch (T1, no demotion, no partner).
 
 Stage 1 (keyword scoring, _score_domain) runs first, always, and short-
 circuits on the unbuilt-module-keyword and out-of-scope-keyword REFUSAL
@@ -61,17 +75,22 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "current_dasha": _DASHA_KEYWORDS,
 }
 
-# Calculation modules referenced in a question but NOT in the 3-domain
+# Calculation modules referenced in a question but NOT in the routable
 # whitelist -> immediate REFUSAL naming the unbuilt module, checked BEFORE
 # domain classification. "muhurta" gets its own message: the scorer exists
 # (transits/chandrabala.py, tarabala.py, panchaka.py) but is not wired to
 # Q&A in V1 -- distinct from the other keywords, which name modules that
-# are either unbuilt or simply out of this pipeline's 3-domain scope.
+# are either unbuilt or simply out of this pipeline's scope.
+#
+# "sade sati" REMOVED Session 50/P7.2c (was DESIGN_DEBT per
+# golden_harness.py's _DESIGN_DEBT["sulabh_dasha_q14"]: sade_sati.py is
+# built and 4-chart validated, unlike the genuinely-unbuilt modules below
+# -- refusing it here was product debt, not a locked decision). Now routed
+# via _BUILT_MODULE_FASTPATH instead.
 _UNBUILT_MODULE_KEYWORDS: dict[str, str] = {
     "yoga": "yoga detection",
-    "transit": "transit engine (gochara/sade sati)",
+    "transit": "transit engine (gochara)",
     "gochara": "gochara transit engine",
-    "sade sati": "Sade Sati transit engine",
     "ashtakavarga": "Ashtakavarga (BAV/SAV)",
     "navamsa": "D9 (Navamsa) divisional chart",
     "divisional": "divisional charts (vargas)",
@@ -84,6 +103,23 @@ _UNBUILT_MODULE_KEYWORDS: dict[str, str] = {
     "ashtottari": "Ashtottari dasha",
     "varshaphal": "Varshaphal annual chart",
     "muhurta": "Muhurta scorer (module exists but is not wired to Q&A in V1)",
+}
+
+# Deterministic fast-path for the ONE built-and-validated module this
+# pipeline can route with zero ambiguity: sade_sati.py (4-chart validated,
+# CLAUDE.md P2 order). Checked AFTER the unbuilt-module/out-of-scope
+# REFUSAL checks and BEFORE domain scoring -- same word-boundary regex as
+# _UNBUILT_MODULE_KEYWORDS above. This is deliberately NOT folded into
+# _DOMAIN_KEYWORDS/_score_domain: the flagship differentiator (golden
+# q14) must route with certainty regardless of Stage 2/GPT-4o-mini's
+# availability or correctness, not be subject to the same floor/margin
+# scoring or Stage-2 fallback the other 3 domains depend on. Stage 2 can
+# still independently classify "sade_sati" (see _STAGE2_VALID_DOMAINS)
+# for phrasings this literal list doesn't catch.
+_BUILT_MODULE_FASTPATH: dict[str, str] = {
+    "sade sati": "sade_sati",
+    "sadesati": "sade_sati",
+    "sadhe sati": "sade_sati",
 }
 
 # Minimal, spec-named out-of-scope categories: medical diagnosis, legal
@@ -178,10 +214,13 @@ _STAGE2_TIMEOUT_SECONDS = 8.0
 
 # Domain enum Stage 2 is constrained to via tool-call schema. "none" is a
 # real member (not Python None) so the schema has an explicit way to say
-# "not one of the 3 domains" -- mapped to Python None at the boundary in
-# _stage2_classify, never leaked past this module.
+# "not one of the 4 domains" -- mapped to Python None at the boundary in
+# _stage2_classify, never leaked past this module. "sade_sati" added
+# Session 50/P7.2c -- Stage 2 can independently classify a question as
+# sade_sati even when it doesn't literally match _BUILT_MODULE_FASTPATH's
+# phrase list (e.g. a paraphrase that never says "Sade Sati" outright).
 _STAGE2_VALID_DOMAINS: frozenset[str] = frozenset(
-    {"marriage_compatibility", "career_strength", "current_dasha", "none"}
+    {"marriage_compatibility", "career_strength", "current_dasha", "sade_sati", "none"}
 )
 _STAGE2_VALID_CONFIDENCE: frozenset[str] = frozenset({"high", "medium", "low"})
 
@@ -205,22 +244,25 @@ _STAGE2_LOG_PATH = Path(__file__).resolve().parents[2] / "diagnostics" / "calc_r
 _STAGE2_SYSTEM_PROMPT = """\
 You are a routing classifier for a Vedic astrology calculation Q&A pipeline.
 
-This pipeline can ONLY answer questions in exactly 3 domains:
+This pipeline can ONLY answer questions in exactly 4 domains:
 - marriage_compatibility: Ashtakoot/Guna Milan, Mangal Dosha, spouse or \
 partner compatibility.
 - career_strength: career/profession/work strength, based on Shadbala \
 planetary strength.
 - current_dasha: what Mahadasha/Antardasha period the person is currently \
 running.
+- sade_sati: whether the person is currently in Sade Sati (Saturn's ~7.5-year \
+transit through the 12th/1st/2nd sign from natal Moon), and/or when the \
+current, previous, or next Sade Sati cycle starts or ends.
 
 Classify the question into exactly one of these domains, or "none" if it
-does not clearly ask about one of these 3 things (for example: health,
+does not clearly ask about one of these 4 things (for example: health,
 travel, gemstones, lucky numbers, or any other topic).
 
 Call classify_domain with:
 - domain: the single best-matching domain, or "none".
 - confidence: "high" ONLY if the question clearly and unambiguously asks
-  about exactly one of the 3 domains above; "medium" or "low" for any
+  about exactly one of the 4 domains above; "medium" or "low" for any
   ambiguity, a different topic, or a domain this pipeline does not cover.
 """
 
@@ -458,10 +500,12 @@ def _route_to_domain(
 ) -> RouteResult:
     """Build the final RouteResult for a resolved domain.
 
-    Shared by Stage 1 (keyword score cleared floor + margin) and Stage 2
-    (LLM high-confidence fallback) -- the has_partner_data hard guard,
-    career's fixed T2 demotion, and dasha's ALWAYS-T2 rule (Session 49/
-    P7.0c) apply identically regardless of which stage resolved the domain.
+    Shared by Stage 1 (keyword score cleared floor + margin), Stage 2
+    (LLM high-confidence fallback), AND the sade_sati deterministic
+    fast-path (Session 50/P7.2c) -- the has_partner_data hard guard,
+    career's fixed T2 demotion, sade_sati's fixed T1/no-demotion, and
+    dasha's ALWAYS-T2 rule (Session 49/P7.0c) apply identically regardless
+    of which of the three resolved the domain.
     """
     if domain == "marriage_compatibility":
         if not has_partner_data:
@@ -487,6 +531,22 @@ def _route_to_domain(
             tier=AnswerTier.TIER_2_RANGE,
             confidence=confidence,
             demotion_reason=_CAREER_DEMOTION_REASON,
+            requires_partner=False,
+        )
+
+    if domain == "sade_sati":
+        # T1, no demotion, no partner -- distinct from current_dasha's
+        # ALWAYS-T2 rule below: sade_sati's payload (chart_profile.py
+        # P7.2a) carries NO mahadasha/antardasha boundary dates, so it
+        # never inherits the +/-37-day drift that forces current_dasha's
+        # demotion. Tier is a property of the payload's actual claims
+        # (Session 49/P7.0c principle), and this payload makes none that
+        # carry that drift.
+        return RouteResult(
+            domain="sade_sati",
+            tier=AnswerTier.TIER_1_EXACT,
+            confidence=confidence,
+            demotion_reason=None,
             requires_partner=False,
         )
 
@@ -632,8 +692,8 @@ def route_question(
                 confidence=0.0,
                 demotion_reason=(
                     f"question references {module_name}, which is not in "
-                    f"the 3-domain whitelist (marriage_compatibility, "
-                    f"career_strength, current_dasha)"
+                    f"the routable whitelist (marriage_compatibility, "
+                    f"career_strength, current_dasha, sade_sati)"
                 ),
                 requires_partner=False,
             )
@@ -650,6 +710,16 @@ def route_question(
                 ),
                 requires_partner=False,
             )
+
+    # sade_sati deterministic fast-path (Session 50/P7.2c) -- checked AFTER
+    # the unbuilt-module/out-of-scope REFUSAL checks above, BEFORE domain
+    # scoring below. Same word-boundary regex as _UNBUILT_MODULE_KEYWORDS.
+    # Deliberately bypasses _DOMAIN_KEYWORDS/_score_domain's floor/margin
+    # scoring entirely: the flagship differentiator (golden q14) must
+    # never depend on Stage 2/GPT-4o-mini being available or correct.
+    for keyword, domain in _BUILT_MODULE_FASTPATH.items():
+        if re.search(rf"\b{re.escape(keyword)}s?\b", question_lower):
+            return _route_to_domain(domain, 1.0, has_partner_data, chart_data)
 
     # Domain classification.
     question_tokens = _normalize_tokens(question)
