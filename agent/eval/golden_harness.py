@@ -84,97 +84,92 @@ _SURBHI_BIRTH = ("Surbhi", "11 Sep 1992", "10:30", "Patna, India")
 # is a design-chat decision, not something this harness does on its own.
 # Contrast with _DESIGN_DEBT below: KNOWN_GAP means "working as locked",
 # DESIGN_DEBT means "not locked, a real gap, just not THIS session's fix".
+#
+# Session 50/P7.1e: q1/q2/q3/q7/q8 deleted from this dict. Stage 2
+# (calc_router.py's GPT-4o-mini constrained-classification fallback,
+# Session 49+/P7.1) now classifies all 5 at confidence="high" and routes
+# them to the correct domain -- verified MATCH in
+# diagnostics/golden_scorecard_20260705_075932.md before this deletion.
+# Deletion is behavior-neutral: _run_runnable_row only consults this dict
+# when actual_tier != expected_tier (see below), so a MATCH row never
+# reaches it whether or not an entry exists here.
+#
+# The 4 remaining entries are all STAGE2_VARIABLE (see each entry): their
+# outcome now depends on a live GPT-4o-mini call, which -- unlike Stage 1's
+# pure keyword arithmetic -- is not perfectly guaranteed identical across
+# runs even at temperature=0. A category flip on one of these 4 rows in a
+# future run is expected variance, not automatically a regression: check
+# diagnostics/calc_router_stage2.log for that run before treating it as a
+# NEW_GAP.
 _KNOWN_GAPS: dict[str, str] = {
-    # CLAUDE.md "Router refuse-heavy posture" lock: calc_router.py requires
-    # >=2 keyword hits to route any domain (0.4 floor); single- (or zero-)
-    # keyword questions are REFUSED BY DESIGN. This is the lock's own named
-    # example ("career potential" -> 1 hit -> refused).
-    "sulabh_career_q1": (
-        "Router refuse-heavy posture (CLAUDE.md Locked Decisions): scores "
-        "a single career keyword hit (\"career\"), below the 2-hit/0.4-floor "
-        "requirement -- REFUSED BY DESIGN, the lock's own named example."
-    ),
-    # Same mechanism as q1, different wording: "profession" is the only
-    # career-keyword hit.
-    "sulabh_career_q2": (
-        "Router refuse-heavy posture (CLAUDE.md Locked Decisions): scores "
-        "a single career keyword hit (\"profession\"), below the "
-        "2-hit/0.4-floor requirement -- REFUSED BY DESIGN, same mechanism "
-        "as the lock's named q1 example."
-    ),
-    # Same mechanism as q1: "10th house" is the only career-keyword hit.
-    "sulabh_career_q3": (
-        "Router refuse-heavy posture (CLAUDE.md Locked Decisions): scores "
-        "a single career keyword hit (\"10th house\"), below the "
-        "2-hit/0.4-floor requirement -- REFUSED BY DESIGN, same mechanism "
-        "as the lock's named q1 example."
-    ),
-    # Same mechanism as q1: "job" is the only career-keyword hit (the
-    # additive job->career _STEM_MAP expansion does not add a second
-    # DISTINCT keyword-list hit -- "career" itself is not a literal token
-    # here, only "job" matches a keyword-list entry).
     "sulabh_career_q4": (
-        "Router refuse-heavy posture (CLAUDE.md Locked Decisions): scores "
-        "a single career keyword hit (\"job\"), below the 2-hit/0.4-floor "
-        "requirement -- REFUSED BY DESIGN, same mechanism as the lock's "
-        "named q1 example."
+        "STAGE2_VARIABLE: outcome depends on live GPT-4o-mini "
+        "classification; a category flip on this row across runs is "
+        "expected variance, not automatically a regression -- check "
+        "diagnostics/calc_router_stage2.log before treating as NEW_GAP. "
+        "Session 50 observed mechanism: Stage 2 classified "
+        "career_strength at confidence=\"medium\" -- calc_router routes "
+        "ONLY on \"high\" confidence, so this REFUSES via the same "
+        "generic path Stage 1 alone would have produced (\"job\" is the "
+        "only Stage 1 career-keyword hit, itself below the 2-hit/0.4-floor "
+        "requirement)."
     ),
-    # Same mechanism as q1, marriage domain: "mangal dosha" is the only
-    # marriage-keyword hit.
-    "sulabh_marriage_q7": (
-        "Router refuse-heavy posture (CLAUDE.md Locked Decisions): scores "
-        "a single marriage keyword hit (\"mangal dosha\"), below the "
-        "2-hit/0.4-floor requirement -- REFUSED BY DESIGN, same mechanism "
-        "as the lock's named q1 example."
-    ),
-    # Same mechanism as q1, marriage domain, zero-hit case: no marriage/
-    # career/dasha keyword-list entry appears in this question at all
-    # ("nadi dosha" is not in _MARRIAGE_KEYWORDS).
-    "sulabh_marriage_q8": (
-        "Router refuse-heavy posture (CLAUDE.md Locked Decisions): scores "
-        "zero keyword hits in any domain -- REFUSED BY DESIGN (a fortiori "
-        "the same 2-hit-floor mechanism as the lock's named q1 example)."
-    ),
-    # Same mechanism as q1, marriage domain: "compatibility" is the only
-    # marriage-keyword hit.
     "sulabh_marriage_q9": (
-        "Router refuse-heavy posture (CLAUDE.md Locked Decisions): scores "
-        "a single marriage keyword hit (\"compatibility\"), below the "
-        "2-hit/0.4-floor requirement -- REFUSED BY DESIGN, same mechanism "
-        "as the lock's named q1 example."
+        "STAGE2_VARIABLE: outcome depends on live GPT-4o-mini "
+        "classification; a category flip on this row across runs is "
+        "expected variance, not automatically a regression -- check "
+        "diagnostics/calc_router_stage2.log before treating as NEW_GAP. "
+        "Session 50 observed mechanism: Stage 2 classified "
+        "marriage_compatibility at confidence=\"medium\" -- calc_router "
+        "routes ONLY on \"high\" confidence, so this REFUSES via the same "
+        "generic path Stage 1 alone would have produced (\"compatibility\" "
+        "is the only Stage 1 marriage-keyword hit, itself below the "
+        "2-hit/0.4-floor requirement)."
     ),
-    # Two independent, both-documented reasons this cannot MATCH: (1) same
-    # router refuse-heavy mechanism as q1 (single hit, "compatibility");
-    # (2) CLAUDE.md "V1 scope" lock -- TIER_4_INTERPRETIVE ("LLM-generated
-    # interpretive Q&A is OUT for V1") is never produced by this pipeline
-    # regardless of routing outcome, so no router tuning could ever make
-    # this row MATCH.
+    # Two independent reasons this cannot MATCH -- one STAGE2_VARIABLE, one
+    # a hard CLAUDE.md lock. Per this session's design-chat instruction: if
+    # a future run's Stage 2 ever classifies this "high" and routes it to
+    # marriage_compatibility, that is BENIGN, not a bug -- the koota data
+    # layer still matches golden's verified claims. Only this entry's
+    # "observed mechanism" sentence would need updating; the underlying
+    # KNOWN_GAP conclusion (reason 2 below) is unaffected either way.
     "sulabh_marriage_q10": (
-        "Router refuse-heavy posture (CLAUDE.md Locked Decisions): scores "
-        "a single marriage keyword hit (\"compatibility\") -- REFUSED BY "
-        "DESIGN. Independently also unreachable under the V1 scope lock "
-        "(\"LLM-generated interpretive Q&A is OUT; AstroSage paragraph + "
-        "palm are the interpretive surface\"): TIER_4_INTERPRETIVE is never "
-        "produced by this pipeline, so no amount of router tuning fixes "
-        "this row."
+        "STAGE2_VARIABLE: outcome depends on live GPT-4o-mini "
+        "classification; a category flip on this row across runs is "
+        "expected variance, not automatically a regression -- check "
+        "diagnostics/calc_router_stage2.log before treating as NEW_GAP. "
+        "Session 50 observed mechanism (reason 1): Stage 2 classified "
+        "marriage_compatibility at confidence=\"medium\" -> REFUSAL "
+        "(\"compatibility\" is the only Stage 1 hit, below floor). If a "
+        "future run's Stage 2 instead classifies \"high\" and routes to "
+        "marriage_compatibility: BENIGN -- the koota data layer still "
+        "matches golden's verified claims. Reason 2, independent of "
+        "Stage 2 entirely: CLAUDE.md V1 scope lock (\"LLM-generated "
+        "interpretive Q&A is OUT; AstroSage paragraph + palm are the "
+        "interpretive surface\") means TIER_4_INTERPRETIVE is never "
+        "produced by this pipeline regardless of routing outcome -- no "
+        "amount of router/Stage-2 tuning fixes this row's tier mismatch."
     ),
     # CLAUDE.md "P2 order" lock: Muhurta engine exists (transits/chandrabala.py,
     # tarabala.py, panchaka.py per calc_router.py's own
     # _UNBUILT_MODULE_KEYWORDS["muhurta"] comment) but is "not wired to Q&A
-    # in V1". TIER_3_MUHURTA is never produced by this pipeline -- this
-    # question actually scores zero keyword hits in all 3 whitelisted
-    # domains and is refused via the generic confidence-floor path, not via
-    # the muhurta keyword trigger, but the conclusion is the same: no
-    # router tuning inside the 3-domain whitelist can ever produce
-    # TIER_3_MUHURTA.
+    # in V1". TIER_3_MUHURTA is never produced by this pipeline regardless
+    # of Stage 1 or Stage 2 routing outcome -- UNLIKE q10 above, a future
+    # Stage 2 route here would NOT be benign (see entry below).
     "sulabh_dasha_q15": (
-        "P2 order lock (CLAUDE.md Locked Decisions: Muhurta engine "
-        "P2-ordered but \"not wired to Q&A in V1\"): TIER_3_MUHURTA is "
-        "never produced by this pipeline. Observed mechanism this run: "
-        "zero keyword hits in any of the 3 whitelisted domains -> refused "
-        "via the generic confidence-floor path (same router refuse-heavy "
-        "posture as q1), not via a muhurta-specific trigger -- either way, "
-        "this row cannot MATCH without a scope change, not a router tune."
+        "STAGE2_VARIABLE: outcome depends on live GPT-4o-mini "
+        "classification; a category flip on this row across runs is "
+        "expected variance, not automatically a regression -- check "
+        "diagnostics/calc_router_stage2.log before treating as NEW_GAP. "
+        "Session 50 observed mechanism: Stage 2 classified domain=\"none\" "
+        "at confidence=\"high\" -> REFUSAL (Stage 1 scores zero keyword "
+        "hits in all 3 whitelisted domains). Independently unreachable "
+        "regardless: CLAUDE.md P2 order lock means TIER_3_MUHURTA is "
+        "never produced by this pipeline. If a future run's Stage 2 ever "
+        "routes this to current_dasha (high confidence): that IS a SOFT "
+        "MISROUTE (a Muhurta-intent question answered as a dasha "
+        "question) -- flag to design chat, do NOT silently accept it the "
+        "way q10's koota-benign case is accepted above."
     ),
 }
 
@@ -202,6 +197,14 @@ _DESIGN_DEBT: dict[str, str] = {
         "documented-locked behavior."
     ),
 }
+
+# Session 50/P7.1e: every row still in _KNOWN_GAPS is STAGE2_VARIABLE (see
+# each entry's docstring above) -- derived from the dict's own keys rather
+# than a separately hardcoded list, so this can never drift out of sync
+# with _KNOWN_GAPS itself. Surfaced in the report header so a reviewer
+# knows which rows' categorization is expected to vary run-to-run before
+# treating a flip as a NEW_GAP.
+_STAGE2_DEPENDENT_ROW_IDS: tuple[str, ...] = tuple(_KNOWN_GAPS.keys())
 
 
 @dataclasses.dataclass(frozen=True)
@@ -327,6 +330,13 @@ def _render_report(
     lines.append(f"- Run evaluated_at_jd: `{evaluated_at_jd}`")
     lines.append(f"- Baseline pytest suite count (CLAUDE.md checkpoint): {_BASELINE_TEST_COUNT}")
     lines.append(f"- Golden-set row count: {len(rows)}")
+    lines.append(
+        "- stage2_dependent_rows: "
+        f"{', '.join(_STAGE2_DEPENDENT_ROW_IDS)} "
+        "(categorization depends on a live GPT-4o-mini call -- a flip here "
+        "is expected variance, check diagnostics/calc_router_stage2.log "
+        "before treating as NEW_GAP)"
+    )
     lines.append("")
     lines.append("## Per-row results")
     lines.append("")
