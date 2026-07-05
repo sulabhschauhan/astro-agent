@@ -314,11 +314,27 @@ harness, P7.0a-f) surfaced exactly the router miss-rate condition this
 section's own Decision Gate (above) anticipated — 9/10 golden-set
 questions refuse via calc_router.py's refuse-heavy posture, plus one
 Sade Sati design-debt gap (q14, a built/validated module wrongly excluded
-from the Q&A whitelist). Per that Decision Gate, this pauses items
-(a)-(e) below: HYBRID ROUTER DESIGN (keyword fast-path + GPT-4o-mini
-constrained-classification fallback) is now the next task, design-chat-
-first, before phase order resumes. Combustion thin-slice (PVR orb table,
-Session 56 below) remains queued behind router work.
+from the Q&A whitelist). Per that Decision Gate, this paused items
+(a)-(e) below for HYBRID ROUTER DESIGN (keyword fast-path + GPT-4o-mini
+constrained-classification fallback).
+
+**DONE (Session 50, P7.1-P7.2):** hybrid router shipped —
+`calc_router.py`'s Stage 2 GPT-4o-mini constrained-classification
+fallback (fires only on Stage 1 confidence-floor/margin refusals, routes
+only on high confidence, fails closed, autouse-stubbed in tests) plus the
+Sade Sati q14 gap closed end-to-end via a deterministic built-module
+fastpath + a TIER_1_EXACT payload-property sub-path
+(`chart_profile.py`/`result_formatter.py`/`orchestrator.py`). Golden
+scorecard: match=12, design_debt=0, known_gap=4 (all STAGE2_VARIABLE,
+expected cross-run variance — see CLAUDE.md Locked Decisions), new_gap=0.
+1790 passed, 3 skipped. Full detail: SESSION_LOG.md Session 50.
+
+Items (a)-(e) below are now UNBLOCKED. **Combustion thin-slice (Session
+56 below) is next**, opening with a design-chat-first decision: PVR-first
+orb sourcing (PVR's retrograde-orb distinction vs. this Master Build
+Plan's own "Standard combustion degrees" list below) must be resolved
+before any implementation prompt is drafted — same discipline as every
+other contested-source module in this project.
 
 After thin-slice checkpoint validates (S44.1-S44.6):
 

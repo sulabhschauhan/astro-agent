@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 49: P7.0 golden eval harness live (agent/eval/golden_harness.py, 5 categories, match=6 design_debt=1 known_gap=9 new_gap=0); calc_router word-boundary fix; dasha ALWAYS TIER_2_RANGE (design-chat reversal of S45 conditional demotion — payload always carries ±37d date claims); e2e dasha tests tightened. 1770 passed, 3 skipped, 0 xfailed, 0 failed. Next: hybrid router design (keyword fast-path + GPT-4o-mini constrained classification fallback) — DESIGN IN CHAT FIRST, no implementation until design chat locks it.**
+**Session 50: hybrid router live — Stage 2 GPT-4o-mini constrained fallback (fail-closed, logged, autouse-stubbed in tests); sade_sati 4th domain end-to-end (deterministic fastpath, T1 payload-property sub-path, 27 Jan 2041 verified); golden scorecard match=12 design_debt=0 known_gap=4(STAGE2_VARIABLE) new_gap=0. 1790 passed, 3 skipped. Next: combustion thin-slice — PVR orb table sourcing decision in design chat FIRST (PVR retrograde-orb distinction vs Master Build Plan's standard degrees).**
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -15,6 +15,8 @@ Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → em
 - **Ephemeris consolidation debt** (Session 44 flag) — 12 independent `swe.calc_ut()` call sites across chesta_bala, kala_bala, dig_bala, sthana_bala, panchaka, tarabala, chandrabala, sade_sati, gochara, navamsa, panchanga, chart_profile bridge. Extract to `helpers/ephemeris.py` per existing TODO markers. Mechanical, bounded, no investigation risk. Scheduled as post-checkpoint item (b) in Master Build Plan.
 - **Router refuse-heavy posture** (Session 44 lock) — calc_router.py requires >=2 keyword hits to route any domain (0.4 floor, 0.15 margin). Single-keyword questions are REFUSED BY DESIGN. Dogfood-observed misses ("career potential" → 1 hit, refused; "Are we compatible?" → tie, refused) are scorecard data for future `_STEM_MAP` tuning, not bugs. Tune only with Answer Scorecard evidence, not preemptive guesses.
 - **Dasha tier = payload property** (Session 49) — current_dasha always TIER_2_RANGE in V1; boundary window selects reason wording only. Tier attaches to answer claims, not evaluation moment.
+- **Hybrid router** (Session 50) — Stage 2 LLM classification fires only on Stage-1 confidence-floor/margin refusals; routes only on high; fails closed; built-module fastpath bypasses both stages for flagship deterministic domains.
+- **Golden harness STAGE2_VARIABLE tag** (Session 50) — rows tagged STAGE2_VARIABLE carry expected cross-run variance; check calc_router_stage2.log before treating a flip as regression.
 
 Older superseded/shipped-feature decisions (Sessions 15-25) archived to SESSION_LOG.md's compression section — not needed per-query once a module ships and its convention lives in the code/tests themselves.
 
@@ -73,7 +75,6 @@ Every new calculation module lives in its `calculations/` subpackage; never add 
 - **Chesta Bala cross-chart divergence** — Sheridan/David show wider kala_total/chesta spread than Surbhi's documented divergence (same elongation-formula root cause); AstroSage parity tests scoped to Sulabh+Surbhi only. Fix: revisit only if a future phase needs Sheridan/David precision.
 - **Planet key casing** — shadbala_totals.py keys are lowercase (`"sun"`); bhava_bala.py/SIGN_LORDS use Title-case (`"Sun"`). `chart_profile.py`'s `shadbala_titlecase` bridge is the single conversion point — do not add ad-hoc `.capitalize()` calls elsewhere.
 - **Kala Bala Sun cross-chart (Surbhi)** — `uncertainty_virupa` general = 2.0 (AstroSage-parity basis), vs. Surbhi's ±59 Virupa override (Jupiter/Saturn Abda/Masa divergence) — unchanged, chart-specific, takes precedence. Full detail archived in SESSION_LOG.md.
-- **Pancha Mahapurusha real-chart validation** — 3/4 charts unvalidated — see SESSION_LOG Session 40.
-- **Bhava Dig Bala** — resolved Session 42, 48/48 exact match. Methodology archived in SESSION_LOG.
+- **Pancha Mahapurusha real-chart validation** — 3/4 charts unvalidated (SESSION_LOG Session 40); **Bhava Dig Bala** — resolved Session 42, 48/48 exact match (methodology archived SESSION_LOG).
 
 Older/narrower divergences (Saptavargaja scoring, Drekkana Bala, Ayana Bala Moon/Venus edge case, PDF-tooling gap, Sequencing lock violation) archived to SESSION_LOG.md's compression section.

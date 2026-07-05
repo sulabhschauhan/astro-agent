@@ -1063,3 +1063,163 @@ Hybrid router design session (keyword fast-path + GPT-4o-mini
 constrained-classification fallback) — DESIGN IN CHAT FIRST, no
 implementation until locked. Combustion thin-slice (PVR orb table)
 queued behind router work.
+
+## Session 50 — P7.1 hybrid router (Stage 2) + P7.2 sade_sati 4th domain (2026-07-05)
+
+**Date:** 2026-07-05
+**Phase tag:** P7.1 Stage 2 hybrid router — CLOSED. P7.2 sade_sati domain
+(deterministic fastpath + T1 sub-path, end-to-end) — CLOSED.
+
+### P7.1 — Stage 2 LLM-constrained-classification fallback
+
+1. **P7.1** (`calc_router.py`): Stage 2 fires ONLY on Stage 1's
+   confidence-floor/margin-tie REFUSAL (never on unbuilt-module-keyword
+   REFUSAL). GPT-4o-mini, constrained tool-call output only (no free-text
+   JSON parsing), receives ONLY the raw question (no anchored judgment,
+   Working Style #9). Routes only on `confidence=="high"`; fails CLOSED
+   on any exception/non-high confidence. Design decision (mid-task,
+   user-directed): OpenAI client is an injectable seam
+   (`_stage2_client`), constructed lazily INSIDE the Stage 2 branch only
+   — Stage 1's deterministic path never touches OpenAI. Every invocation
+   logs to `diagnostics/calc_router_stage2.log` (JSONL, append-only).
+   Flagged before implementing: ~5 existing e2e refusal tests had zero
+   keyword hits and would now trigger live OpenAI calls with no mock —
+   confirmed, then resolved via the injectable seam rather than blocking.
+2. **P7.1b** (`tests/conftest.py`): autouse OpenAI stub. Patch-seam
+   verified by reading `_stage2_classify` first: it does `from openai
+   import OpenAI` fresh INSIDE the function body (not at module level),
+   so the correct seam is `openai.OpenAI` itself, not anything in
+   `calc_router`'s own namespace. Stub asserts call shape (model,
+   tool_choice, tools, temperature) and fails loudly via a
+   session-violations list checked at test teardown (an immediate raise
+   inside the stub would otherwise be silently swallowed by
+   `_stage2_fallback`'s own fail-closed exception handling — a trap
+   documented explicitly so it isn't rediscovered). Opt-out via the
+   existing `@pytest.mark.integration` marker. **Verification rigor**:
+   `env -u OPENAI_API_KEY` does NOT actually go keyless — `dotenv`'s
+   `load_dotenv()` (called by `context_classifier.py`) repopulates
+   currently-absent vars from `.env`. Caught this and re-verified with a
+   deliberately INVALID key instead: only 6 pre-existing, unrelated
+   `@pytest.mark.integration` tests (palm/context-classifier) failed on
+   real auth errors; every calc_router-Stage-2 test still passed via the
+   stub — the actual property needed (Stage 2 never reaches a real
+   `OpenAI()` call) confirmed rigorously, not assumed from the `env -u`
+   run alone.
+3. **P7.1c** (`tests/infra/test_calc_router_stage2.py`, new): 16 unit
+   tests, all injecting fake clients via `_stage2_client` (bypasses both
+   the real network and the P7.1b stub by construction). Fail-closed
+   battery (6 parametrized cases) placed first per hardest-case-first.
+   Corrected 2 assertions against actual code rather than the task
+   prompt's wording: `RouteResult.demotion_reason` is the same generic
+   string for every Stage 2 REFUSAL cause — the domain=none/
+   not-high-confidence distinction exists only in the diagnostics log,
+   not on `RouteResult`.
+4. **P7.1d** (read-only harness re-run): live Stage 2 quality gate on the
+   golden set. Of 9 Stage-2-touching rows, **5/5 that returned high
+   confidence routed to the correct domain** (career q1-q3, marriage
+   q7-q8); 4 refused on medium confidence or domain=none. known_gap
+   dropped 9→4, match rose 6→11. No wrong-domain routes, no
+   routed-but-wrong-tier rows.
+5. **P7.1e** (`golden_harness.py` reconciliation): deleted 5 dead
+   `_KNOWN_GAPS` entries (verified MATCH first); rewrote the 4 remaining
+   with the STAGE2_VARIABLE annotation (LLM-dependent, a flip is expected
+   variance, check the log before treating as NEW_GAP) plus per-row notes
+   (q10: a future high-confidence route would be benign; q15: a future
+   route to current_dasha would be a genuine soft misroute requiring
+   design-chat review). Added `stage2_dependent_rows` to the report
+   header, derived from the dict's own keys.
+
+### P7.2 — sade_sati 4th domain, end-to-end
+
+1. **P7.2a** (`chart_profile.py`): new `sade_sati` domain, TIER_1_EXACT
+   payload sub-path — payload carries ONLY Sade Sati fields (active,
+   phase, current/previous/next cycle boundaries), never mahadasha/
+   antardasha, per the "tier = payload property" lock. **Mid-task
+   discovery**: `compute_sade_sati()`'s `macro_sade_sati` only populates
+   when the probed JD falls INSIDE a cycle's own span, not merely its
+   own ±10y scan window — a period-shift anchor from `evaluated_at_jd`
+   always returns `None` when not currently active (verified, not just
+   imprecise). Resolved (user-directed) via a cheap `find_state_segments()`
+   scan (reused from `helpers/discrete_scan.py`) over Saturn sign
+   membership directly (one `swe.calc_ut` per probe, not a full
+   `compute_sade_sati()` call per probe) — 40y bound / 1-day step
+   (matching `sade_sati.py`'s own daily-resolution precedent), ~1.45s.
+   Verified against Sulabh's golden q14 dates (previous_cycle_end 24 Jan
+   2020, next_cycle_start 27 Jan 2041) and cross-validated against the
+   rejected period-shift approach on an active-case fixture (sub-0.1-day
+   agreement) before adopting it as the single mechanism for both cases.
+2. **P7.2b** (`result_formatter.py`): render path. Found the file had NO
+   existing JD→date conversion of its own to mirror (current_dasha's
+   dates arrive pre-formatted upstream) — resolved by matching the
+   project's "D Mon YYYY" style via `panchanga.py`'s existing
+   `swe.revjul()` precedent. Always TIER_1_EXACT, always
+   `demotion_reason=None`; all 4 boundary fields None-safe
+   ("not determinable within ±40y scan window").
+3. **P7.2c** (`calc_router.py`): removed `"sade sati"` from
+   `_UNBUILT_MODULE_KEYWORDS` (was `_DESIGN_DEBT`, not a lock); added
+   `_BUILT_MODULE_FASTPATH` (deterministic phrase match, checked after
+   unbuilt/out-of-scope refusals, before domain scoring — deliberately
+   bypasses `_score_domain`'s floor/margin entirely so the flagship
+   zero-ambiguity differentiator never depends on Stage 2). Extended
+   Stage 2's domain enum/system prompt to 4 domains. **Observed, not
+   fixed**: a question containing BOTH an unbuilt keyword ("transit")
+   and "sade sati" still refuses via the unbuilt path first (unbuilt
+   scan runs before the fastpath) — doesn't affect golden q14's actual
+   wording; documented as a defensible, known interaction.
+4. **P7.2d** (`orchestrator.py`): **STOP-and-report finding** —
+   `orchestrator.py` has its OWN separate `_VALID_DOMAINS` whitelist
+   (3 domains) that would raise `ValueError` for any `sade_sati`
+   `RouteResult`, independent of `calc_router.py`'s own whitelist. Added
+   `"sade_sati"`; audited `answer_question()`'s other domain-specific
+   branches (marriage-only partner-data guard, `is_marriage`-gated
+   `build_domain_profile()` kwargs) — both confirmed to pass through
+   safely for `sade_sati`. `answer_question()` now returns the full q14
+   answer end-to-end.
+5. **P7.2e** (`tests/infra/test_orchestrator_e2e.py`): 4 new e2e tests.
+   Active-case chart verified by direct execution, not guessed — Surbhi
+   and Sheridan are both currently active (Sulabh/David are not).
+   Determinism guard patches `calc_router._stage2_fallback` (not
+   `_stage2_classify`, which would be silently swallowed by its own
+   fail-closed exception handling) to prove the fastpath never falls
+   through to Stage 2. **Wall-clock coupling flagged, not engineered
+   around**: Sulabh's not-active dates hold until 2041; Surbhi's
+   active-case dates hold only until her current cycle ends **23 Feb
+   2028** — noticeably shorter runway, will need the historical-JD
+   `build_domain_profile()` pattern (the one this session didn't end up
+   needing) once that date passes.
+6. **P7.2f** (`golden_harness.py`): deleted the now-dead
+   `_DESIGN_DEBT["sulabh_dasha_q14"]` entry (verified MATCH first, per
+   P7.2d's routing). `_DESIGN_DEBT` kept as `{}` for the next genuine gap.
+
+### Carry-forward findings (not fixed this session)
+
+- **"job" dead-keyword bug** — still open, per the S49 router-tuning
+  evidence dump (`_STEM_MAP` key collision routes "job" into the
+  phrase-match branch, never actually matches).
+- **Stage 2 `demotion_reason` is generic across all REFUSAL causes** —
+  UX debt: a user-facing "why was this refused" surface can't yet
+  distinguish "ambiguous" from "wrong topic" from "API error" without
+  reading the diagnostics log. Not fixed; flagged for a future formatter
+  or router pass.
+- **"transit" + "sade sati" co-mention refuses via the unbuilt path
+  first** (P7.2c finding above) — defensible given check ordering,
+  documented, not fixed.
+
+### Test baseline
+1770 passed, 3 skipped (Session 49 close) → 1790 passed, 3 skipped
+(P7.1c +16, P7.2e +4; zero regressions across the whole chain).
+
+### Commits (11, `eb947d3..352642f`)
+`eb947d3` P7.1 Stage 2 · `a73982e` P7.1b conftest stub · `7175af2` P7.1c
+unit tests · `f62f100` P7.1d harness re-run · `1862700` P7.1e harness
+reconciliation · `319cf67` P7.2a chart_profile · `266f681` P7.2b
+result_formatter · `ad7a1a8` P7.2c calc_router · `cfc1839` P7.2d
+orchestrator · `46e6378` P7.2e e2e tests · `352642f` P7.2f harness
+cleanup.
+
+### Next task
+Combustion thin-slice (PVR orb table) — PVR-first orb sourcing decision
+(PVR's retrograde-orb distinction vs. Master Build Plan's standard
+degrees) in design chat FIRST, no implementation until locked. Ephemeris
+consolidation debt (`helpers/ephemeris.py` extraction) remains an
+unscheduled backlog item.
