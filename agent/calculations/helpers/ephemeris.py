@@ -37,6 +37,17 @@ was the Session 51 retrograde bug), and returns xx[0] % 360.0 for longitude.
 Scope (YAGNI): no swe.set_topo, no ayanamsa parameterization (Lahiri is
 hardcoded, matching every existing call site), no caching. This wrapper
 does exactly what the 13 call sites above already do, nothing more.
+
+CONSTRAINT: this module must access swe.calc_ut attribute-style (`import
+swisseph as swe`, then `swe.calc_ut(...)`), never `from swisseph import
+calc_ut`. Several migrated call sites' tests (e.g. test_chandrabala.py,
+test_tarabala.py, test_panchaka.py) monkeypatch `calc_ut` onto the shared
+`swisseph` module object itself (`monkeypatch.setattr(some_module.swe,
+"calc_ut", fake)`); this only works because every importer's `swe` name
+is a late-binding reference to that one module object, so the patched
+attribute is visible everywhere at call time. A `from swisseph import
+calc_ut` here would bind a local name at import time instead, silently
+bypassing those monkeypatches.
 """
 
 from dataclasses import dataclass

@@ -19,11 +19,23 @@ LOCKED DECISIONS (Session 20):
   Saturn, Rahu, Ketu. Outer planets (Uranus/Neptune/Pluto) explicitly
   excluded -- not part of Vedic classical canon. Matches navamsa.py and
   friendship.py scope conventions.
+- Ephemeris dependency: _calc_transit_graha(jd_ut, planet, pid, flags)
+  delegates to helpers/ephemeris.py's sidereal_position() (Session 52
+  migration) rather than a direct swe.calc_ut() call. This also closes a
+  dormant retrograde bug: the module's own flags previously omitted
+  FLG_SPEED, so is_retrograde was always False for the 7 non-node grahas
+  (same bug class as chart_calculator.py's Session 51 FLG_SPEED fix) --
+  sidereal_position() always requests FLG_SPEED, so real grahas now carry
+  a correct retrograde flag. No test asserted is_retrograde==False for a
+  real graha (only Rahu/Ketu's hardcoded True was tested), so this is a
+  correctness fix with no observed test impact.
 """
 
 from dataclasses import dataclass
 
 import swisseph as swe
+
+from agent.calculations.helpers import ephemeris
 
 _SWE_IDS = {
     "Sun": swe.SUN, "Moon": swe.MOON, "Mars": swe.MARS,
@@ -56,26 +68,17 @@ class TransitSnapshot:
 
 
 def _calc_transit_graha(jd_ut: float, planet: str, pid: int, flags: int) -> tuple[float, bool]:
-    """Sidereal longitude + retrograde flag for one graha via swe.calc_ut.
+    """Sidereal longitude + retrograde flag for one graha.
 
-    Wrapped in try/except per project error-handling convention -- any
-    pyswisseph failure (raised exception or a bad retflag) becomes a
-    RuntimeError naming the planet and jd_ut, not a bare propagated error.
-    Mirrors navamsa.py's _calc_graha.
+    Delegates to helpers/ephemeris.py's sidereal_position() (Session 52
+    migration) for the underlying swe.calc_ut convention; `flags` is no
+    longer used here (the helper computes its own) but is left on the
+    signature to avoid touching call sites. Any pyswisseph failure
+    surfaces as ephemeris.EphemerisError (a RuntimeError subclass) naming
+    the planet id and jd_ut. Mirrors navamsa.py's _calc_graha.
     """
-    try:
-        xx, ret = swe.calc_ut(jd_ut, pid, flags)
-    except Exception as exc:
-        raise RuntimeError(
-            f"compute_gochara: pyswisseph calc_ut raised for {planet} at "
-            f"jd_ut={jd_ut}: {exc}"
-        ) from exc
-    if ret < 0:
-        raise RuntimeError(
-            f"compute_gochara: pyswisseph error calculating {planet} at "
-            f"jd_ut={jd_ut} (retflag={ret})"
-        )
-    return xx[0] % 360, xx[3] < 0
+    pos = ephemeris.sidereal_position(jd_ut, pid)
+    return pos.longitude, pos.speed < 0
 
 
 def compute_gochara(
@@ -110,8 +113,6 @@ def compute_gochara(
     natal_lagna_sign = int(natal_asc_lon / 30.0) % 12 + 1
     natal_moon_sign = int(natal_moon_lon / 30.0) % 12 + 1
 
-    # TODO: migrate to helpers/ephemeris.py once that wrapper is built
-    # out (currently stub).
     longitudes: dict[str, float] = {}
     retrogrades: dict[str, bool] = {}
     for planet, pid in _SWE_IDS.items():

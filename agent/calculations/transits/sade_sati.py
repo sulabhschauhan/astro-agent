@@ -40,6 +40,15 @@ LOCKED DECISIONS (P2.2.2, this implementation):
   lands within 60s of a phase boundary, this module reports whichever
   side of the boundary transit_jd falls on; it does not resolve which
   anchor convention is "correct".
+
+Ephemeris dependency (Session 52 migration): _saturn_sign(jd_ut) delegates
+to helpers/ephemeris.py's sidereal_longitude(); the module's own
+EphemerisError is now an alias for ephemeris.EphemerisError. Performance
+note: the +-2y/+-10y window scans in _find_segments call _saturn_sign
+(and therefore the helper's per-call swe.set_sid_mode) thousands of times
+per compute_sade_sati() call -- deliberately left uncached/unhoisted per
+CLAUDE.md YAGNI guidance; set_sid_mode is a cheap C call and full-suite
+timing showed no meaningful regression from this migration.
 """
 
 from collections.abc import Callable
@@ -48,6 +57,8 @@ from typing import Literal
 
 import swisseph as swe
 
+from agent.calculations.helpers import ephemeris
+
 _YEAR_DAYS = 365.25
 _PHASE_SCAN_YEARS = 2
 _MACRO_SCAN_YEARS = 10
@@ -55,16 +66,9 @@ _TOL_DAYS = 60.0 / 86400.0  # 60 seconds, matching the <60s boundary precision s
 _MAX_BISECT_ITER = 50
 
 
-class EphemerisError(RuntimeError):
-    """A pyswisseph ephemeris calculation failed for a specific planet/JD."""
-
-    def __init__(self, jd_ut: float, planet: str, detail: str):
-        self.jd_ut = jd_ut
-        self.planet = planet
-        super().__init__(
-            f"compute_sade_sati: ephemeris failure for {planet} at "
-            f"jd_ut={jd_ut}: {detail}"
-        )
+# Session 52 migration: delegates to helpers/ephemeris.py's canonical
+# EphemerisError rather than keeping a module-local copy.
+EphemerisError = ephemeris.EphemerisError
 
 
 class BoundaryRefinementError(RuntimeError):
@@ -109,17 +113,14 @@ class SadeSatiStatus:
 def _saturn_sign(jd_ut: float) -> int:
     """Saturn's sidereal sign (0=Aries..11=Pisces) at jd_ut.
 
-    TODO: migrate to helpers/ephemeris.py once that wrapper is built out
-    (currently a stub per Session 19); direct swe.calc_ut matches the
-    gochara.py / navamsa.py convention.
+    Delegates to helpers/ephemeris.py's sidereal_longitude() (Session 52
+    migration) for the underlying swe.calc_ut convention. Called
+    thousands of times per multi-year window scan (_find_segments); the
+    helper's per-call set_sid_mode is a cheap C call, so this is
+    deliberately not cached or hoisted (see module docstring's
+    performance note).
     """
-    try:
-        xx, ret = swe.calc_ut(jd_ut, swe.SATURN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
-    except Exception as exc:
-        raise EphemerisError(jd_ut, "Saturn", str(exc)) from exc
-    if ret < 0:
-        raise EphemerisError(jd_ut, "Saturn", f"retflag={ret}")
-    return int((xx[0] % 360.0) / 30.0) % 12
+    return int(ephemeris.sidereal_longitude(jd_ut, swe.SATURN) / 30.0) % 12
 
 
 def _phase_for_diff(diff: int) -> Literal["RISING", "PEAK", "SETTING", "NONE"]:
