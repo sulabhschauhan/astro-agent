@@ -1,7 +1,16 @@
 """Domain-scoped input/output types for the thin-slice answer pipeline.
 
 Covers the 3 domains locked for the pipeline checkpoint (Session 31 key
-decision 3): marriage_compatibility, career_strength, current_dasha.
+decision 3): marriage_compatibility, career_strength, current_dasha. Plus
+sade_sati (Session 50/P7.2a): a TIER_1_EXACT sub-path for q14-class
+questions, carrying ONLY Sade Sati fields (deterministic sign-boundary
+ephemeris scan) -- never mahadasha/antardasha fields, and never touching
+the general current_dasha payload/uncertainty_days, which stays at its
+locked always-TIER_2_RANGE (Session 49/P7.0c "tier = payload property"
+lock: current_dasha always carries dated Mahadasha/Antardasha boundaries,
+which always carry the documented +/-37-day drift; sade_sati's payload
+carries no such dated dasha claims, so it earns its own T1 sub-path
+instead of inheriting current_dasha's demotion).
 Deterministic T1/T2 output only -- NO LLM synthesis anywhere in this
 pipeline (Session 23 V1 lock; any handover text mentioning "Calc Router ->
 GPT-4o-mini synthesis" is stale and superseded).
@@ -26,11 +35,44 @@ import swisseph as swe
 from agent.calculations.compatibility.ashtakoot import compute_ashtakoot_compatibility
 from agent.calculations.compatibility.koota_types import AshtakootResult, KootaNatalInfo
 from agent.calculations.compatibility.mangal_dosha import compute_mangal_dosha
+from agent.calculations.helpers.discrete_scan import find_state_segments
 from agent.calculations.strength.bhava_bala import compute_bhava_bala_totals
 from agent.calculations.strength.shadbala_totals import compute_shadbala_totals
+from agent.calculations.transits.sade_sati import compute_sade_sati
 from agent.chart_calculator import NAKSHATRAS, SIGNS, compute_porphyry_house_cusps
 
-_VALID_DOMAINS = {"marriage_compatibility", "career_strength", "current_dasha"}
+_VALID_DOMAINS = {
+    "marriage_compatibility",
+    "career_strength",
+    "current_dasha",
+    "sade_sati",
+}
+
+# THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4) -- both constants below
+# size _sade_sati_adjacent_cycle_boundaries()'s find_state_segments() scan.
+#
+# Justification (scan width): Saturn's sidereal orbital period is ~29.4571
+# years (standard astronomical value) -- a Sade Sati cycle for a fixed
+# natal Moon sign recurs exactly once per Saturn orbit, so scanning
+# +/-40 years from evaluated_at_jd guarantees at least one full recurrence
+# in each direction with real margin, regardless of exactly where within
+# the ~22y inter-cycle gap evaluated_at_jd happens to fall. Scope guard:
+# assumes a human-lifetime query horizon (any live query's evaluated_at_jd
+# realistically sits within a natal chart's own lifespan); NOT validated
+# for a cycle boundary sought >40y from evaluated_at_jd. Revisit trigger:
+# if a real query needs a boundary outside this range, widen deliberately,
+# don't assume 40y is always enough.
+_SADE_SATI_ADJACENT_CYCLE_SCAN_YEARS = 40
+
+# Justification (scan step): matches sade_sati.py's own _find_segments()
+# daily-resolution scan EXACTLY, for the identical state (Saturn sidereal
+# sign membership in {rising, peak, setting}-from-natal-Moon) -- that
+# granularity is Session 20+ validated (via Sheridan/Surbhi's real
+# reference charts) as sufficient to catch retrograde double-ingress
+# segments without missing a contiguous occupancy. Reusing that
+# already-validated precedent rather than independently guessing a
+# coarser (cheaper but unvalidated) step.
+_SADE_SATI_SCAN_STEP_DAYS = 1.0
 
 
 class AnswerTier(Enum):
@@ -142,6 +184,90 @@ def _koota_natal_info_from_chart(chart_data: dict) -> KootaNatalInfo:
     return KootaNatalInfo(moon_sign=moon_sign, moon_longitude=moon_longitude, nakshatra=nakshatra)
 
 
+def _saturn_sidereal_sign(jd_ut: float) -> int:
+    """Saturn's sidereal sign (0=Aries..11=Pisces) at jd_ut.
+
+    Direct swe.calc_ut, NOT sade_sati.compute_sade_sati() -- that function
+    runs two full multi-year ephemeris window scans per call (~0.8s each,
+    measured), which would make the 80-year find_state_segments() scan in
+    _sade_sati_adjacent_cycle_boundaries() below prohibitively slow (tens
+    of seconds). This mirrors sade_sati.py's own private _saturn_sign()
+    formula exactly (same set_sid_mode call, same flags, same //30
+    bucketing) -- read that function's source before reimplementing here
+    rather than importing it, since it is module-private.
+
+    CITATION: another hand-rolled swe.calc_ut() call site outside the
+    still-stubbed helpers/ephemeris.py -- see the CITATION note on
+    _koota_natal_info_from_chart above for the same interim convention.
+    # TODO: extract to helpers/ephemeris.py once the extraction task lands.
+    """
+    try:
+        swe.set_sid_mode(swe.SIDM_LAHIRI)
+        xx, ret = swe.calc_ut(jd_ut, swe.SATURN, swe.FLG_SWIEPH | swe.FLG_SIDEREAL)
+        if ret < 0:
+            raise RuntimeError(f"pyswisseph error computing Saturn sign (retflag={ret})")
+    except Exception as exc:
+        raise RuntimeError(
+            f"swisseph.calc_ut (Saturn sign, Sade Sati adjacent-cycle scan) failed: {exc}"
+        ) from exc
+    return int((xx[0] % 360.0) / 30.0) % 12
+
+
+def _sade_sati_adjacent_cycle_boundaries(
+    natal_moon_sign: int, evaluated_at_jd: float
+) -> tuple[float | None, float | None]:
+    """Finds (previous_cycle_end_jd, next_cycle_start_jd) via a cheap
+    find_state_segments() scan over Saturn sidereal-sign membership in
+    {rising, peak, setting}-from-natal-Moon (sade_sati.py's own phase
+    taxonomy). Works uniformly whether or not evaluated_at_jd itself falls
+    inside a currently-active cycle -- a segment containing evaluated_at_jd
+    is excluded from both searches below by construction (its end_jd is
+    strictly > evaluated_at_jd since find_state_segments' end_jd is
+    exclusive, and its start_jd is <= evaluated_at_jd), so this correctly
+    finds the ADJACENT cycles on either side, not the current one.
+
+    Deliberately NOT implemented by calling sade_sati.compute_sade_sati()
+    repeatedly at candidate anchors: that function's macro_sade_sati is
+    only populated when the probed JD itself falls inside a cycle's own
+    [start, end] span (not merely within its own +/-10y scan window) --
+    verified empirically before choosing this approach. A period-shifted
+    single-probe anchor works when currently active (the shifted JD lands
+    exactly on the adjacent cycle's own boundary, by orbital periodicity)
+    but is provably wrong when not active (aliases back into the same
+    inter-cycle gap). This scan-based approach was cross-validated against
+    that period-shift result on an active-case fixture (sub-0.1-day
+    agreement) and against golden q14's verified not-active values for
+    Sulabh (previous_cycle_end 24 Jan 2020, next_cycle_start 27 Jan 2041,
+    both within 1 day) before being adopted as the single mechanism for
+    both cases.
+
+    Returns (None, None) components for whichever side has no adjacent
+    cycle within the scan bound (see _SADE_SATI_ADJACENT_CYCLE_SCAN_YEARS).
+    """
+    rising_sign = (natal_moon_sign - 1) % 12
+    setting_sign = (natal_moon_sign + 1) % 12
+    active_signs = {rising_sign, natal_moon_sign, setting_sign}
+
+    def _is_active_sign(jd_ut: float) -> bool:
+        return _saturn_sidereal_sign(jd_ut) in active_signs
+
+    scan_lo_jd = evaluated_at_jd - _SADE_SATI_ADJACENT_CYCLE_SCAN_YEARS * 365.25
+    scan_hi_jd = evaluated_at_jd + _SADE_SATI_ADJACENT_CYCLE_SCAN_YEARS * 365.25
+    segments = find_state_segments(_is_active_sign, scan_lo_jd, scan_hi_jd, _SADE_SATI_SCAN_STEP_DAYS)
+
+    previous_cycle_end_jd: float | None = None
+    next_cycle_start_jd: float | None = None
+    for seg in segments:
+        if not seg.state:
+            continue
+        if seg.end_jd <= evaluated_at_jd:
+            previous_cycle_end_jd = seg.end_jd  # segments are time-ordered; last write wins
+        if seg.start_jd >= evaluated_at_jd and next_cycle_start_jd is None:
+            next_cycle_start_jd = seg.start_jd  # first match only
+
+    return previous_cycle_end_jd, next_cycle_start_jd
+
+
 def build_domain_profile(
     domain: str,
     chart_data: dict,
@@ -153,7 +279,8 @@ def build_domain_profile(
     """Pure assembly: pack pre-computed/live-called module outputs into DomainChartProfile.
 
     Args:
-        domain: one of "marriage_compatibility", "career_strength", "current_dasha".
+        domain: one of "marriage_compatibility", "career_strength",
+            "current_dasha", "sade_sati".
         chart_data: calculate_chart() output for the primary native.
         evaluated_at_jd: JD (UT) instant this profile is evaluated as-of.
             Caller-supplied, not sampled here -- must be the SAME instant the
@@ -161,7 +288,10 @@ def build_domain_profile(
             fields are computed relative to datetime.now() inside
             chart_calculator._calc_dasha() at whatever moment calculate_chart()
             was called). Reproducibility/testability requirement: this function
-            never calls now() internally.
+            never calls now() internally. For domain="sade_sati", this same
+            instant is passed directly to sade_sati.compute_sade_sati() as
+            transit_jd -- Sade Sati has no "as-of a different moment" concept
+            of its own to reconcile against.
         partner_chart_data: calculate_chart() output for the second native.
             Required (and only accepted) for domain="marriage_compatibility" --
             Ashtakoot (compute_ashtakoot_compatibility) needs two natives.
@@ -175,8 +305,8 @@ def build_domain_profile(
             primary_role supplied for a non-marriage domain.
         RuntimeError: a wrapped, module-named failure from any underlying
             calculation call (ashtakoot, mangal_dosha, shadbala_totals,
-            compute_porphyry_house_cusps, bhava_bala_totals, or the Moon-
-            longitude ephemeris bridge).
+            compute_porphyry_house_cusps, bhava_bala_totals, sade_sati.
+            compute_sade_sati, or the Moon-longitude ephemeris bridge).
     """
     if domain not in _VALID_DOMAINS:
         raise ValueError(f"domain must be one of {sorted(_VALID_DOMAINS)}, got {domain!r}")
@@ -335,7 +465,7 @@ def build_domain_profile(
         # term; tracked as an open gap, not silently assumed zero.
         uncertainty_days = 0.0  # no time-axis envelope for this domain
 
-    else:  # current_dasha
+    elif domain == "current_dasha":
         dasha = chart_data["dasha"]
         payload = {
             "current_mahadasha": dasha.get("current_mahadasha"),
@@ -353,6 +483,60 @@ def build_domain_profile(
         # proximity (is evaluated_at_jd near a period transition?) is NOT
         # computed here -- that comparison is router logic (S44.3).
         uncertainty_days = 37.0
+
+    else:  # sade_sati (Session 50/P7.2a) -- NO mahadasha/antardasha fields
+        # here; this is a payload-property-consistent T1 sub-path, distinct
+        # from current_dasha's always-T2 payload (module docstring above).
+        natal_moon_sign = SIGNS.index(chart_data["lagna_chart"]["rasi"])
+
+        try:
+            current_status = compute_sade_sati(natal_moon_sign, evaluated_at_jd)
+        except Exception as exc:
+            raise RuntimeError(f"sade_sati.compute_sade_sati (current) failed: {exc}") from exc
+
+        # "Current cycle" = the whole ~7.5y Sade Sati envelope
+        # (macro_sade_sati), not the current sub-phase's own narrower
+        # window -- consistent with "previous cycle"/"next cycle" below,
+        # which are also envelope-level, not sub-phase-level.
+        current_cycle_start_jd = None
+        current_cycle_end_jd = None
+        if current_status.active and current_status.macro_sade_sati is not None:
+            current_cycle_start_jd = current_status.macro_sade_sati.overall_start_jd
+            current_cycle_end_jd = current_status.macro_sade_sati.overall_end_jd
+
+        # Previous/next cycle: compute_sade_sati()'s own macro_sade_sati only
+        # ever reports the ONE envelope containing its transit_jd argument
+        # (verified empirically -- see _sade_sati_adjacent_cycle_boundaries'
+        # own docstring for why a compute_sade_sati()-repeated-probe design
+        # was tried and rejected). Uses the cheap find_state_segments()-based
+        # scan instead, uniformly for both the active and not-active cases.
+        try:
+            previous_cycle_end_jd, next_cycle_start_jd = _sade_sati_adjacent_cycle_boundaries(
+                natal_moon_sign, evaluated_at_jd
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                f"chart_profile._sade_sati_adjacent_cycle_boundaries failed: {exc}"
+            ) from exc
+
+        payload = {
+            "active": current_status.active,
+            "phase": current_status.phase,
+            "current_cycle_start_jd": current_cycle_start_jd,
+            "current_cycle_end_jd": current_cycle_end_jd,
+            "previous_cycle_end_jd": previous_cycle_end_jd,
+            "next_cycle_start_jd": next_cycle_start_jd,
+        }
+        stub_caveats = ()
+        uncertainty_virupa = 0.0
+        # Deterministic sign-ingress ephemeris scan (compute_sade_sati's own
+        # bisection refinement, <60s precision per its own docstring) -- NO
+        # documented cross-source (AstroSage/JHora) parity envelope exists
+        # for Sade Sati boundary dates, unlike current_dasha's +/-37-day
+        # drift. 0.0 here is "no envelope documented yet", NOT "verified
+        # zero-error" -- do not conflate with current_dasha's uncertainty_days
+        # semantics. Revisit if a future cross-oracle study documents one.
+        uncertainty_days = 0.0
 
     return DomainChartProfile(
         domain=domain,
