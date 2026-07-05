@@ -179,24 +179,14 @@ _KNOWN_GAPS: dict[str, str] = {
 # means "this is a real gap; it's just not this session's fix," pending an
 # explicit design-chat whitelist/scope decision. Same seeding discipline as
 # _KNOWN_GAPS: only rows this harness has actually observed, never guessed.
-_DESIGN_DEBT: dict[str, str] = {
-    # calc_router._UNBUILT_MODULE_KEYWORDS refuses on "sade sati" BEFORE
-    # domain classification, but Sade Sati (transits/sade_sati.py) is a
-    # BUILT and 4-chart-validated module (CLAUDE.md P2 order: Gochara ->
-    # Sade Sati -> ...), not an unbuilt one -- unlike Muhurta (q15, genuinely
-    # unbuilt-into-Q&A, KNOWN_GAP above), refusing this is product debt, not
-    # a locked decision: no CLAUDE.md lock says a validated module must stay
-    # unreachable from Q&A. Pending a design-chat decision on whether/how to
-    # add a Sade Sati domain to the Q&A whitelist.
-    "sulabh_dasha_q14": (
-        "DESIGN DEBT, not a lock: question names \"Sade Sati\", which "
-        "calc_router.py's _UNBUILT_MODULE_KEYWORDS refuses outright -- but "
-        "sade_sati.py is built and 4-chart validated (CLAUDE.md P2 order), "
-        "not unbuilt. Excluding a validated module from the Q&A whitelist "
-        "is a real gap pending a design-chat whitelist decision, not "
-        "documented-locked behavior."
-    ),
-}
+# Session 50/P7.2f: sulabh_dasha_q14 entry DELETED -- calc_router.py
+# (P7.2c) + orchestrator.py (P7.2d) shipped the sade_sati domain end-to-
+# end, and q14 now resolves MATCH (verified in
+# diagnostics/golden_scorecard_20260705_085333.md before deleting;
+# MATCH is checked before this dict, so the deletion is behavior-neutral).
+# Empty for now -- kept (dict + category machinery) as the correct slot
+# for the next genuine, un-locked product gap this harness observes.
+_DESIGN_DEBT: dict[str, str] = {}
 
 # Session 50/P7.1e: every row still in _KNOWN_GAPS is STAGE2_VARIABLE (see
 # each entry's docstring above) -- derived from the dict's own keys rather
