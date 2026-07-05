@@ -1,16 +1,15 @@
-# P9 thin-slice — combustion.py
+# chart_calculator.py retrograde-flag fix (Session 51)
 
-**Date:** 2026-07-05 (Session 50)
-**File created:** `agent/calculations/core/combustion.py` (implementation only).
+**Bug:** `_calc_planets()` omitted `swe.FLG_SPEED`, so `xx[3]` was hardcoded
+0.0 and `retrograde` was always `False` for every planet, every chart.
+**Fix:** added `swe.FLG_SPEED` to that call's flags (1-line, longitude-neutral).
 
-## What was built
-`compute_combustion(chart_data)` — Asta detection for Moon/Mars/Mercury/
-Jupiter/Venus/Saturn. Orb table: Surya Siddhanta convention (12/17/14/11/10/15
-deg), retro overrides Mercury 12, Venus 8. PVR silent on combustion orbs;
-PyJHora Jupiter/Venus-swap and non-classical retro divergence documented in
-module CITATION block, not followed.
+## Retrograde map (before: all False everywhere)
+- sulabh:   all direct.
+- surbhi:   Saturn retro; rest direct.
+- sheridan: Mars, Jupiter, Saturn retro; rest direct.
+- david:    Mercury, Mars, Saturn retro; rest direct.
 
-## Smoke result
-Import OK. Ad hoc functional check against calculate_chart() for Sulabh and
-Surbhi matched documented anchors exactly: Sulabh zero combust (Mercury-Sun
-14.6501 > 14 orb); Surbhi Mercury 3.6018 and Jupiter 4.9738 both combust.
+## Regression gate
+`pytest tests/`: **1790 passed, 3 skipped** — identical to pre-fix baseline.
+No test encoded the buggy always-False behavior.
