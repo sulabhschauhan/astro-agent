@@ -19,13 +19,31 @@ Layer F: compute_bhava_dig_bala — real implementation (PyJHora rasi-animal-
          BhavBala Bhavdig row for all 4 charts (clean multiples of 10, no
          tolerance band) + ValueError on malformed input.
 
-Layer G: compute_bhava_drishti_bala stub — same shape as old Layer F.
+Layer G: compute_bhava_drishti_bala kernel structural spot-checks (Session
+         53, no ephemeris) — exact values at the add-on-special boundaries
+         (Saturn/Mars/Jupiter) and one plain-base case. Deliberately does
+         NOT assert continuity at these boundaries (unlike
+         test_drik_bala.py's Layer A) — the bhava kernel's add-on specials
+         are intentionally discontinuous; see Layer G's own module note.
 
-Layer H: compute_bhava_bala_totals aggregator — arithmetic correctness
-         (bhava_dig is now real; bhava_drishti stub still makes AstroSage
-         total_virupa parity impossible, same precedent as
-         shadbala_totals.py Layer C), rank full-permutation validity, and
-         caveat/stub-flag integrity.
+Layer H: compute_bhava_drishti_bala — real implementation (Session 53).
+         AstroSage BhavBala oracle parity, all 4 charts, 48 parametrized
+         assertions, tolerance +/-0.5 Virupa (mirrors test_drik_bala.py's
+         Session 46 JHora parity convention; measured max |delta| 0.15 on
+         repo ephemeris this session, 3x headroom). Hardest case first:
+         Sheridan (the only chart where Moon classifies malefic).
+
+Layer I: compute_bhava_bala_totals aggregator — arithmetic correctness
+         (bhava_dig AND bhava_drishti are both now real; total_virupa
+         includes all three components, structurally recomputed from the
+         sub-components themselves, not magic numbers), rank
+         full-permutation validity, and caveat/stub-flag integrity
+         (dig_is_stubbed and drishti_is_stubbed are both always False).
+
+Session 53 note: the old Layer G (compute_bhava_drishti_bala V1 stub,
+always-0.0 shape tests) is DELETED, not ported — the stub itself no
+longer exists (bhava_bala.py now has a real implementation with a
+different signature: house_cusps + planet_lons, not house_signs).
 
 Reference: reference_charts.md for Lagna signs.
   Sulabh=Sagittarius, Surbhi=Libra, Sheridan=Taurus, David=Virgo
@@ -37,16 +55,25 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 import pytest
+import swisseph as swe
 
+from agent.calculations.helpers import ephemeris
 from agent.calculations.strength.bhava_bala import (
     compute_bhavadhipati_bala,
     compute_bhava_dig_bala,
     compute_bhava_drishti_bala,
     compute_bhava_bala_totals,
+    _sphuta_bhava_drishti,
 )
 from agent.chart_calculator import SIGN_LORDS, calculate_chart, compute_porphyry_house_cusps
 from tests.fixtures.shadbala_fixtures import SHADBALA_FIXTURES
 from tests.fixtures.bhava_dig_bala_astrosage import BHAVA_DIG_BALA_ASTROSAGE
+
+_BHAVA_DRISHTI_SWE_IDS: dict[str, int] = {
+    "Sun": swe.SUN, "Moon": swe.MOON, "Mars": swe.MARS,
+    "Mercury": swe.MERCURY, "Jupiter": swe.JUPITER,
+    "Venus": swe.VENUS, "Saturn": swe.SATURN,
+}
 
 # Canonical birth args per chart — same literals used across
 # tests/calculations/strength/{test_dig_bala,test_kala_bala,test_ishta_kashta}.py.
@@ -102,6 +129,27 @@ def _house_cusps_by_chart() -> dict[str, dict[int, float]]:
             chart["birth_details"]["lat"],
             chart["birth_details"]["lon"],
         )
+        for chart_name, chart in (
+            (name, calculate_chart(*args)) for name, args in _BIRTH_ARGS.items()
+        )
+    }
+
+
+@pytest.fixture(scope="module")
+def _planet_lons_by_chart() -> dict[str, dict[str, float]]:
+    """Real sidereal planet longitudes per chart (title-case, 7 classical
+    planets), for compute_bhava_drishti_bala's planet_lons parameter.
+
+    Same derivation pattern as _house_cusps_by_chart above (calculate_chart()
+    for jd_ut, network-free under tests/conftest.py's geocoder patch) --
+    via helpers/ephemeris.py's sidereal_longitude(), matching
+    chart_profile.py's own Session 53 wiring for this exact parameter.
+    """
+    return {
+        chart_name: {
+            planet: ephemeris.sidereal_longitude(chart["meta"]["jd_ut"], swe_id)
+            for planet, swe_id in _BHAVA_DRISHTI_SWE_IDS.items()
+        }
         for chart_name, chart in (
             (name, calculate_chart(*args)) for name, args in _BIRTH_ARGS.items()
         )
@@ -339,62 +387,151 @@ def test_f_dig_bala_raises_on_extra_house_cusps_key(_house_cusps_by_chart):
         compute_bhava_dig_bala(_HOUSE_SIGNS["sulabh"], bad_cusps)
 
 
-# ── Layer G: Bhava Drishti Bala stub ─────────────────────────────────────────
+# ── Layer G: Bhava Drishti Bala kernel structural spot-checks (Session 53) ──
+#
+# NOTE on why this is NOT a continuity-test layer (unlike test_drik_bala.py's
+# Layer A TestXDrishtiBoundaries.test_continuous_at_boundary classes): the
+# bhava kernel's ADD-ON specials are strict-inequality-bounded (e.g. Saturn's
+# "60 < D <= 90") and ADDITIVE on top of an otherwise-continuous base taper --
+# so at D=90+epsilon the add-on switches off while the base taper itself
+# stays continuous, producing a real, by-design jump (e.g. Saturn: 90 Virupa
+# at D=90 down to 45 just past it). Asserting continuity here would encode a
+# false expectation; drik_bala.py's SMOOTH-TAPER CORRECTIONS were specifically
+# chosen to eliminate such jumps in the graha kernel -- the bhava kernel
+# deliberately does not do the same (see bhava_bala.py CITATION point (a)).
 
-def test_g_drishti_bala_stub_returns_twelve_zeros():
-    """compute_bhava_drishti_bala returns exactly 12 zero floats (V1 stub)."""
-    result = compute_bhava_drishti_bala(_HOUSE_SIGNS["sulabh"])
-    assert set(result.keys()) == set(range(1, 13)), (
-        f"Expected keys 1-12, got {sorted(result.keys())}"
+def test_g_saturn_addon_at_d75():
+    """D=75: base D-45=30 (60<D<90 branch) + Saturn add-on 45 (60<D<=90) = 75."""
+    assert _sphuta_bhava_drishti("Saturn", 75.0) == pytest.approx(75.0, abs=1e-9)
+
+
+def test_g_mars_addon_at_d105():
+    """D=105: base 30+(120-D)/2=37.5 (90<D<120 branch) + Mars add-on 15 (90<D<=120) = 52.5."""
+    assert _sphuta_bhava_drishti("Mars", 105.0) == pytest.approx(52.5, abs=1e-9)
+
+
+def test_g_jupiter_addon_at_d135():
+    """D=135: base 150-D=15 (120<D<150 branch) + Jupiter add-on 30 (120<D<=150) = 45."""
+    assert _sphuta_bhava_drishti("Jupiter", 135.0) == pytest.approx(45.0, abs=1e-9)
+
+
+def test_g_venus_plain_base_at_d180():
+    """D=180: plain base taper only (Venus has no add-on special) --
+    (300-D)/2 = 60 (D=180 falls in the 180<=D<300 branch, not 150<D<180)."""
+    assert _sphuta_bhava_drishti("Venus", 180.0) == pytest.approx(60.0, abs=1e-9)
+
+
+# ── Layer H: Bhava Drishti Bala — AstroSage BhavBala oracle parity ──────────
+#
+# AstroSage BhavBala table, houses 1-12, hand-extracted and verified Session
+# 53 (design-chat back-solve — see bhava_bala.py compute_bhava_drishti_bala
+# CITATION). Cross-checked against this file's own _BIRTH_ARGS before use;
+# all 4 birth data points already match the existing fixture, no discrepancy.
+#
+# Hardest case first: Sheridan is the only chart in this set where Moon
+# classifies malefic (drik_bala.py SHERIDAN EDGE CASE), which also flips
+# Mercury's same-rasi classification tally here — same hardest-case-first
+# convention as test_drik_bala.py's _JHORA_DRIK dict.
+_BHAVA_DRISHTI_ASTROSAGE: dict[str, list[float]] = {
+    "sheridan": [-11.33, 0.40, -19.33, 35.35, -49.17, -60.93, -50.71,
+                 -52.37, -17.48, 36.25, 16.59, 17.99],
+    "sulabh":   [55.64, 20.52, -15.55, -20.85, -11.86, -31.33, -34.93,
+                 12.28, -19.18, -26.86, 18.40, 23.07],
+    "surbhi":   [25.45, 69.33, 67.60, 23.53, 99.70, 70.59, 56.31,
+                 32.02, -1.98, -6.94, -7.34, -3.47],
+    "david":    [-32.43, 8.46, 30.55, 49.24, -15.86, -0.02, -2.11,
+                 -38.25, -39.50, 33.13, -11.21, -11.89],
+}
+
+# Mirrors test_drik_bala.py's Session 46 JHora parity tolerance convention.
+# Measured max |delta| 0.15 Virupa on repo ephemeris this session (3x
+# headroom). Tuning note: tighten toward 0.2 only if a 5th reference chart
+# validates under that tighter bound — do not tighten preemptively on
+# 4-chart data (THRESHOLD DISCIPLINE, CLAUDE.md Working Style #4).
+_TOL_BHAVA_DRISHTI = 0.5
+
+_LAYER_H_CASES: list[tuple[str, int]] = [
+    (chart, house)
+    for chart in ("sheridan", "sulabh", "surbhi", "david")
+    for house in range(1, 13)
+]
+
+
+@pytest.mark.parametrize("chart_name,house", _LAYER_H_CASES)
+def test_h_drishti_bala_matches_astrosage(
+    chart_name, house, _house_cusps_by_chart, _planet_lons_by_chart
+):
+    """compute_bhava_drishti_bala matches AstroSage's BhavBala row within ±0.5 Virupa."""
+    result = compute_bhava_drishti_bala(
+        _house_cusps_by_chart[chart_name], _planet_lons_by_chart[chart_name]
     )
-    for house, val in result.items():
-        assert val == 0.0, f"House {house}: expected 0.0, got {val!r}"
+    expected = _BHAVA_DRISHTI_ASTROSAGE[chart_name][house - 1]
+    assert result[house] == pytest.approx(expected, abs=_TOL_BHAVA_DRISHTI), (
+        f"{chart_name} house {house}: got {result[house]}, expected {expected} "
+        f"(AstroSage, tol ±{_TOL_BHAVA_DRISHTI})"
+    )
 
 
-def test_g_drishti_bala_stub_raises_on_missing_house():
-    """compute_bhava_drishti_bala raises ValueError when a house key is absent."""
-    bad = {k: v for k, v in _HOUSE_SIGNS["sulabh"].items() if k != 9}
+def test_h_drishti_bala_raises_on_missing_house_cusps_key(_planet_lons_by_chart):
+    """compute_bhava_drishti_bala raises ValueError when a house_cusps key is absent."""
+    bad_cusps = {h: float(h) for h in range(1, 13) if h != 9}
     with pytest.raises(ValueError, match="1-12"):
-        compute_bhava_drishti_bala(bad)
+        compute_bhava_drishti_bala(bad_cusps, _planet_lons_by_chart["sulabh"])
 
 
-def test_g_drishti_bala_stub_raises_on_extra_key():
-    """compute_bhava_drishti_bala raises ValueError when an out-of-range key is present."""
-    bad = {**_HOUSE_SIGNS["sulabh"], 0: "Sagittarius"}
+def test_h_drishti_bala_raises_on_extra_house_cusps_key(_planet_lons_by_chart):
+    """compute_bhava_drishti_bala raises ValueError when an out-of-range house_cusps key is present."""
+    bad_cusps = {h: float(h) for h in range(1, 13)}
+    bad_cusps[13] = 100.0
     with pytest.raises(ValueError, match="1-12"):
-        compute_bhava_drishti_bala(bad)
+        compute_bhava_drishti_bala(bad_cusps, _planet_lons_by_chart["sulabh"])
 
 
-# ── Layer H: compute_bhava_bala_totals aggregator ────────────────────────────
+def test_h_drishti_bala_raises_on_missing_planet(_house_cusps_by_chart, _planet_lons_by_chart):
+    """compute_bhava_drishti_bala raises ValueError when planet_lons is missing a classical planet."""
+    bad_lons = {p: v for p, v in _planet_lons_by_chart["sulabh"].items() if p != "Mercury"}
+    with pytest.raises(ValueError, match="Mercury"):
+        compute_bhava_drishti_bala(_house_cusps_by_chart["sulabh"], bad_lons)
 
-def test_h_totals_arithmetic_matches_components(_house_cusps_by_chart):
-    """total_virupa = bhavadhipati + bhava_dig + 0.0; total_rupa = round(total_virupa/60, 2).
 
-    Does NOT compare total_virupa against AstroSage's total — the bhava_drishti
-    stub still makes that impossible. bhava_dig itself IS AstroSage-validated
-    (Layer F); this test validates only the aggregator's internal arithmetic
+# ── Layer I: compute_bhava_bala_totals aggregator ────────────────────────────
+
+def test_i_totals_arithmetic_matches_components(_house_cusps_by_chart, _planet_lons_by_chart):
+    """total_virupa = bhavadhipati + bhava_dig + bhava_drishti (all 3 real,
+    Session 53); total_rupa = round(total_virupa/60, 2).
+
+    Recomputes expected drishti/dig/bhavadhipati from the sub-components
+    themselves (structural assertion), not hand-copied magic numbers --
+    Layers F and H already validate those sub-components against AstroSage
+    independently; this test validates only the aggregator's own arithmetic
     (same precedent as shadbala_totals.py Layer C).
     """
     cusps = _house_cusps_by_chart["sulabh"]
-    totals = compute_bhava_bala_totals(_HOUSE_SIGNS["sulabh"], _totals_from_fixture("sulabh"), cusps)
+    plons = _planet_lons_by_chart["sulabh"]
+    totals = compute_bhava_bala_totals(
+        _HOUSE_SIGNS["sulabh"], _totals_from_fixture("sulabh"), cusps, plons
+    )
     bhav = compute_bhavadhipati_bala(_HOUSE_SIGNS["sulabh"], _totals_from_fixture("sulabh"))
     dig = compute_bhava_dig_bala(_HOUSE_SIGNS["sulabh"], cusps)["values"]
+    drishti = compute_bhava_drishti_bala(cusps, plons)
     for h in range(1, 13):
         assert totals[h]["bhavadhipati"] == bhav[h], f"House {h}: bhavadhipati mismatch"
         assert totals[h]["bhava_dig"] == dig[h], f"House {h}: bhava_dig mismatch"
-        assert totals[h]["bhava_drishti"] == 0.0, f"House {h}: bhava_drishti should be 0.0"
-        assert totals[h]["total_virupa"] == bhav[h] + dig[h], (
-            f"House {h}: total_virupa should equal bhavadhipati + bhava_dig (drishti stub is 0.0)"
+        assert totals[h]["bhava_drishti"] == drishti[h], f"House {h}: bhava_drishti mismatch"
+        expected_total = bhav[h] + dig[h] + drishti[h]
+        assert totals[h]["total_virupa"] == expected_total, (
+            f"House {h}: total_virupa should equal bhavadhipati + bhava_dig + bhava_drishti"
         )
-        assert totals[h]["total_rupa"] == round((bhav[h] + dig[h]) / 60, 2), (
+        assert totals[h]["total_rupa"] == round(expected_total / 60, 2), (
             f"House {h}: total_rupa = round(total_virupa/60, 2) mismatch"
         )
 
 
-def test_h_rank_is_full_permutation_of_1_to_12(_house_cusps_by_chart):
+def test_i_rank_is_full_permutation_of_1_to_12(_house_cusps_by_chart, _planet_lons_by_chart):
     """Ranks across all 12 houses form exactly {1, ..., 12} — no gaps, no duplicates."""
     totals = compute_bhava_bala_totals(
-        _HOUSE_SIGNS["sulabh"], _totals_from_fixture("sulabh"), _house_cusps_by_chart["sulabh"]
+        _HOUSE_SIGNS["sulabh"], _totals_from_fixture("sulabh"),
+        _house_cusps_by_chart["sulabh"], _planet_lons_by_chart["sulabh"],
     )
     ranks = [totals[h]["rank"] for h in range(1, 13)]
     assert sorted(ranks) == list(range(1, 13)), (
@@ -402,10 +539,11 @@ def test_h_rank_is_full_permutation_of_1_to_12(_house_cusps_by_chart):
     )
 
 
-def test_h_rank_ordering_consistent_with_total_virupa(_house_cusps_by_chart):
+def test_i_rank_ordering_consistent_with_total_virupa(_house_cusps_by_chart, _planet_lons_by_chart):
     """Higher total_virupa → lower rank number; equal virupa → lower house wins."""
     totals = compute_bhava_bala_totals(
-        _HOUSE_SIGNS["sulabh"], _totals_from_fixture("sulabh"), _house_cusps_by_chart["sulabh"]
+        _HOUSE_SIGNS["sulabh"], _totals_from_fixture("sulabh"),
+        _house_cusps_by_chart["sulabh"], _planet_lons_by_chart["sulabh"],
     )
     for ha in range(1, 13):
         for hb in range(ha + 1, 13):
@@ -429,22 +567,27 @@ def test_h_rank_ordering_consistent_with_total_virupa(_house_cusps_by_chart):
                 )
 
 
-def test_h_stub_flags_and_caveat_integrity(_house_cusps_by_chart):
-    """dig_is_stubbed is False (real, this session); drishti_is_stubbed is True
-    (still stubbed); caveat is non-empty — all 12 houses."""
+def test_i_stub_flags_and_caveat_integrity(_house_cusps_by_chart, _planet_lons_by_chart):
+    """dig_is_stubbed and drishti_is_stubbed are both False (both real,
+    Bhava Dig since Session 42, Bhava Drishti since Session 53); caveat is
+    non-empty — all 12 houses."""
     totals = compute_bhava_bala_totals(
-        _HOUSE_SIGNS["david"], _totals_from_fixture("david"), _house_cusps_by_chart["david"]
+        _HOUSE_SIGNS["david"], _totals_from_fixture("david"),
+        _house_cusps_by_chart["david"], _planet_lons_by_chart["david"],
     )
     for h in range(1, 13):
         assert totals[h]["dig_is_stubbed"] is False, f"House {h}: dig_is_stubbed should be False"
-        assert totals[h]["drishti_is_stubbed"] is True, f"House {h}: drishti_is_stubbed should be True"
+        assert totals[h]["drishti_is_stubbed"] is False, f"House {h}: drishti_is_stubbed should be False"
         assert isinstance(totals[h]["caveat"], str) and totals[h]["caveat"], (
             f"House {h}: caveat must be a non-empty string"
         )
 
 
-def test_h_totals_raises_on_malformed_house_signs(_house_cusps_by_chart):
+def test_i_totals_raises_on_malformed_house_signs(_house_cusps_by_chart, _planet_lons_by_chart):
     """compute_bhava_bala_totals propagates ValueError from sub-components on bad input."""
     bad = {k: v for k, v in _HOUSE_SIGNS["sulabh"].items() if k != 3}
     with pytest.raises(ValueError, match="1-12"):
-        compute_bhava_bala_totals(bad, _totals_from_fixture("sulabh"), _house_cusps_by_chart["sulabh"])
+        compute_bhava_bala_totals(
+            bad, _totals_from_fixture("sulabh"),
+            _house_cusps_by_chart["sulabh"], _planet_lons_by_chart["sulabh"],
+        )

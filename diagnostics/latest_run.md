@@ -1,19 +1,24 @@
-# chart_profile.py wired to Bhava Drishti Bala (Session 53 follow-up)
+# test_bhava_bala.py: repair + Bhava Drishti oracle parity (Session 53)
 
-**Wired:** career_strength's `compute_bhava_bala_totals` call now builds
-`planet_lons` via `ephemeris.sidereal_longitude()` (7 classical planets,
-new `_CAREER_PLANET_SWE_IDS` const) — no new direct `swe.calc_ut` call.
-Stale drishti-stub comments (gating loop + TUNING NOTE) updated to note
-Bhava Drishti Bala is real since Session 53.
+**Part 1:** deleted old Layer G stub-shape tests (obsolete by design,
+noted in module docstring). Layer H (now I) aggregator tests thread
+`planet_lons` (new `_planet_lons_by_chart` fixture, mirrors
+`_house_cusps_by_chart`'s pattern via `ephemeris.sidereal_longitude()`)
+and recompute expected totals structurally from the sub-components, not
+magic numbers; `drishti_is_stubbed` assertion flipped to `False`.
 
-**Threshold discipline:** no numeric `uncertainty_virupa` envelope exists
-or ever existed specifically for the drishti stub (confirmed via the
-pre-existing comment: it was never folded into the 2.0 Ayana envelope)
-— nothing changed here. Note: this prompt said "48/48 ±0.2 Virupa"; the
-repo's actual validated figure (bhava_bala.py CITATION) is ±0.16 Virupa
-max |delta| — used the verified figure in the updated comments.
+**Part 2:** new Layer H — 48 parametrized AstroSage BhavBala parity
+assertions (±0.5 Virupa, mirrors test_drik_bala.py's tolerance
+convention), Sheridan first (hardest case, Moon malefic). Verified all
+48 values against the repo's own computation before writing (max
+|delta| 0.15) — all 4 birth data points match existing fixtures, no
+discrepancy.
+
+**Part 3:** new Layer G — 4 kernel structural spot-checks (Saturn/Mars/
+Jupiter add-on boundaries + Venus plain-base), with a note on why
+continuity assertions (unlike test_drik_bala.py) would be wrong here —
+the add-on specials are intentionally discontinuous by design.
 
 ## Result
-Full suite: **1835 passed, 3 skipped, 8 failed** — exact target. The 4
-`test_orchestrator_e2e.py` career failures recovered; only the 8
-`test_bhava_bala.py` failures remain (next prompt, unchanged).
+Full suite: **1895 passed, 3 skipped, 0 failed** (exceeds 1843; net new
+parametrized cases from Layers G/H plus the 12-house Layer H sweep).
