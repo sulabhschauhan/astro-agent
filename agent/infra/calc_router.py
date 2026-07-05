@@ -1,9 +1,20 @@
-"""Deterministic 3-domain question router for the thin-slice answer pipeline.
+"""Deterministic 3-domain question router for the thin-slice answer pipeline,
+with a Stage 2 LLM-constrained-classification fallback (Session 49+, P7.1
+hybrid router).
 
-Maps a user question string to a DomainChartProfile-compatible domain name
-plus an AnswerTier, using Layer A keyword pattern matching ONLY. No GPT/LLM
-classification anywhere in this file -- that is Layer B fallback, explicitly
-out of scope for V1's 3-domain whitelist (Phase 10 / V2, not S44.3).
+Stage 1 (keyword scoring, _score_domain) runs first, always, and short-
+circuits on the unbuilt-module-keyword and out-of-scope-keyword REFUSAL
+paths before Stage 2 is even reachable. Stage 2 (GPT-4o-mini, constrained
+tool-call output, _stage2_classify) fires ONLY when Stage 1 REFUSEs via the
+confidence-floor or margin-tie path. Stage 2 is independent classification,
+not a second opinion on Stage 1's scores (no anchored judgment, CLAUDE.md
+Working Style #9) -- it receives ONLY the raw question text, never Stage 1's
+scores or matched keywords. Stage 2 routes ONLY on "high" confidence;
+"medium"/"low"/"none", or ANY exception (network, auth, timeout, malformed
+output, schema violation), fails CLOSED to the same REFUSAL Stage 1 alone
+would have produced -- never a crash, never a guessed domain. Every Stage 2
+invocation is logged to diagnostics/calc_router_stage2.log (append-only
+JSONL), never to chat (CLAUDE.md Working Style #10).
 
 SCOPE BOUNDARY: this module does not call calculate_chart() or
 build_domain_profile() itself -- it classifies a question string into a
@@ -19,9 +30,11 @@ Not implemented here because route_question() never calls calculate_chart().
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 from agent.infra.chart_profile import AnswerTier
 
@@ -137,6 +150,99 @@ _DASHA_DEMOTION_REASON_NEAR_BOUNDARY = (
     "current -- both the current lord's identity and its dates should be "
     "treated as approximate"
 )
+
+# ─── Stage 2: LLM-constrained-classification fallback (Session 49+/P7.1) ──
+
+# THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
+# Justification: gpt-4o-mini matches the model already used at this
+# codebase's other LLM classification call site (context_classifier.py's
+# Layer 1 gate) -- consistent cost/latency profile, cheap enough to run
+# per-REFUSAL at V1's expected query volume. Scope guard: governs ONLY this
+# file's Stage 2 fallback call -- each LLM call site in this codebase owns
+# its own model constant (no shared "the model" constant exists); do not
+# import this into other modules. Revisit trigger: if dogfooding shows
+# Stage 2 misclassifying at a rate that matters, evaluate gpt-4o (full)
+# before touching the confidence thresholds below.
+_STAGE2_MODEL = "gpt-4o-mini"
+
+# THRESHOLD DISCIPLINE. Justification: keeps Stage 2 well under a
+# synchronous request-response UX budget (Session 3's SSE-streaming fix was
+# itself a response to 6-11s latency complaints elsewhere in this codebase)
+# while leaving several seconds of margin over GPT-4o-mini's typical
+# sub-2s single-tool-call latency. Scope guard: a per-call timeout on the
+# OpenAI SDK request only -- no retry/backoff/circuit-breaker; a single
+# timeout is a hard failure -> REFUSAL (never retried in-request). Revisit
+# trigger: if diagnostics/calc_router_stage2.log shows repeated timeout
+# outcomes at this value, investigate root cause before raising it blindly.
+_STAGE2_TIMEOUT_SECONDS = 8.0
+
+# Domain enum Stage 2 is constrained to via tool-call schema. "none" is a
+# real member (not Python None) so the schema has an explicit way to say
+# "not one of the 3 domains" -- mapped to Python None at the boundary in
+# _stage2_classify, never leaked past this module.
+_STAGE2_VALID_DOMAINS: frozenset[str] = frozenset(
+    {"marriage_compatibility", "career_strength", "current_dasha", "none"}
+)
+_STAGE2_VALID_CONFIDENCE: frozenset[str] = frozenset({"high", "medium", "low"})
+
+# THRESHOLD DISCIPLINE. Justification: RouteResult.confidence is a float
+# (Stage 1's continuous [0, 1] saturating score); Stage 2 only ever returns
+# a coarse high/medium/low enum, and only "high" ever routes (item 3 of the
+# Stage 2 spec) -- this map exists purely so a routed RouteResult carries a
+# well-defined, documented float instead of a magic literal at the call
+# site. Scope guard: 1.0/0.5/0.0 are sentinels, NOT calibrated probabilities
+# or measured precision/recall figures. Revisit trigger: if a future prompt
+# ever allows medium/low to route, this map must be re-justified against
+# real accuracy data per domain, not hand-picked, before it's trusted for
+# anything beyond a REFUSAL-vs-ROUTE decision.
+_STAGE2_CONFIDENCE_MAP: dict[str, float] = {"high": 1.0, "medium": 0.5, "low": 0.0}
+
+# Append-only diagnostic log, one JSON line per Stage 2 invocation -- never
+# printed to chat (CLAUDE.md Working Style #10). Project-root-relative so
+# it lands next to every other diagnostics/*.md artifact regardless of cwd.
+_STAGE2_LOG_PATH = Path(__file__).resolve().parents[2] / "diagnostics" / "calc_router_stage2.log"
+
+_STAGE2_SYSTEM_PROMPT = """\
+You are a routing classifier for a Vedic astrology calculation Q&A pipeline.
+
+This pipeline can ONLY answer questions in exactly 3 domains:
+- marriage_compatibility: Ashtakoot/Guna Milan, Mangal Dosha, spouse or \
+partner compatibility.
+- career_strength: career/profession/work strength, based on Shadbala \
+planetary strength.
+- current_dasha: what Mahadasha/Antardasha period the person is currently \
+running.
+
+Classify the question into exactly one of these domains, or "none" if it
+does not clearly ask about one of these 3 things (for example: health,
+travel, gemstones, lucky numbers, or any other topic).
+
+Call classify_domain with:
+- domain: the single best-matching domain, or "none".
+- confidence: "high" ONLY if the question clearly and unambiguously asks
+  about exactly one of the 3 domains above; "medium" or "low" for any
+  ambiguity, a different topic, or a domain this pipeline does not cover.
+"""
+
+_STAGE2_TOOL_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "classify_domain",
+        "description": (
+            "Classify a Vedic astrology question into one of the pipeline's "
+            "3 routable domains, or none."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "domain": {"type": "string", "enum": sorted(_STAGE2_VALID_DOMAINS)},
+                "confidence": {"type": "string", "enum": sorted(_STAGE2_VALID_CONFIDENCE)},
+            },
+            "required": ["domain", "confidence"],
+            "additionalProperties": False,
+        },
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -254,18 +360,260 @@ def _near_dasha_boundary(
     )
 
 
+def _stage2_classify(
+    question: str, client: object | None = None
+) -> tuple[str | None, str]:
+    """Stage 2 LLM-constrained-classification fallback (routing only).
+
+    Independent classification -- receives ONLY the raw question text,
+    never Stage 1's scores or matched keywords (CLAUDE.md Working Style #9,
+    no anchored judgment: the LLM observes independently, Python does the
+    comparing). Constrained tool-call output only -- no free-text parsing,
+    no regex extraction of a JSON blob from prose (deliberately not reusing
+    context_classifier.py's json.loads(raw-content) pattern).
+
+    `client` is a test-only injection seam (default None). Production
+    callers never pass it -- route_question()'s own default threads None
+    through here, and the real OpenAI client is constructed lazily below,
+    only once Stage 2 has actually fired.
+
+    Returns (domain_or_None, confidence). Raises on ANY failure (network,
+    auth, timeout, missing/malformed tool call, schema violation) -- the
+    caller (_stage2_fallback) is solely responsible for catching and
+    failing REFUSAL; this function never itself returns a fallback value.
+    """
+    if client is None:
+        # Lazy import + construction: must not happen until Stage 2 has
+        # actually fired, so Stage 1's pure keyword path never touches
+        # OpenAI (import-time key validation would otherwise break
+        # offline/keyless runs of the deterministic router).
+        from openai import OpenAI
+
+        client = OpenAI()
+
+    response = client.chat.completions.create(
+        model=_STAGE2_MODEL,
+        messages=[
+            {"role": "system", "content": _STAGE2_SYSTEM_PROMPT},
+            {"role": "user", "content": question},
+        ],
+        tools=[_STAGE2_TOOL_SCHEMA],
+        tool_choice={"type": "function", "function": {"name": "classify_domain"}},
+        temperature=0,
+        timeout=_STAGE2_TIMEOUT_SECONDS,
+    )
+
+    tool_calls = response.choices[0].message.tool_calls
+    if not tool_calls:
+        raise ValueError("calc_router._stage2_classify: no tool_calls in response")
+
+    args = json.loads(tool_calls[0].function.arguments)
+    domain = args.get("domain")
+    confidence = args.get("confidence")
+    if domain not in _STAGE2_VALID_DOMAINS or confidence not in _STAGE2_VALID_CONFIDENCE:
+        raise ValueError(
+            f"calc_router._stage2_classify: schema validation failed -- "
+            f"domain={domain!r} confidence={confidence!r}"
+        )
+    return (None if domain == "none" else domain), confidence
+
+
+def _log_stage2_invocation(
+    question: str,
+    stage1_best_score: float,
+    stage1_margin: float,
+    stage2_domain: str | None,
+    stage2_confidence: str,
+    outcome: str,
+) -> None:
+    """Append one JSON line to diagnostics/calc_router_stage2.log.
+
+    Best-effort: a logging failure (e.g. read-only filesystem) must never
+    affect routing, so OSError is swallowed here -- this is deliberately a
+    separate try/except from _stage2_classify's own, which exists for the
+    OpenAI call itself, not for logging it.
+    """
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "question": question,
+        "stage1_best_score": stage1_best_score,
+        "stage1_margin": stage1_margin,
+        "stage2_domain": stage2_domain,
+        "stage2_confidence": stage2_confidence,
+        "outcome": outcome,
+    }
+    try:
+        _STAGE2_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(_STAGE2_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
+    except OSError:
+        pass
+
+
+def _route_to_domain(
+    domain: str,
+    confidence: float,
+    has_partner_data: bool,
+    chart_data: dict | None,
+) -> RouteResult:
+    """Build the final RouteResult for a resolved domain.
+
+    Shared by Stage 1 (keyword score cleared floor + margin) and Stage 2
+    (LLM high-confidence fallback) -- the has_partner_data hard guard,
+    career's fixed T2 demotion, and dasha's ALWAYS-T2 rule (Session 49/
+    P7.0c) apply identically regardless of which stage resolved the domain.
+    """
+    if domain == "marriage_compatibility":
+        if not has_partner_data:
+            # HARD GUARD -- not a soft fallback, no attempt to route elsewhere.
+            return RouteResult(
+                domain=None,
+                tier=AnswerTier.REFUSAL,
+                confidence=0.0,
+                demotion_reason="marriage_compatibility requires partner birth data",
+                requires_partner=True,
+            )
+        return RouteResult(
+            domain="marriage_compatibility",
+            tier=AnswerTier.TIER_1_EXACT,
+            confidence=confidence,
+            demotion_reason=None,
+            requires_partner=True,
+        )
+
+    if domain == "career_strength":
+        return RouteResult(
+            domain="career_strength",
+            tier=AnswerTier.TIER_2_RANGE,
+            confidence=confidence,
+            demotion_reason=_CAREER_DEMOTION_REASON,
+            requires_partner=False,
+        )
+
+    # current_dasha -- ALWAYS TIER_2_RANGE in V1 (design-chat reversal of
+    # the Session 45 conditional-demotion behavior, Session 49/P7.0c;
+    # exposed by golden-harness rows sulabh_dasha_q11/q12/q13/r4_exact_date,
+    # all mid-period and all wrongly resolving TIER_1_EXACT under the old
+    # rule). Rationale: the payload always surfaces Mahadasha/Antardasha
+    # boundary DATES (chart_profile.py's current_dasha payload), and those
+    # dates carry the documented +/-37-day drift vs AstroSage regardless of
+    # how far evaluated_at sits from a boundary -- tier is a property of
+    # the answer's claims (which always include dated boundaries), not of
+    # the evaluation moment. _near_dasha_boundary()/_DASHA_BOUNDARY_WINDOW_DAYS
+    # are kept, repurposed below to choose WHICH demotion_reason applies
+    # (dates-only vs identity-also-uncertain), not whether to demote.
+    if chart_data is None or _near_dasha_boundary(chart_data):
+        demotion_reason = _DASHA_DEMOTION_REASON_NEAR_BOUNDARY
+    else:
+        demotion_reason = _DASHA_DEMOTION_REASON
+    return RouteResult(
+        domain="current_dasha",
+        tier=AnswerTier.TIER_2_RANGE,
+        confidence=confidence,
+        demotion_reason=demotion_reason,
+        requires_partner=False,
+    )
+
+
+def _stage2_fallback(
+    question: str,
+    best_score: float,
+    margin: float,
+    has_partner_data: bool,
+    chart_data: dict | None,
+    client: object | None,
+) -> RouteResult:
+    """Stage 2 entry point.
+
+    Called ONLY from route_question()'s confidence-floor/margin-tie
+    REFUSAL branch -- never from the unbuilt-module-keyword or
+    out-of-scope-keyword REFUSAL paths, which return earlier in
+    route_question() and never reach here.
+
+    Fails CLOSED: any exception from _stage2_classify (network, auth,
+    timeout, malformed/unparseable output, schema violation) is caught
+    here, logged, and converted to the same REFUSAL Stage 1 alone would
+    have produced -- never propagated to the caller, never falls through
+    to a guessed domain.
+    """
+    try:
+        stage2_domain, stage2_confidence = _stage2_classify(question, client=client)
+    except Exception as exc:
+        _log_stage2_invocation(
+            question,
+            best_score,
+            margin,
+            None,
+            f"error:{type(exc).__name__}",
+            "REFUSAL (stage2_exception: "
+            f"{type(exc).__name__}: {exc})",
+        )
+        return RouteResult(
+            domain=None,
+            tier=AnswerTier.REFUSAL,
+            confidence=0.0,
+            demotion_reason="question not classifiable with confidence",
+            requires_partner=False,
+        )
+
+    if stage2_domain is not None and stage2_confidence == "high":
+        result = _route_to_domain(
+            stage2_domain,
+            _STAGE2_CONFIDENCE_MAP["high"],
+            has_partner_data,
+            chart_data,
+        )
+        outcome = (
+            f"ROUTED:{result.domain}"
+            if result.domain is not None
+            else f"REFUSAL:{result.demotion_reason}"
+        )
+        _log_stage2_invocation(
+            question, best_score, margin, stage2_domain, stage2_confidence, outcome
+        )
+        return result
+
+    reason = (
+        "stage2 domain=none"
+        if stage2_domain is None
+        else f"stage2 confidence={stage2_confidence!r} (not high)"
+    )
+    _log_stage2_invocation(
+        question,
+        best_score,
+        margin,
+        stage2_domain,
+        stage2_confidence,
+        f"REFUSAL ({reason})",
+    )
+    return RouteResult(
+        domain=None,
+        tier=AnswerTier.REFUSAL,
+        confidence=0.0,
+        demotion_reason="question not classifiable with confidence",
+        requires_partner=False,
+    )
+
+
 def route_question(
     question: str,
     has_partner_data: bool = False,
     *,
     chart_data: dict | None = None,
+    _stage2_client: object | None = None,
 ) -> RouteResult:
-    """Classify question -> domain + tier. No side effects.
+    """Classify question -> domain + tier. No side effects (beyond an
+    append-only diagnostics log line if Stage 2 fires).
 
     chart_data is optional and only consulted for the current_dasha
     boundary-proximity warning (see module docstring for why route_question
     cannot derive it itself). Callers with no chart_data yet still get a
     correct domain/tier classification, just without the boundary warning.
+
+    `_stage2_client` is a test-only injection seam for Stage 2's OpenAI
+    client (default None -> a real client is constructed lazily, only if
+    Stage 2 actually fires). Not part of this function's stable public
+    contract; production callers (orchestrator.py) never pass it.
     """
     question_lower = question.lower()
 
@@ -314,61 +662,13 @@ def route_question(
     second_score = ranked[1][1]
 
     if best_score < _CONFIDENCE_FLOOR or (best_score - second_score) < _CONFIDENCE_MARGIN:
-        return RouteResult(
-            domain=None,
-            tier=AnswerTier.REFUSAL,
-            confidence=0.0,
-            demotion_reason="question not classifiable with confidence",
-            requires_partner=False,
+        return _stage2_fallback(
+            question,
+            best_score,
+            best_score - second_score,
+            has_partner_data,
+            chart_data,
+            _stage2_client,
         )
 
-    if best_domain == "marriage_compatibility":
-        if not has_partner_data:
-            # HARD GUARD -- not a soft fallback, no attempt to route elsewhere.
-            return RouteResult(
-                domain=None,
-                tier=AnswerTier.REFUSAL,
-                confidence=0.0,
-                demotion_reason="marriage_compatibility requires partner birth data",
-                requires_partner=True,
-            )
-        return RouteResult(
-            domain="marriage_compatibility",
-            tier=AnswerTier.TIER_1_EXACT,
-            confidence=best_score,
-            demotion_reason=None,
-            requires_partner=True,
-        )
-
-    if best_domain == "career_strength":
-        return RouteResult(
-            domain="career_strength",
-            tier=AnswerTier.TIER_2_RANGE,
-            confidence=best_score,
-            demotion_reason=_CAREER_DEMOTION_REASON,
-            requires_partner=False,
-        )
-
-    # current_dasha -- ALWAYS TIER_2_RANGE in V1 (design-chat reversal of
-    # the Session 45 conditional-demotion behavior, Session 49/P7.0c;
-    # exposed by golden-harness rows sulabh_dasha_q11/q12/q13/r4_exact_date,
-    # all mid-period and all wrongly resolving TIER_1_EXACT under the old
-    # rule). Rationale: the payload always surfaces Mahadasha/Antardasha
-    # boundary DATES (chart_profile.py's current_dasha payload), and those
-    # dates carry the documented +/-37-day drift vs AstroSage regardless of
-    # how far evaluated_at sits from a boundary -- tier is a property of
-    # the answer's claims (which always include dated boundaries), not of
-    # the evaluation moment. _near_dasha_boundary()/_DASHA_BOUNDARY_WINDOW_DAYS
-    # are kept, repurposed below to choose WHICH demotion_reason applies
-    # (dates-only vs identity-also-uncertain), not whether to demote.
-    if chart_data is None or _near_dasha_boundary(chart_data):
-        demotion_reason = _DASHA_DEMOTION_REASON_NEAR_BOUNDARY
-    else:
-        demotion_reason = _DASHA_DEMOTION_REASON
-    return RouteResult(
-        domain="current_dasha",
-        tier=AnswerTier.TIER_2_RANGE,
-        confidence=best_score,
-        demotion_reason=demotion_reason,
-        requires_partner=False,
-    )
+    return _route_to_domain(best_domain, best_score, has_partner_data, chart_data)
