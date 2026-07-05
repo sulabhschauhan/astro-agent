@@ -1,21 +1,13 @@
-# 3 more ephemeris migrations: gochara/sade_sati/navamsa (Session 52)
+# test_gochara.py: pin Session 52 FLG_SPEED fix (Session 52)
 
-**Migrated:** `_calc_transit_graha` (gochara.py) and `_calc_graha`
-(navamsa.py) now delegate to `ephemeris.sidereal_position()`; sade_sati's
-`_saturn_sign` to `ephemeris.sidereal_longitude()`. sade_sati's local
-`EphemerisError` aliased to `ephemeris.EphemerisError` (gochara/navamsa had
-none). TODO markers removed; docstrings cite Session 52.
-
-**Bug found, incidentally fixed:** gochara.py/navamsa.py's own flags
-omitted FLG_SPEED, so `is_retrograde`/`retrograde` was always False for
-the 7 non-node grahas (same bug class as the Session 51 chart_calculator
-fix). `sidereal_position()` always sets FLG_SPEED, so this is now
-correct. No test asserted False for a real graha (only Rahu/Ketu's
-hardcoded True), so no test impact — flagged, not silently changed.
+**Added:** 2 tests — Mercury retrograde=True at David's natal JD (reused
+from test_combustion.py/test_ephemeris.py's known real-chart case) and
+Sun retrograde=False at Sulabh's natal JD (inverse-failure guard). Both
+verified against gochara output before writing (is_retrograde field
+confirmed present). Pins the Session 52 migration's incidental FLG_SPEED
+fix against silent regression; no prior test covered a real graha's
+retrograde flag (only Rahu/Ketu's hardcoded True was tested).
 
 ## Result
-Full suite: **1841 passed, 3 skipped**, zero regressions. sade_sati's
-thousands-of-calls window scans: 93s full-suite wall clock, within normal
-run-to-run variance (85-109s), no caching added per instructions.
-7 debt call sites remain (chesta_bala, kala_bala, dig_bala, sthana_bala,
-panchanga, chart_profile, combustion).
+New tests alone: 2 passed (4 total in file).
+Full suite: **1843 passed, 3 skipped** (1841 + 2 new), zero regressions.

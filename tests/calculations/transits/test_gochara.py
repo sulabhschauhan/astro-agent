@@ -108,6 +108,51 @@ def test_gochara_reference_chart_parity_surbhi():
     assert placements["Ketu"].is_retrograde is True
 
 
+# ─── Retrograde-flag regression guard (Session 52) ──────────────────────────
+#
+# gochara.py's migration to helpers/ephemeris.sidereal_position() (Session
+# 52) incidentally fixed a dormant bug: the module's own flags previously
+# omitted FLG_SPEED, so is_retrograde was always False for the 7 non-node
+# grahas (same bug class as chart_calculator.py's Session 51 FLG_SPEED fix).
+# No existing test asserted the corrected behavior (only Rahu/Ketu's
+# hardcoded-True was covered above) -- these two tests pin it against
+# silent regression.
+
+def test_gochara_mercury_retrograde_at_david_jd():
+    """David's natal JD is the corpus's known real-chart Mercury-retrograde
+    moment (test_combustion.py Layer A oracle row ("david", "mercury"):
+    retro=True; test_ephemeris.py's david_jd fixture derives the same JD
+    the same way) -- reused here rather than inventing a new date."""
+    natal_asc_lon, natal_moon_lon = _natal_lons(
+        "David", "19 Jan 1976", "22:00", "London, UK"
+    )
+    chart = calculate_chart("David", "19 Jan 1976", "22:00", "London, UK")
+    david_jd = chart["meta"]["jd_ut"]
+
+    snapshot = compute_gochara(david_jd, natal_asc_lon, natal_moon_lon)
+    placements = {p.planet_name: p for p in snapshot.placements}
+
+    assert placements["Mercury"].is_retrograde is True
+
+
+def test_gochara_sun_not_retrograde_at_sulabh_jd():
+    """Companion guard at Sulabh's natal JD (derived via calculate_chart(),
+    same pattern as test_ephemeris.py's sulabh_jd fixture): Sun never
+    retrogrades, so this catches the inverse failure mode (a speed-sign
+    misread that flips everything to True instead of leaving everything
+    False)."""
+    natal_asc_lon, natal_moon_lon = _natal_lons(
+        "Sulabh", "6 Apr 1988", "00:30", "Calcutta, India"
+    )
+    chart = calculate_chart("Sulabh", "6 Apr 1988", "00:30", "Calcutta, India")
+    sulabh_jd = chart["meta"]["jd_ut"]
+
+    snapshot = compute_gochara(sulabh_jd, natal_asc_lon, natal_moon_lon)
+    placements = {p.planet_name: p for p in snapshot.placements}
+
+    assert placements["Sun"].is_retrograde is False
+
+
 # Source: AstroSage "Transit today" report dated 2026-06-20, accessed Session
 # 21 (see Surbhi's citation above for the quoted report text -- the global
 # transit positions at 2026-06-20 18:30 UTC are identical for every natal
