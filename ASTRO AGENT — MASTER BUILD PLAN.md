@@ -85,8 +85,7 @@ yogas/catalog/dhana_yogas.py — Dhana (wealth) Yoga detection
 yogas/catalog/pancha_mahapurusha.py — Pancha Mahapurusha Yoga
 yogas/catalog/neecha_bhanga.py — Neecha Bhanga Rajayoga
 yogas/catalog/special.py — Gaja Kesari, Amala, Voshi, etc.
-ashtakavarga/bav.py — Bhinnashtakavarga (per-planet point table)
-ashtakavarga/sav.py — Sarvashtakavarga (aggregate point table)
+ashtakavarga/ashtakavarga.py — single module: compute_bav + compute_sav; bav.py/sav.py stubs superseded and removed (Session 54)
 jaimini/karakas.py — Jaimini 7 Karakas
 jaimini/arudha.py — Arudha Lagna
 jaimini/padas.py — Jaimini Padas
