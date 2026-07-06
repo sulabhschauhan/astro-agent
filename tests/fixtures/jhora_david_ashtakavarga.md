@@ -3,7 +3,7 @@
 ## Header
 
 - **Source:** Jagannatha Hora v8 (Windows), Strengths tab → Ashtakavarga → D-1 of the Natal Chart
-- **Birth data:** David — 19 Jan 1976, 22:00:00, London, UK (UTC+0), Lahiri ayanamsa, Whole Sign houses, Mean Node
+- **Birth data:** David — 19 Jan 1976, 22:00:00, capture location London Colney, United Kingdom (0 W 17' 00", 51 N 43' 00"), UTC+0, Lahiri ayanamsa, Whole Sign houses, Mean Node. **Location provenance note:** AstroSage's reference PDFs for David use London (0:7 W, 51:30 N), NOT London Colney — the coordinate delta is irrelevant at sign level (this fixture is sign-only) but MUST be reconciled before any degree-level David fixture is captured. JHora ayanamsa at capture: 23-30-25.61 (a known ~1 arcmin/57.77″ pyswisseph-vs-JHora Lahiri cross-implementation gap, flat across all 4 reference charts — documented in SESSION_LOG.md Session 19 and `playbook_export/decisions/ayanamsa-investigation.md`).
 - **Reference sign:** Virgo (David's natal lagna). **CRITICAL provenance note:** JHora's "Select the reference" dialog states the chosen sign "will be used as lagna when finding ashtakavarga." Empirically confirmed 2026-07-06: an earlier capture with reference=Aries produced different grids, so the reference sign drives the lagna-contribution bindus. Any future capture MUST set reference = natal lagna. BAV row totals and SAV grand total (337) are lagna-position-invariant and CANNOT detect a wrong reference sign.
 - **Layout note:** values read from JHora's South Indian fixed-sign grid (Pisces top-left, clockwise). Transcription validated via 21 checksums: 8 canonical row totals + 12 column sums equal to SAV + grand total 337.
 - **Captured:** 2026-07-06 (Session 54)
@@ -64,14 +64,17 @@ SAV grand total = 337 (sum of the 12 SAV column values above) — verified.
 
 **Transcription correction note:** the original capture had Sun-Leo transcribed as 4, which failed both the Sun row-total checksum (would sum to 47, not 48) and the Leo column-sum checksum (would sum to 23, not 24 SAV). Corrected to Sun-Leo = 5, which reconciles both checksums and the 337 grand total simultaneously. All 21 checksums pass against the corrected value above.
 
-## D-1 positions (cross-reference only, not yet independently validated cell-by-cell)
+## D-1 positions (source-verified, JHora Basics tab, 2026-07-06)
 
-From JHora highlight markers:
+| Contributor | Position | Retrograde |
+|---|---|---|
+| Lagna   | 5° Virgo 11'25"      | — |
+| Sun     | 5° Capricorn 27'34"  | no |
+| Moon    | 11° Leo 40'24"       | no |
+| Mars    | 21° Taurus 13'34"    | yes |
+| Mercury | 12° Capricorn 45'29" | yes |
+| Jupiter | 23° Pisces 55'32"    | no |
+| Venus   | 28° Scorpio 45'44"   | no |
+| Saturn  | 6° Cancer 02'43"     | yes |
 
-- Sun — Capricorn
-- Saturn — Cancer
-- Jupiter — Pisces
-- Mars — Taurus
-- Venus — Scorpio
-- Lagna — Virgo
-- Moon — Leo
+**Validation trail:** Mercury's sign (Capricorn) was first back-solved uniquely from the Sun BAV row against PVR Table 19 during design review (2026-07-06), then independently confirmed from the JHora Basics tab capture above — both checks corroborate the same sign, documented here as this fixture's independent validation trail for the one contributor not in the earlier highlight-marker cross-reference. The other 7 positions (Lagna, Sun, Moon, Mars, Jupiter, Venus, Saturn) are read directly from the Basics tab capture. This table validates the D-1 *positions* themselves; it does NOT constitute a cell-by-cell BAV/SAV parity check against the tables above — that remains a distinct, not-yet-done validation step.
