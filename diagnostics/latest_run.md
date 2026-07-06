@@ -1,38 +1,64 @@
-# Session: test_ashtakavarga_contributors.py -- compute_bav_contributors()
+# Session: av_transit_scorer.py -- Ashtakavarga transit scorer (Session 55)
 
-**New file:** `tests/calculations/ashtakavarga/test_ashtakavarga_contributors.py`
-(only file changed besides the benign `calc_router_stage2.log` growth from
-running the suite; `git status` confirms it). No production code touched.
+**New file:** `agent/calculations/transits/av_transit_scorer.py` (only
+file changed besides the benign `calc_router_stage2.log` growth from
+running the suite; `git status` confirms it). No other file touched --
+`agent/calculations/transits/__init__.py`'s stale "Ashtakavarga transit
+strength -- deferred to P5" comment is intentionally left as-is per this
+prompt's "no other file changes" constraint.
 
-**Target:** `compute_bav_contributors()` (added last session for future
-Prastaara Ashtakavarga kakshya scoring, CITATION (e)) -- not
-`compute_bav`/`compute_sav`/`AV_TABLES`, which stay locked per the two
-existing ashtakavarga test files.
+**Function:** `score_av_transit(transit_planet, transit_sign,
+degrees_in_sign, natal_bav, natal_sav, natal_contributors) ->
+AvTransitScore` (frozen dataclass). Pure function, no ephemeris calls --
+takes precomputed transit position + precomputed natal Ashtakavarga
+tables (compute_bav/compute_sav/compute_bav_contributors outputs).
 
-## Test layers (495 new tests)
-- **(A) Cardinality invariant, via public API:** 4 charts (David hardcoded,
-  Sulabh/Surbhi/Sheridan derived live via `calculate_chart()`, reusing the
-  exact placement paths from `test_ashtakavarga.py` and
-  `test_ashtakavarga_cross_charts.py`) x 8 owners x 12 signs = 384,
-  parametrized. Re-derives `len(contributors[owner][sign]) ==
-  compute_bav(...)[owner][sign]` from both functions' public return values
-  -- does NOT trust `compute_bav_contributors`'s own internal assert.
-- **(B) Membership oracle:** David's complete Sun-BAV contributor sets (12
-  signs, parametrized), hand-derived in design review 2026-07-06 from PVR
-  Table 19, provided in the prompt and independently re-verified against
-  the live `compute_bav_contributors()` output before being written into
-  the test (all 12 sets matched exactly). Catches what cardinality alone
-  cannot -- two cells swapping a contributor while matching in count.
-  Failure message names the sign and the symmetric difference.
-- **(C) Type/immutability + error paths:** 96 `isinstance(..., frozenset)`
-  checks (David, all 8 owners x 12 signs) + 3 `ValueError` tests mirroring
-  `compute_bav`'s exactly (missing contributor, unknown contributor key,
-  unknown sign), since `compute_bav_contributors` delegates validation to
-  `compute_bav`.
+**Planet scope (locked V1):**
+- Saturn/Jupiter: full scoring incl. kakshya_index/kakshya_lord/
+  kakshya_has_rekha (PVR Table 60).
+- Sun/Mars: sign-level only, kakshya fields = None (too fast for kakshya-
+  scale precision to mean anything).
+- Moon/Mercury/Venus: ValueError, fail closed -- excluded from V1 transit
+  scoring by design (too fast to constrain event windows; Moon belongs to
+  the Muhurta layer).
+
+**Thresholds, each with CITATION + scope guard + tuning note in the
+module docstring:**
+- bav_band (>=5 FAVORABLE / ==4 NEUTRAL / <=3 UNFAVORABLE) -- PVR ch.
+  25.5 verbatim.
+- bav_intensity (EXCELLENT for 6/7/8, VERY_POOR for 0/1, else None) -- PVR
+  verbatim for 6/7/0/1; 8 folded into EXCELLENT by monotonicity, flagged
+  as an interpolation not a direct citation.
+- sav_band (>=30 FAVORABLE / 25-29 AVERAGE / <=24 UNFAVORABLE) -- PVR ch.
+  25.5.1 prose leaves the value 30 ambiguous (">30"/"<25"); resolved to
+  >=30 on PVR's own Vajpayee worked example (SAV=30 in Pisces classed
+  "very strong").
+- verdict (SAV-dominance rule) -- verdict = sav_band when sav_band !=
+  AVERAGE, else verdict = bav_band (NEUTRAL mapped to AVERAGE). No
+  numeric weighting/composite score invented -- PVR provides none.
+- kakshya boundaries (3d45'=3.75 deg divisions, half-open [start, end)) --
+  PVR Table 60 doesn't state boundary-tie-breaking in the prose
+  consulted; documented as a chosen convention (exactly 3.75 degrees
+  falls to the second kakshya, Jupiter), not a citation.
+
+**USAGE CONSTRAINT documented verbatim in the docstring:** PVR states the
+kakshya method "can only be used to fine-tune a prediction to a few days"
+and is never used in a vacuum -- nesting this score inside a dasha
+envelope is the future convergence layer's responsibility, not enforced
+here (a pure per-instant function cannot enforce it).
+
+**Manual verification (no test file this prompt, per instructions) --**
+ran an inline smoke script against David's already-oracle-locked BAV/SAV/
+contributor tables (Session 54/56): confirmed the SAV-dominance rule
+(Saturn/Gemini: BAV=UNFAVORABLE, SAV=33=FAVORABLE, verdict correctly
+dominates to FAVORABLE), the exact-3.75-degree kakshya boundary falling to
+Jupiter as documented, Sun/Mars returning kakshya fields = None, all three
+excluded planets and an unknown planet/sign/degrees-out-of-range all
+raising ValueError, and the dataclass rejecting mutation
+(FrozenInstanceError). Script was not committed.
 
 ## Test tallies
-- New file alone: `495 passed` in isolation (384 + 12 + 96 + 3 = 495, exact).
-- Full suite: `2843 passed, 3 skipped, 1 warning in 101.87s` (was 2348
-  passed, 3 skipped before this session; 2348 + 495 = 2843, exact).
+- Full suite: `2843 passed, 3 skipped, 1 warning` -- unchanged (pure
+  addition, no test file this prompt; existing suite stays green).
 
-No source or module logic changed.
+No existing file's logic changed.
