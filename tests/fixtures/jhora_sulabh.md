@@ -193,6 +193,13 @@ Antardasas in this MD:
 
 ## 8. Ashtakavarga BAV grid (D-1)
 
+**SUPERSEDED (Session 54):** this grid was captured before the
+reference-sign dependency of JHora's Ashtakavarga screen was discovered
+(see `jhora_david_ashtakavarga.md`); its reference sign is undocumented.
+Do NOT use as oracle. Authoritative Sulabh Ashtakavarga data:
+`tests/fixtures/jhora_ashtakavarga_cross_charts.md` (reference=Sagittarius,
+checksum-validated).
+
 Source: Screenshot (Strengths tab -> Ashtakavarga sub-tab). Per-planet
 4x4 BAV grids (Su/Mo/Ma/Me/Ju/Ve/Sa/As) and SAV grid visible; only SAV
 totals transcribed here. Per-planet BAV transcription DEFERRED to P2.5
