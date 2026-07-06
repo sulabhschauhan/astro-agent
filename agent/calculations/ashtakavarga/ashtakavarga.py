@@ -27,6 +27,12 @@ CITATION:
   (d) Algorithm and Aries-absolute (no lagna-rotation) indexing convention
       matches PyJHora's raw computation kernel — see
       diagnostics/pyjhora_ashtakavarga_indexing_20260706.md.
+  (e) Contributor-set consumer spec: PVR Narasimha Rao, "Vedic Astrology:
+      An Integrated Approach", ch. 25.5.2 / Table 60 — Prastaara
+      Ashtakavarga kakshya scoring needs, per (owner, sign) cell, WHICH
+      contributors donate a bindu (not just the bindu count), since a
+      kakshya's rekha depends on whether the transiting planet is benefic
+      w.r.t. that kakshya's lord. See compute_bav_contributors().
 
 OUT OF SCOPE (not implemented here): trikona sodhana, ekadhipatya sodhana,
 sodhya pindas, kakshya divisions, transit/gochara Ashtakavarga scoring.
@@ -232,3 +238,56 @@ def compute_sav(bav: dict[str, dict[str, int]]) -> dict[str, int]:
     )
 
     return sav
+
+
+def compute_bav_contributors(
+    placements: dict[str, str],
+) -> dict[str, dict[str, frozenset[str]]]:
+    """Per-cell BAV contributor sets, for Prastaara Ashtakavarga kakshya
+    scoring (see module CITATION (e)): a kakshya has a rekha iff the
+    transiting planet is benefic in the rasi w.r.t. that kakshya's lord
+    (PVR ch. 25.5.2, Table 60), which requires knowing WHICH contributors
+    donate a bindu to a cell, not just the bindu count. Kakshya lord order
+    (Saturn, Jupiter, Mars, Sun, Venus, Mercury, Moon, Lagna; 3d45' divisions)
+    and the transit scoring itself belong to a future transit-scorer module,
+    NOT here.
+
+    Args:
+        placements: same contract as compute_bav().
+
+    Returns:
+        {owner: {sign: frozenset of contributor names}} for all 8
+        contributors x 12 signs — contributor names are drawn from the same
+        8-name set as placements' keys ('Sun'..'Saturn', 'Lagna').
+
+    Raises:
+        ValueError: same conditions as compute_bav() (delegated to it).
+    """
+    bav = compute_bav(placements)
+
+    sign_index = {contributor: SIGNS.index(sign) for contributor, sign in placements.items()}
+
+    contributors: dict[str, dict[str, frozenset[str]]] = {}
+    for owner in _CONTRIBUTORS:
+        owner_table = AV_TABLES[owner]
+        donors: list[set[str]] = [set() for _ in range(12)]
+        for reference in _CONTRIBUTORS:
+            s = sign_index[reference]
+            for house in owner_table[reference]:
+                idx = (s + house - 1) % 12
+                donors[idx].add(reference)
+
+        contributors[owner] = {}
+        for i in range(12):
+            sign = SIGNS[i]
+            contributor_set = frozenset(donors[i])
+            expected = bav[owner][sign]
+            assert len(contributor_set) == expected, (
+                f"contributor-set size for owner={owner!r} sign={sign!r} "
+                f"is {len(contributor_set)} != compute_bav()'s bindu count "
+                f"{expected} (contributor-counting logic has diverged from "
+                f"compute_bav's bindu-counting logic)"
+            )
+            contributors[owner][sign] = contributor_set
+
+    return contributors

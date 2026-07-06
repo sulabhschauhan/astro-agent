@@ -1,28 +1,50 @@
-# Session: David Ashtakavarga fixture status update (doc-only)
+# Session: compute_bav_contributors() — Prastaara kakshya-scoring support
 
-**Changed file:** `tests/fixtures/jhora_david_ashtakavarga.md` (only file
-changed besides the benign `calc_router_stage2.log` growth from running the
-suite; `git status` confirms it). No table or checksum values touched.
+**Changed file:** `agent/calculations/ashtakavarga/ashtakavarga.py` (only
+file changed besides the benign `calc_router_stage2.log` growth from
+running the suite; `git status` confirms it). `compute_bav`, `compute_sav`,
+and `AV_TABLES` untouched except the new CITATION item (e).
 
-**Edit 1:** Header `Status` line changed from `PARKED. Promotion target:
-Ashtakavarga BAV/SAV module validation (hardest-case-first).` to `ACTIVE
-oracle. Consumed by tests/calculations/ashtakavarga/test_ashtakavarga.py
-(96/96 BAV + 12/12 SAV per-cell parity, Session 54).` — reflects that this
-fixture is no longer parked; it backs the live per-cell parity suite.
+**New function:** `compute_bav_contributors(placements) ->
+dict[owner][sign] = frozenset[str]` — per-cell contributor-name sets
+(which of Sun..Saturn/Lagna donate a bindu), for future Prastaara
+Ashtakavarga transit kakshya scoring (PVR ch. 25.5.2, Table 60: a kakshya
+has a rekha iff the transiting planet is benefic in the rasi w.r.t. that
+kakshya's lord — needs contributor identity, not just the bindu count).
 
-**Edit 2:** End of the "D-1 positions" validation-trail paragraph — replaced
-the sentence claiming cell-by-cell BAV/SAV parity "remains a distinct,
-not-yet-done validation step" with a pointer to where that step was
-subsequently completed (Session 54's `test_ashtakavarga.py` + module
-CITATION block).
+**Design — no duplicated validation or table data:**
+- Calls `compute_bav(placements)` first, which performs all input
+  validation (missing/unknown contributor keys, unrecognized signs) and
+  raises the identical `ValueError`s — no validation code duplicated.
+- Reuses the same `AV_TABLES` and Aries-absolute indexing convention;
+  iterates the same `(reference, house)` structure as `compute_bav` but
+  accumulates contributor names into a `set` per cell instead of a bindu
+  count, since tracking identity (not just count) is the whole point of
+  this function. This loop is structurally similar to `compute_bav`'s but
+  isn't literal duplication of table data or validation — it's the
+  necessary set-accumulation variant of the same table walk.
 
-**Verification:** confirmed `tests/calculations/ashtakavarga/
-test_ashtakavarga.py` actually references this fixture and runs David
-per-cell BAV/SAV parity tests before writing either sentence, to avoid
-overclaiming.
+**SELF-INVARIANT (oracle-lock by construction):** for every (owner, sign),
+asserts `len(contributor_set) == compute_bav(placements)[owner][sign]`,
+naming owner+sign on failure. Since `compute_bav` is already 96/96
+per-cell JHora-validated on David (Session 54), this makes
+`compute_bav_contributors` correct-by-construction against the same
+oracle without a second, separate fixture.
+
+**Out of scope (left to a future transit-scorer module, per the docstring
+and CITATION (e)):** kakshya lord order (Saturn, Jupiter, Mars, Sun, Venus,
+Mercury, Moon, Lagna; 3d45' divisions) and the transit scoring itself.
+
+**Smoke-check (not committed as a test):** ran the invariant across all
+384 cells (4 reference charts x 8 owners x 12 signs — David hardcoded,
+Sulabh/Surbhi/Sheridan derived live via `calculate_chart()`, same pattern
+as `test_ashtakavarga_cross_charts.py`). All 384 cells passed;
+throwaway script deleted after the run.
 
 ## Test tallies
-- Full suite: `2348 passed, 3 skipped, 1 warning` — unchanged from before
-  this edit (doc-only change, no logic touched).
+- Full suite: `2348 passed, 3 skipped, 1 warning` — unchanged (no new test
+  file this prompt, per instructions; existing suite still green after the
+  addition).
 
-No source or module logic changed.
+No existing test file, `compute_bav`, `compute_sav`, or `AV_TABLES` logic
+changed.
