@@ -1,52 +1,79 @@
-# Session: test_av_transit_scorer.py -- score_av_transit() oracle + errors
+# Session: av_transit_scanner.py -- Ashtakavarga transit segment scanner
 
-**New file:** `tests/calculations/transits/test_av_transit_scorer.py`
-(only file changed besides the benign `calc_router_stage2.log` growth from
-running the suite; `git status` confirms it). No production code touched.
+**New file:** `agent/calculations/transits/av_transit_scanner.py` (only
+file changed besides the benign `calc_router_stage2.log` growth from
+running the suite; `git status` confirms it). No other file touched.
 
-**Target:** `score_av_transit()` / `AvTransitScore` (added last session,
-`agent/calculations/transits/av_transit_scorer.py`).
+**Function:** `scan_av_transit_segments(transit_planet, natal_bav,
+natal_sav, natal_contributors, start_jd, end_jd) -> list[AvTransitSegment]`
+-- the ephemeris layer sitting on top of last session's pure
+`score_av_transit()`. Walks a date window, groups it into contiguous
+(sign, kakshya_index) segments, and scores each once at its midpoint.
 
-**Setup:** Sulabh's natal tables via the live pipeline -- same
-`calculate_chart()` path as `test_ashtakavarga_cross_charts.py` (same
-`_BIRTH_ARGS` literals, independently duplicated), then
-`compute_bav`/`compute_sav`/`compute_bav_contributors`. All 8 placements
-(Sun=Pisces, Moon=Scorpio, Mars=Capricorn, Mercury=Pisces, Jupiter=Aries,
-Venus=Taurus, Saturn=Sagittarius, Lagna=Sagittarius) verified against the
-live pipeline BEFORE writing the test file, and all 7 oracle cases'
-expected field values (plus the 5 contributor sets cited in cases'
-comments) were independently re-run against the live scorer and matched
-exactly before being written into `_CASES` -- per this repo's
-"verify task prompts against code" convention.
+**Design -- reuse over duplication:**
+- Delegates the planet-identity/exclusion check to `score_av_transit()`
+  itself (`_validate_transit_planet` calls it with placeholder
+  sign="Aries"/degrees=0.0, discarding the result) -- same reuse pattern
+  as `compute_bav_contributors` delegating to `compute_bav`. No planet
+  list or ValueError wording duplicated.
+- Imports `score_av_transit()`'s `_KAKSHYA_PLANETS` and
+  `_KAKSHYA_WIDTH_DEG` constants directly so the scanner's own daily
+  state-detection loop can never drift from the scorer's CITATION (e)
+  boundary convention.
+- Sidereal longitudes come only from `helpers/ephemeris.py`'s
+  `sidereal_longitude()` -- no raw `swe.calc_ut()` call in this module
+  (CLAUDE.md ephemeris-consolidation lock).
+- Segmentation adapts sade_sati.py's `_find_segments` daily-scan pattern
+  (`_daily_state_segments`) but deliberately DROPS its sub-day bisection
+  refinement -- day-level boundaries are sufficient here (kakshya dwell
+  floors: Jupiter ~45d, Saturn ~112d; a 1-day edge error is noise against
+  the ~20y mahadasha envelope this nests inside).
+- Each segment's score comes from exactly one `score_av_transit()` call
+  at the segment's midpoint JD -- band/verdict/intensity logic is never
+  reimplemented here.
 
-## Test layers (80 new tests)
-- **(0) Placement sanity** (8, parametrized): pins all 8 of Sulabh's D-1
-  sign placements so a placement/ephemeris wiring failure is
-  distinguishable from a scorer-logic failure below.
-- **(1) Oracle cases T1-T7** (63 = 7 cases x 9 fields, parametrized,
-  `{case}-{field}` ids): hand-derived design-review oracle from PVR Table
-  60 + Tables 19-26 against Sulabh's placements -- covers a plain
-  UNFAVORABLE/UNFAVORABLE case, a plain FAVORABLE/EXCELLENT/has-rekha
-  case at the last kakshya index (7=Lagna), the SAV-dominance
-  DOWN-override (BAV favorable, SAV unfavorable -> verdict unfavorable),
-  the SAV-dominance UP-override at the zero-degree kakshya boundary (BAV
-  unfavorable, SAV favorable -> verdict favorable), Sun/Mars sign-level-
-  only cases (kakshya fields None; EXCELLENT and VERY_POOR intensity
-  respectively), and the NEUTRAL-BAV-to-AVERAGE-verdict mapping at the
-  exact 3.75-degree half-open kakshya boundary (must land in kakshya
-  index 1/Jupiter, not 0/Saturn). Each of the 9 `AvTransitScore` fields is
-  asserted as its own parametrized case so a mismatch names the exact
-  case+field.
-- **(2) Error paths** (8): Moon/Mercury/Venus fail-closed exclusion (3,
-  parametrized), degrees_in_sign boundary (30.0) and negative rejection
-  (3, parametrized: 30.0, -0.0001, -5.0), unknown transit_planet (1),
-  unknown transit_sign (1).
-- **(3) Immutability** (1): `AvTransitScore` raises `FrozenInstanceError`
-  on attribute mutation.
+**Retrograde re-entries are NOT merged or deduplicated** -- confirmed by
+smoke test (see below): Saturn's real 2020-2023 Capricorn/Aquarius
+retrograde oscillation produced repeated non-adjacent (sign,
+kakshya_index) states as separate segments, exactly as designed.
+
+**Validation:** `end_jd > start_jd`; window capped at 40 years (scope
+guard: V1 dasha envelopes never exceed a single ~20y mahadasha; tuning
+note: raise only if a future phase needs multi-dasha scans in one call).
+
+**Manual verification (no test file this prompt, per instructions) --**
+ran an inline smoke script against David's oracle-locked BAV/SAV/
+contributor tables:
+- Saturn over 2020-01-01..2023-01-01 (a real historical
+  Capricorn/Aquarius retrograde window): 21 segments, contiguous tiling
+  confirmed (each segment's end_jd == next segment's start_jd), first
+  segment start == window start, last segment end == window end, and
+  repeated non-adjacent (sign, kakshya_index) states present (retrograde
+  evidence).
+- Sun and Mars: all segments have `kakshya_index=None`, as designed.
+- Moon/Mercury/Venus/unknown-planet: all raise `ValueError` via the
+  delegated check.
+- Reversed window (`end_jd < start_jd`): raises `ValueError`.
+- 41-year window: raises `ValueError`; 40-year window (the boundary):
+  succeeds (279 segments).
+Script was not committed.
+
+**Suite-warning triage (requested in design review):** the single
+`DeprecationWarning` in the pytest tail
+(`opentelemetry\util\_importlib_metadata.py:32: ... SelectableGroups dict
+interface is deprecated. Use select.`) originates from
+`opentelemetry-api` 1.42.1, a transitive dependency of `chromadb` (our
+RAG vector store) -- confirmed via `pip show opentelemetry-api`
+(`Required-by: chromadb, opentelemetry-exporter-otlp-proto-grpc,
+opentelemetry-sdk, ...`) and a repo-wide grep showing zero direct
+`import opentelemetry` in `agent/` or `tests/`. It fires from
+opentelemetry's own internal code when something (transitively,
+chromadb's client init) touches its entry-points metadata shim -- it is
+third-party noise, not actionable in this codebase, and not something
+this session's change introduced or could fix.
 
 ## Test tallies
-- New file alone: `80 passed` in isolation (8 + 63 + 8 + 1 = 80, exact).
-- Full suite: `2923 passed, 3 skipped, 1 warning in 87.93s` (was 2843
-  passed, 3 skipped before this session; 2843 + 80 = 2923, exact).
+- Full suite: `2923 passed, 3 skipped, 1 warning` -- unchanged (pure
+  addition, no test file this prompt; existing suite stays green).
 
-No source or module logic changed.
+No existing file's logic changed.
