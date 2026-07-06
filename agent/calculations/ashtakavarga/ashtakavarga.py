@@ -18,11 +18,12 @@ CITATION:
         - Moon's AV: 2nd-from-Jupiter is benefic (Parasara); ditto.
         - Venus's AV: 4th-from-Mars is benefic (Parasara); ditto.
   (c) Validation oracle: JHora v8, reference sign = natal lagna (Virgo) —
-      see tests/fixtures/jhora_david_ashtakavarga.md. That fixture's BAV
-      row totals and SAV grand total (337) are position-invariant and
-      independently cross-check the tables in (a); it does NOT validate
-      per-sign cell placement against this module (no per-cell parity run
-      has been performed yet — see fixture's own D-1 positions note).
+      see tests/fixtures/jhora_david_ashtakavarga.md. Per-cell parity
+      validated Session 54: 96/96 BAV cells + 12/12 SAV cells vs
+      tests/fixtures/jhora_david_ashtakavarga.md (David, hardest case),
+      incl. both Parasara/Varahamihira sentinel cells (Moon-Ar=3,
+      Venus-Le=4) — Parasara convention confirmed end-to-end. See
+      tests/calculations/ashtakavarga/test_ashtakavarga.py.
   (d) Algorithm and Aries-absolute (no lagna-rotation) indexing convention
       matches PyJHora's raw computation kernel — see
       diagnostics/pyjhora_ashtakavarga_indexing_20260706.md.
