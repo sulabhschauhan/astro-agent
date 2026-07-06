@@ -7,7 +7,7 @@
 - **Reference sign:** Virgo (David's natal lagna). **CRITICAL provenance note:** JHora's "Select the reference" dialog states the chosen sign "will be used as lagna when finding ashtakavarga." Empirically confirmed 2026-07-06: an earlier capture with reference=Aries produced different grids, so the reference sign drives the lagna-contribution bindus. Any future capture MUST set reference = natal lagna. BAV row totals and SAV grand total (337) are lagna-position-invariant and CANNOT detect a wrong reference sign.
 - **Layout note:** values read from JHora's South Indian fixed-sign grid (Pisces top-left, clockwise). Transcription validated via 21 checksums: 8 canonical row totals + 12 column sums equal to SAV + grand total 337.
 - **Captured:** 2026-07-06 (Session 54)
-- **Status:** PARKED. Promotion target: Ashtakavarga BAV/SAV module validation (hardest-case-first).
+- **Status:** ACTIVE oracle. Consumed by tests/calculations/ashtakavarga/test_ashtakavarga.py (96/96 BAV + 12/12 SAV per-cell parity, Session 54).
 
 ## BAV table
 
@@ -77,4 +77,4 @@ SAV grand total = 337 (sum of the 12 SAV column values above) — verified.
 | Venus   | 28° Scorpio 45'44"   | no |
 | Saturn  | 6° Cancer 02'43"     | yes |
 
-**Validation trail:** Mercury's sign (Capricorn) was first back-solved uniquely from the Sun BAV row against PVR Table 19 during design review (2026-07-06), then independently confirmed from the JHora Basics tab capture above — both checks corroborate the same sign, documented here as this fixture's independent validation trail for the one contributor not in the earlier highlight-marker cross-reference. The other 7 positions (Lagna, Sun, Moon, Mars, Jupiter, Venus, Saturn) are read directly from the Basics tab capture. This table validates the D-1 *positions* themselves; it does NOT constitute a cell-by-cell BAV/SAV parity check against the tables above — that remains a distinct, not-yet-done validation step.
+**Validation trail:** Mercury's sign (Capricorn) was first back-solved uniquely from the Sun BAV row against PVR Table 19 during design review (2026-07-06), then independently confirmed from the JHora Basics tab capture above — both checks corroborate the same sign, documented here as this fixture's independent validation trail for the one contributor not in the earlier highlight-marker cross-reference. The other 7 positions (Lagna, Sun, Moon, Mars, Jupiter, Venus, Saturn) are read directly from the Basics tab capture. Cell-by-cell BAV/SAV parity was subsequently completed in Session 54 — see tests/calculations/ashtakavarga/test_ashtakavarga.py and the module CITATION block.
