@@ -1,18 +1,16 @@
-# Docs-only: Session 53 closeout (CLAUDE.md / SESSION_LOG.md / Master Build Plan)
+# Session 54: PyJHora Ashtakavarga indexing diagnostic + David BAV/SAV fixture
 
-**Updated:** CLAUDE.md Session Focus + Known Source Divergences (Bhava
-Drishti Bala entry replaced, stub->real); Master Build Plan item (a)
-marked DONE with pointer, closing note updated (both (a)+(b) closed,
-(c)/(d)/(e) sequencing next).
+**Diagnostic (read-only, no files modified):** PyJHora's `get_ashtaka_varga()`
+(ashtakavarga.py:27-58) is always Aries-absolute (index 0=Aries). GUI display
+diverges by chart style: North Indian/Sudarshan rotates to lagna-relative at
+display time (horo_chart_tabs.py:5754); South/East Indian stay Aries-absolute
+on a fixed grid with ascendant marked via lookup table, not rotation. Full
+findings: diagnostics/pyjhora_ashtakavarga_indexing_20260706.md.
 
-**Note:** Session 52's SESSION_LOG.md entry already existed (added in
-an earlier prompt this session) — verified accurate against git log,
-not duplicated. Only the new Session 53 entry was appended.
+**Fixture:** tests/fixtures/jhora_david_ashtakavarga.md (JHora v8, David,
+reference=Virgo lagna). Found and fixed a transcription error (Sun-Leo 4->5)
+via 21-checksum cross-verification (8 row totals + 12 column sums + 337
+grand total) — all now pass. User confirmed the correction before writing.
 
-**Verified against repo before writing:** all commit hashes (0c5d396,
-946c5aa, d7f28ef) via `git log`; test baseline arc 1843->1831/12
-failed->1835/8 failed->1895/0 failed via the actual runs this session;
-48/48 houses max delta 0.15 via bhava_bala.py's own CITATION. No
-discrepancies found between this prompt and the repo.
-
-No source or test files touched.
+Both files committed (8a3a493) and pushed to origin/main. No source or
+test files touched.
