@@ -1,86 +1,71 @@
-# P6 Jaimini: Rasi Drishti Primitive (PVR Ch.10 §10.3)
+# P6 Jaimini: Rasi Drishti Oracle Tests (PVR Ch.10 §10.3 + Exercise 15)
 
-**Task type:** new-file implementation. One file only:
-`agent/calculations/jaimini/rasi_aspects.py`. No test file, no other
-module touched, nothing imports this module yet.
+**Task type:** new test file only.
+`tests/calculations/test_jaimini_rasi_aspects.py`. One file. No other
+module touched, and `agent/calculations/jaimini/rasi_aspects.py` was
+NOT modified -- any oracle disagreement was to be treated as a genuine
+falsification and reported, not fixed forward. None occurred.
 
-## What was built
+## Oracle sources used
 
-- `signs_rasi_aspected_by(sign: str) -> frozenset[str]`
-- `rasi_aspects_between(sign_a: str, sign_b: str) -> bool`
+(a) PVR's 3 printed worked rows (Ch.10 §10.3), transcribed verbatim
+    from `rasi_aspects.py`'s own CITATION block, hardcoded in the test
+    (not recomputed from the rule):
+    - Aries -> {Leo, Scorpio, Aquarius}
+    - Taurus -> {Cancer, Libra, Capricorn}
+    - Gemini -> {Virgo, Sagittarius, Pisces}
 
-Canonical Title-case sign vocabulary, identical to
-`agent/calculations/core/aspects.py`. Unknown sign raises `ValueError`
-naming it. Pure functions, no ephemeris calls, no import from
-`aspects.py` (rasi drishti and graha drishti are different classical
-mechanisms and must never be conflated -- see the module's own LOUD
-docstring warning).
+(b) PVR Exercise 15 answer key (Chart 5, printed p.110 / PDF p.121),
+    all 9 rows, transcribed exactly as quoted in the CITATION block.
+    Each row's occupied sign is uniquely determined by reverse lookup
+    (exactly one of the 12 signs produces that row's aspected-rasis
+    triplet); the parametrized test then checks the forward direction
+    (occupied sign -> expected aspected set) against the module.
 
-## Design
+All 9 rows agreed with the module's computed table, including the
+Ketu row (Ketu in Aquarius -> Aries/Cancer/Libra) -- confirming ordinary
+zodiacal movable/fixed/dual counting, NOT the anti-zodiacal rule PVR
+scopes exclusively to argala/virodhargala (§10.6). No disagreement
+found; no falsification to report.
 
-The 12-sign aspect table is derived programmatically at module import
-from the movable/fixed/dual classification plus adjacency (PVR states
-the rule + 3 worked single-sign examples, not a full 12x12 table --
-per source verification, no such table exists anywhere in the book).
-For each sign:
+## Test layers (7)
 
-- Dual signs aspect all 3 other dual signs unconditionally (no
-  adjacency exclusion, per PVR's own rule wording).
-- Movable/fixed signs aspect all 3 signs of the opposite class, except
-  whichever one of their two zodiacal neighbors happens to be of that
-  opposite class (the other neighbor is always dual, by construction
-  of the movable-fixed-dual repeating cycle around the zodiac).
-
-Two machine-checked invariants run at import time (not just citation
-prose):
-
-1. **Symmetry** -- every derived aspect relation is asserted symmetric,
-   matching PVR's explicit statement ("sign Y will aspect sign X if
-   sign X aspects sign Y", §10.3).
-2. **Cross-check against PVR's own worked examples** -- the derived
-   sets for Aries/Taurus/Gemini are asserted equal to PVR's 3 printed
-   worked rows verbatim.
-
-## Independent verification against the Exercise 15 answer key
-
-Beyond the 3 worked examples asserted in-module, all 9 rows of PVR's
-Exercise 15 answer key (Chart 5, printed p.110 / PDF p.121) were
-checked against the derived table by reverse lookup: for each
-planet's expected aspected-rasis triplet, find which of the 12 signs
-produces exactly that aspect set under `signs_rasi_aspected_by`.
-
-| Planet | Expected aspected rasis (PVR) | Unique sign match |
-|---|---|---|
-| Sun | Cn, Li, Cp | Taurus |
-| Moon | Le, Sc, Aq | Aries |
-| Mars | Cp, Ar, Cn | Scorpio |
-| Mercury | Pi, Ge, Vi | Sagittarius |
-| Jupiter | Sg, Pi, Ge | Virgo |
-| Venus | Ta, Le, Sc | Capricorn |
-| Saturn | Cp, Ar, Cn | Scorpio |
-| Rahu | Li, Cp, Ar | Leo |
-| Ketu | Ar, Cn, Li | Aquarius |
-
-All 9 rows resolved to exactly one matching sign each -- full
-agreement with the derived table, no ambiguity, no mismatch. Notably
-Ketu resolves uniquely to Aquarius (a fixed sign), confirming the
-source-verification pass's inference and empirically reconfirming
-that Ketu's rasi drishti follows ordinary zodiacal movable/fixed/dual
-counting, NOT the anti-zodiacal rule that PVR scopes exclusively to
-argala/virodhargala (§10.6) -- that scope note is quoted in the
-module's own CITATION block with its scope flag.
+1. 3 worked-row oracle tests (§10.3, hardcoded sets).
+2. Exercise 15 oracle, parametrized over 9 rows (including the Ketu
+   scope-proof row, commented).
+3. Exhaustive symmetry sweep -- all 144 ordered sign pairs,
+   `rasi_aspects_between(a, b) == rasi_aspects_between(b, a)`.
+4. Structural locks, full 12-sign sweeps: every aspect set has exactly
+   3 members; movable-only-aspects-fixed / fixed-only-aspects-movable;
+   dual sets equal exactly the other 3 duals; no sign aspects an
+   adjacent sign; no sign aspects itself (contract lock,
+   `rasi_aspects_between(x, x) is False` for all 12 signs).
+5. Return-type lock: `signs_rasi_aspected_by` returns `frozenset` for
+   all 12 signs.
+6. Error-path + message-content asserts: unknown sign ("Atlantis") in
+   both public functions -> `ValueError` naming it; case sensitivity
+   ("ARIES" rejected), consistent with `aspects.py`'s existing
+   contract.
+7. Cross-system guard: imports `signs_aspected_by` from
+   `agent.calculations.core.aspects` and asserts Sun in Aries's graha
+   drishti result ({Libra}) is disjoint from Aries's rasi drishti set
+   ({Leo, Scorpio, Aquarius}) -- tripwire against future accidental
+   unification of the two systems.
 
 ## Verify
 
-Full suite, zero delta expected (nothing imports the new module yet):
+Isolated run (new file only): `78 passed in 0.14s`.
+
+Full suite, baseline `2972 passed / 3 skipped / 0 failed`:
 
 ```
-2972 passed, 3 skipped, 0 failed in 84.81s
+3050 passed, 3 skipped, 0 failed in 96.13s
 ```
 
-Matches the expected baseline exactly.
+Delta: +78 passed (exactly the new test count), 0 lost, 0 failed.
+Matches expectation -- nothing regressed.
 
 ## Commit
 
-`P6 Jaimini: rasi drishti primitive (PVR Ch.10 §10.3)` -- pushed to
-`main`.
+`P6 Jaimini: rasi drishti oracle tests (PVR Ch.10 §10.3 + Exercise 15)`
+-- pushed to `main`.
