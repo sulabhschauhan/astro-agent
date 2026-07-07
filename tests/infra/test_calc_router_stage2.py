@@ -252,12 +252,20 @@ def test_stage2_never_fires_when_stage1_routes():
 
 
 def test_stage2_never_fires_on_unbuilt_module_refusal():
+    # "ashtakavarga" retired from this test Session 55 when the av_transit
+    # domain went live (router carry-forward closure) -- it is no longer
+    # in _UNBUILT_MODULE_KEYWORDS. Substituted "yogini" (Yogini dasha):
+    # still present in _UNBUILT_MODULE_KEYWORDS, genuinely unbuilt (no
+    # dasha submodule for it), and unrelated to any _DOMAIN_KEYWORDS list
+    # (marriage/career/current_dasha/av_transit) or av_transit's own new
+    # keywords, so the substitution can't accidentally collide with a
+    # different routing path.
     client = _explosive_client()
-    result = route_question("Tell me about my ashtakavarga strength", _stage2_client=client)
+    result = route_question("Tell me about my yogini dasha", _stage2_client=client)
     assert client.completions.calls == []
     assert result.tier == AnswerTier.REFUSAL
     assert result.domain is None
-    assert "Ashtakavarga" in result.demotion_reason
+    assert "Yogini" in result.demotion_reason
 
 
 # ─── Group F: Stage 2 marriage routing respects has_partner_data (item 7) ──

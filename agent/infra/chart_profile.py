@@ -53,6 +53,13 @@ _VALID_DOMAINS = {
     "career_strength",
     "current_dasha",
     "sade_sati",
+    # av_transit's builder branch (Session 55, below) landed before this
+    # gate was widened to admit it -- fix-forward, Session 55 continued:
+    # the branch was unreachable dead code until this entry was added.
+    # This module and orchestrator.py's own _VALID_DOMAINS are independent
+    # whitelists by existing encapsulation convention (neither imports the
+    # other's) -- keep both in sync by hand when a domain is added/removed.
+    "av_transit",
 }
 
 # career_strength's compute_bhava_bala_totals() call needs planet_lons
