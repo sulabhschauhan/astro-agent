@@ -1,62 +1,201 @@
-# P6 Jaimini: karakas.py four-chart oracle tests
+# PVR Source Verification — Rasi Drishti (Sign Aspects)
 
-**Task type:** new test file only (`tests/calculations/test_jaimini_karakas.py`).
-`agent/calculations/jaimini/karakas.py` NOT touched — all 24 new tests
-passed on first run, so no fix-forward was needed.
+**Task type:** read-only source verification. No code touched.
 
-## Fixture provenance
+**Source file:** `data/pdfs/Vedic Astrology_ PVR Narashimha Rao.pdf` (515 pages).
 
-JHora v8, Lahiri ayanamsa, Whole Sign, Mean Node, karaka-scheme
-preference = 8. Captured Session 57 from JHora Body tables, transcribed
-per the task prompt and used verbatim (not recomputed/corrected). Sign
-DMS converted via a module-level `_dms_to_abs(sign, d, m, s)` helper
-(bases Ar=0 ... Pi=330).
+**Location:** Ch.10 "Aspects and Argalas", §10.1–10.4, printed pp.100–104
+(PDF pp.111–115), plus the Exercise 15 answer key, printed p.110
+(PDF p.121). Confirmed NOT in Ch.8/Ch.9/§15.5 (already extracted in the
+prior source-verification pass) — a whole-PDF term search for "rasi
+drishti" / "sign aspect" turned up this chapter as the sole definitional
+cluster; three later incidental mentions (PDF pp.141, 181, 225, 226) are
+passing cross-references in unrelated Yoga/Dasa chapters, not additional
+definition or table content (checked and excluded — see Item 2).
 
-## Per-test-group summary (24 tests, 5 layers)
+Page-number convention: "printed" = the book's own printed page number;
+"PDF" = PyMuPDF's absolute page index. Offset confirmed at this chapter's
+own boundary (PDF p.111 prints "100" in its header) — same printed+11=PDF
+relationship established in the prior extraction pass.
 
-**Layer A — four-chart full-tuple oracle (4 tests):** David (hardest
-case, tested first — Saturn/Sun/Rahu cluster spans only 48 arcmin of
-advancement), Surbhi, Sheridan, Sulabh. Each asserts `result.karakas`
-against the full 8-pair expected tuple, exact order, not sampled pairs.
-All 4 matched the given oracle values exactly on first run.
+No OCR garbling encountered in any quoted passage below.
 
-**Layer B — PVR Ch.8 p.81 Table 14 (Example 28) numeric oracle
-(2 tests):** karaka-assignment tuple (AK=Rahu … DK=Saturn, resolving the
-"Venus"/"Saturn" OCR ambiguity in the printed table's last row toward
-Saturn, per the task prompt) and the 8 advancement values via
-`pytest.approx(abs=1/60)` — tolerance justified inline (PVR prints
-arc-minute precision; scope-guarded to this test only, never smuggled
-into Layer A's exact-tuple JHora asserts).
+---
 
-**Layer C — Rahu-reversal convention lock (4 parametrized tests, one per
-chart):** asserts `result.advancement`'s Rahu entry equals the module's
-own `30 - (longitude % 30)` formula on each chart's real Rahu longitude —
-documented as a regression guard against a sign-flip/off-by-one bug, not
-an external-oracle claim (Layer A already covers the oracle).
+## 1. Complete rasi drishti rule (movable/fixed/dual scheme + adjacency exclusion)
 
-**Layer D — error-path contract (9 tests):** Ketu-present (message
-mentions "moksha", not generic), missing key (names Saturn), extra key
-(names Pluto), exact tie (Sun/Moon both forced to advancement 10.0 —
-message names both and mentions "sthira"), Rahu-involved tie (Sun vs
-Rahu both forced to advancement 10.0), and 4 range-guard cases from the
-prior prompt's guard (negative, upper-boundary 360.0, NaN — each names
-Sun; a combined two-planet case names both Sun and Moon). Tie-test
-fixtures use a hand-verified `_NO_TIE_BASE` (8 distinct advancement
-values, none colliding with the deliberately-forced 10.0) so only the
-intended pair collides.
+**Verbatim, framing (§10.1, printed p.100 / PDF p.111):**
 
-**Layer E — result-shape locks (5 tests):** `isinstance(result,
-CharaKarakasResult)`, hashability (`hash(result)` does not raise),
-`karakas` tuple length 8, karaka labels equal `("AK","AmK","BK","MK",
-"PiK","PK","GK","DK")` in that exact order, and the 8 assigned planets
-are a permutation of the 8 input keys.
+> "There are 2 kinds of aspects: (1) graha drishti and (2) rasi drishti.
+> Drishti means aspect. Each planet aspects certain houses from it with
+> graha drishti (planetary aspect). The houses aspected are fixed based
+> on the planet. In addition, rasis aspect each other and a planet
+> aspects the rasis aspected by the rasi occupied by it. This is called
+> rasi drishti (sign aspect)."
 
-## Test suite
+**Verbatim, the rule itself (§10.3, printed p.102 / PDF p.113):**
 
-```
-2972 passed, 3 skipped, 0 failed
-```
+> "Rasis aspect other rasis based on the following rules:
+> • A movable rasi aspects all fixed rasis except the one adjacent to it.
+> • A fixed rasi aspects all movable rasis except the one adjacent to it.
+> • A dual rasi aspects all other dual rasis."
 
-Baseline (pre-this-task) was 2948 passed / 3 skipped / 0 failed. Delta:
-**+24 passed, 0 lost, 0 failed** — exactly the 24 new tests in this file,
-zero regressions elsewhere. No deviation to report.
+This is the complete rule as PVR states it — three bullet points, no
+further qualification attached to the rule statement itself. Note dual
+signs get no adjacency exclusion (dual aspects ALL other dual signs,
+3 of them, unconditionally) — only movable↔fixed pairs carry the
+adjacency exception.
+
+Ambiguity: **no.**
+
+---
+
+## 2. Worked example / table
+
+**No full 12x12 (or per-sign, all-12-signs) table exists anywhere in the
+book** — checked the definitional chapter (Ch.10) in full and the three
+later incidental mentions (pp.141, 181, 225–226 PDF), none contain a
+sign-aspect table. PVR gives:
+
+**(a) Three worked per-sign examples, verbatim (§10.3, printed p.102 /
+PDF p.113), one per rasi type:**
+
+> "For example, Ar is a movable sign. It aspects all the fixed signs
+> except the one adjacent to it, i.e. Ta. So Ar aspects Le, Sc and Aq.
+>
+> Ta is a fixed sign. It aspects all the movable signs except the one
+> adjacent to it, i.e. Ar. So Ta aspects Cn, Li and Cp.
+>
+> Ge is a dual sign. It aspects all other dual signs. So Ge aspects Vi,
+> Sg and Pi."
+
+**(b) "Figure 2: Rasi Aspects" (printed p.102 / PDF p.113)** — an
+embedded diagram ("A line is drawn between every pair of signs that
+aspect each other"), i.e. a graph/visual, not text-extractable by this
+pass (PyMuPDF text layer only; no OCR run on the embedded image). Its
+informational content is the same movable/fixed/dual rule rendered
+visually, per PVR's own caption sentence quoted in Item 3 below — not
+independently verified pixel-by-pixel against the verbal rule.
+
+**(c) Exercise 15 answer key — a partial worked table, per-planet (not
+per-sign), 9 planets/nodes from "Chart 5" (printed p.110 / PDF p.121):**
+
+> "Planet | Aspected Rasis | Aspected Houses | Aspected Planets
+> Sun | Cn, Li, Cp | 9th, 12th, 3rd | Venus
+> Moon | Le, Sc, Aq | 10th, 1st, 4th | Rahu, Mars, Saturn, Ketu
+> Mars | Cp, Ar, Cn | 3rd, 6th, 9th | Venus, Moon
+> Mercury | Pi, Ge, Vi | 5th, 8th, 11th | Jupiter
+> Jupiter | Sg, Pi, Ge | 2nd, 5th, 8th | Mercury
+> Venus | Ta, Le, Sc | 7th, 10th, 1st | Sun, Rahu, Mars, Saturn
+> Saturn | Cp, Ar, Cn | 3rd, 6th, 9th | Venus, Moon
+> Rahu | Li, Cp, Ar | 12th, 3rd, 6th | Venus, Moon
+> Ketu | Ar, Cn, Li | 6th, 9th, 12th | Moon"
+
+This confirms Rahu and Ketu ARE assigned rasi drishti by the ordinary
+movable/fixed/dual rule from whatever sign each occupies in Chart 5 (not
+shown in this extraction — Chart 5's own planetary positions were not
+re-derived, only the answer table was captured verbatim). Cross-check:
+Ketu's row (Ar, Cn, Li) is consistent with Ketu occupying a fixed sign
+(Aq, inferred from the aspected-houses column's "own-house" logic used
+elsewhere in the chapter) aspecting movable signs Ar/Cn/Li while
+excluding its adjacent movable sign Cp — i.e. ordinary rule application,
+not a reversed/anti-zodiacal count (see Item 4 on the unrelated Ketu
+argala-reversal note).
+
+Ambiguity: **no** for the rule itself; **partial/not found** for a
+canonical full 12-sign table — none exists in the source, only 3
+single-sign worked examples plus a 9-row per-planet exercise answer
+covering (at most) 9 of the 12 signs as source-sign.
+
+---
+
+## 3. Symmetry statement
+
+**Verbatim (§10.3, printed p.102 / PDF p.113):**
+
+> "It may be noted that sign Y will aspect sign X if sign X aspects sign
+> Y. A visual representation of rasi aspects is given in Figure 2. A
+> line is drawn between every pair of signs that aspect each other."
+
+PVR states the symmetry explicitly and in so many words ("sign Y will
+aspect sign X if sign X aspects sign Y"), and the Figure 2 caption
+("every pair of signs that aspect each other," undirected line, not an
+arrow) corroborates it as an undirected/symmetric relation.
+
+Ambiguity: **no.**
+
+---
+
+## 4. Exceptions / special cases / school-divergence footnotes on rasi drishti itself
+
+**None found** in §10.1–10.4 (the rasi drishti definition and its
+surrounding discussion). No footnote, alternate-tradition statement, or
+special-case carve-out is attached to the movable/fixed/dual rule or its
+adjacency exclusion.
+
+**Flag — a DIFFERENT, unrelated rule exists nearby that a reader could
+mistakenly import into rasi drishti:** §10.6 "Virodhargala" (printed
+pp.105–106 / PDF pp.116–117) states, for the separate ARGALA concept
+(not rasi drishti):
+
+> "NOTE: If a sign contains Ketu, argalas and virodhargalas on it are
+> counted anti-zodiacally. For example, let us say Ketu is in Vi. Then
+> Le, Ge, Sc and Ta are the 2nd, 4th, 11th and 5th from Vi (counted
+> anti-zodiacally) and planets in those signs cause argala on Vi and on
+> the planets in Vi. Virodhargala is also counted similarly."
+
+This anti-zodiacal counting is explicitly scoped by PVR to "argalas and
+virodhargalas" only — it is never stated to apply to rasi drishti. The
+Exercise 15 answer table (Item 2c above) empirically confirms this
+scoping: Ketu's own rasi-drishti row follows ordinary zodiacal
+movable/fixed/dual counting, not a reversed count. Reported here only as
+a disambiguation flag, not as an exception to the rasi drishti rule
+itself.
+
+Ambiguity: **no** — absence is confirmed by a full read of §10.1–10.4,
+not a sampling gap.
+
+---
+
+## 5. Do planets IN an aspected sign receive/cast the sign's aspect?
+
+**Verbatim (§10.1, printed p.100 / PDF p.111):**
+
+> "In addition, rasis aspect each other and a planet aspects the rasis
+> aspected by the rasi occupied by it."
+
+**Verbatim, restated with the receiving side made explicit (§10.3,
+printed p.102–103 / PDF pp.113–114):**
+
+> "A planet aspects the signs aspected by the sign it occupies. It also
+> aspects the houses and planets in those signs. This aspect is called
+> rasi drishti (sign aspect). For example, a planet in Libra will aspect
+> the houses and planets in Aq, Ta and Le."
+
+**Verbatim, casting side made explicit — ALL occupants of a sign cast the
+same rasi drishti (§10.4, printed p.103 / PDF p.114):**
+
+> "All planets in a sign will have rasi drishti on the same signs, just
+> as people living in the same house see the same neighbors everyday and
+> exert some influence over the same neighbors."
+
+Both directions are explicit and unambiguous: (a) every planet occupying
+a sign casts that sign's rasi drishti (casting side — all co-occupants
+cast identically), and (b) any planet sitting in an aspected sign is
+itself aspected (receiving side — "aspects the houses and planets in
+those signs"). This directly supports §15.5.1 step 2's "conjoin/aspect a
+planet" wording (from the prior extraction pass) — a planet in a
+rasi-drishti-aspected sign counts as "aspected" for that step's
+Jupiter/Mercury/dispositor count, on this chapter's own terms.
+
+Ambiguity: **no.**
+
+---
+
+## Scope note
+
+This task covered Ch.10 §§10.1–10.4 (rasi drishti definition) and the
+Exercise 15 answer key only. §§10.5–10.8 (Argala/Virodhargala) were
+skimmed only far enough to confirm the Ketu anti-zodiacal note's scope
+(Item 4) and were not otherwise extracted — that is a separate topic from
+rasi drishti and out of this task's scope.
