@@ -4,51 +4,55 @@
 
 MODEL: Sonnet 4.6
 
-TASK: Implement agent/calculations/jaimini/rasi_aspects.py — new file,
-ONE FILE ONLY. No test file, no other module touched.
+TASK: Create tests/calculations/test_jaimini_rasi_aspects.py. ONE
+FILE. Read CLAUDE.md first. Do not modify rasi_aspects.py — any
+failure means STOP and report, no fix-forward.
 
-Read CLAUDE.md first. THEN read the CURRENT diagnostics/latest_run.md
-(rasi drishti extraction) BEFORE anything else — you will transfer
-its verbatim material into this module's docstring, because your own
-run will overwrite that diagnostics file.
+ORACLE SOURCES:
+(a) PVR's 3 printed worked rows (Ch.10 §10.3, design-chat derived
+    from the ratified rule + adjacency, and quoted verbatim in
+    rasi_aspects.py's CITATION block):
+    Aries   -> {Leo, Scorpio, Aquarius}
+    Taurus  -> {Cancer, Libra, Capricorn}
+    Gemini  -> {Virgo, Sagittarius, Pisces}
+(b) PVR Exercise 15 answer key — transcribe ALL 9 rows EXACTLY as
+    quoted in rasi_aspects.py's CITATION block into test fixtures.
+    If any CITATION row disagrees with the module's computed table,
+    that is a genuine falsification — STOP and report, do not
+    reconcile silently.
 
-SPEC (PVR Ch.10 §10.3, printed p.102 — verbatim in current
-diagnostics/latest_run.md):
-- Movable signs (Ar, Cn, Li, Cp) aspect the three fixed signs
-  EXCEPT the one adjacent to them.
-- Fixed signs (Ta, Le, Sc, Aq) aspect the three movable signs
-  EXCEPT the one adjacent to them.
-- Dual signs (Ge, Vi, Sg, Pi) aspect the other three duals.
-- Symmetry is explicit in PVR: quote it in the CITATION block.
+TESTS (in order):
+1. Three worked-row oracle tests: signs_rasi_aspected_by(sign) ==
+   frozenset from (a), one test each, hard-coded sets from (a) —
+   do NOT recompute them from the rule inside the test.
+2. Exercise 15 oracle tests: one parametrized test over the 9
+   transcribed rows from (b), asserting the module's answer matches
+   PVR's answer key exactly (including the Ketu row — ordinary
+   zodiacal counting; comment: the anti-zodiacal rule is
+   argala-scoped, per CITATION).
+3. Exhaustive symmetry sweep: all 144 ordered sign pairs,
+   rasi_aspects_between(a, b) == rasi_aspects_between(b, a).
+4. Structural locks, full 12-sign sweeps:
+   - every aspect set has exactly 3 members
+   - movable signs aspect only fixed signs; fixed only movable;
+     dual sets == the other three duals exactly
+   - no sign aspects an adjacent sign
+   - no sign aspects itself (rasi_aspects_between(x, x) is False
+     for all 12 — contract lock, comment it as such)
+5. Return-type lock: signs_rasi_aspected_by returns a frozenset
+   for all 12 signs.
+6. Error paths, message-content asserts: unknown sign ("Atlantis")
+   in each public function -> ValueError naming it; case
+   sensitivity ("ARIES" rejected) consistent with aspects.py's
+   existing contract.
+7. Cross-system guard test: import signs_aspected_by from
+   calculations.aspects and assert that for at least Aries the
+   graha-drishti result of a planet placed there differs from the
+   rasi-drishti set (e.g. Sun in Aries aspects only Libra under
+   graha drishti — disjoint from {Le, Sc, Aq}). Comment: tripwire
+   against future accidental unification of the two systems.
 
-DESIGN (locked):
-1. Derive the aspect sets PROGRAMMATICALLY from sign-class +
-   adjacency at module import (module-level frozen structure) — do
-   NOT hand-type a 12-row literal table. Rationale comment: PVR
-   prints the rule + 3 worked rows, not a full table; the rule is
-   the source-verbatim artifact.
-2. Public API:
-   - signs_rasi_aspected_by(sign: str) -> frozenset[str]
-   - rasi_aspects_between(sign_a: str, sign_b: str) -> bool
-   Canonical Title-case sign names, same vocabulary as aspects.py.
-   Unknown sign -> ValueError naming it. Case-sensitive, consistent
-   with aspects.py's existing contract.
-3. Module docstring:
-   - LOUD warning: this is Jaimini RASI drishti (sign aspects),
-     NOT graha drishti — never interchangeable with
-     calculations/aspects.py; consumers: §15.5.1 stronger-co-lord
-     step 2, arudha layer.
-   - CITATION block: verbatim §10.3 rule text, the symmetry
-     sentence, the planets-carry-the-sign's-aspect sentences, the
-     three PVR worked sign-rows (Ar/Ta/Ge), AND the full Exercise
-     15 answer key rows — all copied exactly from the current
-     diagnostics/latest_run.md with printed+PDF page numbers.
-     Include PVR's Ketu-anti-zodiacal note with its scope flag
-     (Argala only, NOT rasi drishti — Exercise 15's Ketu row is
-     the proof).
-4. Pure functions, no ephemeris, no imports from aspects.py.
-
-VERIFY: full suite — expect 2972 passed / 3 skipped / 0 failed,
-zero delta (nothing imports this new module yet). THEN overwrite
-diagnostics/latest_run.md with the run report. Commit
-"P6 Jaimini: rasi drishti primitive (PVR Ch.10 §10.3)". Push.
+VERIFY: full suite. Baseline 2972 passed / 3 skipped / 0 failed
+must lose nothing; REPORT measured new totals. Overwrite
+diagnostics/latest_run.md. Commit "P6 Jaimini: rasi drishti
+oracle tests (PVR Ch.10 §10.3 + Exercise 15)". Push.
