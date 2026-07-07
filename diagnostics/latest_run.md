@@ -1,125 +1,105 @@
-# Session 56 acceptance gate: golden harness re-run vs frozen baseline
+# Session 56 closeout — SESSION_LOG entry, CLAUDE.md, _VALID_DOMAINS rider
 
-**READ-ONLY task — no code, no tests, no fixtures, no baseline edits.**
-Only new output: `diagnostics/golden_scorecard_20260707_112916.md` (this
-run's scorecard) and this report. The frozen baseline
-(`diagnostics/golden_scorecard_20260707_093530.md`) was NOT superseded
--- that remains a closeout decision for design chat, per instructions.
+Four files touched: `SESSION_LOG.md` (new entry), `CLAUDE.md` (Current
+Session Focus + Carry-Forward edits; trim pass was already landed
+earlier this session and only reconciled here, not re-run), and
+`agent/infra/chart_profile.py` + `agent/infra/orchestrator.py`
+(comment-only rider, zero behavior change). No other file touched.
 
-## Verdict: **PASS** against expectations (a)-(c)
+## SESSION_LOG.md verification notes
 
-All three pre-registered expectations held. No deviation to report; no
-tuning performed.
+Every claim checked against `git log 09c7a02..HEAD` (8 commits since
+Session 55's closeout) and this session's own diagnostics history before
+writing, not taken from the prompt as given:
 
-## Step 1-2: harness run + row-for-row diff
+- **`_build_av_timing_block()`/`_render_av_timing()` extraction claims**:
+  confirmed by re-reading both functions directly in the current source
+  (already verified once, in the tasks that created them; re-confirmed
+  here rather than assumed stale).
+- **13-test file count**: confirmed (`grep -c "^def test_"
+  tests/infra/test_result_formatter_av_transit.py` -> 13; was 8 before
+  commit 214c87c).
+- **Acceptance gate PASS + 22.85s runtime + q5/q11-q13 enrichment
+  presence**: taken directly from commit 63a3924's own
+  `diagnostics/latest_run.md` snapshot (`git show
+  63a3924:diagnostics/latest_run.md`), which itself independently
+  verified these via `answer_question()` calls, not re-derived from
+  memory.
+- **Test baseline 2943 -> 2948**: confirmed via `git log -1 --format=%B
+  214c87c` (states "+5 enrichment tests") and this session's own final
+  suite run (2948 passed, 3 skipped, 0 failed, below).
+- **"Session 55 locked decision 4" citation**: grepped `SESSION_LOG.md`
+  for "TECHNIQUE domain" before citing it in the Session 56 entry's
+  Sequencing justification -- confirmed it exists verbatim in the
+  Session 55 entry's Key decisions list (line 1702), not paraphrased
+  from a stale memory of it.
+- **CLAUDE.md trim pass already landed**: confirmed via `git log
+  09c7a02..HEAD` showing `b6d8f62` (88->85 lines) already committed
+  earlier this session, BEFORE the chart_profile.py/result_formatter.py
+  enrichment work -- reconciled (verified current state, folded a
+  one-line mention into the SESSION_LOG entry) rather than re-run.
 
-Ran `agent.eval.golden_harness.run_golden_eval()` directly. New
-scorecard: `diagnostics/golden_scorecard_20260707_112916.md`.
+## CLAUDE.md changes
 
+1. **Trim pass**: already landed (`b6d8f62`, 88->85 lines, prior task
+   this session) -- reconciled, not re-trimmed. Verified current state
+   still reflects that compression (Known Source Divergences' 3 RESOLVED
+   entries folded into the section's one-line archival pointer).
+2. **Carry-Forward**: `_VALID_DOMAINS` sync discipline item DELETED --
+   completed by the rider below (the `SENSITIVE_TO` comments ARE the
+   completion, not a promise of a future one). The other 3 items
+   (Rahu/Ketu unknown-planet message, `RouteResult` route marker, stale
+   `golden_harness.py` `_KNOWN_GAPS` prose) left OPEN, verbatim,
+   unchanged.
+3. **Current Session Focus**: rewritten to "Session 57: P6 Jaimini
+   (Arudha/Padas) per Master Build Plan order." -- the Session 55/56
+   "OR the P7 convergence step" exception is consumed (Session 56 took
+   it); no standing exception carries into Session 57.
+
+### Final line count
+
+**84 lines** (was 85 before the Carry-Forward deletion; -1 line from
+removing that bullet). Still 4 lines over the ~80-line budget. Per the
+same reasoning documented in the original trim-pass task: every
+remaining line is either a Locked Decision, an OPEN divergence marker, a
+DO-NOT instruction, a Carry-Forward item, or a Working Style item --
+all explicitly protected from further compression by this and the prior
+task's own instructions. No further reduction attempted; flagging the
+gap rather than tuning around it.
+
+## Rider diff (comment-only, zero behavior change)
+
+`git diff --stat`:
 ```
-runnable=16 non_runnable_batch=2 match=7 match_stage2=5 design_debt=0 known_gap=4 new_gap=0 error=0
+agent/infra/chart_profile.py | 13 ++++++++++---
+agent/infra/orchestrator.py  |  9 +++++++++
+2 files changed, 19 insertions(+), 3 deletions(-)
 ```
 
-`diff` against the frozen baseline
-(`golden_scorecard_20260707_093530.md`):
+- **`chart_profile.py`**: added a `SENSITIVE_TO
+  agent/infra/orchestrator.py's own _VALID_DOMAINS constant` comment
+  block directly above `_VALID_DOMAINS = {`, citing the Session 55
+  fix-forward (commit 4e52e77) as the incident, and folding in the
+  redundant "keep both in sync by hand" note that previously lived
+  inline inside the set literal (removed from there, consolidated into
+  the new block above -- net effect is comment reorganization, not new
+  information). The `_VALID_DOMAINS` set's own 5 string literals are
+  byte-identical, unchanged.
+- **`orchestrator.py`**: added the mirror `SENSITIVE_TO
+  agent/infra/chart_profile.py's own _VALID_DOMAINS constant` comment
+  block, same citation, appended after the existing av_transit
+  wiring-order comment (that comment's own text untouched). The
+  `_VALID_DOMAINS` set's own 5 string literals are byte-identical,
+  unchanged.
 
-```
-3c3
-< - Run evaluated_at_jd: `2461228.8994444446`
----
-> - Run evaluated_at_jd: `2461228.978414352`
-```
+Confirmed zero code-line changes in both files: only comment lines
+added; no string literal, no logic, no whitespace inside either
+`_VALID_DOMAINS = {...}` block touched.
 
-**Zero row-level differences.** Every `id`/`domain`/`expected_tier`/
-`actual`/`route`/`demotion_reason`/`category` cell is byte-identical
-across both runs; only the header's `evaluated_at_jd` timestamp differs
-(expected -- each run records its own wall-clock moment).
+## Suite
 
-### Per-row diff table
-
-| id | baseline category | this-run category | route | changed? |
-|---|---|---|---|---|
-| sulabh_career_q1 | MATCH_STAGE2 | MATCH_STAGE2 | stage2 | no |
-| sulabh_career_q2 | MATCH_STAGE2 | MATCH_STAGE2 | stage2 | no |
-| sulabh_career_q3 | MATCH_STAGE2 | MATCH_STAGE2 | stage2 | no |
-| sulabh_career_q4 | KNOWN_GAP | KNOWN_GAP | stage2 | no |
-| sulabh_career_q5 | MATCH | MATCH | stage1 | no |
-| sulabh_marriage_q6 | MATCH | MATCH | stage1 | no |
-| sulabh_marriage_q7 | MATCH_STAGE2 | MATCH_STAGE2 | stage2 | no |
-| sulabh_marriage_q8 | MATCH_STAGE2 | MATCH_STAGE2 | stage2 | no |
-| sulabh_marriage_q9 | KNOWN_GAP | KNOWN_GAP | stage2 | no |
-| sulabh_marriage_q10 | KNOWN_GAP | KNOWN_GAP | stage2 | no |
-| sulabh_dasha_q11 | MATCH | MATCH | stage1 | no |
-| sulabh_dasha_q12 | MATCH | MATCH | stage1 | no |
-| sulabh_dasha_q13 | MATCH | MATCH | stage1 | no |
-| sulabh_dasha_q14 | MATCH | MATCH | fastpath | no |
-| sulabh_dasha_q15 | KNOWN_GAP | KNOWN_GAP | stage2 | no |
-| sulabh_dasha_r4_exact_date | MATCH | MATCH | stage1 | no |
-| sulabh_refusal_boundary_probes_r1_r5 | NON_RUNNABLE_BATCH | NON_RUNNABLE_BATCH | n/a | no |
-| sulabh_out_of_domain_probes_quest1_quest2 | NON_RUNNABLE_BATCH | NON_RUNNABLE_BATCH | n/a | no |
-
-## Step 3a: deterministic-floor rows -- PASS
-
-All 7 deterministic-floor rows (`sulabh_career_q5`, `sulabh_marriage_q6`,
-`sulabh_dasha_q11`, `sulabh_dasha_q12`, `sulabh_dasha_q13`,
-`sulabh_dasha_q14`, `sulabh_dasha_r4_exact_date`) show **zero category
-changes** -- confirmed above.
-
-## Step 3b: MATCH_STAGE2/known_gap rows -- no variance observed this run
-
-All 9 stage2-routed rows (`sulabh_career_q1-q4`, `sulabh_marriage_q7-q10`,
-`sulabh_dasha_q15`) resolved identically to the frozen baseline this
-run -- no flip to log or investigate. Per the STAGE2_VARIABLE
-convention, this is not a requirement (a flip would have been acceptable
-variance, not a gate failure) -- simply reporting that none occurred.
-`diagnostics/calc_router_stage2.log` grew by one full run's worth of
-entries during this harness invocation (append-only, as always); not
-inspected further since there was nothing to explain.
-
-## Step 3c: timing_enrichment presence check (q5, q11-q13)
-
-The scorecard table itself only carries tier/route/demotion_reason/
-category -- `timing_enrichment` is payload-level and invisible there, as
-expected (design point c). Verified directly by calling
-`answer_question()` for each row's exact question text (from
-`tests/fixtures/golden_qa_sulabh.py`) against the real Sulabh chart:
-
-| id | domain | tier | timing_enrichment present | sub_windows | resolution_note |
-|---|---|---|---|---|---|
-| sulabh_career_q5 | career_strength | TIER_2_RANGE | yes | 9 (non-empty) | present, non-empty |
-| sulabh_dasha_q11 | current_dasha | TIER_2_RANGE | yes | 9 (non-empty) | present, non-empty |
-| sulabh_dasha_q12 | current_dasha | TIER_2_RANGE | yes | 9 (non-empty) | present, non-empty |
-| sulabh_dasha_q13 | current_dasha | TIER_2_RANGE | yes | 9 (non-empty) | present, non-empty |
-
-All 4 confirmed: `timing_enrichment` block present, `sub_windows`
-non-empty (9 ranked windows each), `resolution_note` present and
-non-empty. Scorecard's own tier/category columns for these 4 rows are
-unchanged from baseline, confirming enrichment is additive/invisible at
-the tier-decision level, as designed.
-
-## Step 3d: wall-clock runtime
-
-**This run: 22.85 seconds** (measured via `time.perf_counter()` around
-`run_golden_eval()` directly, excluding Python interpreter startup).
-
-**No prior comparable figure exists to diff against.** Searched
-`diagnostics/latest_run.md`'s git history (`git log -p --follow`) for
-"elapsed"/"runtime"/"seconds"/"wall-clock" -- no prior golden-harness-
-specific timing was ever recorded in this repo (the only wall-clock
-figure on file anywhere is an unrelated "93s full-suite pytest wall
-clock" note from a different session). Every career/dasha row that
-actually routes to its domain now runs a Saturn AV scan over the current
-Antardasha (per Session 56's enrichment change) -- this run's 22.85s
-covers 16 runnable rows plus 2 real `calculate_chart()` builds (Sulabh +
-Surbhi), several of which hit live Stage 2 GPT-4o-mini calls (network-
-bound) on top of the new enrichment scans. Flagging this measurement as
-the new reference point for future runs to diff against, since none
-existed before; not treating its absolute value as a pass/fail signal
-per instructions ("a noticeable increase is expected and acceptable,
-just quantify it").
-
-## Baseline status
-
-Frozen baseline (`golden_scorecard_20260707_093530.md`) **left
-untouched, not superseded** -- per instructions, that decision is
-design chat's to make, contingent on this report's PASS verdict.
+**2948 passed, 3 skipped, 0 failed** -- zero delta, exactly as expected.
+Ran once after the rider (comment-only, to confirm no accidental
+behavior change) and again after all doc edits landed (SESSION_LOG.md/
+CLAUDE.md, neither of which touches any collected file) -- both runs
+identical.
