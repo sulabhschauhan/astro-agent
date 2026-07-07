@@ -16,7 +16,14 @@ spec for this session.
 
 Per-row category (checked in this order -- MATCH first, NON_RUNNABLE_BATCH
 rows never reach this classification at all):
-  MATCH              -- actual tier equals the golden row's expected_tier.
+  MATCH              -- actual tier equals the golden row's expected_tier,
+                        AND route (see below) was "stage1" or "fastpath"
+                        -- the deterministic regression floor.
+  MATCH_STAGE2        -- actual tier equals expected_tier, but route was
+                        "stage2": a live GPT-4o-mini call resolved this
+                        row. Correct this run, but LLM-dependent --
+                        monitored, not asserted, same variance posture as
+                        a STAGE2_VARIABLE KNOWN_GAP row (see _KNOWN_GAPS).
   DESIGN_DEBT        -- mismatch caused by a genuine, un-locked product gap
                         (a built/validated module excluded from the Q&A
                         whitelist) -- seeded in _DESIGN_DEBT, pending a
@@ -29,6 +36,29 @@ rows never reach this classification at all):
   NON_RUNNABLE_BATCH -- multi-probe row, never executed (see above).
   (ERROR is a fifth, orthogonal outcome: the row's answer_question() call
   raised -- reported instead of any of the above.)
+
+Session 55 (route-provenance): every executed row also records `route`
+("stage1" | "stage2" | "fastpath") -- which of calc_router.py's paths
+actually resolved it. This makes the harness's own output natively
+reproduce the route-provenance distinction that
+diagnostics/golden_scorecard_20260707_091459_post_av_transit.md carried
+as a HAND-annotated overlay (cross-referencing calc_router_stage2.log by
+hand against that run's per-row questions) -- that file's own root-cause
+note already acknowledged this was manual, ahead of this change: the
+harness's built-in MATCH/KNOWN_GAP categories don't distinguish Stage 1
+(deterministic keyword scoring) from Stage 2 (live, nondeterministic
+GPT-4o-mini fallback) when both can independently resolve a question to
+the same correct domain (Session 50/P7.1e's own comment on _KNOWN_GAPS
+notes exactly this for q1/q2/q3/q7/q8). `route` is derived by
+correlating diagnostics/calc_router_stage2.log (see
+`_used_stage2_since()`'s own docstring for why this is a fragile,
+best-effort correlation, not a first-class run identifier) -- RouteResult
+itself (agent/infra/calc_router.py) carries no route marker of its own
+(confirmed by reading its dataclass fields: domain, tier, confidence,
+demotion_reason, requires_partner -- nothing else), so there is no
+stronger signal available without modifying calc_router.py, which this
+change deliberately does not do (golden_harness.py is the ONLY file
+Session 55 touches here).
 
 evaluated_at_jd is an explicit, caller-suppliable parameter of
 run_golden_eval() recording WHEN this run happened, for the report header.
@@ -44,6 +74,7 @@ dependent) results were captured.
 from __future__ import annotations
 
 import dataclasses
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -51,6 +82,7 @@ from typing import Any
 import swisseph as swe
 
 from agent.chart_calculator import calculate_chart
+from agent.infra import calc_router
 from agent.infra.orchestrator import answer_question
 from tests.fixtures.golden_qa_sulabh import GOLDEN_QA
 
@@ -188,13 +220,14 @@ _KNOWN_GAPS: dict[str, str] = {
 # for the next genuine, un-locked product gap this harness observes.
 _DESIGN_DEBT: dict[str, str] = {}
 
-# Session 50/P7.1e: every row still in _KNOWN_GAPS is STAGE2_VARIABLE (see
-# each entry's docstring above) -- derived from the dict's own keys rather
-# than a separately hardcoded list, so this can never drift out of sync
-# with _KNOWN_GAPS itself. Surfaced in the report header so a reviewer
-# knows which rows' categorization is expected to vary run-to-run before
-# treating a flip as a NEW_GAP.
-_STAGE2_DEPENDENT_ROW_IDS: tuple[str, ...] = tuple(_KNOWN_GAPS.keys())
+# NOTE (Session 55): the static stage2_dependent_rows note that used to be
+# derived from this dict's keys (_STAGE2_DEPENDENT_ROW_IDS) has been
+# replaced by a per-run COMPUTED split in _render_report() (deterministic-
+# floor rows vs stage2-routed rows, by actual route-provenance) -- see the
+# module docstring's Session 55 note. _KNOWN_GAPS itself is unchanged:
+# still the seeded, hand-curated set of MISMATCHES this harness has
+# actually observed and traced to a locked decision; still consulted only
+# when actual_tier != expected_tier.
 
 
 @dataclasses.dataclass(frozen=True)
@@ -206,7 +239,8 @@ class RowResult:
     expected_tier: str
     actual: str                    # AnswerTier value string, or "ERROR", or "N/A (batch)"
     demotion_reason: str | None
-    category: str                  # MATCH | DESIGN_DEBT | KNOWN_GAP | NEW_GAP | ERROR | NON_RUNNABLE_BATCH
+    category: str                  # MATCH | MATCH_STAGE2 | DESIGN_DEBT | KNOWN_GAP | NEW_GAP | ERROR | NON_RUNNABLE_BATCH
+    route: str                     # "stage1" | "stage2" | "fastpath" | "n/a" (NON_RUNNABLE_BATCH rows only)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -219,6 +253,7 @@ class GoldenEvalSummary:
     runnable_count: int
     non_runnable_batch_count: int
     match_count: int
+    match_stage2_count: int
     design_debt_count: int
     known_gap_count: int
     new_gap_count: int
@@ -249,21 +284,74 @@ def _build_charts() -> tuple[dict, dict]:
     return sulabh_chart, surbhi_chart
 
 
-def _run_runnable_row(row: dict[str, Any], sulabh_chart: dict, surbhi_chart: dict) -> RowResult:
+def _used_stage2_since(question: str, since: datetime) -> bool:
+    """True if `question` triggered a live Stage 2 call at/after `since`.
+
+    FRAGILE BY CONSTRUCTION -- read this before trusting it elsewhere.
+    diagnostics/calc_router_stage2.log (calc_router._STAGE2_LOG_PATH) is a
+    single shared, append-only JSONL file: every Stage 2 invocation ever
+    logged by ANY caller lands here, including tests/infra/
+    test_calc_router_stage2.py's fake-client tests (_log_stage2_invocation
+    logs unconditionally, regardless of whether the client was a real
+    OpenAI client or a test fake) and every prior run of this harness. The
+    log schema itself carries no run ID to join against (fields are
+    timestamp/question/stage1_best_score/stage1_margin/stage2_domain/
+    stage2_confidence/outcome only -- confirmed by reading
+    _log_stage2_invocation()) -- so this function correlates purely by (a)
+    exact question-text match and (b) a timestamp >= `since`, a wall-clock
+    cutoff the caller captures immediately before this run's first row
+    executes. This is safe today only because: GOLDEN_QA's runnable-row
+    question strings are all mutually unique and don't collide with the
+    pytest suite's own fixture questions (verified by inspection); and a
+    single golden_harness.py invocation runs its rows sequentially, so no
+    concurrent process can append a same-text entry inside this run's own
+    window. It would silently misattribute a row if either assumption
+    ever broke (a new GOLDEN_QA row reusing existing question text, or a
+    second process hitting Stage 2 with an identical question during this
+    run). Prefer a real RouteResult-level route marker over this
+    correlation if calc_router.py ever adds one (it does not today --
+    confirmed by reading RouteResult's fields: domain, tier, confidence,
+    demotion_reason, requires_partner).
+    """
+    log_path = calc_router._STAGE2_LOG_PATH
+    if not log_path.exists():
+        return False
+
+    with open(log_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            record = json.loads(line)
+            if record.get("question") != question:
+                continue
+            if datetime.fromisoformat(record["timestamp"]) >= since:
+                return True
+    return False
+
+
+def _run_runnable_row(
+    row: dict[str, Any],
+    sulabh_chart: dict,
+    surbhi_chart: dict,
+    run_start: datetime,
+) -> RowResult:
     golden_domain = row["domain"]
     expected_tier = row["expected_tier"]
+    question = row["question"]
 
     try:
         if golden_domain == "marriage":
             result = answer_question(
-                row["question"],
+                question,
                 sulabh_chart,
                 partner_chart_data=surbhi_chart,
                 primary_role="boy",
             )
         else:
-            result = answer_question(row["question"], sulabh_chart)
+            result = answer_question(question, sulabh_chart)
     except Exception as exc:  # noqa: BLE001 -- one row's crash must not abort the run
+        route = "stage2" if _used_stage2_since(question, run_start) else "stage1"
         return RowResult(
             id=row["id"],
             domain=golden_domain,
@@ -271,11 +359,28 @@ def _run_runnable_row(row: dict[str, Any], sulabh_chart: dict, surbhi_chart: dic
             actual="ERROR",
             demotion_reason=f"{type(exc).__name__}: {exc}",
             category="ERROR",
+            route=route,
         )
+
+    # Route determination: Stage 2 log correlation first (authoritative
+    # when present -- see _used_stage2_since()'s own fragility docstring),
+    # then fastpath (sade_sati's _BUILT_MODULE_FASTPATH -- the ONLY domain
+    # that bypasses Stage 1 scoring entirely today, per calc_router.py's
+    # own module docstring; distinguished from a Stage-2-classified
+    # "sade_sati" by the log check already having failed to match above),
+    # else Stage 1 keyword scoring (including the pre-scoring unbuilt-
+    # module/out-of-scope REFUSAL checks, which are still deterministic
+    # keyword matching, not Stage 2).
+    if _used_stage2_since(question, run_start):
+        route = "stage2"
+    elif result.domain == "sade_sati":
+        route = "fastpath"
+    else:
+        route = "stage1"
 
     actual_tier = result.tier.value
     if actual_tier == expected_tier:
-        category = "MATCH"
+        category = "MATCH_STAGE2" if route == "stage2" else "MATCH"
     elif row["id"] in _DESIGN_DEBT:
         category = "DESIGN_DEBT"
     elif row["id"] in _KNOWN_GAPS:
@@ -290,6 +395,7 @@ def _run_runnable_row(row: dict[str, Any], sulabh_chart: dict, surbhi_chart: dic
         actual=actual_tier,
         demotion_reason=result.demotion_reason,
         category=category,
+        route=route,
     )
 
 
@@ -301,6 +407,7 @@ def _non_runnable_row(row: dict[str, Any]) -> RowResult:
         actual="N/A (batch, not executed)",
         demotion_reason=None,
         category="NON_RUNNABLE_BATCH",
+        route="n/a",
     )
 
 
@@ -314,6 +421,15 @@ def _render_report(
     rows: tuple[RowResult, ...],
     counts: dict[str, int],
 ) -> str:
+    # Computed per-run (Session 55), replacing the old static
+    # _STAGE2_DEPENDENT_ROW_IDS-derived note: split every executed
+    # (non-NON_RUNNABLE_BATCH) row by its actual observed route this run,
+    # not by a hand-maintained guess of which rows are "expected" to need
+    # Stage 2.
+    executed = [r for r in rows if r.category != "NON_RUNNABLE_BATCH"]
+    deterministic_floor_ids = [r.id for r in executed if r.route in ("stage1", "fastpath")]
+    stage2_routed_ids = [r.id for r in executed if r.route == "stage2"]
+
     lines: list[str] = []
     lines.append("# P7.0 Golden Q&A Scorecard (Session 49)")
     lines.append("")
@@ -321,21 +437,28 @@ def _render_report(
     lines.append(f"- Baseline pytest suite count (CLAUDE.md checkpoint): {_BASELINE_TEST_COUNT}")
     lines.append(f"- Golden-set row count: {len(rows)}")
     lines.append(
-        "- stage2_dependent_rows: "
-        f"{', '.join(_STAGE2_DEPENDENT_ROW_IDS)} "
-        "(categorization depends on a live GPT-4o-mini call -- a flip here "
-        "is expected variance, check diagnostics/calc_router_stage2.log "
-        "before treating as NEW_GAP)"
+        f"- deterministic_floor_rows ({len(deterministic_floor_ids)}, routed via "
+        "Stage 1 keyword scoring or the sade_sati fastpath -- the "
+        f"regression floor): {', '.join(deterministic_floor_ids)}"
+    )
+    lines.append(
+        f"- stage2_routed_rows ({len(stage2_routed_ids)}, routed via a live "
+        "GPT-4o-mini Stage 2 call this run -- monitored, not asserted; a "
+        "category or actual-tier flip on one of these is expected "
+        "variance, not automatically a regression -- check "
+        f"diagnostics/calc_router_stage2.log before treating as NEW_GAP): "
+        f"{', '.join(stage2_routed_ids)}"
     )
     lines.append("")
     lines.append("## Per-row results")
     lines.append("")
-    lines.append("| id | domain | expected_tier | actual | demotion_reason | category |")
-    lines.append("|---|---|---|---|---|---|")
+    lines.append("| id | domain | expected_tier | actual | route | demotion_reason | category |")
+    lines.append("|---|---|---|---|---|---|---|")
     for r in rows:
         lines.append(
             f"| {_escape_md(r.id)} | {_escape_md(r.domain)} | {_escape_md(r.expected_tier)} "
-            f"| {_escape_md(r.actual)} | {_escape_md(r.demotion_reason)} | {_escape_md(r.category)} |"
+            f"| {_escape_md(r.actual)} | {_escape_md(r.route)} | {_escape_md(r.demotion_reason)} "
+            f"| {_escape_md(r.category)} |"
         )
     lines.append("")
     lines.append("## Summary counts")
@@ -344,6 +467,7 @@ def _render_report(
         "runnable",
         "non_runnable_batch",
         "match",
+        "match_stage2",
         "design_debt",
         "known_gap",
         "new_gap",
@@ -373,12 +497,17 @@ def run_golden_eval(
     if evaluated_at_jd is None:
         evaluated_at_jd = _default_evaluated_at_jd()
 
+    # Captured before any row executes -- the cutoff _used_stage2_since()
+    # uses to scope its (fragile, question-text-keyed) correlation against
+    # diagnostics/calc_router_stage2.log to THIS run only.
+    run_start = datetime.now(timezone.utc)
+
     sulabh_chart, surbhi_chart = _build_charts()
 
     rows: list[RowResult] = []
     for row in GOLDEN_QA:
         if _classify_runnability(row) == "RUNNABLE":
-            rows.append(_run_runnable_row(row, sulabh_chart, surbhi_chart))
+            rows.append(_run_runnable_row(row, sulabh_chart, surbhi_chart, run_start))
         else:
             rows.append(_non_runnable_row(row))
 
@@ -386,6 +515,7 @@ def run_golden_eval(
         "runnable": sum(1 for r in rows if r.category != "NON_RUNNABLE_BATCH"),
         "non_runnable_batch": sum(1 for r in rows if r.category == "NON_RUNNABLE_BATCH"),
         "match": sum(1 for r in rows if r.category == "MATCH"),
+        "match_stage2": sum(1 for r in rows if r.category == "MATCH_STAGE2"),
         "design_debt": sum(1 for r in rows if r.category == "DESIGN_DEBT"),
         "known_gap": sum(1 for r in rows if r.category == "KNOWN_GAP"),
         "new_gap": sum(1 for r in rows if r.category == "NEW_GAP"),
@@ -405,6 +535,7 @@ def run_golden_eval(
         runnable_count=counts["runnable"],
         non_runnable_batch_count=counts["non_runnable_batch"],
         match_count=counts["match"],
+        match_stage2_count=counts["match_stage2"],
         design_debt_count=counts["design_debt"],
         known_gap_count=counts["known_gap"],
         new_gap_count=counts["new_gap"],
@@ -418,7 +549,8 @@ if __name__ == "__main__":
     summary = run_golden_eval()
     print(
         f"runnable={summary.runnable_count} non_runnable_batch={summary.non_runnable_batch_count} "
-        f"match={summary.match_count} design_debt={summary.design_debt_count} "
+        f"match={summary.match_count} match_stage2={summary.match_stage2_count} "
+        f"design_debt={summary.design_debt_count} "
         f"known_gap={summary.known_gap_count} new_gap={summary.new_gap_count} "
         f"error={summary.error_count}"
     )
