@@ -1,96 +1,72 @@
-# Session 55: av_transit builder in chart_profile.py -- STOPPED at read-first gate
+# Session 55: _calc_dasha() -- additive start_jd/end_jd keys (unblocks av_transit builder)
 
-**No code changed.** `chart_profile.py` was NOT touched. Per the task's
-explicit instruction ("If AD start/end are available ONLY as formatted
-'D Mon YYYY' strings and no JD form exists anywhere in chart_data /
-chart_calculator output, STOP and report -- do not parse dates back to
-JDs"), the first read-first check hit that exact condition.
+**Changed file:** `agent/chart_calculator.py` only, plus the benign
+`diagnostics/calc_router_stage2.log` growth from running the suite. No
+other file touched.
 
-## Read-first finding 1 (BLOCKER): current_dasha's AD boundaries are string-only
+## Read-first: grep for exact key-set assertions on dasha dicts
 
-`build_domain_profile`'s existing `current_dasha` branch
-(`chart_profile.py:470-487`) reads:
+Grepped `tests/` for `current_mahadasha|current_antardasha|
+next_5_antardashas|next_3_mahadashas|current_pratyantar|
+next_5_pratyantars` -- one hit: `tests/manual/dasha_timezone_check.py`.
+Inspected it: it's a **standalone, non-pytest script** (filename doesn't
+match pytest's `test_*.py`/`*_test.py` collection pattern, confirmed
+against `pytest.ini`'s default `python_files` -- not collected by the
+2943-test suite). Its only dasha-dict comparisons are `dasha_old ==
+dasha_new` and `sulabh["dasha"] == dasha_new`, both sides produced by the
+SAME `_ser()` code path -- adding two keys to both sides equally does not
+break either comparison.
+
+Also grepped for generic exact-key-set patterns (`set(...keys()) ==`,
+literal-dict equality) across all of `tests/` -- none target the dasha
+period dicts (`lord`/`start`/`end`). Full hit list reviewed; all are
+unrelated modules (ashtakoot tables, shadbala, bhava_bala, combustion,
+etc.).
+
+**Conclusion: no test asserts an exact key set on `_calc_dasha()`'s
+serialized period dicts.** Safe to add keys additively.
+
+## Change
+
+1. New private helper `_to_jd(d: datetime) -> float`, next to `_fmt()`:
+   converts to UTC first (`d.astimezone(timezone.utc)`), then
+   `swe.julday(y, m, day, hour + min/60 + sec/3600)` -- same
+   datetime->JD path as `orchestrator.py`'s `evaluated_at_jd` capture
+   (verified by reading that code: `datetime.now(timezone.utc)` ->
+   hour-decimal -> `swe.julday()`), not a new conversion convention.
+2. `_ser()` (inside `_calc_dasha()`) extended with two additive keys:
+   `"start_jd": _to_jd(d["start"])`, `"end_jd": _to_jd(d["end"])`.
+   Existing `"lord"`/`"start"`/`"end"` string keys unchanged,
+   byte-for-byte (confirmed via smoke check below).
+3. `_ser()` is unchanged in every other respect -- it already applies
+   uniformly to mahadasha, antardasha, next-N lists, and pratyantars, so
+   all of those now carry `start_jd`/`end_jd` too, as intended (nothing
+   else needed to change).
+4. `_calc_dasha()` docstring extended with a Session 55 note: JD keys
+   added for the av_transit convergence layer (chart_profile.py needs a
+   float envelope; the string form is render-only), and the documented
+   ±37-day drift note applies identically to the JD keys (same
+   underlying timeline).
+
+**Manual smoke check** (ad hoc, not a test file) on Sulabh's live chart:
 ```
-dasha = chart_data["dasha"]
-payload = {
-    "current_mahadasha": dasha.get("current_mahadasha"),
-    "current_antardasha": dasha.get("current_antardasha"),
-    ...
-}
+current_antardasha = {'lord': 'Venus', 'start': '28 Dec 2025', 'end': '28 Feb 2027',
+                       'start_jd': 2461038.15..., 'end_jd': 2461464.27...}
 ```
-Each of `current_mahadasha`/`current_antardasha` is
-`{"lord": str, "start": str, "end": str}`.
-
-Traced the producer: `chart_calculator._calc_dasha()`
-(`chart_calculator.py:458-578`) builds its Antardasha timeline (`ad_list`,
-lines 516-523) using real `datetime` objects for `start`/`end`. But the
-function's own `_ser()` helper (lines 568-569):
-```
-def _ser(d: dict) -> dict:
-    return {"lord": d["lord"], "start": _fmt(d["start"]), "end": _fmt(d["end"])}
-```
-converts those `datetime` objects to `_fmt()`-formatted "D Mon YYYY"
-strings and returns ONLY the string form (`current_antardasha":
-_ser(current_ad)`, line 573) -- the underlying `datetime` objects are not
-retained anywhere in the returned dict, and `chart_data` (the only thing
-`build_domain_profile` receives) carries no other trace of them.
-
-Also checked whether a JD-aware dasha implementation exists elsewhere in
-the calculations package that could be called instead of reading
-`chart_data["dasha"]`: `agent/calculations/dashas/vimshottari.py` is an
-empty stub (docstring only, no code) -- confirmed via direct read.
-
-**Conclusion: there is no JD float form of Antardasha start/end anywhere
-in chart_data or any calculation module's output.** Design item 2
-("payload['dasha_envelope'] = {..., start_jd, end_jd} as floats") cannot
-be built from what currently exists without either:
-(a) reworking `chart_calculator._calc_dasha()` to also expose JDs --
-    a different file, outside this task's "ONE FILE ONLY" scope, or
-(b) reimplementing the Vimshottari Antardasha timeline independently
-    inside `chart_profile.py` -- a much larger, unsanctioned deviation
-    from "add a branch that assembles existing outputs," and duplicate
-    logic with `_calc_dasha()`'s own timeline builder (drift risk if the
-    two diverge).
-Neither is "add the av_transit branch to build_domain_profile()." Per
-task instructions, stopping here rather than guessing or parsing the
-date string back to a JD.
-
-## Read-first finding 2: scan_av_transit_segments() signature + segment contents
-
-```
-scan_av_transit_segments(
-    transit_planet: str,
-    natal_bav: dict[str, dict[str, int]],
-    natal_sav: dict[str, int],
-    natal_contributors: dict[str, dict[str, frozenset[str]]],
-    start_jd: float,
-    end_jd: float,
-) -> list[AvTransitSegment]
-```
-(`av_transit_scanner.py:184-191`). Each returned `AvTransitSegment`
-(`av_transit_scanner.py:106-112`) already carries a full `score:
-AvTransitScore` -- the scanner calls `score_av_transit()` internally per
-segment (lines 247-249). **No separate score_av_transit() pass is needed
-by the builder** -- segments are scored on return.
-
-Bonus (not a blocker, noted for whoever unblocks this): the scorer's
-actual `AvTransitScore` field names are `bav_rekhas`/`sav_value`
-(`av_transit_scorer.py:151,154`), not `bav_bindus`/`sav_bindus` as named
-in the frozen render contract -- the eventual builder will need to bridge
-those names into the payload dict (same pattern as this file's existing
-`shadbala_titlecase` bridge for career_strength), not itself a blocker.
-
-## Changed files
-None. `chart_profile.py` untouched. `diagnostics/latest_run.md` (this
-file) and `diagnostics/calc_router_stage2.log` (none -- no tests run this
-session, no log growth) are the only diagnostics touched.
+`swe.revjul()` round-trip on both JDs lands on the correct dates (UT-day
+vs. local-day boundary shift observed is expected given the +5:30 IST
+offset, consistent with `_to_jd()`'s UTC-first conversion).
 
 ## Suite count
-Not run -- no code change to verify. Baseline remains 2943 passed / 3
-skipped from the prior session.
 
-## Needed to unblock
-A design-chat decision on how current_dasha's Antardasha boundaries
-become JD-available: extend `_calc_dasha()`'s return contract (adds a
-`chart_calculator.py` change to the batch), or a different envelope
-source entirely. Flagging back rather than proceeding on a guess.
+Full suite: `2943 passed, 3 skipped, 1 warning` -- **identical** to the
+pre-change baseline. Zero delta, exactly as expected for a purely
+additive change.
+
+## Unblocks
+
+This clears the Session 55 STOP from the previous task (`chart_profile.py`
+av_transit builder): `current_dasha`'s Antardasha now has a JD float form
+(`chart_data["dasha"]["current_antardasha"]["start_jd"/"end_jd"]`)
+available for `build_domain_profile()` to read directly -- no parsing
+dates back to JDs, no duplicate timeline computation needed.

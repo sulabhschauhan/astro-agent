@@ -170,6 +170,22 @@ def _fmt(dt: datetime) -> str:
     return f"{dt.day} {dt.strftime('%b')} {dt.year}"
 
 
+def _to_jd(d: datetime) -> float:
+    """tz-aware datetime -> JD (UT) float, via UTC first.
+
+    Same datetime->JD conversion path as orchestrator.py's evaluated_at_jd
+    capture (datetime.now(timezone.utc) -> hour/min/sec decimal ->
+    swe.julday()) -- not a new conversion convention. d must be tz-aware
+    (birth_local and everything derived from it via _add_years() carries
+    its timezone forward); converting to UTC first is required because
+    swe.julday() has no timezone concept of its own and a local (non-UTC)
+    datetime fed to it directly would silently compute the wrong instant.
+    """
+    utc_dt = d.astimezone(timezone.utc)
+    hour_decimal = utc_dt.hour + utc_dt.minute / 60.0 + utc_dt.second / 3600.0
+    return swe.julday(utc_dt.year, utc_dt.month, utc_dt.day, hour_decimal)
+
+
 def _ordinal(n: int) -> str:
     return {1: "1st", 2: "2nd", 3: "3rd"}.get(n, f"{n}th")
 
@@ -459,6 +475,15 @@ def _calc_dasha(moon_lon: float, birth_local: datetime) -> dict:
     """
     Compute Vimshottari dasha timeline from Moon's sidereal nakshatra.
     Returns current mahadasha/antardasha and next-period summaries.
+
+    Session 55: each serialized period dict also carries "start_jd"/"end_jd"
+    float keys alongside the pre-existing "start"/"end" strings -- added for
+    the av_transit convergence layer (chart_profile.py needs a float JD
+    envelope to scan against; the "D Mon YYYY" string form is render-only
+    and was never meant to be parsed back). Purely additive: the string
+    keys are unchanged. The +/-37-day Antardasha drift noted below applies
+    identically to the JD keys -- both forms serialize the same underlying
+    datetime, from the same timeline.
     """
     # DASHA ACCURACY NOTE:
     # Current implementation uses pyswisseph with Lahiri ayanamsha.
@@ -566,7 +591,13 @@ def _calc_dasha(moon_lon: float, birth_local: datetime) -> dict:
     next_3_maha = timeline[maha_idx + 1: maha_idx + 4]
 
     def _ser(d: dict) -> dict:
-        return {"lord": d["lord"], "start": _fmt(d["start"]), "end": _fmt(d["end"])}
+        return {
+            "lord": d["lord"],
+            "start": _fmt(d["start"]),
+            "end": _fmt(d["end"]),
+            "start_jd": _to_jd(d["start"]),
+            "end_jd": _to_jd(d["end"]),
+        }
 
     return {
         "current_mahadasha": _ser(current_maha),
