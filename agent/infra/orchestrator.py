@@ -42,12 +42,32 @@ logger = logging.getLogger(__name__)
 # "sade_sati" added Session 50/P7.2d (calc_router.py's own deterministic
 # fast-path + Stage 2 support landed P7.2c; this was the only remaining
 # blocker -- see diagnostics/latest_run.md P7.2c entry).
+# "av_transit" added Session 55 -- chart_profile.py's builder branch and
+# result_formatter.py's render branch both already exist and are
+# smoke-test-verified (see diagnostics/latest_run.md, prior Session 55
+# entries), but calc_router.py cannot yet emit this domain (router wiring
+# is the next, separate change). Dead entry by design until then --
+# mirrors the sade_sati wiring-order precedent above (formatter/builder
+# landed before the router could route to it).
 _VALID_DOMAINS = {
     "marriage_compatibility",
     "career_strength",
     "current_dasha",
     "sade_sati",
+    "av_transit",
 }
+
+# DEMOTION LOCK (Session 55, av_transit): route_question() will set
+# demotion_reason=None for this domain once router wiring lands --
+# av_transit's own ±37-day-plus-day-level-resolution demotion string is
+# owned entirely by result_formatter.py's _format_av_transit() branch
+# (payload-property principle, same as current_dasha/sade_sati). This is
+# intentional and requires NO change to _merge_router_demotion() below:
+# that function already returns `answer` unchanged whenever
+# router_reason is None, so the formatter's own demotion_reason is never
+# overwritten. If the router ever needs to add a domain-wide av_transit
+# caveat later, revisit _merge_router_demotion()'s " | " concatenation
+# at that point -- do not preemptively wire it now.
 
 
 def answer_question(
@@ -55,6 +75,8 @@ def answer_question(
     chart_data: dict,
     partner_chart_data: dict | None = None,
     primary_role: str | None = None,
+    *,
+    transit_planet: str = "Saturn",
 ) -> DomainAnswer:
     """Route `question`, assemble its DomainChartProfile, and format a DomainAnswer.
 
@@ -68,6 +90,16 @@ def answer_question(
         primary_role: "boy" or "girl" -- required when partner_chart_data is
             given, regardless of which domain the question ultimately routes
             to (an orchestrator-level input contract, not a router concern).
+        transit_planet: one of "Saturn", "Jupiter", "Sun", "Mars". Only
+            meaningful for domain="av_transit" -- passed through to
+            build_domain_profile() ONLY when route_result.domain ==
+            "av_transit" (same conditional-kwarg pattern as
+            partner_chart_data/primary_role's is_marriage gating below).
+            calc_router.py cannot yet route any question to "av_transit"
+            (router wiring is a separate, later change), so this parameter
+            is currently unreachable via any live question string --
+            present now so build_domain_profile()'s call site is already
+            correct once routing lands.
 
     Returns:
         DomainAnswer -- always, including AnswerTier.REFUSAL cases.
@@ -81,15 +113,18 @@ def answer_question(
         RuntimeError: propagated, uncaught, from build_domain_profile()
             or format_answer() on any underlying calculation failure.
 
-    NOTE (Session 50/P7.2d, item 1 verification): the marriage-only
-    partner-data guard (below) and the is_marriage-gated
+    NOTE (Session 50/P7.2d, item 1 verification; updated Session 55): the
+    marriage-only partner-data guard (below) and the is_marriage-gated
     partner_chart_data/primary_role pass-through into build_domain_profile()
-    are the only domain-specific branches in this function. Both
-    special-case ONLY "marriage_compatibility" and evaluate to their
-    False/None branch for every other domain -- confirmed by reading, not
-    assumed -- so "sade_sati" (and "career_strength"/"current_dasha")
-    pass through them unchanged, exactly as career_strength/current_dasha
-    already did before this domain existed.
+    remain special-cased ONLY to "marriage_compatibility" and evaluate to
+    their False/None branch for every other domain -- confirmed by reading,
+    not assumed -- so "sade_sati"/"career_strength"/"current_dasha" pass
+    through them unchanged, exactly as before. Session 55 adds a second,
+    parallel domain-specific branch (is_av_transit-gated transit_planet
+    pass-through) that follows the identical pattern for "av_transit" --
+    the two conditionals are independent and mutually exclusive (a
+    question can only ever route to one domain), not a chain of
+    special cases growing more entangled over time.
     """
     if partner_chart_data is not None and primary_role is None:
         raise ValueError(
@@ -134,12 +169,14 @@ def answer_question(
     evaluated_at_jd = swe.julday(now_utc.year, now_utc.month, now_utc.day, hour_decimal)
 
     is_marriage = route_result.domain == "marriage_compatibility"
+    is_av_transit = route_result.domain == "av_transit"
     profile = build_domain_profile(
         route_result.domain,
         chart_data,
         evaluated_at_jd,
         partner_chart_data=partner_chart_data if is_marriage else None,
         primary_role=primary_role if is_marriage else None,
+        transit_planet=transit_planet if is_av_transit else "Saturn",
     )
 
     formatted = format_answer(profile)
