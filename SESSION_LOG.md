@@ -1566,3 +1566,155 @@ formatter extension -> convergence wiring + router (expected to flip
 `test_refusal_ashtakavarga_still_unbuilt` by design) -> golden q11-q15
 re-run. Formatter render path must precede router wiring (Conflict A
 resolution — no third orphaned calculation module).
+
+## Session 55 — av_transit domain end-to-end: formatter -> builder -> orchestrator -> router, golden baseline supersession (2026-07-07)
+
+### What landed
+1. `result_formatter.py` gains a 5th domain branch, `av_transit`: renders
+   the frozen convergence-layer payload contract (dasha envelope + ranked
+   sub-windows) as TIER_2_RANGE, always with its own
+   `_AV_TRANSIT_DEMOTION_REASON` (±37-day Antardasha drift AND day-level
+   sub-window resolution — two orthogonal uncertainty axes, both
+   disclosed). NEVER-COLLAPSE GUARD: an empty `sub_windows` list is a
+   fail-closed `ValueError`, not defensive padding. New
+   `tests/infra/test_result_formatter_av_transit.py` (8 synthetic-payload
+   tests, no ephemeris/chart calls — no dedicated formatter test file
+   existed and `test_orchestrator_e2e.py` is a no-mocks real-chart suite,
+   not a home for these): never-collapse guard, rank-order preservation
+   (adversarial: rank 1 scores lower than rank 2 to catch an accidental
+   re-sort), retrograde re-entry non-deduplication, `kakshya_lord=None`
+   rendering, J2000 JD-anchor rendering, fixed tier/demotion_reason,
+   exact `sources` tuple, missing-payload-key `KeyError`. Branch was
+   unreachable at this point by design (Session 54 Conflict A: formatter
+   lands before router/builder). (37b7541, 2334dbc)
+2. `chart_calculator.py`: `_calc_dasha()`'s `_ser()` gains additive-only
+   `start_jd`/`end_jd` JD-float keys alongside the existing `"D Mon YYYY"`
+   strings, via a new `_to_jd()` helper — unblocks the av_transit builder
+   below, which needs a float envelope for Antardasha boundaries
+   (previously render-only strings, no JD form anywhere in `chart_data`).
+   Preceded by a STOP (45f1715): a read-first check found NO JD form of
+   Antardasha survived anywhere in the codebase (`vimshottari.py` is an
+   empty stub) — correctly stopped rather than reimplementing the dasha
+   timeline or parsing dates back to JDs. Grepped `tests/` for exact
+   dasha-dict key-set assertions first; none exist. Zero test-count
+   delta. (394ad29)
+3. `chart_profile.py`'s `build_domain_profile()` gains the `av_transit`
+   builder branch: reads the CURRENT Antardasha (not Mahadasha) envelope
+   off the new JD keys; assembles natal BAV/SAV/contributor tables (same
+   pattern as `test_av_transit_scanner.py`'s `sulabh_natal_tables`
+   fixture); scans `transit_planet` via `scan_av_transit_segments()`;
+   ranks ALL returned segments `(sav_bindus desc, bav_bindus desc,
+   start_jd asc)` — no favorability filtering (locked rider — every
+   scanned segment surfaces, display-layer filtering is not this
+   layer's job). Tiling-contract asserts confirm the first/last ranked
+   segment exactly spans the envelope. Fail-closed on a missing
+   `current_antardasha`; `transit_planet` validation left unwrapped to
+   the scanner/scorer's own `ValueError`. Verified via an **in-memory
+   smoke test**, not a file-based test run — this later turned out to be
+   the root cause of item 6's `_VALID_DOMAINS` gap: the smoke test
+   exercised builder logic directly and never touched the module's own
+   domain whitelist, so nothing caught that gate never being widened.
+   `_VALID_DOMAINS` deliberately left unchanged at this step (router
+   wiring is separate). Zero test-count delta. (a58e4dd)
+4. `orchestrator.py` wiring: `"av_transit"` added to `_VALID_DOMAINS`
+   (dead entry by design — `calc_router.py` still couldn't emit it yet);
+   `answer_question()` gains a keyword-only `transit_planet` param,
+   threaded to `build_domain_profile()` only when
+   `route_result.domain == "av_transit"` via an `is_av_transit` flag
+   mirroring the existing `is_marriage` pattern exactly. DEMOTION LOCK
+   comment recorded here: `result_formatter.py`'s `_format_av_transit()`
+   owns av_transit's demotion string exclusively; the router must always
+   emit `demotion_reason=None` for this domain; `_merge_router_demotion()`
+   needs no change since its existing `router_reason is None` short-
+   circuit already does the right thing. Zero test-count delta — no live
+   question string could reach this code yet. (2a0b7f1)
+5. `calc_router.py` wiring: `_AV_TRANSIT_KEYWORDS = ("ashtakavarga",
+   "bindu", "kakshya")` added to `_DOMAIN_KEYWORDS` (and removed as the
+   single av_transit-related entry, `"ashtakavarga"`, from
+   `_UNBUILT_MODULE_KEYWORDS`); Stage 1 fast-path `RouteResult` branch
+   mirrors sade_sati's pattern (`TIER_2_RANGE`, `demotion_reason=None` —
+   DEMOTION LOCK enforced router-side too); Stage 2 domain enum + system
+   prompt gained `"av_transit"` with a description distinguishing it from
+   `current_dasha` (transit-quality sub-windows WITHIN the current
+   Antardasha vs. plain dasha-lord identification). Mandated test flip
+   per CLAUDE.md's Ashtakavarga router-wiring carry-forward:
+   `test_refusal_ashtakavarga_still_unbuilt` replaced 1:1 with
+   `test_ashtakavarga_routes_to_av_transit_tier2` (designed flip, not a
+   regression). (739dac3)
+6. Fix-forward (2 files, closing 2 designed failures the router-wiring
+   change surfaced): `chart_profile.py` carries its OWN module-level
+   `_VALID_DOMAINS` gate, independent of `orchestrator.py`'s — it was
+   never widened to admit `"av_transit"`, leaving item 3's builder branch
+   unreachable dead code until now (root cause: item 3's in-memory smoke
+   verification, which never exercised the real whitelist gate — see
+   item 3). `tests/infra/test_calc_router_stage2.py`'s
+   `test_stage2_never_fires_on_unbuilt_module_refusal` hardcoded
+   `"ashtakavarga"` as an unbuilt-module keyword — retired to
+   `"yogini"` (still genuinely unbuilt, unrelated to any domain keyword
+   list); test intent (Stage 2 must never fire on an unbuilt-module
+   refusal) unchanged. (4e52e77)
+7. Golden baseline supersession: an initial diff flagged a spurious
+   "6-row deviation" against `golden_scorecard_20260704_185911.md` — that
+   file turned out to be a stale, Session-49-era pin (match=6/
+   design_debt=1/known_gap=9), not the correct comparison baseline. The
+   correct, most-recent post-Session-50 baseline
+   (`golden_scorecard_20260705_090311.md`, match=12/design_debt=0/
+   known_gap=4) shows **zero row changes** against this session's run —
+   the "deviation" was entirely a stale-pin artifact, not a regression.
+   Superseded to `golden_scorecard_20260707_091459_post_av_transit.md`,
+   which additionally reclassified routing provenance by hand (MATCH vs
+   MATCH_STAGE2) after discovering **9 of 16** runnable golden rows
+   actually route through a live Stage 2 GPT-4o-mini call every run — not
+   the 4 IDs the harness's static, hand-maintained `stage2_dependent_rows`
+   note (derived from `_KNOWN_GAPS.keys()`) claimed; 5 of those 9
+   (career_q1-q3, marriage_q7-q8) currently resolve correctly via Stage 2
+   but were invisible to that note because the harness's own MATCH-first
+   check short-circuits before ever consulting `_KNOWN_GAPS`.
+   `golden_harness.py` then wired this route-provenance in natively:
+   `RowResult` gains a `route` field (`"stage1"`/`"stage2"`/`"fastpath"`,
+   correlated against `calc_router_stage2.log` by question-text +
+   run-start timestamp — `RouteResult` itself carries no route marker),
+   `MATCH` splits into `MATCH` (deterministic floor, 7 rows) vs.
+   `MATCH_STAGE2` (correct but LLM-routed, 5 rows — monitored, not
+   asserted), and the report header now COMPUTES the deterministic-floor
+   vs. stage2-routed split per run instead of reading a hardcoded list.
+   A fresh run reproduced the hand-annotated baseline row-for-row: 0 diff.
+   (db9f788, 0afed30)
+
+### Key decisions (locked, carry forward)
+1. Tier 2 av_transit payload contract: dasha envelope (CURRENT
+   Antardasha, never Mahadasha) + ranked sub-windows, never collapsed to
+   a single verdict; ALL scanned segments surface — no favorability
+   filtering (locked rider). Display-layer filtering, if ever wanted, is
+   a future convergence/UI concern, not this layer's.
+2. Ranking key `(sav_bindus desc, bav_bindus desc, start_jd asc)` is a
+   PRODUCT decision extending Session 54's SAV-dominance lock to
+   multi-window ordering — NOT a PVR citation. The band/verdict
+   thresholds it sorts BY are PVR ch.25 (already applied inside
+   `score_av_transit()`, not re-derived at the ranking step) — do not
+   attribute the ordering itself to PVR.
+3. Demotion lock: `result_formatter.py`'s `_format_av_transit()` owns
+   av_transit's ±37-day-plus-day-level-resolution demotion string
+   exclusively; `calc_router.py` must always emit
+   `demotion_reason=None` for this domain so
+   `orchestrator._merge_router_demotion()` never concatenates a second,
+   duplicate reason with `" | "`.
+4. av_transit is a TECHNIQUE domain, not a Q&A-keyword domain: layman
+   access (a question with no Ashtakavarga/Bindu/Kakshya term at all) is
+   P7's future multi-technique convergence layer's job to solve, not
+   something to reach by loosening `_AV_TRANSIT_KEYWORDS` or the router's
+   floor/margin thresholds — the keyword list is deliberately narrow by
+   design, not an oversight to fix later.
+
+### Test baseline
+2935 passed, 3 skipped (session start, right before the formatter test
+file landed) -> +8 new formatter tests -> 2943 passed, 3 skipped, 0
+failed (net session end). Transient designed dip mid-session: item 5's
+router wiring + mandated test flip briefly surfaced 2 failures (item 6's
+two gaps) — both closed same session via fix-forward, restoring 2943
+passed / 3 skipped / 0 failed. No net test-count change across the whole
+session (1 test replaced 1 test in item 5; item 6 fixed 2 rather than
+added/removed any).
+
+### Next task
+See CLAUDE.md Current Session Focus: Session 56.

@@ -1,132 +1,115 @@
-# Session 55: route-provenance natively wired into golden_harness.py
+# Session 55 closeout — SESSION_LOG.md + CLAUDE.md, docs only
 
-**One file changed: `agent/eval/golden_harness.py`.** No `calc_router.py`,
-no test files, no baseline scorecards touched (a fresh scorecard was
-produced by *running* the harness, per its own normal read-only
-behavior -- that's output, not an edit to any existing file).
+Two files touched, per the standard closeout exception (Session 54
+precedent): `SESSION_LOG.md` (new entry appended) and `CLAUDE.md`
+(surgical edits). No code, no tests, suite not re-run (a doc-only edit
+touches no collected file).
 
-## Read-first findings
+## Verification against git log + prior diagnostics before writing
 
-**CLAUDE.md:** reviewed; no new constraint bears on this beyond the
-existing DIAGNOSTIC OUTPUT ROUTING (#10, already followed) and SURGICAL
-EDITS (#6, followed -- one file, additive fields, no rewrite).
+Every claim in the new SESSION_LOG.md entry was checked against
+`git log --format='%B' 45319fe..HEAD` (the 10 commits since Session 54's
+closeout) and this session's own `diagnostics/latest_run.md` history
+(read via `git show <commit>:diagnostics/latest_run.md` at each step),
+not taken from the task prompt as given:
 
-**`calc_router_stage2.log` JSONL record shape** -- confirmed by reading
-`_log_stage2_invocation()` in `calc_router.py`: every line has exactly
-these 7 fields, no run ID:
-```
-timestamp, question, stage1_best_score, stage1_margin,
-stage2_domain, stage2_confidence, outcome
-```
-Correlation to a specific harness run is therefore only possible via
-(a) exact `question` text and (b) a `timestamp` cutoff the caller
-supplies -- there is no first-class join key.
+- **Test baseline "2935 -> 2943"**: confirmed literally in
+  `2334dbc`'s `diagnostics/latest_run.md` snapshot ("matches the expected
+  2935 + 8 = 2943 derivation exactly") and in `394ad29`/`a58e4dd`/
+  `2a0b7f1`'s own commit messages ("Zero test-count delta: 2943 passed /
+  3 skipped, unchanged"). Session 54's SESSION_LOG close said 2933 --
+  the 2933->2935 (+2) gap between sessions is real but its exact source
+  wasn't independently re-derived (no commit in the `45319fe..HEAD`
+  range touches it); recorded the verified 2935->2943 delta as given,
+  not the unverified 2933 SESSION_LOG figure.
+- **`_VALID_DOMAINS` gate / in-memory smoke test root cause**: confirmed
+  by reading `a58e4dd`'s commit message directly ("Branch verified via
+  an in-memory smoke test (not by editing the file)... `_VALID_DOMAINS`
+  deliberately left unchanged").
+- **DEMOTION LOCK wording**: confirmed against the actual comment block
+  in `orchestrator.py` (read directly, not paraphrased from memory).
+- **9 vs. 4 stage2-routed rows**: confirmed against this session's
+  earlier `calc_router_stage2.log` correlation and the final
+  `golden_scorecard_20260707_093530.md` run (match=7, match_stage2=5,
+  known_gap=4 -- 5+4=9).
+- **"P6 Jaimini" as the Master Build Plan's next item**: confirmed
+  against `SESSION_LOG.md:177`'s roadmap line ("P1 Foundation -> P2
+  Charts/Strength -> P3 Yogas -> P4 Dashas -> P5 Transits -> P6 Jaimini
+  -> P7 Answer Pipeline") and CLAUDE.md's existing `jaimini/` package
+  structure entry (karakas, arudha, padas) -- not invented.
 
-**`RouteResult` (calc_router.py) fields, confirmed by reading the
-dataclass directly:** `domain`, `tier`, `confidence`, `demotion_reason`,
-`requires_partner` -- **no route/stage marker of any kind.**
-`confidence` was considered as an indirect signal but rejected: Stage 1
-success only ever yields 0.667 or 1.0 (>=floor to route), Stage 2
-"high" maps to 1.0, and the sade_sati fastpath is hardcoded to 1.0 too
--- 1.0 is ambiguous across all three paths, so no float-only
-reconstruction is reliable. Per the task's own instruction, since
-`RouteResult` carries no route marker, the fallback (log correlation) is
-what this change implements -- documented as fragile in
-`_used_stage2_since()`'s own docstring (shared, append-only log, no run
-ID, correlate-by-question-text + timestamp-cutoff only, safe today
-because GOLDEN_QA's 15 runnable questions are mutually unique and don't
-collide with the pytest suite's own fixture question strings).
+## SESSION_LOG.md
 
-**`_run_runnable_row` / `RowResult` / report-writing path (pre-change):**
-`RowResult` had no route field; `_run_runnable_row` classified
-MATCH/DESIGN_DEBT/KNOWN_GAP/NEW_GAP from `actual_tier == expected_tier`
-alone, with no visibility into Stage 1 vs Stage 2; `_render_report`
-printed a static `stage2_dependent_rows` line hardcoded from
-`_KNOWN_GAPS.keys()` (4 IDs) -- which, per this session's earlier manual
-audit, undercounted: 5 additional rows (career_q1-q3, marriage_q7-q8)
-also go through Stage 2 every run (single-keyword-hit scores that never
-clear the 0.4 floor) but were never in `_KNOWN_GAPS` because they
-currently resolve correctly, so the harness's own MATCH-first check
-short-circuits before ever consulting that dict (documented, intentional
-Session 50/P7.1e behavior, not a bug).
+Appended `## Session 55 -- av_transit domain end-to-end: formatter ->
+builder -> orchestrator -> router, golden baseline supersession
+(2026-07-07)`, following the existing per-session format (What landed /
+Key decisions / Test baseline / Next task). Covers, in order: (1) the
+result_formatter.py branch + 8-test file (37b7541, 2334dbc); (2) the
+chart_calculator.py start_jd/end_jd addition and the STOP that preceded
+it (45f1715, 394ad29); (3) the chart_profile.py builder (AD envelope,
+no-filter rider, ranking key, tiling asserts, in-memory smoke test)
+(a58e4dd); (4) orchestrator.py wiring + DEMOTION LOCK (2a0b7f1); (5)
+calc_router.py wiring + mandated test flip (739dac3); (6) the 2-file
+fix-forward and its root cause (4e52e77); (7) the golden baseline
+supersession, stale-pin false alarm, and harness route-provenance
+(db9f788, 0afed30). 4 locked decisions recorded verbatim-compact per the
+task's own phrasing: Tier 2 payload contract + AD-not-MD envelope +
+no-filter rider; ranking key as a product decision (not PVR); the
+demotion lock; av_transit as a TECHNIQUE domain (P7 convergence's job,
+not router keyword tuning).
 
-**Test-impact grep (per task instruction):** `grep -r "golden_harness\|RowResult\|GoldenEvalSummary\|run_golden_eval"` across `tests/` and the whole repo -- zero hits outside `agent/eval/golden_harness.py` itself. No test imports or asserts on this module's field set. Full suite re-run to confirm: **2943 passed, 3 skipped, 0 failed** -- unchanged.
+## CLAUDE.md
 
-## Changes made
+1. **Carry-Forward**: deleted the retired "Ashtakavarga router wiring"
+   item (closed this session). Kept "Rahu/Ketu unknown-planet message"
+   (still open). Added 3 new items: (a) `RouteResult.route` field --
+   replace golden_harness's fragile log-text correlation with a
+   router-emitted marker, ride-along with the next `calc_router.py`
+   touch; (b) `_VALID_DOMAINS` sync discipline -- `chart_profile.py` and
+   `orchestrator.py` carry independent whitelists, add `SENSITIVE_TO`
+   cross-references on both at next touch of either; (c)
+   `golden_harness.py`'s stale `_KNOWN_GAPS` "observed mechanism" prose
+   (5 entries describe pre-Session-55 routing) -- refresh
+   opportunistically.
+2. **Current Session Focus**: rewritten to "Session 56: P6 Jaimini
+   (Arudha/Padas) per Master Build Plan order, OR the P7 convergence
+   step if design chat overrides with justification" -- phrased exactly
+   as instructed (the OR is deliberate, not a decision made here).
+3. **Working Style**: added items 11-12 (natural home: the existing
+   numbered, non-negotiable list) -- SMOKE-TEST SCOPE HONESTY (an
+   in-memory smoke test can mask a pending wiring step) and BASELINE
+   FILES ARE ORACLE DATA (verify a baseline filename is still current
+   before diffing against it). No new section created.
 
-1. **`RowResult.route: str`** added (`"stage1" | "stage2" | "fastpath" | "n/a"`
-   for NON_RUNNABLE_BATCH rows). Determined by
-   `_used_stage2_since(question, run_start)`: checks
-   `calc_router._STAGE2_LOG_PATH` for a matching-question entry timestamped
-   at/after `run_start` (captured once, right before `run_golden_eval()`'s
-   row loop). If no Stage 2 log entry: `route="fastpath"` when
-   `result.domain == "sade_sati"` (the only domain with a
-   `_BUILT_MODULE_FASTPATH` entry today, confirmed by reading
-   calc_router.py), else `route="stage1"`.
-2. **Category logic:** `MATCH` now splits into `MATCH` (route in
-   `{stage1, fastpath}`) and `MATCH_STAGE2` (route == `stage2`) --
-   correct-but-LLM-dependent, monitored not asserted, same variance
-   posture as a `STAGE2_VARIABLE` `KNOWN_GAP` row. `_DESIGN_DEBT` /
-   `_KNOWN_GAPS` dicts and their consultation order are byte-for-byte
-   unchanged.
-3. **Report header:** the static `stage2_dependent_rows` line (derived
-   from `_KNOWN_GAPS.keys()`) replaced with two per-run COMPUTED lines --
-   `deterministic_floor_rows` (route in stage1/fastpath) and
-   `stage2_routed_rows` (route == stage2) -- each listing member IDs and
-   a count. `_STAGE2_DEPENDENT_ROW_IDS` constant deleted (dead once its
-   only consumer, the old header line, was replaced).
-4. **Docstring:** module docstring gains a Session 55 note explaining
-   this makes the harness reproduce
-   `diagnostics/golden_scorecard_20260707_091459_post_av_transit.md`'s
-   route-provenance annotation natively, and explicitly acknowledges that
-   file's annotation was hand-done ahead of this change (root cause: no
-   RouteResult-level marker existed, per the RouteResult finding above).
-   `_render_report`'s table gained a `route` column; `GoldenEvalSummary`
-   gained `match_stage2_count`; the `__main__` print block updated to
-   match.
+### Line count vs. ~80-line budget
 
-## Fresh harness run -- per-row route table
+**88 lines (`wc -l`), 8 over budget.** Net change this session: 85 -> 88
+(+1 Carry-Forward net across delete-1/add-3, +2 Working Style additions).
+Not trimmed unilaterally, per instructions. Trim candidates for a future
+pass, most-compressible first:
 
-Ran `python -m agent.eval.golden_harness`. New report:
-`diagnostics/golden_scorecard_20260707_093530.md`.
-
-```
-runnable=16 non_runnable_batch=2 match=7 match_stage2=5 design_debt=0 known_gap=4 new_gap=0 error=0
-```
-
-| id | actual | route | category |
-|---|---|---|---|
-| sulabh_career_q1 | TIER_2_RANGE | stage2 | MATCH_STAGE2 |
-| sulabh_career_q2 | TIER_2_RANGE | stage2 | MATCH_STAGE2 |
-| sulabh_career_q3 | TIER_2_RANGE | stage2 | MATCH_STAGE2 |
-| sulabh_career_q4 | REFUSAL | stage2 | KNOWN_GAP |
-| sulabh_career_q5 | TIER_2_RANGE | **stage1** | MATCH |
-| sulabh_marriage_q6 | TIER_1_EXACT | **stage1** | MATCH |
-| sulabh_marriage_q7 | TIER_1_EXACT | stage2 | MATCH_STAGE2 |
-| sulabh_marriage_q8 | TIER_1_EXACT | stage2 | MATCH_STAGE2 |
-| sulabh_marriage_q9 | REFUSAL | stage2 | KNOWN_GAP |
-| sulabh_marriage_q10 | REFUSAL | stage2 | KNOWN_GAP |
-| sulabh_dasha_q11 | TIER_2_RANGE | **stage1** | MATCH |
-| sulabh_dasha_q12 | TIER_2_RANGE | **stage1** | MATCH |
-| sulabh_dasha_q13 | TIER_2_RANGE | **stage1** | MATCH |
-| sulabh_dasha_q14 | TIER_1_EXACT | **fastpath** | MATCH |
-| sulabh_dasha_q15 | REFUSAL | stage2 | KNOWN_GAP |
-| sulabh_dasha_r4_exact_date | TIER_2_RANGE | **stage1** | MATCH |
-| sulabh_refusal_boundary_probes_r1_r5 | N/A (batch) | n/a | NON_RUNNABLE_BATCH |
-| sulabh_out_of_domain_probes_quest1_quest2 | N/A (batch) | n/a | NON_RUNNABLE_BATCH |
-
-## Match vs the frozen baseline
-
-**Yes -- matches `diagnostics/golden_scorecard_20260707_091459_post_av_transit.md` row-for-row.**
-Both agree exactly on: 7 deterministic-floor MATCH rows (career_q5,
-marriage_q6, dasha_q11/q12/q13/q14, dasha_r4_exact_date), 5 MATCH_STAGE2
-rows (career_q1-q3, marriage_q7-q8), 4 stage2-routed KNOWN_GAP rows
-(career_q4, marriage_q9/q10, dasha_q15), and `dasha_q14`'s route
-correctly identified as `fastpath` (not `stage1` or `stage2`) in both.
-No diff to report.
+1. **Lines 72-81, "Known Source Divergences"** -- several entries are
+   already marked RESOLVED/REAL with full validation detail inline
+   (Ayana Bala Kranti, Sun Ayana Bala doubling, Bhava Dig Bala). These
+   could compress to one-line pointers ("RESOLVED Session N, see
+   SESSION_LOG.md") following the exact archival pattern the file
+   already uses one line below them (line 82's "Older/narrower
+   divergences... archived to SESSION_LOG.md's compression section").
+   Biggest single lever -- these 10 lines carry the most prose per line
+   in the file.
+2. **Line 15, "Ephemeris consolidation"** -- tagged "Session 52 CLOSED"
+   but still carries the full 3-exception justification inline; a
+   closed item is a natural archival candidate under the same
+   compression convention.
+3. The 2 new Working Style lines (11-12) and 3 new Carry-Forward lines
+   added this session are themselves candidates for later archival once
+   their referenced work is fully absorbed into code/tests (per
+   CLAUDE.md's own stated policy: "not needed per-query once a module
+   ships and its convention lives in the code/tests themselves") -- not
+   flagged for removal now since the work they describe is still open
+   or only just closed this session.
 
 ## Suite
 
-**2943 passed, 3 skipped, 0 failed** -- unchanged (confirmed both before
-committing to this approach via grep, and after the change via a full
-re-run).
+Not re-run -- doc-only edit, no collected file touched, per task
+instruction.

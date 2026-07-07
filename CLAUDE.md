@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 55: AV-transit formatter extension -> convergence wiring + router (flips test_refusal_ashtakavarga_still_unbuilt by design) -> golden q11-q15 re-run.**
+**Session 56: P6 Jaimini (Arudha/Padas) per Master Build Plan order, OR the P7 convergence step if design chat overrides with justification.**
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -51,6 +51,8 @@ query_engine + chart_calculator → astrologer → session_manager
 8. **LAYER FIRST** — before any fix, state which layer owns the problem: Data, Retrieval, Prompt, or UI. A fix in the wrong layer creates narrow patches and technical debt.
 9. **NO ANCHORED JUDGMENT** — never give an LLM call both a stated expectation and a request to judge against it in the same call. LLM observes independently; Python compares the observation to the expectation deterministically.
 10. **DIAGNOSTIC OUTPUT ROUTING** (Session 49) — full diagnostic output goes to `diagnostics/latest_run.md` and is committed to git; chat gets a ≤10-line summary with test counts only.
+11. **SMOKE-TEST SCOPE HONESTY** (Session 55) — an in-memory smoke test that verifies builder logic directly can mask a pending wiring step (e.g. a module-level whitelist gate never widened); if a feature needs a real end-to-end call to be reachable, verify with one before calling a branch done.
+12. **BASELINE FILES ARE ORACLE DATA** (Session 55) — a baseline filename named in a prompt is a claim, not a fact; verify it's still the most recent matching file before diffing against it.
 
 ## Varshaphal House-Counting Convention (Session 18)
 `resolve_house_counting_lagna()` is the canonical house-counting reference for any Varshaphal-derived bhav calculation (prefers AstroSage parsed Lagna, year-matched; else computed + boundary flag); call it rather than reading Lagna directly off `varshaphal_data`.
@@ -80,6 +82,7 @@ Every new calculation module lives in its `calculations/` subpackage; never add 
 Older/narrower divergences (Saptavargaja scoring, Drekkana Bala, Ayana Bala Moon/Venus edge case, PDF-tooling gap, Sequencing lock violation) archived to SESSION_LOG.md's compression section.
 
 ## Carry-Forward / Open Items
-- **Ashtakavarga router wiring carry-forward** (Session 54) — `tests/infra/test_orchestrator_e2e.py::test_refusal_ashtakavarga_still_unbuilt` asserts router-level refusal via `_UNBUILT_MODULE_KEYWORDS`. Router wiring for ashtakavarga MUST update this test in the same change — expected designed failure, not a regression.
 - **Rahu/Ketu unknown-planet message** (Session 54) — `av_transit_scorer.py`'s generic "unknown transit_planet" ValueError needs its own design-reason text for Rahu/Ketu specifically (currently folded into the generic unknown-planet path); ride-along with the next file touch, not a standalone prompt.
-- **Formatter-before-router ordering** (Session 54, Conflict A resolution) — the AV-transit formatter render path MUST land before router wiring. Wiring the router first would leave a third orphaned calculation surface (alongside any formatter/convergence gap) with no rendering path; sequence formatter -> convergence wiring -> router.
+- **RouteResult route marker** (Session 55) — `calc_router.py`'s `RouteResult` carries no field identifying which path (Stage 1 / Stage 2 / fastpath) resolved a question; `golden_harness.py` currently reconstructs this by fragile question-text/timestamp correlation against `calc_router_stage2.log`. Add a router-emitted `route` field next time `calc_router.py` is touched, and switch the harness to read it directly.
+- **`_VALID_DOMAINS` sync discipline** (Session 55) — `chart_profile.py` and `orchestrator.py` each carry their OWN independent domain whitelist (neither imports the other's); `chart_profile.py`'s copy was missed for a full session after av_transit shipped elsewhere. Add `SENSITIVE_TO`-style cross-reference comments on both constants at the next touch of either.
+- **`golden_harness.py` stale `_KNOWN_GAPS` prose** (Session 55) — 5 entries' "Session 50 observed mechanism" text describes pre-Session-55 routing behavior (now superseded by the `route`-field split, MATCH vs MATCH_STAGE2); refresh opportunistically, not a standalone prompt.
