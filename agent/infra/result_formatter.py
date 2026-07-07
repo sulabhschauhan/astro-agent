@@ -94,6 +94,21 @@ _AV_TRANSIT_DEMOTION_REASON = (
 # contract), same encapsulation as _DASHA_DEMOTION_REASON above.
 _SADE_SATI_UNKNOWN_BOUNDARY = "not determinable within ±40y scan window"
 
+# Session 56: fixed disclosure string rendered INSIDE an OPTIONAL
+# "timing_enrichment" block only (career_strength/current_dasha, see
+# _format_career()/_format_dasha() below) -- GOLDEN STAKE GUARD: NEVER
+# appended to either domain's own top-level demotion_reason (golden rows
+# q1-q5/q11-q13 assert on demotion_reason substrings and must not move).
+# Same two uncertainty axes as _AV_TRANSIT_DEMOTION_REASON above (day-level
+# sub-window resolution + ±37-day envelope drift), worded standalone since
+# it lives inside a nested payload block, not a top-level DomainAnswer field.
+_TIMING_ENRICHMENT_RESOLUTION_NOTE = (
+    "This timing enrichment's sub-window boundaries are day-level "
+    "resolution (daily-step scanner, no sub-day bisection), and its "
+    "Antardasha envelope carries ±37-day drift vs AstroSage -- exact "
+    "transition dates should be cross-verified."
+)
+
 
 def format_answer(profile: DomainChartProfile) -> DomainAnswer:
     """Route to the domain-specific formatter based on profile.domain."""
@@ -132,6 +147,62 @@ def _format_jd_or_unknown(jd_ut: float | None) -> str:
     if jd_ut is None:
         return _SADE_SATI_UNKNOWN_BOUNDARY
     return _format_jd(jd_ut)
+
+
+def _render_av_timing(block: dict) -> dict:
+    """Formats a raw av_transit-shaped block -- {"transit_planet",
+    "dasha_envelope", "sub_windows"}, exactly chart_profile.py's
+    _build_av_timing_block()'s return contract -- into its rendered form:
+    JD floats -> "D Mon YYYY" strings via _format_jd(), sub_windows
+    field-mapped with rank order preserved (the convergence/builder layer
+    owns ranking; this file never re-sorts).
+
+    Extracted Session 56 (helper-extraction finding, see diagnostics/
+    latest_run.md): _format_av_transit()'s own answer_payload assembly
+    and _format_career()/_format_dasha()'s OPTIONAL "timing_enrichment"
+    key both consume this identical raw shape, so this is shared rather
+    than duplicated. Returns the bare 3-key rendered dict every time --
+    _format_av_transit() uses it AS this domain's answer_payload verbatim
+    (byte-identical output, GOLDEN STAKE GUARD); the enrichment call sites
+    add a 4th key ("resolution_note") on top of this function's return
+    value themselves -- this function never adds it, so av_transit's own
+    output is never at risk of picking it up by accident.
+
+    Callers own empty-sub_windows handling (av_transit fail-closes before
+    ever calling this; the enrichment call sites silently drop the whole
+    block instead) -- this function does not inspect sub_windows length
+    itself, so it must never be called with an empty list.
+    """
+    transit_planet = block["transit_planet"]
+    envelope = block["dasha_envelope"]
+    sub_windows = block["sub_windows"]
+
+    rendered_windows = [
+        {
+            "rank": window["rank"],
+            "start": _format_jd(window["start_jd"]),
+            "end": _format_jd(window["end_jd"]),
+            "sign": window["sign"],
+            "bav_bindus": window["bav_bindus"],
+            "sav_bindus": window["sav_bindus"],
+            "bav_band": window["bav_band"],
+            "sav_band": window["sav_band"],
+            "verdict": window["verdict"],
+            "kakshya_lord": window["kakshya_lord"],
+        }
+        for window in sub_windows
+    ]
+
+    return {
+        "transit_planet": transit_planet,
+        "dasha_envelope": {
+            "mahadasha_lord": envelope["mahadasha_lord"],
+            "antardasha_lord": envelope["antardasha_lord"],
+            "start": _format_jd(envelope["start_jd"]),
+            "end": _format_jd(envelope["end_jd"]),
+        },
+        "sub_windows": rendered_windows,
+    }
 
 
 def _planet_label(ratio: float) -> str:
@@ -237,6 +308,32 @@ def _format_career(profile: DomainChartProfile) -> DomainAnswer:
         "bhava_10_rupa": bhava_bala[10]["total_rupa"],
     }
 
+    # OPTIONAL AV timing enrichment (Session 56). GOLDEN STAKE GUARD: every
+    # key/value above this point, plus tier/demotion_reason below, are
+    # byte-identical to pre-Session-56 output regardless of whether this
+    # block renders -- enrichment is purely additive, never mutates the
+    # base answer. Do NOT append enrichment language to demotion_reason.
+    # .get(), never indexing -- chart_profile.py's own Session 56
+    # degradation lock: the key is legitimately absent whenever the
+    # builder's own enrichment attempt failed; the resulting caveat is
+    # already carried in profile.stub_caveats by that point, nothing to
+    # redo here. NEVER-COLLAPSE GUARD (S54 lock 2, see
+    # _format_av_transit()) does NOT apply here -- the builder guarantees
+    # sub_windows is non-empty whenever the block itself is present -- but
+    # if it somehow arrives empty anyway, this drops the whole block
+    # silently (in the S54 guard's own spirit: an envelope with no ranked
+    # sub-windows is not renderable) rather than raising, since raising
+    # here would defeat the "base answer never blocked" point of this key.
+    sources = ("shadbala", "bhava_bala")
+    enrichment_block = profile.payload.get("timing_enrichment")
+    if enrichment_block is not None and enrichment_block["sub_windows"]:
+        rendered_enrichment = _render_av_timing(enrichment_block)
+        rendered_enrichment["resolution_note"] = _TIMING_ENRICHMENT_RESOLUTION_NOTE
+        answer_payload["timing_enrichment"] = rendered_enrichment
+        # sources ONLY grows when the block actually renders (design
+        # point 5) -- unchanged from the pre-Session-56 tuple otherwise.
+        sources = sources + ("ashtakavarga", "av_transit_scorer", "av_transit_scanner")
+
     return DomainAnswer(
         domain=profile.domain,
         tier=AnswerTier.TIER_2_RANGE,
@@ -244,7 +341,7 @@ def _format_career(profile: DomainChartProfile) -> DomainAnswer:
         stub_caveats=profile.stub_caveats,
         uncertainty_virupa=profile.uncertainty_virupa,
         demotion_reason=None,
-        sources=("shadbala", "bhava_bala"),
+        sources=sources,
         uncertainty_days=profile.uncertainty_days,
     )
 
@@ -277,6 +374,18 @@ def _format_dasha(profile: DomainChartProfile) -> DomainAnswer:
         "boundary_note": boundary_note,
     }
 
+    # OPTIONAL AV timing enrichment (Session 56) -- see _format_career()'s
+    # identical block, immediately above, for the full rationale (GOLDEN
+    # STAKE GUARD, the .get() degradation-lock convention, and why the
+    # never-collapse guard does not apply here); not repeated verbatim.
+    sources = ("vimshottari_dasha",)
+    enrichment_block = profile.payload.get("timing_enrichment")
+    if enrichment_block is not None and enrichment_block["sub_windows"]:
+        rendered_enrichment = _render_av_timing(enrichment_block)
+        rendered_enrichment["resolution_note"] = _TIMING_ENRICHMENT_RESOLUTION_NOTE
+        answer_payload["timing_enrichment"] = rendered_enrichment
+        sources = sources + ("ashtakavarga", "av_transit_scorer", "av_transit_scanner")
+
     return DomainAnswer(
         domain=profile.domain,
         tier=tier,
@@ -284,7 +393,7 @@ def _format_dasha(profile: DomainChartProfile) -> DomainAnswer:
         stub_caveats=profile.stub_caveats,
         uncertainty_virupa=profile.uncertainty_virupa,
         demotion_reason=demotion_reason,
-        sources=("vimshottari_dasha",),
+        sources=sources,
         uncertainty_days=profile.uncertainty_days,
     )
 
@@ -348,10 +457,19 @@ def _format_av_transit(profile: DomainChartProfile) -> DomainAnswer:
     NEVER-COLLAPSE GUARD (Session 54 locked decision 2): an empty
     sub_windows list is a designed fail-closed path, not a defensive
     padding case -- a dasha envelope with no ranked sub-windows underneath
-    it is not a renderable Tier 2 AV-transit answer.
+    it is not a renderable Tier 2 AV-transit answer. Session 56 note:
+    this fail-closed guard is intentionally NOT reused by the OPTIONAL
+    "timing_enrichment" render in _format_career()/_format_dasha() -- see
+    those functions' own comments for why an empty enrichment block is
+    silently dropped there instead of raising (this domain is required
+    and explicitly requested; enrichment is an optional add-on to a
+    different domain's already-valid answer).
+
+    Session 56: envelope/sub_windows rendering itself is now shared with
+    the enrichment render path via _render_av_timing() (above) -- this
+    function's own output is unchanged (byte-identical, verified by this
+    file's own 8-test guard, tests/infra/test_result_formatter_av_transit.py).
     """
-    transit_planet = profile.payload["transit_planet"]
-    envelope = profile.payload["dasha_envelope"]
     sub_windows = profile.payload["sub_windows"]
 
     if not sub_windows:
@@ -361,34 +479,7 @@ def _format_av_transit(profile: DomainChartProfile) -> DomainAnswer:
             "forbids rendering a dasha envelope without ranked sub-windows"
         )
 
-    rendered_windows = [
-        {
-            "rank": window["rank"],
-            "start": _format_jd(window["start_jd"]),
-            "end": _format_jd(window["end_jd"]),
-            "sign": window["sign"],
-            "bav_bindus": window["bav_bindus"],
-            "sav_bindus": window["sav_bindus"],
-            "bav_band": window["bav_band"],
-            "sav_band": window["sav_band"],
-            "verdict": window["verdict"],
-            "kakshya_lord": window["kakshya_lord"],
-        }
-        # Preserve rank order as given -- the convergence layer owns
-        # ranking, this file never re-sorts.
-        for window in sub_windows
-    ]
-
-    answer_payload = {
-        "transit_planet": transit_planet,
-        "dasha_envelope": {
-            "mahadasha_lord": envelope["mahadasha_lord"],
-            "antardasha_lord": envelope["antardasha_lord"],
-            "start": _format_jd(envelope["start_jd"]),
-            "end": _format_jd(envelope["end_jd"]),
-        },
-        "sub_windows": rendered_windows,
-    }
+    answer_payload = _render_av_timing(profile.payload)
 
     return DomainAnswer(
         domain=profile.domain,
