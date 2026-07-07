@@ -95,9 +95,11 @@ def compute_chara_karakas(
         ValueError: "Ketu" is present (chara karakas exclude Ketu by
             PVR's own design, see module CITATION -- not a generic
             unknown-key message); any other required key missing or any
-            other unexpected key present; two planets share the exact
-            same advancement value (fail-closed tie, see module
-            CITATION).
+            other unexpected key present; any longitude not in [0, 360)
+            sidereal degrees (NaN included -- caught via the
+            `not (0 <= lon < 360)` comparison form, see inline comment);
+            two planets share the exact same advancement value
+            (fail-closed tie, see module CITATION).
     """
     if "Ketu" in planet_longitudes:
         raise ValueError(
@@ -122,6 +124,21 @@ def compute_chara_karakas(
         raise ValueError(
             f"planet_longitudes must have exactly the 8 keys "
             f"{list(_CHARA_PLANETS)}: {'; '.join(problems)}"
+        )
+
+    # `not (0.0 <= lon < 360.0)` rather than `lon < 0.0 or lon >= 360.0`:
+    # NaN compares False against every relation, so `0.0 <= nan < 360.0`
+    # is False and the `not` flips it to True -- NaN is caught by this
+    # form without a separate isnan() check.
+    out_of_range = sorted(
+        (planet, planet_longitudes[planet])
+        for planet in _CHARA_PLANETS
+        if not (0.0 <= planet_longitudes[planet] < 360.0)
+    )
+    if out_of_range:
+        raise ValueError(
+            f"planet_longitudes must be sidereal degrees in [0, 360) for "
+            f"every planet: out-of-range value(s) {out_of_range}"
         )
 
     advancement: dict[str, float] = {}
