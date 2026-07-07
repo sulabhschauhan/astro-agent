@@ -1,109 +1,119 @@
-# Session 56: OPTIONAL AV timing enrichment for career_strength/current_dasha
+# Session 56: render timing_enrichment in _format_career()/_format_dasha()
 
-One file changed: `agent/infra/chart_profile.py`. No formatter, router,
-orchestrator, or test file touched, per scope.
+One file changed: `agent/infra/result_formatter.py`. No chart_profile,
+router, orchestrator, or test file touched, per scope.
 
-## Read-first finding: extraction vs. direct callable
+## Read-first finding: extraction, as expected
 
-The av_transit domain branch's envelope/scan/rank logic was NOT directly
-callable as-is -- it was inlined directly in `build_domain_profile()`'s
-`elif domain == "av_transit":` block (assembling `envelope`, natal
-BAV/SAV tables, calling `scan_av_transit_segments()`, the tiling-contract
-asserts, ranking, and the `sub_windows` render-contract mapping), all
-using local variables scoped to that one branch. **Extracted** it
-verbatim into a new private module-level helper,
-`_build_av_timing_block(chart_data, transit_planet) -> dict`, returning
-exactly `{"transit_planet", "dasha_envelope", "sub_windows"}` -- the
-same dict the av_transit branch used to build inline. No logic changed,
-only relocated; every comment/docstring note from the original block
-moved with it (CURRENT-Antardasha-not-Mahadasha rationale, fail-closed
-`ValueError`, the ashtakavarga assembly `RuntimeError` wrap, the
-scanner's own unwrapped `ValueError` for bad `transit_planet`, the
-tiling-contract asserts, the Session 55 ranking-key product-decision
-note, and the render-contract field-mapping note).
+`_format_av_transit()`'s envelope/sub_windows rendering (JD -> "D Mon
+YYYY", sub_windows field-mapping with rank order preserved) was directly
+reusable logic, not directly callable as a function (it was inlined).
+**Extracted** it into a new private module-level helper,
+`_render_av_timing(block: dict) -> dict`, taking the raw
+`{"transit_planet", "dasha_envelope", "sub_windows"}` shape (exactly
+`chart_profile._build_av_timing_block()`'s return contract, Session 56's
+prior change) and returning the identical 3-key rendered dict
+`_format_av_transit()` used to build inline. This is cleaner than
+duplication, as expected -- confirmed by grepping the payload key set
+`_format_av_transit()` used to build (`transit_planet`, `dasha_envelope`
+with `mahadasha_lord`/`antardasha_lord`/`start`/`end`, `sub_windows` with
+`rank`/`start`/`end`/`sign`/`bav_bindus`/`sav_bindus`/`bav_band`/
+`sav_band`/`verdict`/`kakshya_lord`) against what design point 2 asks the
+enrichment block to carry -- identical field-for-field.
 
-The av_transit domain branch now reads:
-```python
-payload = _build_av_timing_block(chart_data, transit_planet)
-stub_caveats = ()
-uncertainty_virupa = 0.0
-uncertainty_days = 37.0
-```
--- i.e. it calls the extracted helper directly and keeps its own
-`stub_caveats`/`uncertainty_virupa`/`uncertainty_days` assignment exactly
-as before (those are DomainChartProfile-level fields, not part of the
-returned dict, so they stay outside the helper).
+`_format_av_transit()` now: indexes `sub_windows` directly (unchanged
+never-collapse check, same `ValueError` message), then calls
+`_render_av_timing(profile.payload)` for the rest. The 8-test formatter
+file (`tests/infra/test_result_formatter_av_transit.py`) is the guard,
+per the task -- **passed unchanged**, plus a manual real-chart check
+(below) confirming the av_transit domain's own `answer_payload`/
+`sources`/`demotion_reason`/`tier` are byte-identical to pre-refactor
+output (no `resolution_note` leak).
+
+## Verification of the "no live test carries the key" claim (per instructions)
+
+`grep -rn "timing_enrichment" tests/ agent/` -- **zero hits in any test
+file**, only the 3 hits already committed in `chart_profile.py` from the
+prior session. Claim confirmed true; proceeded without a STOP.
+
+(Caveat worth flagging: no *test* references the key, but
+`chart_profile.py`'s builder now attempts enrichment unconditionally for
+every real `career_strength`/`current_dasha` call -- so
+`test_orchestrator_e2e.py`'s existing real-chart e2e tests for those two
+domains DO now exercise this new render path for real on every run, they
+just don't assert on the new key. Manually verified this end-to-end with
+`answer_question()` for both domains against Sulabh's real chart, below --
+both rendered `timing_enrichment` successfully with no exceptions.)
 
 ## Changes made
 
-1. **`_build_av_timing_block(chart_data, transit_planet)`** (new,
-   private, module-level, placed just above `build_domain_profile`):
-   the extracted av_transit logic, verbatim. Docstring records its own
-   FAIL-CLOSED posture (`ValueError`/`RuntimeError`/`AssertionError`
-   propagate unwrapped) and a NOTE that this is caller's-choice --
-   career_strength/current_dasha wrap it in try/except to degrade,
-   av_transit's own domain branch lets it propagate.
-2. **`career_strength` branch**: after its existing `stub_caveats`
-   assembly, added:
-   ```python
-   try:
-       payload["timing_enrichment"] = _build_av_timing_block(chart_data, "Saturn")
-   except Exception as exc:
-       stub_caveats = stub_caveats + (
-           f"timing enrichment unavailable: {type(exc).__name__}: {exc}",
-       )
-   ```
-   `uncertainty_virupa`/`uncertainty_days` assignments below this are
-   completely untouched (still 2.0/59.0 Surbhi-override and 0.0
-   respectively).
-3. **`current_dasha` branch**: identical pattern, placed right after
-   `stub_caveats = ()`. `uncertainty_days = 37.0` (current_dasha's own
-   dasha-drift envelope) is unchanged and unrelated to the enrichment's
-   own day-level resolution (which lives inside the
-   `timing_enrichment` block itself, per the design -- not surfaced
-   here, that's a formatter-step concern for later).
-4. **`av_transit` domain branch**: reduced to a 4-line call into the
-   shared helper (see above) plus a cross-reference comment pointing at
-   the career_strength/current_dasha enrichment blocks' opposite
-   (degrade, not fail-closed) posture.
-5. Comment added on the av_transit branch and mirrored on both
-   enrichment call sites, per the task's "cross-reference comment on
-   both" instruction (Session 56 locked decision 2: degradation, not
-   fail-closed, for the two enrichment call sites; fail-closed,
-   unchanged, for the standalone domain).
+1. **`_TIMING_ENRICHMENT_RESOLUTION_NOTE`** (new module constant): fixed
+   disclosure string (day-level sub-window resolution + ±37-day envelope
+   drift), rendered ONLY inside a `timing_enrichment` block -- comment
+   states the GOLDEN STAKE GUARD explicitly: never appended to either
+   domain's top-level `demotion_reason`.
+2. **`_render_av_timing(block)`** (new, private, shared): the extracted
+   render logic, byte-identical to what `_format_av_transit()` built
+   inline before. Returns the bare 3-key dict; callers that want the
+   enrichment's 4th key (`resolution_note`) add it themselves on the
+   returned dict -- this function never adds it, so `_format_av_transit()`
+   calling it directly can never accidentally pick it up.
+3. **`_format_career()`**: after its existing `answer_payload` assembly
+   (unchanged), added an enrichment block: `profile.payload.get(
+   "timing_enrichment")` (`.get()`, per design point 1 -- key legitimately
+   absent on builder-side enrichment failure); if present AND its
+   `sub_windows` is non-empty, renders via `_render_av_timing()`, adds
+   `resolution_note`, sets `answer_payload["timing_enrichment"]`, and
+   extends `sources` to `("shadbala", "bhava_bala", "ashtakavarga",
+   "av_transit_scorer", "av_transit_scanner")`. If absent (or, as a
+   safety net, present-but-empty), `answer_payload`/`sources` are
+   untouched -- byte-identical to pre-Session-56 output. `tier`/
+   `demotion_reason` (both fixed: `TIER_2_RANGE`/`None`) are completely
+   unaffected either way.
+4. **`_format_dasha()`**: identical pattern, `sources` base
+   `("vimshottari_dasha",)` extended the same way when present.
+   `tier`/`demotion_reason` (near-boundary logic, unrelated to
+   enrichment) unaffected.
+5. **`_format_av_transit()`**: reduced to the never-collapse check +
+   `_render_av_timing(profile.payload)` call; its own `sources`/
+   `demotion_reason`/`tier` construction untouched.
 
-`transit_planet` is hardcoded to `"Saturn"` at both enrichment call
-sites (design point 1) -- independent of `build_domain_profile`'s own
-`transit_planet` kwarg, which still only ever affects the `av_transit`
-domain branch.
+### GOLDEN STAKE GUARD reconciliation (flagging a wording tension, resolved)
 
-No formatter change: `timing_enrichment` is a new dict key that
-`result_formatter.py` never reads (grepped every `profile.payload[...]`
-site in that file before editing -- confirmed each formatter branch
-indexes only its own known keys, never iterates or asserts on the
-payload's full key set), so the key is inert for career_strength/
-current_dasha until a future formatter step reads it, per design point 4.
+The task's design point 3 lists `sources` among the fields that must be
+"byte-identical to pre-change output," while design point 5 explicitly
+instructs appending to `sources` when the block renders. Read these as
+consistent, not contradictory: byte-identical holds whenever the
+enrichment key is absent (every pre-existing test scenario, and any real
+call where the builder's enrichment attempt failed); point 5's append
+only fires in the new, additive, present case. Implemented per point 5
+(the more specific instruction) with a comment on both call sites noting
+this reading. No existing test asserts an exact `sources` tuple for
+`career_strength`/`current_dasha` (grepped `tests/` for `.sources` before
+editing -- only hit was `test_orchestrator_e2e.py`'s REFUSAL-case
+`result.sources == ()` check, unrelated), so this was safe.
 
-## Manual verification (in-memory, no test file added)
+## Manual verification (real Sulabh chart, full `answer_question()` path)
 
-Ran `build_domain_profile()` directly for Sulabh's real chart across all
-3 relevant domains:
-- `career_strength`: payload gained `timing_enrichment` (9 ranked
-  sub_windows, `transit_planet="Saturn"`); `stub_caveats` unchanged
-  (still just the pre-existing Ayana Bala Moon/Venus note);
-  `uncertainty_virupa=2.0`, `uncertainty_days=0.0` -- both unchanged.
-- `current_dasha`: payload gained `timing_enrichment`;
-  `uncertainty_days=37.0` unchanged.
-- `av_transit`: payload keys still exactly
-  `{"transit_planet", "dasha_envelope", "sub_windows"}` -- no
-  `timing_enrichment` key on this domain itself (design point 1: the
-  key is added to career_strength/current_dasha only), same 9
-  sub_windows as before the refactor.
+- `career_strength` ("How is my career and job strength?"): `sources` =
+  `('shadbala', 'bhava_bala', 'ashtakavarga', 'av_transit_scorer',
+  'av_transit_scanner')`; `answer_payload` gained `timing_enrichment`
+  (`dasha_envelope`, `resolution_note`, `sub_windows` x9, `transit_planet`);
+  `demotion_reason` still the pre-existing career T2 envelope text
+  (router-merged) -- no enrichment language appended.
+- `current_dasha` ("What dasha period am I in right now?"): `sources` =
+  `('vimshottari_dasha', 'ashtakavarga', 'av_transit_scorer',
+  'av_transit_scanner')`; `answer_payload` gained `timing_enrichment`;
+  `demotion_reason` still the pre-existing ±37-day dasha text -- no
+  enrichment language appended.
+- `av_transit` (direct `build_domain_profile`/`format_answer` call, real
+  chart): `answer_payload` keys still exactly `{transit_planet,
+  dasha_envelope, sub_windows}` (3, not 4 -- no `resolution_note` leak);
+  `sources` still exactly the original 4-tuple; `demotion_reason`/`tier`
+  unchanged.
 
 ## Suite
 
 **2943 passed, 3 skipped, 0 failed** -- zero delta, exactly as expected.
-`test_orchestrator_e2e.py::test_ashtakavarga_routes_to_av_transit_tier2`
-(the av_transit e2e guard) passed unchanged, confirming the extraction
-produced a byte-identical av_transit payload. No test moved; nothing
-else touched.
+`test_result_formatter_av_transit.py`'s all 8 tests passed unchanged
+(the refactor guard). No test moved; nothing else touched.
