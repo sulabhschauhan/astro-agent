@@ -23,6 +23,18 @@ exact "D Mon YYYY" output convention, sourced via panchanga.py's
 swe.revjul()-based conversion pattern (this project's own existing
 JD->datetime precedent) -- not a second, independently-invented
 conversion path.
+
+Session 55 adds a 5th domain, "av_transit" -- always TIER_2_RANGE (payload-
+property principle, P7.0c precedent: this payload carries dated Antardasha
+envelope + sub-window claims, so it always carries the drift language, same
+reasoning as current_dasha, opposite of sade_sati). Its raw JD fields
+(dasha_envelope start/end, each sub-window's start/end) are converted with
+this file's own _format_jd(), same as sade_sati's boundary fields. The
+upstream convergence layer that assembles this payload does not exist yet
+as of this branch landing (Session 54 Conflict A: formatter lands first,
+convergence wiring and router are later, separate changes) -- the payload
+shape is frozen by design-chat ahead of that layer's construction, so this
+branch is unreachable via any live router path until that wiring lands.
 """
 
 from __future__ import annotations
@@ -64,6 +76,17 @@ _DASHA_DEMOTION_REASON = (
     "lord is reliable except near period boundaries"
 )
 
+# av_transit demotion reason (Session 55). Covers BOTH uncertainty axes on
+# this payload: the ±37-day Antardasha envelope drift (same axis as
+# _DASHA_DEMOTION_REASON above) AND the day-level resolution of sub-window
+# boundaries (av_transit_scanner steps day-by-day, no sub-day bisection) --
+# these are orthogonal sources of imprecision and both must be disclosed.
+_AV_TRANSIT_DEMOTION_REASON = (
+    "Antardasha envelope carries ±37-day drift vs AstroSage; sub-window "
+    "boundaries are day-level resolution (daily-step scanner, no sub-day "
+    "bisection) -- exact transition dates should be cross-verified"
+)
+
 # SENSITIVE_TO chart_profile.py's _SADE_SATI_ADJACENT_CYCLE_SCAN_YEARS (=40):
 # this literal must stay in sync with that constant if it's ever changed --
 # not imported (this module's contract: no dependency on chart_profile.py
@@ -82,6 +105,8 @@ def format_answer(profile: DomainChartProfile) -> DomainAnswer:
         return _format_dasha(profile)
     if profile.domain == "sade_sati":
         return _format_sade_sati(profile)
+    if profile.domain == "av_transit":
+        return _format_av_transit(profile)
     raise ValueError(f"result_formatter: unknown domain {profile.domain!r}")
 
 
@@ -305,5 +330,78 @@ def _format_sade_sati(profile: DomainChartProfile) -> DomainAnswer:
         uncertainty_virupa=profile.uncertainty_virupa,
         demotion_reason=None,
         sources=("sade_sati",),
+        uncertainty_days=profile.uncertainty_days,
+    )
+
+
+def _format_av_transit(profile: DomainChartProfile) -> DomainAnswer:
+    """Always TIER_2_RANGE -- payload-property principle, P7.0c precedent:
+    this payload carries dated Antardasha-envelope + sub-window claims, so
+    it always carries the drift language (same reasoning as current_dasha,
+    opposite of sade_sati's T1-only branch above).
+
+    Missing/malformed payload keys are NOT defended against here (existing
+    module convention, see _format_marriage/_format_dasha above): direct
+    dict indexing raises KeyError with the offending key name, never a
+    partial render.
+
+    NEVER-COLLAPSE GUARD (Session 54 locked decision 2): an empty
+    sub_windows list is a designed fail-closed path, not a defensive
+    padding case -- a dasha envelope with no ranked sub-windows underneath
+    it is not a renderable Tier 2 AV-transit answer.
+    """
+    transit_planet = profile.payload["transit_planet"]
+    envelope = profile.payload["dasha_envelope"]
+    sub_windows = profile.payload["sub_windows"]
+
+    if not sub_windows:
+        raise ValueError(
+            "result_formatter: av_transit payload has an empty sub_windows "
+            "list -- Session 54 locked decision 2 (never-collapse guard) "
+            "forbids rendering a dasha envelope without ranked sub-windows"
+        )
+
+    rendered_windows = [
+        {
+            "rank": window["rank"],
+            "start": _format_jd(window["start_jd"]),
+            "end": _format_jd(window["end_jd"]),
+            "sign": window["sign"],
+            "bav_bindus": window["bav_bindus"],
+            "sav_bindus": window["sav_bindus"],
+            "bav_band": window["bav_band"],
+            "sav_band": window["sav_band"],
+            "verdict": window["verdict"],
+            "kakshya_lord": window["kakshya_lord"],
+        }
+        # Preserve rank order as given -- the convergence layer owns
+        # ranking, this file never re-sorts.
+        for window in sub_windows
+    ]
+
+    answer_payload = {
+        "transit_planet": transit_planet,
+        "dasha_envelope": {
+            "mahadasha_lord": envelope["mahadasha_lord"],
+            "antardasha_lord": envelope["antardasha_lord"],
+            "start": _format_jd(envelope["start_jd"]),
+            "end": _format_jd(envelope["end_jd"]),
+        },
+        "sub_windows": rendered_windows,
+    }
+
+    return DomainAnswer(
+        domain=profile.domain,
+        tier=AnswerTier.TIER_2_RANGE,
+        answer_payload=answer_payload,
+        stub_caveats=profile.stub_caveats,
+        uncertainty_virupa=profile.uncertainty_virupa,
+        demotion_reason=_AV_TRANSIT_DEMOTION_REASON,
+        sources=(
+            "ashtakavarga",
+            "av_transit_scorer",
+            "av_transit_scanner",
+            "vimshottari_dasha",
+        ),
         uncertainty_days=profile.uncertainty_days,
     )

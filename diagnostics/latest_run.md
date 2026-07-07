@@ -1,49 +1,63 @@
-# Session: Session 54 closeout -- documentation + 2 conditional tests
+# Session 55: result_formatter.py -- av_transit render branch (formatter step of Session 54 sequencing lock)
 
-**Changed files:** `SESSION_LOG.md` (new Session 54 entry), `CLAUDE.md`
-(Current Session Focus updated to Session 55; 2 Carry-Forward items
-added), `tests/calculations/transits/test_av_transit_scanner.py`
-(2 tests added, conditional on absence -- confirmed absent before
-adding), plus the benign `diagnostics/calc_router_stage2.log` growth from
-running the suite. No other file touched.
+**Changed files:** `agent/infra/result_formatter.py` only, plus the benign
+`diagnostics/calc_router_stage2.log` growth from running the suite. No
+other file touched (chart_profile.py, calc_router.py, orchestrator.py,
+and all test files untouched, as required).
 
-**Conditional test addition:** grepped
-`test_av_transit_scanner.py` for `end_jd<=start_jd` and 41-year
-window-cap coverage before touching it -- neither existed (its only
-error-path test was Moon's fail-closed exclusion). Added two tests:
-- `test_end_jd_not_after_start_jd_raises_value_error` -- `end_jd == start_jd`
-  raises `ValueError` matching "must be > start_jd".
-- `test_window_exceeding_40_year_cap_raises_value_error` -- a 41-year
-  window raises `ValueError` matching "40-year cap" (the existing smoke
-  test from the scanner's own creation session already confirmed the
-  40-year boundary itself passes; this file only needed the two error
-  paths, not a re-check of the boundary).
+**What changed:** added a 5th domain render branch, `"av_transit"`, to
+`format_answer()`'s dispatcher, plus its own `_format_av_transit()`
+function and `_AV_TRANSIT_DEMOTION_REASON` constant. This branch is
+currently **unreachable in any live path** -- no router keyword, no
+`chart_profile.py` builder, and no `_VALID_DOMAINS` entry exist yet
+(Session 54 Conflict A resolution: formatter lands first, convergence
+wiring and router are separate later changes). It renders the frozen
+payload contract (`transit_planet`, `dasha_envelope`, ranked
+`sub_windows`) against a synthetic profile only, once that convergence
+layer exists.
 
-**SESSION_LOG.md:** appended "Session 54 -- Ashtakavarga timing block:
-kernel, fixtures, AV-transit scorer + scanner (2026-07-07)" covering:
-ashtakavarga.py kernel (compute_bav/compute_sav/compute_bav_contributors,
-PVR Tables 19-26 Parasara, 4-chart JHora oracle lock incl. the
-reference-sign discovery), the two fixtures (jhora_david_ashtakavarga.md,
-jhora_ashtakavarga_cross_charts.md), av_transit_scorer.py (PVR ch.25
-thresholds, SAV-dominance verdict, Table 60 kakshya), and
-av_transit_scanner.py (sade_sati.py segment-pattern reuse without
-sub-day bisection, retrograde re-entries preserved). Test baseline
-1895 -> 2933 passed (session-start -> session-end figures, matching this
-prompt's stated numbers). 4 locked decisions recorded (single-module
-supersession, Tier 2 dasha-envelope+ranked-sub-windows contract, kakshya
-scope Sa/Ju-only, sodhya-pindas/nakshatra-triggers deferral).
+**Design decisions carried through, per the frozen contract:**
+- Tier is hardcoded `AnswerTier.TIER_2_RANGE`, unconditionally -- payload-
+  property principle (P7.0c precedent), same reasoning as `current_dasha`
+  (dated envelope + sub-window claims always carry drift language),
+  opposite of `sade_sati`'s T1-only branch.
+- `demotion_reason` is a fixed string covering both uncertainty axes: the
+  existing ±37-day Antardasha envelope drift (same axis as
+  `_DASHA_DEMOTION_REASON`) AND the day-level resolution of sub-window
+  boundaries (daily-step scanner, no sub-day bisection) -- these are
+  orthogonal and both are disclosed in one string, modeled on the
+  existing `_BOUNDARY_NOTE`/`_DASHA_DEMOTION_REASON` register.
+- All JD fields (`dasha_envelope.start_jd`/`end_jd`, each sub-window's
+  `start_jd`/`end_jd`) go through the existing `_format_jd()` -- no new
+  conversion path.
+- Sub-window rank order is preserved verbatim (no re-sort) -- the
+  convergence layer owns ranking, this file only re-renders dates and
+  carries all scoring fields (`bav_bindus`, `sav_bindus`, `bav_band`,
+  `sav_band`, `verdict`, `kakshya_lord`) through unchanged.
+- **Never-collapse guard** (Session 54 locked decision 2): an empty
+  `sub_windows` list raises `ValueError` citing the locked decision by
+  name, rather than rendering a dasha envelope with nothing underneath
+  it -- a designed fail-closed path, not defensive padding.
+- Missing/malformed payload keys are not defended against -- direct dict
+  indexing raises `KeyError`/`ValueError` with the offending key,
+  matching the existing convention in `_format_marriage`/`_format_dasha`
+  (never a partial render).
+- `sources` tuple: `("ashtakavarga", "av_transit_scorer",
+  "av_transit_scanner", "vimshottari_dasha")` -- the three AV-transit
+  modules plus the existing dasha-provenance source used by
+  `_format_dasha`.
 
-**CLAUDE.md:** Current Session Focus rewritten to the Session 55 line
-(formatter extension -> convergence wiring + router -> golden q11-q15
-re-run, verbatim as given). Two Carry-Forward items added: (a) Rahu/Ketu
-needs its own design-reason unknown-planet message in
-av_transit_scorer.py, ride-along with next touch; (b) formatter render
-path must precede router wiring (Conflict A resolution, avoids a third
-orphaned calculation surface).
+**Not done (explicitly out of scope, per prompt):** no router keywords,
+no `orchestrator._VALID_DOMAINS` entry, no `chart_profile.py` builder, no
+test file writes or edits, no ride-along fixes elsewhere in the file
+(the Rahu/Ketu unknown-planet message carry-forward in
+`av_transit_scorer.py` was left untouched, as instructed).
 
 ## Test tallies
-- `test_av_transit_scanner.py` alone: `12 passed` (was 10; +2, exact).
-- Full suite: `2935 passed, 3 skipped, 1 warning` (was 2933 passed, 3
-  skipped before this session; 2933 + 2 = 2935, exact).
+- Full suite: `2935 passed, 3 skipped, 1 warning` -- **identical** to the
+  pre-change baseline (2935 passed / 3 skipped). Zero test-count delta,
+  exactly as expected for a branch with no test coverage yet and no live
+  router path reaching it.
 
-No production/calculation module logic changed.
+No production/calculation module logic changed; this is additive,
+currently-dead render code only.
