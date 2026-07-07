@@ -48,6 +48,16 @@ from agent.calculations.transits.av_transit_scanner import scan_av_transit_segme
 from agent.calculations.transits.sade_sati import compute_sade_sati
 from agent.chart_calculator import NAKSHATRAS, SIGNS, compute_porphyry_house_cusps
 
+# SENSITIVE_TO agent/infra/orchestrator.py's own _VALID_DOMAINS constant:
+# the two are independent whitelists (neither imports the other's) that
+# must be kept in sync by hand whenever a domain is added or removed.
+# Incident (Session 55 fix-forward, commit 4e52e77): this module's own
+# gate was never widened when av_transit shipped elsewhere (orchestrator.py
+# + calc_router.py both wired first), leaving the av_transit builder
+# branch below unreachable dead code for a full session before being
+# caught. Closes CLAUDE.md's "_VALID_DOMAINS sync discipline" carry-
+# forward (Session 56) -- this comment IS the completion, not a promise
+# of a future one.
 _VALID_DOMAINS = {
     "marriage_compatibility",
     "career_strength",
@@ -56,9 +66,6 @@ _VALID_DOMAINS = {
     # av_transit's builder branch (Session 55, below) landed before this
     # gate was widened to admit it -- fix-forward, Session 55 continued:
     # the branch was unreachable dead code until this entry was added.
-    # This module and orchestrator.py's own _VALID_DOMAINS are independent
-    # whitelists by existing encapsulation convention (neither imports the
-    # other's) -- keep both in sync by hand when a domain is added/removed.
     "av_transit",
 }
 

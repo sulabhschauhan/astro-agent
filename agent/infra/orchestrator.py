@@ -49,6 +49,15 @@ logger = logging.getLogger(__name__)
 # is the next, separate change). Dead entry by design until then --
 # mirrors the sade_sati wiring-order precedent above (formatter/builder
 # landed before the router could route to it).
+#
+# SENSITIVE_TO agent/infra/chart_profile.py's own _VALID_DOMAINS constant
+# -- same independent-whitelist relationship (neither module imports the
+# other's), same incident: Session 55 fix-forward (commit 4e52e77) found
+# chart_profile.py's own gate had never been widened to admit av_transit
+# even after THIS module's own entry (below) shipped, leaving that
+# module's builder branch unreachable dead code for a full session. Keep
+# both in sync by hand whenever a domain is added or removed. Closes
+# CLAUDE.md's "_VALID_DOMAINS sync discipline" carry-forward (Session 56).
 _VALID_DOMAINS = {
     "marriage_compatibility",
     "career_strength",
