@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 53: Bhava Drishti Bala REAL (was V1 stub) — AstroSage BhavBala oracle back-solve, 48/48 all 4 charts ±0.5 tolerance (measured max 0.15); chart_profile threaded; 1895 passed, 3 skipped, 0 failed. Next: post-checkpoint sequencing — items (a)+(b) both closed; re-validate (c) timing block vs (d) D10/D7 vs (e) yoga catalog order against dogfooding logs per Master Build Plan closing note.**
+**Session 55: AV-transit formatter extension -> convergence wiring + router (flips test_refusal_ashtakavarga_still_unbuilt by design) -> golden q11-q15 re-run.**
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -81,3 +81,5 @@ Older/narrower divergences (Saptavargaja scoring, Drekkana Bala, Ayana Bala Moon
 
 ## Carry-Forward / Open Items
 - **Ashtakavarga router wiring carry-forward** (Session 54) — `tests/infra/test_orchestrator_e2e.py::test_refusal_ashtakavarga_still_unbuilt` asserts router-level refusal via `_UNBUILT_MODULE_KEYWORDS`. Router wiring for ashtakavarga MUST update this test in the same change — expected designed failure, not a regression.
+- **Rahu/Ketu unknown-planet message** (Session 54) — `av_transit_scorer.py`'s generic "unknown transit_planet" ValueError needs its own design-reason text for Rahu/Ketu specifically (currently folded into the generic unknown-planet path); ride-along with the next file touch, not a standalone prompt.
+- **Formatter-before-router ordering** (Session 54, Conflict A resolution) — the AV-transit formatter render path MUST land before router wiring. Wiring the router first would leave a third orphaned calculation surface (alongside any formatter/convergence gap) with no rendering path; sequence formatter -> convergence wiring -> router.

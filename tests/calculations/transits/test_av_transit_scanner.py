@@ -335,3 +335,18 @@ def test_moon_raises_value_error(sulabh_natal_tables):
     end_jd = swe.julday(2021, 5, 1)
     with pytest.raises(ValueError, match="excluded from V1"):
         scan_av_transit_segments("Moon", bav, sav, contributors, start_jd, end_jd)
+
+
+def test_end_jd_not_after_start_jd_raises_value_error(sulabh_natal_tables):
+    bav, sav, contributors = sulabh_natal_tables
+    jd = swe.julday(2021, 2, 1)
+    with pytest.raises(ValueError, match="must be > start_jd"):
+        scan_av_transit_segments("Saturn", bav, sav, contributors, jd, jd)
+
+
+def test_window_exceeding_40_year_cap_raises_value_error(sulabh_natal_tables):
+    bav, sav, contributors = sulabh_natal_tables
+    start_jd = swe.julday(2020, 1, 1)
+    end_jd = start_jd + 41 * 365.25
+    with pytest.raises(ValueError, match="40-year cap"):
+        scan_av_transit_segments("Saturn", bav, sav, contributors, start_jd, end_jd)

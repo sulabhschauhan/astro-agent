@@ -1,65 +1,49 @@
-# Session: test_av_transit_scanner.py -- structural invariants + ingress anchors
+# Session: Session 54 closeout -- documentation + 2 conditional tests
 
-**New file:** `tests/calculations/transits/test_av_transit_scanner.py`
-(only file changed besides the benign `calc_router_stage2.log` growth
-from running the suite; `git status` confirms it). No production code
-touched.
+**Changed files:** `SESSION_LOG.md` (new Session 54 entry), `CLAUDE.md`
+(Current Session Focus updated to Session 55; 2 Carry-Forward items
+added), `tests/calculations/transits/test_av_transit_scanner.py`
+(2 tests added, conditional on absence -- confirmed absent before
+adding), plus the benign `diagnostics/calc_router_stage2.log` growth from
+running the suite. No other file touched.
 
-**Target:** `scan_av_transit_segments()` / `AvTransitSegment` (added last
-session, `agent/calculations/transits/av_transit_scanner.py`).
+**Conditional test addition:** grepped
+`test_av_transit_scanner.py` for `end_jd<=start_jd` and 41-year
+window-cap coverage before touching it -- neither existed (its only
+error-path test was Moon's fail-closed exclusion). Added two tests:
+- `test_end_jd_not_after_start_jd_raises_value_error` -- `end_jd == start_jd`
+  raises `ValueError` matching "must be > start_jd".
+- `test_window_exceeding_40_year_cap_raises_value_error` -- a 41-year
+  window raises `ValueError` matching "40-year cap" (the existing smoke
+  test from the scanner's own creation session already confirmed the
+  40-year boundary itself passes; this file only needed the two error
+  paths, not a re-check of the boundary).
 
-**Setup:** Sulabh's natal tables via the live pipeline, same path as
-test_av_transit_scorer.py; JD conversion via `swisseph.julday()`, matching
-test_sade_sati.py's existing convention. Transit-planet sign detection is
-natal-independent (it's the transiting planet's own ephemeris position),
-so Sulabh's chart is reused here purely for cross-file consistency, not
-because Layer 2's anchors depend on it.
+**SESSION_LOG.md:** appended "Session 54 -- Ashtakavarga timing block:
+kernel, fixtures, AV-transit scorer + scanner (2026-07-07)" covering:
+ashtakavarga.py kernel (compute_bav/compute_sav/compute_bav_contributors,
+PVR Tables 19-26 Parasara, 4-chart JHora oracle lock incl. the
+reference-sign discovery), the two fixtures (jhora_david_ashtakavarga.md,
+jhora_ashtakavarga_cross_charts.md), av_transit_scorer.py (PVR ch.25
+thresholds, SAV-dominance verdict, Table 60 kakshya), and
+av_transit_scanner.py (sade_sati.py segment-pattern reuse without
+sub-day bisection, retrograde re-entries preserved). Test baseline
+1895 -> 2933 passed (session-start -> session-end figures, matching this
+prompt's stated numbers). 4 locked decisions recorded (single-module
+supersession, Tier 2 dasha-envelope+ranked-sub-windows contract, kakshya
+scope Sa/Ju-only, sodhya-pindas/nakshatra-triggers deferral).
 
-**Verified before writing:** ran an inline smoke script confirming all
-structural invariants and all 4 ingress-anchor dates against the live
-scanner BEFORE writing any assertion into the test file -- per this
-repo's "verify task prompts against code" convention. One correction from
-the raw prompt wording: the Saturn window (1 Jan 2020 -> 1 Jul 2023)
-starts ~3 weeks before Saturn's actual Sagittarius->Capricorn ingress
-(24 Jan 2020), so the raw collapsed-sign-run list has 5 runs (a leading
-partial Sagittarius sliver, then Cp/Aq/Cp/Aq), not 4 -- the test filters
-to Capricorn/Aquarius runs only before asserting "exactly 4", documented
-inline as excluding a window-edge artifact, not a real ingress.
-
-## Test layers (10 new tests)
-- **(a)-(c) Saturn structural invariants** (3 tests, shared helper
-  functions `_assert_contiguous_tiling` / `_assert_adjacency_legal` /
-  `_assert_score_consistency` also reused by Jupiter in Layer 3): tiling
-  with no gaps/overlaps and correct window-edge alignment; every state
-  change is either a same-sign kakshya +/-1 step or an exact 7->0
-  (direct) / 0->7 (retrograde) kakshya transition between zodiacally
-  adjacent signs; every segment's score.kakshya_index/transit_sign agree
-  with the segment's own fields.
-- **(d) retrograde triple-pass** (1 test, hard assert): at least one
-  (sign, kakshya_index) state recurs across 3+ non-consecutive segments
-  in the 2020-2023 Saturn window -- confirmed 3 for (Capricorn, 1) before
-  writing the assertion.
-- **Layer 2 ingress anchors** (1 test): the 4 Capricorn/Aquarius maximal
-  sign runs (Sagittarius edge sliver excluded) fall within +/-2 days of
-  24 Jan 2020 / 29 Apr 2022 / 12 Jul 2022 / 17 Jan 2023 -- measured diffs
-  were 0, 0, 0, and 1 day respectively, well inside tolerance. Provenance:
-  cross-checked against mainstream Vedic transit-date sources AND this
-  repo's own test_sade_sati.py, whose independently-computed
-  `expected_macro_start = swe.julday(2020, 1, 24, 0.0)` pins the same
-  Sagittarius->Capricorn ingress via a completely different code path
-  (the rising/setting macro-envelope scan, not this scanner).
-- **(e) Jupiter structural-only** (1 test, Jan-Jul 2023): same (a)-(c)
-  invariants, no anchor pins.
-- **(f) Sun sign-level-only** (3 tests, Feb-May 2021): kakshya_index is
-  None on both segment and score for every segment; tiling; ~3-5 sign
-  runs (Sun's ~30-day cadence over a 3-month window, with edge-alignment
-  slack) -- measured 4.
-- **(g) error path** (1 test): Moon raises ValueError via the scanner's
-  delegated fail-closed exclusion check.
+**CLAUDE.md:** Current Session Focus rewritten to the Session 55 line
+(formatter extension -> convergence wiring + router -> golden q11-q15
+re-run, verbatim as given). Two Carry-Forward items added: (a) Rahu/Ketu
+needs its own design-reason unknown-planet message in
+av_transit_scorer.py, ride-along with next touch; (b) formatter render
+path must precede router wiring (Conflict A resolution, avoids a third
+orphaned calculation surface).
 
 ## Test tallies
-- New file alone: `10 passed` in isolation.
-- Full suite: `2933 passed, 3 skipped, 1 warning in 115.73s` (was 2923
-  passed, 3 skipped before this session; 2923 + 10 = 2933, exact).
+- `test_av_transit_scanner.py` alone: `12 passed` (was 10; +2, exact).
+- Full suite: `2935 passed, 3 skipped, 1 warning` (was 2933 passed, 3
+  skipped before this session; 2933 + 2 = 2935, exact).
 
-No source or module logic changed.
+No production/calculation module logic changed.

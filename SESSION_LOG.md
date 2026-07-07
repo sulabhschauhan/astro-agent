@@ -1495,3 +1495,74 @@ vs. (d) Phase 2 remaining vargas (D10/D7 first) vs. (e) Phase 3 yoga
 catalog ordering against dogfooding question logs (Answer Scorecard) —
 per the POST-CHECKPOINT PHASE ORDER section's own closing note ("this is
 a working hypothesis, not scripture") — before locking which runs next.
+
+## Session 54 — Ashtakavarga timing block: kernel, fixtures, AV-transit scorer + scanner (2026-07-07)
+
+### What landed
+1. `ashtakavarga.py` kernel: `compute_bav`/`compute_sav`/
+   `compute_bav_contributors` (PVR Tables 19-26, Parasara convention),
+   locked against a 4-chart JHora oracle (David, Sulabh, Surbhi,
+   Sheridan) — including the reference-sign discovery that JHora's
+   Ashtakavarga capture dialog's "reference sign" selection actually
+   drives the lagna-contribution bindus (documented in the David
+   fixture's CRITICAL provenance note). `compute_bav_contributors` was
+   added on top of the already-locked kernel, self-invariant-checked
+   against `compute_bav`'s own 96/96-cell parity rather than a second
+   fixture. Superseded the old split `bav.py`/`sav.py` stub modules with
+   this single module (removed, not deprecated-in-place). (8a3a493,
+   33d6554, f02e9b8, eb11921, 6c03f3d, 88f5f80)
+2. Fixtures: `tests/fixtures/jhora_david_ashtakavarga.md` (David, 96/96
+   BAV + 12/12 SAV per-cell parity) and `tests/fixtures/
+   jhora_ashtakavarga_cross_charts.md` (Sulabh/Surbhi/Sheridan,
+   live-pipeline e2e ephemeris -> BAV/SAV, 288/36-cell parity). David's
+   fixture status line promoted PARKED -> ACTIVE once the per-cell suite
+   landed. (1448c5e, e0b3ea6, befdd5b)
+3. `av_transit_scorer.py`: pure per-instant `score_av_transit()` — PVR
+   ch.25.5 BAV band/intensity thresholds, ch.25.5.1 SAV band
+   (worked-example-resolved SAV=30 boundary), the SAV-dominance verdict
+   rule, and PVR Table 60 kakshya lord order/divisions for Saturn/
+   Jupiter only. Sun/Mars are sign-level only; Moon/Mercury/Venus fail
+   closed (ValueError, V1 scope exclusion). Every threshold carries its
+   own CITATION + scope guard + tuning note. (09cba00, 6adc305)
+4. `av_transit_scanner.py`: ephemeris-driven `scan_av_transit_segments()`
+   on top of the scorer — daily-step state detection adapted from
+   sade_sati.py's segment-finding pattern (`find_state_segments`
+   pattern reused, no sub-day bisection; day-level precision is
+   sufficient against 45-112 day kakshya dwell floors), retrograde
+   re-entries preserved as separate, non-deduplicated segments (verified
+   against Saturn's real 2020-2023 Capricorn/Aquarius retrograde window,
+   cross-checked against independent published ingress-date sources and
+   this repo's own test_sade_sati.py). (006c2e2, e1fb789)
+
+Suite: 2933 passed, 3 skipped (was 1895 passed, 3 skipped, 0 failed at
+session start).
+
+### Key decisions (locked, carry forward)
+1. Single-module `ashtakavarga.py` supersedes the earlier `bav.py`/
+   `sav.py` split design — one module owns compute_bav/compute_sav/
+   compute_bav_contributors; do not re-split.
+2. Tier 2 contract for the future convergence layer: an AV-transit score
+   is nested inside a dasha envelope plus ranked nested sub-windows —
+   never collapsed into a single flattened verdict. (Locks
+   score_av_transit()'s own USAGE CONSTRAINT into a concrete consumer
+   contract, ahead of the convergence layer actually being built.)
+3. Kakshya scope is locked at Saturn/Jupiter only; Sun/Mars are
+   sign-level only (kakshya fields None); Moon/Mercury/Venus fail closed
+   (ValueError) — a V1 scope decision, not a classical rule; revisit
+   only if a future phase needs sub-week transit resolution for the
+   fail-closed three.
+4. Deferred, not forgotten: sodhya pindas (trikona/ekadhipatya sodhana
+   chains) and nakshatra-level triggers for Ashtakavarga — both remain
+   out of V1 scope per ashtakavarga.py's own OUT OF SCOPE note; no code
+   exists for either.
+
+### Test baseline
+1895 passed, 3 skipped, 0 failed (session start) -> 2933 passed, 3
+skipped (session end).
+
+### Next task
+See CLAUDE.md Current Session Focus: Session 55 is the AV-transit
+formatter extension -> convergence wiring + router (expected to flip
+`test_refusal_ashtakavarga_still_unbuilt` by design) -> golden q11-q15
+re-run. Formatter render path must precede router wiring (Conflict A
+resolution — no third orphaned calculation module).
