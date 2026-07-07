@@ -1,115 +1,109 @@
-# Session 55 closeout — SESSION_LOG.md + CLAUDE.md, docs only
+# Session 56: OPTIONAL AV timing enrichment for career_strength/current_dasha
 
-Two files touched, per the standard closeout exception (Session 54
-precedent): `SESSION_LOG.md` (new entry appended) and `CLAUDE.md`
-(surgical edits). No code, no tests, suite not re-run (a doc-only edit
-touches no collected file).
+One file changed: `agent/infra/chart_profile.py`. No formatter, router,
+orchestrator, or test file touched, per scope.
 
-## Verification against git log + prior diagnostics before writing
+## Read-first finding: extraction vs. direct callable
 
-Every claim in the new SESSION_LOG.md entry was checked against
-`git log --format='%B' 45319fe..HEAD` (the 10 commits since Session 54's
-closeout) and this session's own `diagnostics/latest_run.md` history
-(read via `git show <commit>:diagnostics/latest_run.md` at each step),
-not taken from the task prompt as given:
+The av_transit domain branch's envelope/scan/rank logic was NOT directly
+callable as-is -- it was inlined directly in `build_domain_profile()`'s
+`elif domain == "av_transit":` block (assembling `envelope`, natal
+BAV/SAV tables, calling `scan_av_transit_segments()`, the tiling-contract
+asserts, ranking, and the `sub_windows` render-contract mapping), all
+using local variables scoped to that one branch. **Extracted** it
+verbatim into a new private module-level helper,
+`_build_av_timing_block(chart_data, transit_planet) -> dict`, returning
+exactly `{"transit_planet", "dasha_envelope", "sub_windows"}` -- the
+same dict the av_transit branch used to build inline. No logic changed,
+only relocated; every comment/docstring note from the original block
+moved with it (CURRENT-Antardasha-not-Mahadasha rationale, fail-closed
+`ValueError`, the ashtakavarga assembly `RuntimeError` wrap, the
+scanner's own unwrapped `ValueError` for bad `transit_planet`, the
+tiling-contract asserts, the Session 55 ranking-key product-decision
+note, and the render-contract field-mapping note).
 
-- **Test baseline "2935 -> 2943"**: confirmed literally in
-  `2334dbc`'s `diagnostics/latest_run.md` snapshot ("matches the expected
-  2935 + 8 = 2943 derivation exactly") and in `394ad29`/`a58e4dd`/
-  `2a0b7f1`'s own commit messages ("Zero test-count delta: 2943 passed /
-  3 skipped, unchanged"). Session 54's SESSION_LOG close said 2933 --
-  the 2933->2935 (+2) gap between sessions is real but its exact source
-  wasn't independently re-derived (no commit in the `45319fe..HEAD`
-  range touches it); recorded the verified 2935->2943 delta as given,
-  not the unverified 2933 SESSION_LOG figure.
-- **`_VALID_DOMAINS` gate / in-memory smoke test root cause**: confirmed
-  by reading `a58e4dd`'s commit message directly ("Branch verified via
-  an in-memory smoke test (not by editing the file)... `_VALID_DOMAINS`
-  deliberately left unchanged").
-- **DEMOTION LOCK wording**: confirmed against the actual comment block
-  in `orchestrator.py` (read directly, not paraphrased from memory).
-- **9 vs. 4 stage2-routed rows**: confirmed against this session's
-  earlier `calc_router_stage2.log` correlation and the final
-  `golden_scorecard_20260707_093530.md` run (match=7, match_stage2=5,
-  known_gap=4 -- 5+4=9).
-- **"P6 Jaimini" as the Master Build Plan's next item**: confirmed
-  against `SESSION_LOG.md:177`'s roadmap line ("P1 Foundation -> P2
-  Charts/Strength -> P3 Yogas -> P4 Dashas -> P5 Transits -> P6 Jaimini
-  -> P7 Answer Pipeline") and CLAUDE.md's existing `jaimini/` package
-  structure entry (karakas, arudha, padas) -- not invented.
+The av_transit domain branch now reads:
+```python
+payload = _build_av_timing_block(chart_data, transit_planet)
+stub_caveats = ()
+uncertainty_virupa = 0.0
+uncertainty_days = 37.0
+```
+-- i.e. it calls the extracted helper directly and keeps its own
+`stub_caveats`/`uncertainty_virupa`/`uncertainty_days` assignment exactly
+as before (those are DomainChartProfile-level fields, not part of the
+returned dict, so they stay outside the helper).
 
-## SESSION_LOG.md
+## Changes made
 
-Appended `## Session 55 -- av_transit domain end-to-end: formatter ->
-builder -> orchestrator -> router, golden baseline supersession
-(2026-07-07)`, following the existing per-session format (What landed /
-Key decisions / Test baseline / Next task). Covers, in order: (1) the
-result_formatter.py branch + 8-test file (37b7541, 2334dbc); (2) the
-chart_calculator.py start_jd/end_jd addition and the STOP that preceded
-it (45f1715, 394ad29); (3) the chart_profile.py builder (AD envelope,
-no-filter rider, ranking key, tiling asserts, in-memory smoke test)
-(a58e4dd); (4) orchestrator.py wiring + DEMOTION LOCK (2a0b7f1); (5)
-calc_router.py wiring + mandated test flip (739dac3); (6) the 2-file
-fix-forward and its root cause (4e52e77); (7) the golden baseline
-supersession, stale-pin false alarm, and harness route-provenance
-(db9f788, 0afed30). 4 locked decisions recorded verbatim-compact per the
-task's own phrasing: Tier 2 payload contract + AD-not-MD envelope +
-no-filter rider; ranking key as a product decision (not PVR); the
-demotion lock; av_transit as a TECHNIQUE domain (P7 convergence's job,
-not router keyword tuning).
+1. **`_build_av_timing_block(chart_data, transit_planet)`** (new,
+   private, module-level, placed just above `build_domain_profile`):
+   the extracted av_transit logic, verbatim. Docstring records its own
+   FAIL-CLOSED posture (`ValueError`/`RuntimeError`/`AssertionError`
+   propagate unwrapped) and a NOTE that this is caller's-choice --
+   career_strength/current_dasha wrap it in try/except to degrade,
+   av_transit's own domain branch lets it propagate.
+2. **`career_strength` branch**: after its existing `stub_caveats`
+   assembly, added:
+   ```python
+   try:
+       payload["timing_enrichment"] = _build_av_timing_block(chart_data, "Saturn")
+   except Exception as exc:
+       stub_caveats = stub_caveats + (
+           f"timing enrichment unavailable: {type(exc).__name__}: {exc}",
+       )
+   ```
+   `uncertainty_virupa`/`uncertainty_days` assignments below this are
+   completely untouched (still 2.0/59.0 Surbhi-override and 0.0
+   respectively).
+3. **`current_dasha` branch**: identical pattern, placed right after
+   `stub_caveats = ()`. `uncertainty_days = 37.0` (current_dasha's own
+   dasha-drift envelope) is unchanged and unrelated to the enrichment's
+   own day-level resolution (which lives inside the
+   `timing_enrichment` block itself, per the design -- not surfaced
+   here, that's a formatter-step concern for later).
+4. **`av_transit` domain branch**: reduced to a 4-line call into the
+   shared helper (see above) plus a cross-reference comment pointing at
+   the career_strength/current_dasha enrichment blocks' opposite
+   (degrade, not fail-closed) posture.
+5. Comment added on the av_transit branch and mirrored on both
+   enrichment call sites, per the task's "cross-reference comment on
+   both" instruction (Session 56 locked decision 2: degradation, not
+   fail-closed, for the two enrichment call sites; fail-closed,
+   unchanged, for the standalone domain).
 
-## CLAUDE.md
+`transit_planet` is hardcoded to `"Saturn"` at both enrichment call
+sites (design point 1) -- independent of `build_domain_profile`'s own
+`transit_planet` kwarg, which still only ever affects the `av_transit`
+domain branch.
 
-1. **Carry-Forward**: deleted the retired "Ashtakavarga router wiring"
-   item (closed this session). Kept "Rahu/Ketu unknown-planet message"
-   (still open). Added 3 new items: (a) `RouteResult.route` field --
-   replace golden_harness's fragile log-text correlation with a
-   router-emitted marker, ride-along with the next `calc_router.py`
-   touch; (b) `_VALID_DOMAINS` sync discipline -- `chart_profile.py` and
-   `orchestrator.py` carry independent whitelists, add `SENSITIVE_TO`
-   cross-references on both at next touch of either; (c)
-   `golden_harness.py`'s stale `_KNOWN_GAPS` "observed mechanism" prose
-   (5 entries describe pre-Session-55 routing) -- refresh
-   opportunistically.
-2. **Current Session Focus**: rewritten to "Session 56: P6 Jaimini
-   (Arudha/Padas) per Master Build Plan order, OR the P7 convergence
-   step if design chat overrides with justification" -- phrased exactly
-   as instructed (the OR is deliberate, not a decision made here).
-3. **Working Style**: added items 11-12 (natural home: the existing
-   numbered, non-negotiable list) -- SMOKE-TEST SCOPE HONESTY (an
-   in-memory smoke test can mask a pending wiring step) and BASELINE
-   FILES ARE ORACLE DATA (verify a baseline filename is still current
-   before diffing against it). No new section created.
+No formatter change: `timing_enrichment` is a new dict key that
+`result_formatter.py` never reads (grepped every `profile.payload[...]`
+site in that file before editing -- confirmed each formatter branch
+indexes only its own known keys, never iterates or asserts on the
+payload's full key set), so the key is inert for career_strength/
+current_dasha until a future formatter step reads it, per design point 4.
 
-### Line count vs. ~80-line budget
+## Manual verification (in-memory, no test file added)
 
-**88 lines (`wc -l`), 8 over budget.** Net change this session: 85 -> 88
-(+1 Carry-Forward net across delete-1/add-3, +2 Working Style additions).
-Not trimmed unilaterally, per instructions. Trim candidates for a future
-pass, most-compressible first:
-
-1. **Lines 72-81, "Known Source Divergences"** -- several entries are
-   already marked RESOLVED/REAL with full validation detail inline
-   (Ayana Bala Kranti, Sun Ayana Bala doubling, Bhava Dig Bala). These
-   could compress to one-line pointers ("RESOLVED Session N, see
-   SESSION_LOG.md") following the exact archival pattern the file
-   already uses one line below them (line 82's "Older/narrower
-   divergences... archived to SESSION_LOG.md's compression section").
-   Biggest single lever -- these 10 lines carry the most prose per line
-   in the file.
-2. **Line 15, "Ephemeris consolidation"** -- tagged "Session 52 CLOSED"
-   but still carries the full 3-exception justification inline; a
-   closed item is a natural archival candidate under the same
-   compression convention.
-3. The 2 new Working Style lines (11-12) and 3 new Carry-Forward lines
-   added this session are themselves candidates for later archival once
-   their referenced work is fully absorbed into code/tests (per
-   CLAUDE.md's own stated policy: "not needed per-query once a module
-   ships and its convention lives in the code/tests themselves") -- not
-   flagged for removal now since the work they describe is still open
-   or only just closed this session.
+Ran `build_domain_profile()` directly for Sulabh's real chart across all
+3 relevant domains:
+- `career_strength`: payload gained `timing_enrichment` (9 ranked
+  sub_windows, `transit_planet="Saturn"`); `stub_caveats` unchanged
+  (still just the pre-existing Ayana Bala Moon/Venus note);
+  `uncertainty_virupa=2.0`, `uncertainty_days=0.0` -- both unchanged.
+- `current_dasha`: payload gained `timing_enrichment`;
+  `uncertainty_days=37.0` unchanged.
+- `av_transit`: payload keys still exactly
+  `{"transit_planet", "dasha_envelope", "sub_windows"}` -- no
+  `timing_enrichment` key on this domain itself (design point 1: the
+  key is added to career_strength/current_dasha only), same 9
+  sub_windows as before the refactor.
 
 ## Suite
 
-Not re-run -- doc-only edit, no collected file touched, per task
-instruction.
+**2943 passed, 3 skipped, 0 failed** -- zero delta, exactly as expected.
+`test_orchestrator_e2e.py::test_ashtakavarga_routes_to_av_transit_tier2`
+(the av_transit e2e guard) passed unchanged, confirming the extraction
+produced a byte-identical av_transit payload. No test moved; nothing
+else touched.
