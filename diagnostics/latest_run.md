@@ -1,79 +1,65 @@
-# Session: av_transit_scanner.py -- Ashtakavarga transit segment scanner
+# Session: test_av_transit_scanner.py -- structural invariants + ingress anchors
 
-**New file:** `agent/calculations/transits/av_transit_scanner.py` (only
-file changed besides the benign `calc_router_stage2.log` growth from
-running the suite; `git status` confirms it). No other file touched.
+**New file:** `tests/calculations/transits/test_av_transit_scanner.py`
+(only file changed besides the benign `calc_router_stage2.log` growth
+from running the suite; `git status` confirms it). No production code
+touched.
 
-**Function:** `scan_av_transit_segments(transit_planet, natal_bav,
-natal_sav, natal_contributors, start_jd, end_jd) -> list[AvTransitSegment]`
--- the ephemeris layer sitting on top of last session's pure
-`score_av_transit()`. Walks a date window, groups it into contiguous
-(sign, kakshya_index) segments, and scores each once at its midpoint.
+**Target:** `scan_av_transit_segments()` / `AvTransitSegment` (added last
+session, `agent/calculations/transits/av_transit_scanner.py`).
 
-**Design -- reuse over duplication:**
-- Delegates the planet-identity/exclusion check to `score_av_transit()`
-  itself (`_validate_transit_planet` calls it with placeholder
-  sign="Aries"/degrees=0.0, discarding the result) -- same reuse pattern
-  as `compute_bav_contributors` delegating to `compute_bav`. No planet
-  list or ValueError wording duplicated.
-- Imports `score_av_transit()`'s `_KAKSHYA_PLANETS` and
-  `_KAKSHYA_WIDTH_DEG` constants directly so the scanner's own daily
-  state-detection loop can never drift from the scorer's CITATION (e)
-  boundary convention.
-- Sidereal longitudes come only from `helpers/ephemeris.py`'s
-  `sidereal_longitude()` -- no raw `swe.calc_ut()` call in this module
-  (CLAUDE.md ephemeris-consolidation lock).
-- Segmentation adapts sade_sati.py's `_find_segments` daily-scan pattern
-  (`_daily_state_segments`) but deliberately DROPS its sub-day bisection
-  refinement -- day-level boundaries are sufficient here (kakshya dwell
-  floors: Jupiter ~45d, Saturn ~112d; a 1-day edge error is noise against
-  the ~20y mahadasha envelope this nests inside).
-- Each segment's score comes from exactly one `score_av_transit()` call
-  at the segment's midpoint JD -- band/verdict/intensity logic is never
-  reimplemented here.
+**Setup:** Sulabh's natal tables via the live pipeline, same path as
+test_av_transit_scorer.py; JD conversion via `swisseph.julday()`, matching
+test_sade_sati.py's existing convention. Transit-planet sign detection is
+natal-independent (it's the transiting planet's own ephemeris position),
+so Sulabh's chart is reused here purely for cross-file consistency, not
+because Layer 2's anchors depend on it.
 
-**Retrograde re-entries are NOT merged or deduplicated** -- confirmed by
-smoke test (see below): Saturn's real 2020-2023 Capricorn/Aquarius
-retrograde oscillation produced repeated non-adjacent (sign,
-kakshya_index) states as separate segments, exactly as designed.
+**Verified before writing:** ran an inline smoke script confirming all
+structural invariants and all 4 ingress-anchor dates against the live
+scanner BEFORE writing any assertion into the test file -- per this
+repo's "verify task prompts against code" convention. One correction from
+the raw prompt wording: the Saturn window (1 Jan 2020 -> 1 Jul 2023)
+starts ~3 weeks before Saturn's actual Sagittarius->Capricorn ingress
+(24 Jan 2020), so the raw collapsed-sign-run list has 5 runs (a leading
+partial Sagittarius sliver, then Cp/Aq/Cp/Aq), not 4 -- the test filters
+to Capricorn/Aquarius runs only before asserting "exactly 4", documented
+inline as excluding a window-edge artifact, not a real ingress.
 
-**Validation:** `end_jd > start_jd`; window capped at 40 years (scope
-guard: V1 dasha envelopes never exceed a single ~20y mahadasha; tuning
-note: raise only if a future phase needs multi-dasha scans in one call).
-
-**Manual verification (no test file this prompt, per instructions) --**
-ran an inline smoke script against David's oracle-locked BAV/SAV/
-contributor tables:
-- Saturn over 2020-01-01..2023-01-01 (a real historical
-  Capricorn/Aquarius retrograde window): 21 segments, contiguous tiling
-  confirmed (each segment's end_jd == next segment's start_jd), first
-  segment start == window start, last segment end == window end, and
-  repeated non-adjacent (sign, kakshya_index) states present (retrograde
-  evidence).
-- Sun and Mars: all segments have `kakshya_index=None`, as designed.
-- Moon/Mercury/Venus/unknown-planet: all raise `ValueError` via the
-  delegated check.
-- Reversed window (`end_jd < start_jd`): raises `ValueError`.
-- 41-year window: raises `ValueError`; 40-year window (the boundary):
-  succeeds (279 segments).
-Script was not committed.
-
-**Suite-warning triage (requested in design review):** the single
-`DeprecationWarning` in the pytest tail
-(`opentelemetry\util\_importlib_metadata.py:32: ... SelectableGroups dict
-interface is deprecated. Use select.`) originates from
-`opentelemetry-api` 1.42.1, a transitive dependency of `chromadb` (our
-RAG vector store) -- confirmed via `pip show opentelemetry-api`
-(`Required-by: chromadb, opentelemetry-exporter-otlp-proto-grpc,
-opentelemetry-sdk, ...`) and a repo-wide grep showing zero direct
-`import opentelemetry` in `agent/` or `tests/`. It fires from
-opentelemetry's own internal code when something (transitively,
-chromadb's client init) touches its entry-points metadata shim -- it is
-third-party noise, not actionable in this codebase, and not something
-this session's change introduced or could fix.
+## Test layers (10 new tests)
+- **(a)-(c) Saturn structural invariants** (3 tests, shared helper
+  functions `_assert_contiguous_tiling` / `_assert_adjacency_legal` /
+  `_assert_score_consistency` also reused by Jupiter in Layer 3): tiling
+  with no gaps/overlaps and correct window-edge alignment; every state
+  change is either a same-sign kakshya +/-1 step or an exact 7->0
+  (direct) / 0->7 (retrograde) kakshya transition between zodiacally
+  adjacent signs; every segment's score.kakshya_index/transit_sign agree
+  with the segment's own fields.
+- **(d) retrograde triple-pass** (1 test, hard assert): at least one
+  (sign, kakshya_index) state recurs across 3+ non-consecutive segments
+  in the 2020-2023 Saturn window -- confirmed 3 for (Capricorn, 1) before
+  writing the assertion.
+- **Layer 2 ingress anchors** (1 test): the 4 Capricorn/Aquarius maximal
+  sign runs (Sagittarius edge sliver excluded) fall within +/-2 days of
+  24 Jan 2020 / 29 Apr 2022 / 12 Jul 2022 / 17 Jan 2023 -- measured diffs
+  were 0, 0, 0, and 1 day respectively, well inside tolerance. Provenance:
+  cross-checked against mainstream Vedic transit-date sources AND this
+  repo's own test_sade_sati.py, whose independently-computed
+  `expected_macro_start = swe.julday(2020, 1, 24, 0.0)` pins the same
+  Sagittarius->Capricorn ingress via a completely different code path
+  (the rising/setting macro-envelope scan, not this scanner).
+- **(e) Jupiter structural-only** (1 test, Jan-Jul 2023): same (a)-(c)
+  invariants, no anchor pins.
+- **(f) Sun sign-level-only** (3 tests, Feb-May 2021): kakshya_index is
+  None on both segment and score for every segment; tiling; ~3-5 sign
+  runs (Sun's ~30-day cadence over a 3-month window, with edge-alignment
+  slack) -- measured 4.
+- **(g) error path** (1 test): Moon raises ValueError via the scanner's
+  delegated fail-closed exclusion check.
 
 ## Test tallies
-- Full suite: `2923 passed, 3 skipped, 1 warning` -- unchanged (pure
-  addition, no test file this prompt; existing suite stays green).
+- New file alone: `10 passed` in isolation.
+- Full suite: `2933 passed, 3 skipped, 1 warning in 115.73s` (was 2923
+  passed, 3 skipped before this session; 2923 + 10 = 2933, exact).
 
-No existing file's logic changed.
+No source or module logic changed.
