@@ -398,16 +398,34 @@ def test_sade_sati_never_reaches_stage2(sulabh_chart, monkeypatch):
     assert result.tier == AnswerTier.TIER_1_EXACT
 
 
-def test_refusal_ashtakavarga_still_unbuilt(sulabh_chart):
-    """Regression guard for the fastpath insertion-point ordering (P7.2c):
-    _BUILT_MODULE_FASTPATH is checked AFTER _UNBUILT_MODULE_KEYWORDS --
-    confirms adding the new sade_sati fast-path didn't accidentally
-    reorder or short-circuit the pre-existing unbuilt-module refusal for
-    a genuinely unbuilt module.
+def test_ashtakavarga_routes_to_av_transit_tier2(sulabh_chart):
+    """Mandated flip (CLAUDE.md "Ashtakavarga router wiring carry-forward",
+    Session 54/55): calc_router.py now routes Ashtakavarga-keyworded
+    questions to av_transit instead of refusing them -- this REPLACES
+    test_refusal_ashtakavarga_still_unbuilt (a designed failure once the
+    router wires this domain, not a regression).
+
+    Question deliberately avoids "strength"/"saturn" (both _CAREER_KEYWORDS
+    entries, which would tie av_transit's score and force an unwanted live
+    Stage 2 LLM call in this no-mocks test) -- "Bindu"/"Ashtakavarga" alone
+    give av_transit 2 keyword hits (0.667) against 0 for every other
+    domain, clearing both the confidence floor and margin at Stage 1.
     """
-    result = answer_question("What is my Ashtakavarga strength?", sulabh_chart)
-    _assert_refusal(result)
-    assert "Ashtakavarga" in result.demotion_reason
+    result = answer_question(
+        "What is my Ashtakavarga Bindu score right now?", sulabh_chart
+    )
+    assert result.domain == "av_transit"
+    assert result.tier == AnswerTier.TIER_2_RANGE
+
+    payload = result.answer_payload
+    assert payload["sub_windows"]
+
+    # Duplication guard for the DEMOTION LOCK (orchestrator.py's
+    # _VALID_DOMAINS comment): calc_router.py must set demotion_reason=None
+    # for av_transit so result_formatter.py's own ±37-day string is never
+    # concatenated with a second one via _merge_router_demotion()'s " | ".
+    assert result.demotion_reason is not None
+    assert result.demotion_reason.count("37-day") == 1
 
 
 # ─── Group E: Error handling ────────────────────────────────────────────

@@ -69,10 +69,24 @@ _DASHA_KEYWORDS: tuple[str, ...] = (
     "running period", "timing", "when", "phase",
 )
 
+# av_transit (Session 55 router wiring). Deliberately NOT "transit" --
+# _UNBUILT_MODULE_KEYWORDS' bare "transit" keyword already REFUSES before
+# domain scoring is reached (P7.0b's "transition"/"transitional" false-
+# positive precedent generalizes: a bare "transit" hit is too ambiguous
+# with the gochara transit engine to trust as a fast-path signal). "sav"/
+# "bav" also excluded -- 3-letter tokens collide too easily with unrelated
+# substrings under _keyword_hits' bidirectional containment. Layman timing
+# phrasing ("when is my luck good", etc. with no Ashtakavarga-family term)
+# is Stage 2's job by design, not fast-path keyword material.
+_AV_TRANSIT_KEYWORDS: tuple[str, ...] = (
+    "ashtakavarga", "bindu", "kakshya",
+)
+
 _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "marriage_compatibility": _MARRIAGE_KEYWORDS,
     "career_strength": _CAREER_KEYWORDS,
     "current_dasha": _DASHA_KEYWORDS,
+    "av_transit": _AV_TRANSIT_KEYWORDS,
 }
 
 # Calculation modules referenced in a question but NOT in the routable
@@ -91,7 +105,6 @@ _UNBUILT_MODULE_KEYWORDS: dict[str, str] = {
     "yoga": "yoga detection",
     "transit": "transit engine (gochara)",
     "gochara": "gochara transit engine",
-    "ashtakavarga": "Ashtakavarga (BAV/SAV)",
     "navamsa": "D9 (Navamsa) divisional chart",
     "divisional": "divisional charts (vargas)",
     "d10": "D10 divisional chart",
@@ -219,8 +232,20 @@ _STAGE2_TIMEOUT_SECONDS = 8.0
 # Session 50/P7.2c -- Stage 2 can independently classify a question as
 # sade_sati even when it doesn't literally match _BUILT_MODULE_FASTPATH's
 # phrase list (e.g. a paraphrase that never says "Sade Sati" outright).
+# "av_transit" added Session 55 router wiring -- this is the mandatory
+# layman-phrasing path (task item 4): a question asking, in plain words,
+# when within the current Antardasha a given transit planet's influence is
+# actually favorable/unfavorable, with no "Ashtakavarga"/"bindu"/"kakshya"
+# term for _AV_TRANSIT_KEYWORDS to catch, still needs a route.
 _STAGE2_VALID_DOMAINS: frozenset[str] = frozenset(
-    {"marriage_compatibility", "career_strength", "current_dasha", "sade_sati", "none"}
+    {
+        "marriage_compatibility",
+        "career_strength",
+        "current_dasha",
+        "sade_sati",
+        "av_transit",
+        "none",
+    }
 )
 _STAGE2_VALID_CONFIDENCE: frozenset[str] = frozenset({"high", "medium", "low"})
 
@@ -244,25 +269,30 @@ _STAGE2_LOG_PATH = Path(__file__).resolve().parents[2] / "diagnostics" / "calc_r
 _STAGE2_SYSTEM_PROMPT = """\
 You are a routing classifier for a Vedic astrology calculation Q&A pipeline.
 
-This pipeline can ONLY answer questions in exactly 4 domains:
+This pipeline can ONLY answer questions in exactly 5 domains:
 - marriage_compatibility: Ashtakoot/Guna Milan, Mangal Dosha, spouse or \
 partner compatibility.
 - career_strength: career/profession/work strength, based on Shadbala \
 planetary strength.
 - current_dasha: what Mahadasha/Antardasha period the person is currently \
-running.
+running (identifying the current Mahadasha/Antardasha LORD only, no
+finer timing within it).
 - sade_sati: whether the person is currently in Sade Sati (Saturn's ~7.5-year \
 transit through the 12th/1st/2nd sign from natal Moon), and/or when the \
 current, previous, or next Sade Sati cycle starts or ends.
+- av_transit: Ashtakavarga-based transit quality (favorable vs. unfavorable \
+sub-windows, from Bindu/Kakshya strength) of a specific transiting planet \
+DURING the current Antardasha -- finer-grained timing WITHIN the current \
+dasha period, not just which lord is currently running.
 
 Classify the question into exactly one of these domains, or "none" if it
-does not clearly ask about one of these 4 things (for example: health,
+does not clearly ask about one of these 5 things (for example: health,
 travel, gemstones, lucky numbers, or any other topic).
 
 Call classify_domain with:
 - domain: the single best-matching domain, or "none".
 - confidence: "high" ONLY if the question clearly and unambiguously asks
-  about exactly one of the 4 domains above; "medium" or "low" for any
+  about exactly one of the 5 domains above; "medium" or "low" for any
   ambiguity, a different topic, or a domain this pipeline does not cover.
 """
 
@@ -545,6 +575,24 @@ def _route_to_domain(
         return RouteResult(
             domain="sade_sati",
             tier=AnswerTier.TIER_1_EXACT,
+            confidence=confidence,
+            demotion_reason=None,
+            requires_partner=False,
+        )
+
+    if domain == "av_transit":
+        # TIER_2_RANGE, demotion_reason=None -- DEMOTION LOCK (Session 55,
+        # orchestrator.py's _VALID_DOMAINS comment): av_transit's own
+        # ±37-day-plus-day-level-resolution demotion string is owned
+        # entirely by result_formatter.py's _format_av_transit() branch
+        # (payload-property principle, same as current_dasha/sade_sati
+        # above). Setting a second reason here would make
+        # orchestrator._merge_router_demotion() concatenate it onto the
+        # formatter's with " | ", duplicating the same ±37-day disclosure
+        # under two different wordings -- never do that.
+        return RouteResult(
+            domain="av_transit",
+            tier=AnswerTier.TIER_2_RANGE,
             confidence=confidence,
             demotion_reason=None,
             requires_partner=False,
