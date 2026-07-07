@@ -1,85 +1,132 @@
-# Session 55: av_transit wiring in orchestrator.py
+# Session 55: route-provenance natively wired into golden_harness.py
 
-**Changed file:** `agent/infra/orchestrator.py` only, plus the benign
-`diagnostics/calc_router_stage2.log` growth from running the suite. No
-other file touched (`calc_router.py`, `chart_profile.py`,
-`result_formatter.py`, and all test files untouched, as required).
+**One file changed: `agent/eval/golden_harness.py`.** No `calc_router.py`,
+no test files, no baseline scorecards touched (a fresh scorecard was
+produced by *running* the harness, per its own normal read-only
+behavior -- that's output, not an edit to any existing file).
 
-## Read-first: transit_planet-key confirmation
+## Read-first findings
 
-Grepped `chart_profile.py`'s av_transit branch for its payload assembly.
-Confirmed (`chart_profile.py:631-635`):
-```python
-payload = {
-    "transit_planet": transit_planet,
-    "dasha_envelope": envelope,
-    "sub_windows": sub_windows,
-}
+**CLAUDE.md:** reviewed; no new constraint bears on this beyond the
+existing DIAGNOSTIC OUTPUT ROUTING (#10, already followed) and SURGICAL
+EDITS (#6, followed -- one file, additive fields, no rewrite).
+
+**`calc_router_stage2.log` JSONL record shape** -- confirmed by reading
+`_log_stage2_invocation()` in `calc_router.py`: every line has exactly
+these 7 fields, no run ID:
 ```
-The `"transit_planet"` key IS present -- `result_formatter.py`'s
-`_format_av_transit()` indexing `profile.payload["transit_planet"]` will
-resolve correctly once the router can emit this domain. No STOP needed;
-proceeded with the wiring change.
+timestamp, question, stage1_best_score, stage1_margin,
+stage2_domain, stage2_confidence, outcome
+```
+Correlation to a specific harness run is therefore only possible via
+(a) exact `question` text and (b) a `timestamp` cutoff the caller
+supplies -- there is no first-class join key.
 
-## Change summary
+**`RouteResult` (calc_router.py) fields, confirmed by reading the
+dataclass directly:** `domain`, `tier`, `confidence`, `demotion_reason`,
+`requires_partner` -- **no route/stage marker of any kind.**
+`confidence` was considered as an indirect signal but rejected: Stage 1
+success only ever yields 0.667 or 1.0 (>=floor to route), Stage 2
+"high" maps to 1.0, and the sade_sati fastpath is hardcoded to 1.0 too
+-- 1.0 is ambiguous across all three paths, so no float-only
+reconstruction is reliable. Per the task's own instruction, since
+`RouteResult` carries no route marker, the fallback (log correlation) is
+what this change implements -- documented as fragile in
+`_used_stage2_since()`'s own docstring (shared, append-only log, no run
+ID, correlate-by-question-text + timestamp-cutoff only, safe today
+because GOLDEN_QA's 15 runnable questions are mutually unique and don't
+collide with the pytest suite's own fixture question strings).
 
-1. `_VALID_DOMAINS`: added `"av_transit"`, with a Session 55 comment
-   explaining it's a dead entry by design until `calc_router.py`'s own
-   wiring lands (mirrors the `sade_sati` wiring-order precedent already
-   documented on the set).
-2. `answer_question()` gains `transit_planet: str = "Saturn"`
-   (keyword-only, added after a new `*`). It is passed to
-   `build_domain_profile()` via a new `is_av_transit` flag, following the
-   existing `is_marriage` conditional-kwarg pattern exactly:
-   ```python
-   is_marriage = route_result.domain == "marriage_compatibility"
-   is_av_transit = route_result.domain == "av_transit"
-   profile = build_domain_profile(
-       route_result.domain, chart_data, evaluated_at_jd,
-       partner_chart_data=partner_chart_data if is_marriage else None,
-       primary_role=primary_role if is_marriage else None,
-       transit_planet=transit_planet if is_av_transit else "Saturn",
-   )
-   ```
-   Docstring updated: new `transit_planet` Args entry, and the existing
-   Session 50/P7.2d NOTE amended to acknowledge the second, parallel
-   `is_av_transit` conditional (still mutually exclusive with
-   `is_marriage` -- a question routes to exactly one domain) rather than
-   leaving a now-inaccurate "the only domain-specific branch" claim in
-   place.
-3. Demotion merge (`_merge_router_demotion()`) left completely untouched,
-   per the design lock -- documented with a new comment block directly
-   above `_VALID_DOMAINS`'s av_transit entry: once router wiring lands,
-   `route_question()` will set `demotion_reason=None` for this domain,
-   so `_merge_router_demotion()`'s existing `if router_reason is None:
-   return answer` early-return already does the right thing without any
-   code change -- av_transit's ±37-day-plus-day-level-resolution
-   demotion string stays formatter-owned, with no " | " duplication risk.
+**`_run_runnable_row` / `RowResult` / report-writing path (pre-change):**
+`RowResult` had no route field; `_run_runnable_row` classified
+MATCH/DESIGN_DEBT/KNOWN_GAP/NEW_GAP from `actual_tier == expected_tier`
+alone, with no visibility into Stage 1 vs Stage 2; `_render_report`
+printed a static `stage2_dependent_rows` line hardcoded from
+`_KNOWN_GAPS.keys()` (4 IDs) -- which, per this session's earlier manual
+audit, undercounted: 5 additional rows (career_q1-q3, marriage_q7-q8)
+also go through Stage 2 every run (single-keyword-hit scores that never
+clear the 0.4 floor) but were never in `_KNOWN_GAPS` because they
+currently resolve correctly, so the harness's own MATCH-first check
+short-circuits before ever consulting that dict (documented, intentional
+Session 50/P7.1e behavior, not a bug).
 
-## Verification
+**Test-impact grep (per task instruction):** `grep -r "golden_harness\|RowResult\|GoldenEvalSummary\|run_golden_eval"` across `tests/` and the whole repo -- zero hits outside `agent/eval/golden_harness.py` itself. No test imports or asserts on this module's field set. Full suite re-run to confirm: **2943 passed, 3 skipped, 0 failed** -- unchanged.
 
-- `python -c "import agent.infra.orchestrator"` -- clean import.
-- Confirmed in-process: `"av_transit" in orchestrator._VALID_DOMAINS` ->
-  `True`; `inspect.signature(answer_question)` shows
-  `transit_planet: str = 'Saturn'` correctly keyword-only.
-- Grepped `tests/` for `_VALID_DOMAINS` / "routable whitelist" -- no test
-  references this set directly, so widening it carries no assertion risk.
-- `calc_router.route_question()` still cannot emit `"av_transit"` (no
-  router keywords wired) -- confirmed no behavior change is reachable via
-  any live question string; the new kwarg and whitelist entry are
-  dead-by-design until the next, separate router-wiring change.
+## Changes made
 
-## Suite count
+1. **`RowResult.route: str`** added (`"stage1" | "stage2" | "fastpath" | "n/a"`
+   for NON_RUNNABLE_BATCH rows). Determined by
+   `_used_stage2_since(question, run_start)`: checks
+   `calc_router._STAGE2_LOG_PATH` for a matching-question entry timestamped
+   at/after `run_start` (captured once, right before `run_golden_eval()`'s
+   row loop). If no Stage 2 log entry: `route="fastpath"` when
+   `result.domain == "sade_sati"` (the only domain with a
+   `_BUILT_MODULE_FASTPATH` entry today, confirmed by reading
+   calc_router.py), else `route="stage1"`.
+2. **Category logic:** `MATCH` now splits into `MATCH` (route in
+   `{stage1, fastpath}`) and `MATCH_STAGE2` (route == `stage2`) --
+   correct-but-LLM-dependent, monitored not asserted, same variance
+   posture as a `STAGE2_VARIABLE` `KNOWN_GAP` row. `_DESIGN_DEBT` /
+   `_KNOWN_GAPS` dicts and their consultation order are byte-for-byte
+   unchanged.
+3. **Report header:** the static `stage2_dependent_rows` line (derived
+   from `_KNOWN_GAPS.keys()`) replaced with two per-run COMPUTED lines --
+   `deterministic_floor_rows` (route in stage1/fastpath) and
+   `stage2_routed_rows` (route == stage2) -- each listing member IDs and
+   a count. `_STAGE2_DEPENDENT_ROW_IDS` constant deleted (dead once its
+   only consumer, the old header line, was replaced).
+4. **Docstring:** module docstring gains a Session 55 note explaining
+   this makes the harness reproduce
+   `diagnostics/golden_scorecard_20260707_091459_post_av_transit.md`'s
+   route-provenance annotation natively, and explicitly acknowledges that
+   file's annotation was hand-done ahead of this change (root cause: no
+   RouteResult-level marker existed, per the RouteResult finding above).
+   `_render_report`'s table gained a `route` column; `GoldenEvalSummary`
+   gained `match_stage2_count`; the `__main__` print block updated to
+   match.
 
-Full suite: `2943 passed, 3 skipped, 1 warning` -- **identical** to the
-pre-change baseline. Zero delta, exactly as expected (router still
-cannot emit this domain).
+## Fresh harness run -- per-row route table
 
-## Sequencing status
+Ran `python -m agent.eval.golden_harness`. New report:
+`diagnostics/golden_scorecard_20260707_093530.md`.
 
-Formatter -> convergence wiring (chart_profile.py builder) -> orchestrator
-wiring (this session) are all done. Only `calc_router.py`'s own domain
-classification (keywords, confidence floor/margin, `_UNBUILT_MODULE_KEYWORDS`
-removal for av_transit, and the CLAUDE.md carry-forward item updating
-`test_refusal_ashtakavarga_still_unbuilt`) remains to make this domain
-live end-to-end.
+```
+runnable=16 non_runnable_batch=2 match=7 match_stage2=5 design_debt=0 known_gap=4 new_gap=0 error=0
+```
+
+| id | actual | route | category |
+|---|---|---|---|
+| sulabh_career_q1 | TIER_2_RANGE | stage2 | MATCH_STAGE2 |
+| sulabh_career_q2 | TIER_2_RANGE | stage2 | MATCH_STAGE2 |
+| sulabh_career_q3 | TIER_2_RANGE | stage2 | MATCH_STAGE2 |
+| sulabh_career_q4 | REFUSAL | stage2 | KNOWN_GAP |
+| sulabh_career_q5 | TIER_2_RANGE | **stage1** | MATCH |
+| sulabh_marriage_q6 | TIER_1_EXACT | **stage1** | MATCH |
+| sulabh_marriage_q7 | TIER_1_EXACT | stage2 | MATCH_STAGE2 |
+| sulabh_marriage_q8 | TIER_1_EXACT | stage2 | MATCH_STAGE2 |
+| sulabh_marriage_q9 | REFUSAL | stage2 | KNOWN_GAP |
+| sulabh_marriage_q10 | REFUSAL | stage2 | KNOWN_GAP |
+| sulabh_dasha_q11 | TIER_2_RANGE | **stage1** | MATCH |
+| sulabh_dasha_q12 | TIER_2_RANGE | **stage1** | MATCH |
+| sulabh_dasha_q13 | TIER_2_RANGE | **stage1** | MATCH |
+| sulabh_dasha_q14 | TIER_1_EXACT | **fastpath** | MATCH |
+| sulabh_dasha_q15 | REFUSAL | stage2 | KNOWN_GAP |
+| sulabh_dasha_r4_exact_date | TIER_2_RANGE | **stage1** | MATCH |
+| sulabh_refusal_boundary_probes_r1_r5 | N/A (batch) | n/a | NON_RUNNABLE_BATCH |
+| sulabh_out_of_domain_probes_quest1_quest2 | N/A (batch) | n/a | NON_RUNNABLE_BATCH |
+
+## Match vs the frozen baseline
+
+**Yes -- matches `diagnostics/golden_scorecard_20260707_091459_post_av_transit.md` row-for-row.**
+Both agree exactly on: 7 deterministic-floor MATCH rows (career_q5,
+marriage_q6, dasha_q11/q12/q13/q14, dasha_r4_exact_date), 5 MATCH_STAGE2
+rows (career_q1-q3, marriage_q7-q8), 4 stage2-routed KNOWN_GAP rows
+(career_q4, marriage_q9/q10, dasha_q15), and `dasha_q14`'s route
+correctly identified as `fastpath` (not `stage1` or `stage2`) in both.
+No diff to report.
+
+## Suite
+
+**2943 passed, 3 skipped, 0 failed** -- unchanged (confirmed both before
+committing to this approach via grep, and after the change via a full
+re-run).
