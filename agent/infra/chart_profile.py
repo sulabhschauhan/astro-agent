@@ -267,6 +267,144 @@ def _sade_sati_adjacent_cycle_boundaries(
     return previous_cycle_end_jd, next_cycle_start_jd
 
 
+def _build_av_timing_block(chart_data: dict, transit_planet: str) -> dict:
+    """Builds the frozen av_transit sub-structure: {"transit_planet",
+    "dasha_envelope", "sub_windows"}.
+
+    Extracted Session 56 so the av_transit DOMAIN branch (build_domain_
+    profile, below) and the career_strength/current_dasha OPTIONAL
+    "timing_enrichment" key (same function) share one code path instead
+    of duplicating it. Byte-identical to the pre-extraction av_transit
+    branch body -- verified via test_orchestrator_e2e.py::
+    test_ashtakavarga_routes_to_av_transit_tier2 (the av_transit domain's
+    own e2e guard) staying green, unchanged, across this refactor.
+
+    Envelope = CURRENT Antardasha (not Mahadasha) -- JD keys landed
+    Session 55 (chart_calculator.py commit 394ad29, additive start_jd/
+    end_jd on every _ser()'d period dict). FAIL CLOSED: current_antardasha
+    is None at _calc_dasha()'s own return boundary when no Antardasha is
+    found (see that function) -- the Mahadasha envelope is never silently
+    substituted. NOTE (Session 56): this function's own posture is
+    FAIL-CLOSED regardless of caller -- it is the CALLER's choice (see
+    build_domain_profile's av_transit branch vs. its career_strength/
+    current_dasha enrichment call sites) whether a failure here blocks
+    the caller's own answer or is degraded to an omitted key + caveat.
+
+    Raises:
+        ValueError: chart_data['dasha']['current_antardasha'] is None; or
+            transit_planet outside {Saturn, Jupiter, Sun, Mars} (propagated
+            unwrapped from av_transit_scanner.scan_av_transit_segments()'s
+            own validation -- not duplicated here).
+        RuntimeError: ashtakavarga natal-table assembly failure.
+        AssertionError: scan_av_transit_segments() broke its own
+            documented contiguous-tiling contract.
+    """
+    dasha = chart_data["dasha"]
+    ad = dasha.get("current_antardasha")
+    if ad is None:
+        raise ValueError(
+            "av_transit requires chart_data['dasha']['current_antardasha'] -- "
+            "no current Antardasha found at _calc_dasha()'s return boundary; "
+            "the Mahadasha envelope is never silently substituted (fail-closed)"
+        )
+    envelope = {
+        "mahadasha_lord": dasha["current_mahadasha"]["lord"],
+        "antardasha_lord": ad["lord"],
+        "start_jd": ad["start_jd"],
+        "end_jd": ad["end_jd"],
+    }
+
+    # Natal AV tables -- same assembly pattern as
+    # tests/calculations/transits/test_av_transit_scanner.py's
+    # sulabh_natal_tables fixture (Lagna + the 7 classical planets'
+    # signs -> compute_bav -> compute_sav -> compute_bav_contributors).
+    # Not re-derived independently.
+    placements = {"Lagna": chart_data["lagna_chart"]["ascendant"]}
+    planetary_positions = chart_data["planetary_positions"]
+    for planet in _AV_TRANSIT_NATAL_PLANETS:
+        placements[planet] = planetary_positions[planet]["sign"]
+
+    try:
+        natal_bav = compute_bav(placements)
+        natal_sav = compute_sav(natal_bav)
+        natal_contributors = compute_bav_contributors(placements)
+    except Exception as exc:
+        raise RuntimeError(f"ashtakavarga natal-table assembly failed: {exc}") from exc
+
+    # transit_planet validation is NOT duplicated here -- an unknown or
+    # excluded (Moon/Mercury/Venus) planet raises ValueError from
+    # score_av_transit()'s own PLANET SCOPE check, delegated through
+    # scan_av_transit_segments()'s _validate_transit_planet(). Left
+    # unwrapped (no try/except) so that ValueError propagates as-is,
+    # not re-wrapped into a RuntimeError that would obscure it.
+    segments = scan_av_transit_segments(
+        transit_planet,
+        natal_bav,
+        natal_sav,
+        natal_contributors,
+        envelope["start_jd"],
+        envelope["end_jd"],
+    )
+
+    # scan_av_transit_segments()'s own Returns contract (see that
+    # function's docstring): "contiguously tiling [start_jd, end_jd]
+    # with no gaps or overlaps" -- the first segment always starts at
+    # the window's own start_jd and the last always ends at its
+    # end_jd. No clipping logic is needed here as a result; asserted
+    # rather than silently assumed, so a future scanner-contract
+    # change fails loudly here instead of silently mis-scoping the
+    # envelope.
+    assert segments[0].start_jd == envelope["start_jd"], (
+        "scan_av_transit_segments() broke its contiguous-tiling "
+        "contract: first segment does not start at the window start"
+    )
+    assert segments[-1].end_jd == envelope["end_jd"], (
+        "scan_av_transit_segments() broke its contiguous-tiling "
+        "contract: last segment does not end at the window end"
+    )
+
+    # Ranking is a PRODUCT decision (Session 55), extending the
+    # Session 54 SAV-dominance lock (SAV takes precedence over BAV --
+    # see av_transit_scorer.py's verdict CITATION (d)) to multi-window
+    # ordering. This sort key is NOT a PVR citation; the underlying
+    # bav_band/sav_band/verdict THRESHOLDS it sorts by ARE PVR ch.25
+    # (already applied inside score_av_transit(), not re-derived here).
+    ranked = sorted(
+        segments,
+        key=lambda seg: (-seg.score.sav_value, -seg.score.bav_rekhas, seg.start_jd),
+    )
+
+    # Field mapping from AvTransitSegment/AvTransitScore (see
+    # av_transit_scanner.py/av_transit_scorer.py) to the frozen
+    # render-contract keys: bav_bindus <- score.bav_rekhas, sav_bindus
+    # <- score.sav_value (naming bridge, same convention as this
+    # file's existing shadbala_titlecase bridge elsewhere); bav_band/
+    # sav_band/verdict <- score.<field>.value (Enum -> its string
+    # value, matching the render contract's str type); kakshya_lord
+    # <- score.kakshya_lord verbatim (already None for Sun/Mars).
+    sub_windows = [
+        {
+            "rank": rank,
+            "start_jd": seg.start_jd,
+            "end_jd": seg.end_jd,
+            "sign": seg.sign,
+            "bav_bindus": seg.score.bav_rekhas,
+            "sav_bindus": seg.score.sav_value,
+            "bav_band": seg.score.bav_band.value,
+            "sav_band": seg.score.sav_band.value,
+            "verdict": seg.score.verdict.value,
+            "kakshya_lord": seg.score.kakshya_lord,
+        }
+        for rank, seg in enumerate(ranked, start=1)
+    ]
+
+    return {
+        "transit_planet": transit_planet,
+        "dasha_envelope": envelope,
+        "sub_windows": sub_windows,
+    }
+
+
 def build_domain_profile(
     domain: str,
     chart_data: dict,
@@ -476,6 +614,28 @@ def build_domain_profile(
                 caveats.append(row["caveat"])
         stub_caveats = tuple(dict.fromkeys(caveats))  # dedupe, preserve first-seen order
 
+        # OPTIONAL AV timing enrichment (Session 56 locked decision):
+        # DEGRADATION, NOT FAIL-CLOSED. Reuses av_transit's own envelope/
+        # scan/rank code path (_build_av_timing_block, above) with
+        # transit_planet fixed to "Saturn" for enrichment in V1 (Sade
+        # Sati's own transit planet, the most commonly-asked Ashtakavarga
+        # transit -- independent of this function's own transit_planet
+        # kwarg, which only ever applies to domain="av_transit"). Any
+        # failure here (missing current_antardasha, ashtakavarga assembly
+        # error, scanner-contract AssertionError, etc.) is caught and
+        # degrades: the key is simply omitted and a caveat is appended --
+        # career_strength's own already-valid answer must never be
+        # blocked by an add-on enrichment failing. Contrast with the
+        # av_transit DOMAIN branch's fail-closed posture (see its own
+        # cross-reference comment, below) -- deliberately different
+        # postures for a required domain vs. an optional enrichment.
+        try:
+            payload["timing_enrichment"] = _build_av_timing_block(chart_data, "Saturn")
+        except Exception as exc:
+            stub_caveats = stub_caveats + (
+                f"timing enrichment unavailable: {type(exc).__name__}: {exc}",
+            )
+
         # 2.0 = general uncertainty envelope, lowered from 6.0 Session 47.
         # Ayana Bala Kranti RESOLVED Session 47 (Sayana-longitude Kranti, fixed
         # 24 deg obliquity, Raman Art. 72-73; validated +/-0.45 vs AstroSage,
@@ -522,6 +682,20 @@ def build_domain_profile(
             # users -- +/-37-day drift causes wrong lord at Pratyantar granularity."
         }
         stub_caveats = ()
+
+        # OPTIONAL AV timing enrichment (Session 56 locked decision) --
+        # same DEGRADATION-NOT-FAIL-CLOSED posture, transit_planet="Saturn"
+        # fixing, and cross-reference to the av_transit DOMAIN branch's
+        # fail-closed posture as career_strength's own enrichment block
+        # above; see that block's comment for the full rationale (not
+        # repeated here).
+        try:
+            payload["timing_enrichment"] = _build_av_timing_block(chart_data, "Saturn")
+        except Exception as exc:
+            stub_caveats = stub_caveats + (
+                f"timing enrichment unavailable: {type(exc).__name__}: {exc}",
+            )
+
         uncertainty_virupa = 0.0
         # +/-37.0 days documented Antardasha drift vs AstroSage -- see
         # chart_calculator.py's _calc_dasha DASHA ACCURACY NOTE. Boundary
@@ -530,116 +704,18 @@ def build_domain_profile(
         uncertainty_days = 37.0
 
     elif domain == "av_transit":
-        # Envelope = CURRENT Antardasha (not Mahadasha) -- JD keys landed
-        # Session 55 (chart_calculator.py commit 394ad29, additive
-        # start_jd/end_jd on every _ser()'d period dict). FAIL CLOSED:
-        # current_antardasha is None at _calc_dasha()'s own return
-        # boundary when no Antardasha is found (see that function) -- the
-        # Mahadasha envelope is never silently substituted.
-        dasha = chart_data["dasha"]
-        ad = dasha.get("current_antardasha")
-        if ad is None:
-            raise ValueError(
-                "av_transit requires chart_data['dasha']['current_antardasha'] -- "
-                "no current Antardasha found at _calc_dasha()'s return boundary; "
-                "the Mahadasha envelope is never silently substituted (fail-closed)"
-            )
-        envelope = {
-            "mahadasha_lord": dasha["current_mahadasha"]["lord"],
-            "antardasha_lord": ad["lord"],
-            "start_jd": ad["start_jd"],
-            "end_jd": ad["end_jd"],
-        }
-
-        # Natal AV tables -- same assembly pattern as
-        # tests/calculations/transits/test_av_transit_scanner.py's
-        # sulabh_natal_tables fixture (Lagna + the 7 classical planets'
-        # signs -> compute_bav -> compute_sav -> compute_bav_contributors).
-        # Not re-derived independently.
-        placements = {"Lagna": chart_data["lagna_chart"]["ascendant"]}
-        planetary_positions = chart_data["planetary_positions"]
-        for planet in _AV_TRANSIT_NATAL_PLANETS:
-            placements[planet] = planetary_positions[planet]["sign"]
-
-        try:
-            natal_bav = compute_bav(placements)
-            natal_sav = compute_sav(natal_bav)
-            natal_contributors = compute_bav_contributors(placements)
-        except Exception as exc:
-            raise RuntimeError(f"ashtakavarga natal-table assembly failed: {exc}") from exc
-
-        # transit_planet validation is NOT duplicated here -- an unknown or
-        # excluded (Moon/Mercury/Venus) planet raises ValueError from
-        # score_av_transit()'s own PLANET SCOPE check, delegated through
-        # scan_av_transit_segments()'s _validate_transit_planet(). Left
-        # unwrapped (no try/except) so that ValueError propagates as-is,
-        # not re-wrapped into a RuntimeError that would obscure it.
-        segments = scan_av_transit_segments(
-            transit_planet,
-            natal_bav,
-            natal_sav,
-            natal_contributors,
-            envelope["start_jd"],
-            envelope["end_jd"],
-        )
-
-        # scan_av_transit_segments()'s own Returns contract (see that
-        # function's docstring): "contiguously tiling [start_jd, end_jd]
-        # with no gaps or overlaps" -- the first segment always starts at
-        # the window's own start_jd and the last always ends at its
-        # end_jd. No clipping logic is needed here as a result; asserted
-        # rather than silently assumed, so a future scanner-contract
-        # change fails loudly here instead of silently mis-scoping the
-        # envelope.
-        assert segments[0].start_jd == envelope["start_jd"], (
-            "scan_av_transit_segments() broke its contiguous-tiling "
-            "contract: first segment does not start at the window start"
-        )
-        assert segments[-1].end_jd == envelope["end_jd"], (
-            "scan_av_transit_segments() broke its contiguous-tiling "
-            "contract: last segment does not end at the window end"
-        )
-
-        # Ranking is a PRODUCT decision (Session 55), extending the
-        # Session 54 SAV-dominance lock (SAV takes precedence over BAV --
-        # see av_transit_scorer.py's verdict CITATION (d)) to multi-window
-        # ordering. This sort key is NOT a PVR citation; the underlying
-        # bav_band/sav_band/verdict THRESHOLDS it sorts by ARE PVR ch.25
-        # (already applied inside score_av_transit(), not re-derived here).
-        ranked = sorted(
-            segments,
-            key=lambda seg: (-seg.score.sav_value, -seg.score.bav_rekhas, seg.start_jd),
-        )
-
-        # Field mapping from AvTransitSegment/AvTransitScore (see
-        # av_transit_scanner.py/av_transit_scorer.py) to the frozen
-        # render-contract keys: bav_bindus <- score.bav_rekhas, sav_bindus
-        # <- score.sav_value (naming bridge, same convention as this
-        # file's existing shadbala_titlecase bridge elsewhere); bav_band/
-        # sav_band/verdict <- score.<field>.value (Enum -> its string
-        # value, matching the render contract's str type); kakshya_lord
-        # <- score.kakshya_lord verbatim (already None for Sun/Mars).
-        sub_windows = [
-            {
-                "rank": rank,
-                "start_jd": seg.start_jd,
-                "end_jd": seg.end_jd,
-                "sign": seg.sign,
-                "bav_bindus": seg.score.bav_rekhas,
-                "sav_bindus": seg.score.sav_value,
-                "bav_band": seg.score.bav_band.value,
-                "sav_band": seg.score.sav_band.value,
-                "verdict": seg.score.verdict.value,
-                "kakshya_lord": seg.score.kakshya_lord,
-            }
-            for rank, seg in enumerate(ranked, start=1)
-        ]
-
-        payload = {
-            "transit_planet": transit_planet,
-            "dasha_envelope": envelope,
-            "sub_windows": sub_windows,
-        }
+        # FAIL-CLOSED posture (Session 55, unchanged by the Session 56
+        # extraction below): ValueError/RuntimeError/AssertionError from
+        # _build_av_timing_block() propagate unwrapped -- the caller
+        # explicitly asked for this domain and must know if it can't be
+        # answered. CROSS-REFERENCE (Session 56 locked decision): contrast
+        # career_strength/current_dasha's OPTIONAL "timing_enrichment" key
+        # below, which wraps this SAME helper in try/except and DEGRADES
+        # instead (key omitted, stub_caveats gains a note) -- intentionally
+        # different postures for a required domain vs. an optional add-on
+        # to a different domain's answer; see _build_av_timing_block's own
+        # docstring NOTE.
+        payload = _build_av_timing_block(chart_data, transit_planet)
         stub_caveats = ()
         # BAV/SAV are integer bindu counts at 100% JHora parity (see
         # ashtakavarga.py's own oracle validation) -- no virupa-axis
