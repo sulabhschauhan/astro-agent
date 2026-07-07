@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 56: P6 Jaimini (Arudha/Padas) per Master Build Plan order, OR the P7 convergence step if design chat overrides with justification.**
+**Session 57: P6 Jaimini (Arudha/Padas) per Master Build Plan order.**
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -81,5 +81,4 @@ Ayana Bala Kranti (RESOLVED Session 47), Sun Ayana Bala doubling (RESOLVED Sessi
 ## Carry-Forward / Open Items
 - **Rahu/Ketu unknown-planet message** (Session 54) — `av_transit_scorer.py`'s generic "unknown transit_planet" ValueError needs its own design-reason text for Rahu/Ketu specifically (currently folded into the generic unknown-planet path); ride-along with the next file touch, not a standalone prompt.
 - **RouteResult route marker** (Session 55) — `calc_router.py`'s `RouteResult` carries no field identifying which path (Stage 1 / Stage 2 / fastpath) resolved a question; `golden_harness.py` currently reconstructs this by fragile question-text/timestamp correlation against `calc_router_stage2.log`. Add a router-emitted `route` field next time `calc_router.py` is touched, and switch the harness to read it directly.
-- **`_VALID_DOMAINS` sync discipline** (Session 55) — `chart_profile.py` and `orchestrator.py` each carry their OWN independent domain whitelist (neither imports the other's); `chart_profile.py`'s copy was missed for a full session after av_transit shipped elsewhere. Add `SENSITIVE_TO`-style cross-reference comments on both constants at the next touch of either.
 - **`golden_harness.py` stale `_KNOWN_GAPS` prose** (Session 55) — 5 entries' "Session 50 observed mechanism" text describes pre-Session-55 routing behavior (now superseded by the `route`-field split, MATCH vs MATCH_STAGE2); refresh opportunistically, not a standalone prompt.

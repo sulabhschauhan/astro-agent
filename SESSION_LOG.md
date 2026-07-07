@@ -1718,3 +1718,156 @@ added/removed any).
 
 ### Next task
 See CLAUDE.md Current Session Focus: Session 56.
+
+## Session 56 — P7 multi-technique convergence: AV timing enrichment in career_strength/current_dasha (2026-07-07)
+
+### Sequencing justification
+Session 55 closed with CLAUDE.md's Current Session Focus phrased as an
+explicit either/or: "P6 Jaimini (Arudha/Padas) per Master Build Plan
+order, OR the P7 convergence step if design chat overrides with
+justification." This session took the override, consuming that
+exception (Session 57's focus reverts to plain P6 Jaimini, no standing
+exception — see CLAUDE.md). Justification is Session 55's own locked
+decision 4 (above): av_transit is a TECHNIQUE domain, not a Q&A-keyword
+domain — its layman-accessible value arrives only via convergence with
+an ALREADY-ROUTABLE domain (career_strength/current_dasha), not by
+loosening router keywords or building a third technique surface that
+would sit orphaned exactly like av_transit itself did for a session
+(Session 54 Conflict A, Session 55's own fix-forward). Building P6
+Jaimini next would have repeated that same orphaned-surface pattern a
+third time before the second one (av_transit) was ever actually
+converged into something a layman could reach.
+
+### What landed
+1. `chart_profile.py`: `_build_av_timing_block(chart_data,
+   transit_planet)` extracted from av_transit's own domain branch --
+   shared by 3 branches now (av_transit's own, plus the new OPTIONAL
+   `career_strength`/`current_dasha` enrichment call sites). av_transit's
+   own output verified byte-identical post-extraction (its e2e guard,
+   `test_ashtakavarga_routes_to_av_transit_tier2`, passed unchanged).
+   career_strength/current_dasha wrap the SAME helper in `try/except
+   Exception`: on any failure the `timing_enrichment` key is simply
+   omitted and `stub_caveats` gains one entry
+   ("timing enrichment unavailable: ..."); the base domain answer is
+   NEVER blocked (DEGRADATION, not fail-closed -- locked decision 1,
+   below). Deliberately opposite of av_transit's OWN domain branch, which
+   stays fail-closed (`ValueError`/`RuntimeError`/`AssertionError`
+   propagate unwrapped) -- a required, explicitly-requested domain must
+   fail loud; an optional add-on to a DIFFERENT domain's already-valid
+   answer must never block it. Cross-referenced in both branches'
+   comments. (fb0a696)
+2. `result_formatter.py`: `_render_av_timing(block)` extracted from
+   `_format_av_transit()`'s own rendering -- same byte-identical
+   guarantee, now verified by a 13-test file (was 8, see item 3).
+   career_strength/current_dasha render `profile.payload.get(
+   "timing_enrichment")` (`.get()`, never indexing -- the key is
+   legitimately absent on builder-side failure) and, when present, add a
+   fixed `resolution_note` string INSIDE the block only (day-level
+   sub-window resolution + ±37-day envelope drift) -- GOLDEN STAKE GUARD:
+   never appended to either domain's own top-level `demotion_reason`
+   (locked decision 2, below; golden rows q1-q5/q11-q13 assert
+   `demotion_reason` substrings and must not move). `sources` gains
+   `ashtakavarga`/`av_transit_scorer`/`av_transit_scanner` ONLY when the
+   block actually renders -- unchanged otherwise. Never-collapse guard
+   (S54 locked decision 2) does NOT apply to the enrichment block itself
+   (builder-guaranteed non-empty-or-absent) -- but if `sub_windows`
+   somehow arrives empty anyway, the WHOLE block is dropped silently
+   (same guard's spirit, inverted letter: degrade, don't raise), unlike
+   av_transit's own domain branch, which still raises on empty
+   `sub_windows`. (f7a4da6)
+3. Tests: `test_result_formatter_av_transit.py` grew from 8 to 13 tests
+   -- 5 new (hardest first): an adversarial leak guard confirming
+   `resolution_note` never appears anywhere in av_transit's own
+   `answer_payload`; the byte-identical absent-key case for
+   career_strength; the dasha present-block case (block renders,
+   `sources` extends, `demotion_reason` forced non-`None` via
+   `near_boundary=True` and confirmed clean of enrichment language --
+   the strongest form of the GOLDEN STAKE GUARD check); the empty-
+   `sub_windows` silent-drop case; and career_strength's own mirror of
+   the present-block case. Plus 1 assertion
+   (`uncertainty_days == 37.0`) added to the pre-existing tier/
+   demotion_reason test, closing a passthrough gap flagged in design
+   chat when that file was first created (Session 55). (214c87c)
+4. Acceptance gate: re-ran the golden harness against the frozen
+   baseline (`golden_scorecard_20260707_093530.md`, match=7/
+   match_stage2=5/known_gap=4) -- **PASS, zero row-level deltas** (every
+   `id`/`domain`/`expected_tier`/`actual`/`route`/`demotion_reason`/
+   `category` cell byte-identical; only the run's own `evaluated_at_jd`
+   timestamp differs). Directly verified (via `answer_question()`, not
+   just the scorecard table, since `timing_enrichment` is payload-level
+   and invisible to tier/demotion columns by design) that
+   `sulabh_career_q5`/`sulabh_dasha_q11`/`q12`/`q13` all carry a
+   `timing_enrichment` block with 9 non-empty `sub_windows` and a
+   non-empty `resolution_note` each. Harness runtime: 22.85s, recorded
+   as the FIRST reference figure for this measurement (no prior
+   golden-harness-specific timing existed anywhere in repo history to
+   diff against) -- every career/dasha row that actually routes now runs
+   a live Saturn AV scan over the current Antardasha on top of its base
+   computation, so this is expected to be slower than any earlier,
+   pre-enrichment run, though no earlier figure exists to quantify the
+   delta against. Baseline deliberately NOT superseded -- see locked
+   decision 3, below. (63a3924)
+5. CLAUDE.md trim pass (folded into this closeout rather than a separate
+   task): Known Source Divergences' RESOLVED entries (Ayana Bala Kranti,
+   Sun Ayana Bala doubling, Bhava Dig Bala) compressed into the
+   section's own existing one-line SESSION_LOG archival pointer --
+   88 -> 85 lines. Every OPEN divergence, DO-NOT marker, Carry-Forward
+   item, Working Style item, and Locked Decision preserved verbatim.
+   (b6d8f62, landed mid-session ahead of this closeout entry)
+6. Rider (comment-only, zero behavior change, this closeout): added
+   `SENSITIVE_TO` cross-reference comments on `chart_profile.py`'s and
+   `orchestrator.py`'s own `_VALID_DOMAINS` constants, each pointing at
+   the other and citing the Session 55 fix-forward (commit 4e52e77) as
+   the incident that motivated them. Closes CLAUDE.md's "`_VALID_DOMAINS`
+   sync discipline" carry-forward item -- deleted from Carry-Forward,
+   the comments themselves ARE the completion. No code line touched in
+   either file; suite confirmed zero delta.
+
+### My-prompt-error note (design-chat root cause, retroactively ratified)
+The formatter task's own design points 3 and 5 (item 2, above) read as
+contradictory on first pass: point 3 listed `sources` among fields that
+must stay "byte-identical to pre-change output," while point 5
+explicitly instructed appending to `sources` when the enrichment block
+renders. Resolved at the time per the more specific instruction (point
+5's literal append rule), with the tension flagged verbatim in that
+task's own report rather than silently picking one reading. Design chat
+has now reviewed and ratifies that resolution as correct: point 3's
+"byte-identical" language is accurate for the ABSENT-enrichment case
+(every pre-existing test scenario); point 5's append is the new,
+additive, present-only behavior. No code change results from this note
+-- it closes the loose end already implemented in commit f7a4da6.
+
+### Key decisions (locked, carry forward)
+1. Enrichment is DEGRADATION, not fail-closed: any failure building or
+   rendering `timing_enrichment` omits the key and adds a caveat; it
+   NEVER blocks the base domain's own answer. Applies to
+   career_strength/current_dasha only -- the standalone av_transit
+   DOMAIN branch keeps its own, deliberately different, fail-closed
+   posture (a required, explicitly-requested domain must fail loud).
+2. The enrichment's own day-level-resolution/±37-day-drift disclosure
+   (`resolution_note`) lives INSIDE the `timing_enrichment` block only --
+   it must NEVER be appended to, or otherwise leak into, either domain's
+   top-level `demotion_reason` (GOLDEN STAKE GUARD). Golden rows
+   q1-q5/q11-q13 assert `demotion_reason` substrings; this guard is what
+   keeps those assertions stable across this and future enrichment
+   changes.
+3. Frozen golden-harness baselines (e.g.
+   `golden_scorecard_20260707_093530.md`) are superseded ONLY when a
+   re-run's scorecard CONTENT actually changes (a row's category/route/
+   tier moves) -- NEVER merely because code shipped underneath it, if
+   that code's effect is content-invariant at the scorecard's own level
+   of observation (as this session's enrichment change is: payload-level,
+   invisible to the tier/demotion/category columns the scorecard
+   records). This session's acceptance-gate PASS is exactly that case --
+   the baseline was intentionally left in place, not re-stamped.
+
+### Test baseline
+2943 passed, 3 skipped (session start) -> 2948 passed, 3 skipped, 0
+failed (session end) -- the +5 from item 3's new enrichment tests; the
+rider (item 6) and the acceptance-gate re-run (item 4, a golden-harness
+run, not a pytest run) both confirmed independently as zero pytest
+delta.
+
+### Next task
+See CLAUDE.md Current Session Focus: Session 57 -- P6 Jaimini
+(Arudha/Padas) per Master Build Plan order, no standing exception.
