@@ -32,6 +32,11 @@ from typing import Any, Literal
 
 import swisseph as swe
 
+from agent.calculations.ashtakavarga.ashtakavarga import (
+    compute_bav,
+    compute_bav_contributors,
+    compute_sav,
+)
 from agent.calculations.compatibility.ashtakoot import compute_ashtakoot_compatibility
 from agent.calculations.compatibility.koota_types import AshtakootResult, KootaNatalInfo
 from agent.calculations.compatibility.mangal_dosha import compute_mangal_dosha
@@ -39,6 +44,7 @@ from agent.calculations.helpers import ephemeris
 from agent.calculations.helpers.discrete_scan import find_state_segments
 from agent.calculations.strength.bhava_bala import compute_bhava_bala_totals
 from agent.calculations.strength.shadbala_totals import compute_shadbala_totals
+from agent.calculations.transits.av_transit_scanner import scan_av_transit_segments
 from agent.calculations.transits.sade_sati import compute_sade_sati
 from agent.chart_calculator import NAKSHATRAS, SIGNS, compute_porphyry_house_cusps
 
@@ -83,6 +89,17 @@ _SADE_SATI_ADJACENT_CYCLE_SCAN_YEARS = 40
 # already-validated precedent rather than independently guessing a
 # coarser (cheaper but unvalidated) step.
 _SADE_SATI_SCAN_STEP_DAYS = 1.0
+
+# The 7 classical planets whose sign placements feed compute_bav()/
+# compute_sav()/compute_bav_contributors() (Lagna is added separately,
+# below, since it isn't a planetary_positions entry). Same set/order as
+# tests/calculations/transits/test_av_transit_scanner.py's own _PLANETS --
+# independently duplicated here per this project's per-module duplication
+# convention (see that file's own comment on _SULABH_BIRTH_ARGS for the
+# precedent).
+_AV_TRANSIT_NATAL_PLANETS: tuple[str, ...] = (
+    "Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn",
+)
 
 
 class AnswerTier(Enum):
@@ -250,12 +267,13 @@ def build_domain_profile(
     *,
     partner_chart_data: dict | None = None,
     primary_role: Literal["boy", "girl"] | None = None,
+    transit_planet: str = "Saturn",
 ) -> DomainChartProfile:
     """Pure assembly: pack pre-computed/live-called module outputs into DomainChartProfile.
 
     Args:
         domain: one of "marriage_compatibility", "career_strength",
-            "current_dasha", "sade_sati".
+            "current_dasha", "sade_sati", "av_transit".
         chart_data: calculate_chart() output for the primary native.
         evaluated_at_jd: JD (UT) instant this profile is evaluated as-of.
             Caller-supplied, not sampled here -- must be the SAME instant the
@@ -266,22 +284,40 @@ def build_domain_profile(
             never calls now() internally. For domain="sade_sati", this same
             instant is passed directly to sade_sati.compute_sade_sati() as
             transit_jd -- Sade Sati has no "as-of a different moment" concept
-            of its own to reconcile against.
+            of its own to reconcile against. For domain="av_transit", this
+            instant is NOT used directly (the scan window is the current
+            Antardasha envelope, read from chart_data["dasha"] -- see below);
+            it is accepted uniformly across all domains but genuinely unused
+            by this branch.
         partner_chart_data: calculate_chart() output for the second native.
             Required (and only accepted) for domain="marriage_compatibility" --
             Ashtakoot (compute_ashtakoot_compatibility) needs two natives.
         primary_role: "boy" or "girl" -- which role chart_data plays. Required
             for marriage_compatibility; Ashtakoot's kootas (Varna/Vashya/Tara)
             score directionally (bride vs. groom), so there is no safe default.
+        transit_planet: one of "Saturn", "Jupiter", "Sun", "Mars" (Moon/
+            Mercury/Venus excluded -- see av_transit_scorer.py's own PLANET
+            SCOPE). Meaningful ONLY for domain="av_transit" (same
+            domain-scoped-kwarg precedent as partner_chart_data/primary_role
+            above); every other domain ignores it. Defaults to "Saturn"
+            (Sade Sati's own transit planet, the most commonly asked-about
+            Ashtakavarga transit).
 
     Raises:
         ValueError: domain not recognised; marriage_compatibility called
-            without partner_chart_data/primary_role; or partner_chart_data/
-            primary_role supplied for a non-marriage domain.
+            without partner_chart_data/primary_role; partner_chart_data/
+            primary_role supplied for a non-marriage domain; av_transit's
+            chart_data["dasha"]["current_antardasha"] is None (no current
+            Antardasha at _calc_dasha()'s return boundary -- fail-closed,
+            the Mahadasha envelope is never silently substituted); or
+            transit_planet outside {Saturn, Jupiter, Sun, Mars} (propagated
+            unwrapped from av_transit_scanner.scan_av_transit_segments()'s
+            own validation -- not duplicated here).
         RuntimeError: a wrapped, module-named failure from any underlying
             calculation call (ashtakoot, mangal_dosha, shadbala_totals,
             compute_porphyry_house_cusps, bhava_bala_totals, sade_sati.
-            compute_sade_sati, or the Moon-longitude ephemeris bridge).
+            compute_sade_sati, ashtakavarga natal-table assembly, or the
+            Moon-longitude ephemeris bridge).
     """
     if domain not in _VALID_DOMAINS:
         raise ValueError(f"domain must be one of {sorted(_VALID_DOMAINS)}, got {domain!r}")
@@ -484,6 +520,127 @@ def build_domain_profile(
         # chart_calculator.py's _calc_dasha DASHA ACCURACY NOTE. Boundary
         # proximity (is evaluated_at_jd near a period transition?) is NOT
         # computed here -- that comparison is router logic (S44.3).
+        uncertainty_days = 37.0
+
+    elif domain == "av_transit":
+        # Envelope = CURRENT Antardasha (not Mahadasha) -- JD keys landed
+        # Session 55 (chart_calculator.py commit 394ad29, additive
+        # start_jd/end_jd on every _ser()'d period dict). FAIL CLOSED:
+        # current_antardasha is None at _calc_dasha()'s own return
+        # boundary when no Antardasha is found (see that function) -- the
+        # Mahadasha envelope is never silently substituted.
+        dasha = chart_data["dasha"]
+        ad = dasha.get("current_antardasha")
+        if ad is None:
+            raise ValueError(
+                "av_transit requires chart_data['dasha']['current_antardasha'] -- "
+                "no current Antardasha found at _calc_dasha()'s return boundary; "
+                "the Mahadasha envelope is never silently substituted (fail-closed)"
+            )
+        envelope = {
+            "mahadasha_lord": dasha["current_mahadasha"]["lord"],
+            "antardasha_lord": ad["lord"],
+            "start_jd": ad["start_jd"],
+            "end_jd": ad["end_jd"],
+        }
+
+        # Natal AV tables -- same assembly pattern as
+        # tests/calculations/transits/test_av_transit_scanner.py's
+        # sulabh_natal_tables fixture (Lagna + the 7 classical planets'
+        # signs -> compute_bav -> compute_sav -> compute_bav_contributors).
+        # Not re-derived independently.
+        placements = {"Lagna": chart_data["lagna_chart"]["ascendant"]}
+        planetary_positions = chart_data["planetary_positions"]
+        for planet in _AV_TRANSIT_NATAL_PLANETS:
+            placements[planet] = planetary_positions[planet]["sign"]
+
+        try:
+            natal_bav = compute_bav(placements)
+            natal_sav = compute_sav(natal_bav)
+            natal_contributors = compute_bav_contributors(placements)
+        except Exception as exc:
+            raise RuntimeError(f"ashtakavarga natal-table assembly failed: {exc}") from exc
+
+        # transit_planet validation is NOT duplicated here -- an unknown or
+        # excluded (Moon/Mercury/Venus) planet raises ValueError from
+        # score_av_transit()'s own PLANET SCOPE check, delegated through
+        # scan_av_transit_segments()'s _validate_transit_planet(). Left
+        # unwrapped (no try/except) so that ValueError propagates as-is,
+        # not re-wrapped into a RuntimeError that would obscure it.
+        segments = scan_av_transit_segments(
+            transit_planet,
+            natal_bav,
+            natal_sav,
+            natal_contributors,
+            envelope["start_jd"],
+            envelope["end_jd"],
+        )
+
+        # scan_av_transit_segments()'s own Returns contract (see that
+        # function's docstring): "contiguously tiling [start_jd, end_jd]
+        # with no gaps or overlaps" -- the first segment always starts at
+        # the window's own start_jd and the last always ends at its
+        # end_jd. No clipping logic is needed here as a result; asserted
+        # rather than silently assumed, so a future scanner-contract
+        # change fails loudly here instead of silently mis-scoping the
+        # envelope.
+        assert segments[0].start_jd == envelope["start_jd"], (
+            "scan_av_transit_segments() broke its contiguous-tiling "
+            "contract: first segment does not start at the window start"
+        )
+        assert segments[-1].end_jd == envelope["end_jd"], (
+            "scan_av_transit_segments() broke its contiguous-tiling "
+            "contract: last segment does not end at the window end"
+        )
+
+        # Ranking is a PRODUCT decision (Session 55), extending the
+        # Session 54 SAV-dominance lock (SAV takes precedence over BAV --
+        # see av_transit_scorer.py's verdict CITATION (d)) to multi-window
+        # ordering. This sort key is NOT a PVR citation; the underlying
+        # bav_band/sav_band/verdict THRESHOLDS it sorts by ARE PVR ch.25
+        # (already applied inside score_av_transit(), not re-derived here).
+        ranked = sorted(
+            segments,
+            key=lambda seg: (-seg.score.sav_value, -seg.score.bav_rekhas, seg.start_jd),
+        )
+
+        # Field mapping from AvTransitSegment/AvTransitScore (see
+        # av_transit_scanner.py/av_transit_scorer.py) to the frozen
+        # render-contract keys: bav_bindus <- score.bav_rekhas, sav_bindus
+        # <- score.sav_value (naming bridge, same convention as this
+        # file's existing shadbala_titlecase bridge elsewhere); bav_band/
+        # sav_band/verdict <- score.<field>.value (Enum -> its string
+        # value, matching the render contract's str type); kakshya_lord
+        # <- score.kakshya_lord verbatim (already None for Sun/Mars).
+        sub_windows = [
+            {
+                "rank": rank,
+                "start_jd": seg.start_jd,
+                "end_jd": seg.end_jd,
+                "sign": seg.sign,
+                "bav_bindus": seg.score.bav_rekhas,
+                "sav_bindus": seg.score.sav_value,
+                "bav_band": seg.score.bav_band.value,
+                "sav_band": seg.score.sav_band.value,
+                "verdict": seg.score.verdict.value,
+                "kakshya_lord": seg.score.kakshya_lord,
+            }
+            for rank, seg in enumerate(ranked, start=1)
+        ]
+
+        payload = {
+            "transit_planet": transit_planet,
+            "dasha_envelope": envelope,
+            "sub_windows": sub_windows,
+        }
+        stub_caveats = ()
+        # BAV/SAV are integer bindu counts at 100% JHora parity (see
+        # ashtakavarga.py's own oracle validation) -- no virupa-axis
+        # uncertainty envelope exists for this domain, unlike Shadbala.
+        uncertainty_virupa = 0.0
+        # Same axis as current_dasha's +/-37-day Antardasha drift above --
+        # this domain's scan window IS the current Antardasha, so it
+        # inherits that same documented drift envelope.
         uncertainty_days = 37.0
 
     else:  # sade_sati (Session 50/P7.2a) -- NO mahadasha/antardasha fields
