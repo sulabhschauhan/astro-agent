@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 57: P6 Jaimini (Arudha/Padas) per Master Build Plan order.**
+**Session 57: P6 Jaimini (Arudha/Padas).** Shipped: rasi_aspects.py + strength.py (kernels + test suites), arudha.py (kernel, no test file yet). Next: arudha.py test suite, then padas.py.
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -60,12 +60,12 @@ query_engine + chart_calculator → astrologer → session_manager
 ## Calculation Architecture (Session 19+)
 Every new calculation module lives in its `calculations/` subpackage; never add calculation logic to a top-level file.
 
-**Package structure:** `core/` (chart_d1, panchanga, aspects, dignity) · `vargas/` (D2-D60, vimshopaka) · `strength/` (shadbala, ishta_kashta, bhava_bala) · `dashas/` (vimshottari, yogini, chara, ashtottari, mudda) · `yogas/` (detector + catalog/) · `transits/` (gochara, sade_sati, chandrabala, transit_aspects) · `ashtakavarga/` (single module: compute_bav + compute_sav; bav.py/sav.py stubs superseded and removed, Session 54) · `jaimini/` (karakas, arudha, padas) · `annual/` (varshaphal, muntha, sahams) · `helpers/` (house_counting, ephemeris)
+**Package structure:** `core/` (chart_d1, panchanga, aspects, dignity) · `vargas/` (D2-D60, vimshopaka) · `strength/` (shadbala, ishta_kashta, bhava_bala) · `dashas/` (vimshottari, yogini, chara, ashtottari, mudda) · `yogas/` (detector + catalog/) · `transits/` (gochara, sade_sati, chandrabala, transit_aspects) · `ashtakavarga/` (single module: compute_bav + compute_sav; bav.py/sav.py stubs superseded and removed, Session 54) · `jaimini/` (karakas, arudha, padas, strength — stronger co-lord cascade Ch.15 §15.5.1, rasi_aspects — rasi drishti Ch.10 §10.3) · `annual/` (varshaphal, muntha, sahams) · `helpers/` (house_counting, ephemeris)
 **Canonical helpers:** `resolve_house_counting_lagna()` (`helpers/house_counting.py`) — canonical for ANY Varshaphal-derived bhav calc; `helpers/ephemeris.py` (`sidereal_longitude`/`sidereal_position`/`EphemerisError`, Session 52) — canonical for sidereal-standard `swe.calc_ut()` calls; see Locked Decisions for the 3 direct-by-design exceptions.
 **Validation protocol** (per module, on top of Working Style #2/#3): empirical validation across 4 reference charts before locking a formula; zero free parameters (test alternative hypotheses, rule them out); AstroSage parity where applicable, JHora oracle where not; document irreducible cross-software noise as discovered.
 
 ## Reference Materials
-**Calculation specifications:** `project_files/classical_references/PVR_Vedic_Astrology_Integrated_Approach.pdf` — primary reference for P1-P6; PVR authored both this book and JHora (book = formulas/justification, JHora = numerical ground truth); both consulted before implementing any new calculation module.
+**Calculation specifications:** `data/pdfs/Vedic Astrology_ PVR Narashimha Rao.pdf` — primary reference for P1-P6 (path corrected Session 57; the previously-documented `project_files/classical_references/...` path does not exist in this repo); PVR authored both this book and JHora (book = formulas/justification, JHora = numerical ground truth); both consulted before implementing any new calculation module.
 **Validation oracles:** AstroSage PDFs (4 reference charts) for secondary parity; JHora exports as primary parity where AstroSage doesn't expose the calculation. Sheridan (1984-05-27 08:00, Durban SA) and David (1976-01-19 22:00, London UK) are fully activated — birth data extracted from their AstroSage PDFs; geocoded in `tests/fixtures/geocoded_locations.json`.
 **Interpretive RAG (separate, do not pollute):** ChromaDB ~7,281 chunks across 14 classical texts, for Tier 4 interpretive answers in Parashara's voice. Modern textbooks (incl. PVR's) are deliberately excluded from RAG to preserve classical voice and avoid single-author bias.
 ## Known Source Divergences — locked V1 (affects every Shadbala/Bhava Bala query)
@@ -82,3 +82,5 @@ Ayana Bala Kranti (RESOLVED Session 47), Sun Ayana Bala doubling (RESOLVED Sessi
 - **Rahu/Ketu unknown-planet message** (Session 54) — `av_transit_scorer.py`'s generic "unknown transit_planet" ValueError needs its own design-reason text for Rahu/Ketu specifically (currently folded into the generic unknown-planet path); ride-along with the next file touch, not a standalone prompt.
 - **RouteResult route marker** (Session 55) — `calc_router.py`'s `RouteResult` carries no field identifying which path (Stage 1 / Stage 2 / fastpath) resolved a question; `golden_harness.py` currently reconstructs this by fragile question-text/timestamp correlation against `calc_router_stage2.log`. Add a router-emitted `route` field next time `calc_router.py` is touched, and switch the harness to read it directly.
 - **`golden_harness.py` stale `_KNOWN_GAPS` prose** (Session 55) — 5 entries' "Session 50 observed mechanism" text describes pre-Session-55 routing behavior (now superseded by the `route`-field split, MATCH vs MATCH_STAGE2); refresh opportunistically, not a standalone prompt.
+- **arudha.py test suite** (Session 57) — `compute_arudha_pada()` verified by hand against PVR's Example 29 (all 12 houses of a real worked chart, both co-lord cases included) but has no test file yet; mirror strength.py's kernel-then-test-suite rhythm next.
+- **padas.py** (Session 57) — still an empty stub; orchestrate `compute_arudha_pada()` across houses 1-12 and attach the An/AL/UL labels (PVR Table 18, printed p.87).

@@ -1871,3 +1871,97 @@ delta.
 ### Next task
 See CLAUDE.md Current Session Focus: Session 57 -- P6 Jaimini
 (Arudha/Padas) per Master Build Plan order, no standing exception.
+
+## Session 57 — P6 Jaimini: rasi drishti, stronger co-lord cascade, bhava arudha kernel (2026-07-07/08)
+
+### What landed
+1. `jaimini/rasi_aspects.py` -- rasi drishti (sign aspect) primitive,
+   PVR Ch.10 Section 10.3. Derives the 12-sign movable/fixed/dual
+   aspect table programmatically from classification + adjacency
+   rather than hand-transcribing a table PVR never prints in full;
+   symmetry and PVR's own 3 worked rows are asserted as machine-checked
+   invariants at import time. (3993d79) Followed by a 78-test oracle
+   suite: 3 worked-row oracles, all 9 Exercise 15 answer-key rows
+   (including confirming Ketu follows ordinary zodiacal counting here,
+   not the anti-zodiacal rule PVR scopes to argala/virodhargala only),
+   a 144-pair symmetry sweep, structural locks, and a disjointness
+   guard against graha drishti (`core/aspects.py` -- a different
+   classical mechanism, never to be conflated). No oracle disagreement
+   found; module untouched by the test pass. (15307bc)
+2. `jaimini/strength.py` -- stronger co-lord cascade, PVR Ch.15 Section
+   15.5.1 (Basic Rule + Steps 1-5(b)), Scorpio (Mars/Ketu) and Aquarius
+   (Saturn/Rahu) only. Six design locks resolved where PVR's own text
+   is silent or PyJHora's reference implementation is independently
+   defective (three distinct bugs found in PyJHora's `stronger_planet`
+   family, including a tautological self-comparison in its own Rule-3):
+   D1 (Step-1 joiner scope = all 9 grahas), D2 (both co-lords resident
+   simultaneously -> fails closed, real 2022-23 Saturn+Rahu-in-Aquarius
+   trigger), D3 (dispositor = ordinary classical lord; self-dispositor
+   conjoins trivially), D4 (Rahu/Ketu never exalted at Step 3), D5
+   (`purpose="dasa_duration"` out of V1 scope, footnote 53 defers the
+   computation to a later, unbuilt chapter), D6 (exact Step-5(b) tie
+   fails closed). Kernel only, no test file this commit. (2ca52bc)
+   Followed by a 24-test suite: 4-chart real oracle (Sulabh/Sheridan,
+   JHora longitudes), PVR's own book-verbatim worked examples (Step-2
+   count=2, Exercise 25 both halves, Step 5(b)) reconstructed into full
+   9-planet synthetic charts and cross-checked against hand-derived
+   rasi-drishti arithmetic before being locked in, all six design-lock
+   regressions, input contract, and result-shape locks. (3bacc36)
+3. `jaimini/arudha.py` -- bhava arudha (arudha pada) kernel, PVR Ch.9
+   Section 9.2. General 6-step engine for ANY house's arudha pada --
+   Arudha Lagna (AL) is this same procedure applied to house 1, not a
+   separate calculation; `jaimini/padas.py` (next) will call it 12
+   times and attach the An/AL/UL labels rather than re-implement the
+   steps. Step 2's own text explicitly cross-references "the chapter on
+   'Strength of Planets and Rasis'" for Scorpio/Aquarius house signs --
+   a direct, PVR-stated dependency on item 2's `stronger_co_lord()`, not
+   an inferred one; that call's own D2/D6 exceptions propagate
+   unmodified. Counting formula (inclusive zodiacal count, one-shot
+   1st/7th exception) derived from PVR's inline worked numbers and
+   verified against all 12 houses of PVR's own Example 29 (a full
+   worked chart, both co-lord cases included) before being locked in --
+   every house matched on the first run. Kernel only, no test file this
+   commit. (3cc659a)
+
+### Housekeeping note
+The Reference Materials line documenting the PVR PDF's path
+(`project_files/classical_references/PVR_Vedic_Astrology_Integrated_
+Approach.pdf`) was stale -- that path does not exist anywhere in this
+repo. The actual file is `data/pdfs/Vedic Astrology_ PVR Narashimha
+Rao.pdf`; corrected in CLAUDE.md this session after the Ch.9 Arudha
+Padas lookup (item 3) required opening the real PDF directly (via
+pymupdf, since the Read tool's PDF rendering needs poppler on PATH,
+which this shell doesn't have set up) and discovering the documented
+path was never valid.
+
+### Key decisions (locked, carry forward)
+1. Each `jaimini/` kernel module defines its own local classical
+   sign-lord table rather than importing another module's (e.g.
+   `strength.py`'s `_CLASSICAL_SIGN_LORDS` vs `arudha.py`'s own copy) --
+   matches this codebase's existing precedent (compatibility/
+   sign_lord.py, bhava_bala.py, sthana_bala.py each already carry their
+   own copy); no shared canonical sign-lord helper exists or is being
+   introduced.
+2. Kernel-then-test-suite is now this package's established rhythm for
+   new `jaimini/` modules: ship the pure-function kernel with hand-
+   verified oracle rows and zero pytest delta first, land the test file
+   as a distinct follow-up commit. Both strength.py and rasi_aspects.py
+   went through this cycle this session; arudha.py has only had the
+   first half so far (see CLAUDE.md Carry-Forward).
+
+### Test baseline
+Session-start baseline, verified directly against the rasi_aspects.py
+primitive commit's own recorded run (3993d79): **2972 passed, 3
+skipped** -- 24 more than Session 56's own stated close of 2948; that
+gap was not reconciled or chased this session (not this thread's work,
+and not blocking). From 2972: -> 3050 after rasi_aspects.py's 78-test
+oracle suite (+78) -> 3050 unchanged after strength.py's kernel commit
+(+0, no test file) -> 3074 after strength.py's test suite (+24) -> 3074
+unchanged after arudha.py's kernel commit (+0, no test file, nothing
+imports it yet). Final state this session: **3074 passed, 3 skipped, 0
+failed**, verified directly after each commit in this list.
+
+### Next task
+See CLAUDE.md Current Session Focus: arudha.py test suite, then
+padas.py (orchestrate `compute_arudha_pada()` across houses 1-12,
+attach An/AL/UL labels per PVR's Table 18).
