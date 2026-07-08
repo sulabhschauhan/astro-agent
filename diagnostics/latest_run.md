@@ -1,138 +1,97 @@
-# P6 Jaimini: Bhava Arudha test suite (tests/calculations/test_jaimini_arudha.py)
+# P6 Jaimini: Bhava Padas kernel (agent/calculations/jaimini/padas.py)
 
-**Task type:** new test file only. `agent/calculations/jaimini/arudha.py`
-and every other module untouched -- this run adds
-`tests/calculations/test_jaimini_arudha.py` exclusively, mirroring
-`tests/calculations/test_jaimini_strength.py`'s structure and
-provenance discipline.
+**Task type:** new-file implementation. One file only:
+`agent/calculations/jaimini/padas.py` (replacing its 1-line stub). No
+test file, no other module touched, nothing imports this module yet
+(kernel-then-test-suite rhythm, matching arudha.py/strength.py this
+session).
 
-## Layer A: PVR Example 29 book oracle (Chart 1)
+## What was built
 
-Chart 1 ("Rasi Arudha example", April 9, 2000, 5:55pm (4:00 West),
-71W12 42N30) was reconstructed by rendering PDF page 99 (0-idx 98) of
-`data/pdfs/Vedic Astrology_ PVR Narashimha Rao.pdf` via pymupdf and
-reading the printed longitude table directly beneath the chart diagram
--- this is a full, unambiguous 9-planet + Asc table, not narrative
-inference:
+`compute_bhava_padas(lagna_sign, planet_longitudes) -> BhavaPadaSet` --
+the orchestration + labeling layer arudha.py's own docstring explicitly
+defers here: calls `compute_arudha_pada()` once per house (1-12) and
+attaches PVR's An/AL/UL labels (Ch.9 Section 9.2, Table 18 printed
+p.87).
 
-```
-Asc:  10 Vi 58            Sun:  26 Pi 29 (AK)      Moon: 4 Ge 45 (GK)
-Merc: 1 Pi 36 (DK)        Jup:  17 Ar 21 (PiK)      Ven:  10 Pi 01 (PK)
-Mars: 19 Ar 09 (MK)       Sat:  22 Ar 41 (BK)       Rahu: 5 Cn 55 (AmK)
-Ketu: 5 Cp 55  (= Rahu + 180 exactly: 5Cn55 + 180 = 5Cp55)
-```
+- **Whole-sign house assembly**: house n falls in the sign at
+  `(lagna_idx + n - 1) % 12`; house 1 IS lagna_sign. This is the only
+  house-division convention arudha.py's docstring left for a caller to
+  supply, and the only one PVR endorses anywhere in the book (Ch.7
+  Section 7.5 "A Controversy" explicitly rejects Sripati/equal-house
+  cusps for this purpose).
+- **Labels**: house 1 -> "AL", house 12 -> "UL", else `f"A{n}"` --
+  PVR's own verbatim naming (Ch.9 Section 9.2).
+- **Validation split**: `lagna_sign` membership in the 12 canonical
+  rasis is checked BEFORE the loop, raising ValueError naming the bad
+  value. `planet_longitudes`' key-set/range validation is delegated
+  entirely to `compute_arudha_pada()` -- not duplicated here (one-line
+  comment at the docstring and call site say so explicitly).
+- **Fail-closed (locked decision)**: any ValueError `compute_arudha_pada()`
+  raises for any of the 12 houses -- including strength.py's D2
+  (both co-lords resident) and D6 (exact Step-5(b) tie), for a
+  Scorpio/Aquarius house -- propagates UNMODIFIED. No catch, no partial
+  `BhavaPadaSet`: a chart with even one unresolvable house has no
+  well-defined bhava-pada set as a whole. Commented at the call site
+  with this rationale, per task instruction.
 
-Reconstructed `CHART1` dict (absolute sidereal degrees, Aries = 0):
+## Result shape
 
-```python
-CHART1 = {
-    "Sun": 356.48333333333335,   # 26 Pi 29
-    "Moon": 64.75,                # 4 Ge 45
-    "Mars": 19.15,                # 19 Ar 09
-    "Mercury": 331.6,             # 1 Pi 36
-    "Jupiter": 17.35,             # 17 Ar 21
-    "Venus": 340.01666666666665,  # 10 Pi 01
-    "Saturn": 22.683333333333334, # 22 Ar 41
-    "Rahu": 95.91666666666667,    # 5 Cn 55
-    "Ketu": 275.9166666666667,    # 5 Cp 55
-}
-```
+- `BhavaPada` (frozen dataclass): `house_num: int`, `label: str`,
+  `result: ArudhaPadaResult`.
+- `BhavaPadaSet` (frozen dataclass): `lagna_sign: str`,
+  `padas: tuple[BhavaPada, ...]` (length 12, ordered house 1-12) -- a
+  tuple, not list/dict, so the whole set stays hashable like its
+  sibling jaimini/ result types (`ArudhaPadaResult`,
+  `StrongerCoLordResult`).
+- `_CANONICAL_SIGNS` is a local copy (not imported from arudha.py/
+  strength.py) -- matches this session's own locked precedent that
+  each jaimini/ kernel module carries its own copy rather than sharing
+  one (see SESSION_LOG.md Session 57, Key Decision 1).
 
-Before writing any test code, this reconstruction was ratified two
-ways:
-1. Every planet's sign was cross-checked against Example 29's own
-   per-house narration (e.g. "Lord is Mercury and he is in Pi" ->
-   Mercury at 1Pi36 is indeed Pisces; "Lord is Saturn... in Ar"
-   ("with 2 other planets") -> Saturn/Mars/Jupiter all in Aries,
-   confirming the joiner-count claim used to pick Saturn over Rahu
-   for Aquarius and Mars over Ketu for Scorpio).
-2. `compute_arudha_pada()` was run against all 12 houses and its
-   `count` field was compared to the book's own narrated intermediate
-   numbers (item (1) count=7, (2) count=6, (3) count=6, (4) count=5,
-   (5) count=4, (6) count=3, (7) count=2, (8) count=1, (9) count=11,
-   (10) count=10, (11) count=12, (12) count=8) -- all 12 matched
-   exactly, confirming the longitude reconstruction is faithful.
+## Hand verification (no test file, per this task's scope)
 
-Per this task's scope, only `arudha_sign` is asserted in Layer A
-(inputs are reconstructed, not book-printed arithmetic themselves;
-`count`/`raw_ending_sign`/`co_lord_deciding_step` are commented as
-not-asserted-here). All 12 houses match the book's printed answer:
+Ran `compute_bhava_padas("Virgo", CHART1)` against PVR's own Example 29
+(Chart 1, the same fixture reconstructed for arudha.py's test suite)
+before considering this done. All 12 houses matched the book's printed
+answer key exactly, both label AND arudha_sign:
 
-| House sign | Book arudha_sign | Test result |
-|---|---|---|
-| Virgo (AL) | Gemini | PASS |
-| Libra (A2) | Leo | PASS |
-| Scorpio (A3) | Virgo | PASS |
-| Sagittarius (A4) | Leo | PASS |
-| Capricorn (A5) | Aries | PASS |
-| Aquarius (A6) | Gemini | PASS |
-| Pisces (A7) | Taurus | PASS |
-| Aries (A8) | Capricorn | PASS |
-| Taurus (A9) | Capricorn | PASS |
-| Gemini (A10) | Virgo | PASS |
-| Cancer (A11) | Taurus | PASS |
-| Leo (UL) | Libra | PASS |
+| House | Label | House sign | arudha_sign (book) | Match |
+|---|---|---|---|---|
+| 1 | AL | Virgo | Gemini | OK |
+| 2 | A2 | Libra | Leo | OK |
+| 3 | A3 | Scorpio | Virgo | OK |
+| 4 | A4 | Sagittarius | Leo | OK |
+| 5 | A5 | Capricorn | Aries | OK |
+| 6 | A6 | Aquarius | Gemini | OK |
+| 7 | A7 | Pisces | Taurus | OK |
+| 8 | A8 | Aries | Capricorn | OK |
+| 9 | A9 | Taurus | Capricorn | OK |
+| 10 | A10 | Gemini | Virgo | OK |
+| 11 | A11 | Cancer | Taurus | OK |
+| 12 | UL | Leo | Libra | OK |
 
-## Layer B: step-5 exception (synthetic)
-
-All three fixture values were independently re-derived by hand against
-`arudha.py`'s own COUNTING FORMULA docstring before the test file was
-written (no failures encountered, so no design-chat values needed
-revision):
-
-- B1 (1st-house trigger): Aries/Mars@10.0 -> count=1,
-  raw_ending_sign=Aries, exception_applied=True,
-  arudha_sign=Capricorn, lord=Mars. PASS.
-- B2 (7th-house trigger): Gemini/Mercury@165.0 -> count=4,
-  raw_ending_sign=Sagittarius, exception_applied=True,
-  arudha_sign=Virgo, lord=Mercury. PASS.
-- B3 (no exception, PVR's own inline example): Gemini/Mercury@315.0 ->
-  count=9, raw_ending_sign=Libra, exception_applied=False,
-  arudha_sign=Libra. PASS.
-
-## Layer C: co-lord dependency + propagation
-
-- C1 (SHERIDAN, Scorpio): Ketu resident -> basic_rule picks Mars.
-  Routing check only (arudha_sign not asserted as oracle). PASS.
-- C2 (SULABH, Aquarius): Rahu resident -> basic_rule picks Saturn.
-  Routing check only. PASS.
-- C3 (synthetic, Mars@210.0 + Ketu@220.0 both in Scorpio): raises
-  ValueError, message matches "D2|both" (strength.py's D2
-  both-resident fail-closed, propagated unmodified out of arudha.py).
-  PASS.
-
-## Layer D: input contract
-
-Unrecognized house_sign, missing planet key, extra planet key,
-out-of-range high longitude (>=360), negative longitude, NaN longitude
--- all six raise ValueError with the offending token named in the
-message, mirroring `test_jaimini_strength.py`'s Layer D paths exactly.
-All PASS.
-
-## Layer E: result-shape locks
-
-`ArudhaPadaResult` confirmed frozen (`FrozenInstanceError` on
-`setattr`) and hashable (`hash(result)` succeeds); type-checked as
-`ArudhaPadaResult`. All PASS.
+Also confirmed directly:
+- `BhavaPadaSet` is frozen (`FrozenInstanceError` on `setattr`) and
+  hashable (`hash(bps)` succeeds).
+- Bad `lagna_sign` ("Xyz") raises ValueError naming it, before the
+  loop runs.
+- A chart missing a required planet key (`Ketu` deleted) raises
+  ValueError naming it -- confirming validation genuinely delegates to
+  `compute_arudha_pada()` rather than silently passing through.
 
 ## Full suite verification
 
-- New file alone: 27 passed, 0 failed (0.15s).
-- Baseline (pre-change, confirmed by running the full suite before
-  adding this file): 3074 passed, 3 skipped, 0 failed.
-- Full suite after adding the file: **3101 passed, 3 skipped, 0
-  failed** (96.36s) -- exactly 3074 + 27, matching the expected total.
+**3102 passed, 3 skipped, 0 failed** (91.84s) -- identical to the
+committed baseline after the arudha.py test-suite close-out. Zero
+delta, as expected: nothing imports `padas.py` yet.
 
 ## Files touched
 
-- `tests/calculations/test_jaimini_arudha.py` -- new file, 27 tests.
-- No other file edited. (`diagnostics/calc_router_stage2.log` picked up
-  its usual +32 lines as an incidental side effect of running the
-  Stage-2 router tests inside the full suite -- not a deliberate edit,
-  consistent with this repo's existing "chore: update
-  calc_router_stage2.log" commit pattern.)
+- `agent/calculations/jaimini/padas.py` -- full kernel, replacing the
+  1-line stub. No other file edited.
 
 ## Not committed
 
 Per task instruction, nothing has been committed. This report and the
-new test file are pending review.
+new module are pending review.
