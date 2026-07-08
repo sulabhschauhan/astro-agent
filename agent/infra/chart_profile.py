@@ -42,6 +42,7 @@ from agent.calculations.compatibility.koota_types import AshtakootResult, KootaN
 from agent.calculations.compatibility.mangal_dosha import compute_mangal_dosha
 from agent.calculations.helpers import ephemeris
 from agent.calculations.helpers.discrete_scan import find_state_segments
+from agent.calculations.jaimini.padas import compute_bhava_padas
 from agent.calculations.strength.bhava_bala import compute_bhava_bala_totals
 from agent.calculations.strength.shadbala_totals import compute_shadbala_totals
 from agent.calculations.transits.av_transit_scanner import scan_av_transit_segments
@@ -76,6 +77,18 @@ _CAREER_PLANET_SWE_IDS: dict[str, int] = {
     "Sun": swe.SUN, "Moon": swe.MOON, "Mars": swe.MARS,
     "Mercury": swe.MERCURY, "Jupiter": swe.JUPITER,
     "Venus": swe.VENUS, "Saturn": swe.SATURN,
+}
+
+# jaimini.padas.compute_bhava_padas()'s own contract needs all 9 classical
+# grahas (Title-case), unlike career_strength's 7 above. Rahu resolves via
+# swe.MEAN_NODE (same node convention as chart_calculator.py's own
+# _calc_planets()); Ketu is not a separate swe id -- it's derived as
+# Rahu + 180 at the call site below, mirroring chart_calculator.py's own
+# ketu_lon = (rahu_lon + 180) % 360.
+_JAIMINI_PLANET_SWE_IDS: dict[str, int] = {
+    "Sun": swe.SUN, "Moon": swe.MOON, "Mars": swe.MARS,
+    "Mercury": swe.MERCURY, "Jupiter": swe.JUPITER,
+    "Venus": swe.VENUS, "Saturn": swe.SATURN, "Rahu": swe.MEAN_NODE,
 }
 
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4) -- both constants below
@@ -796,3 +809,75 @@ def build_domain_profile(
         uncertainty_virupa=uncertainty_virupa,
         uncertainty_days=uncertainty_days,
     )
+
+
+def build_arudha_lagna_profile(chart_data: dict) -> dict:
+    """Bridge calculate_chart() output -> the Arudha Lagna (AL, house 1)
+    entry of jaimini.padas.compute_bhava_padas()'s 12-house result.
+
+    Standalone builder, NOT yet wired into build_domain_profile()/
+    _VALID_DOMAINS/the router or formatter -- this function only assembles
+    the AL-specific payload; domain/router/formatter integration is a
+    separate, later prompt.
+
+    lagna_sign comes from chart_data["lagna_chart"]["rasi"] (whole-sign
+    house 1, same field _koota_natal_info_from_chart already reads for
+    Ashtakoot's moon_sign). planet_longitudes is recomputed via
+    helpers/ephemeris.py's sidereal_longitude() (calculate_chart()'s public
+    planetary_positions strips raw longitude, per this file's own
+    _koota_natal_info_from_chart docstring) for the 9 keys
+    compute_bhava_padas()/compute_arudha_pada() require -- Rahu via
+    swe.MEAN_NODE, Ketu derived as Rahu + 180 (see _JAIMINI_PLANET_SWE_IDS).
+
+    Only the house-1 (AL) BhavaPada is extracted from the 12-house
+    BhavaPadaSet; compute_bhava_padas()'s own ordering guarantee
+    (house_num 1..12 in order, verified by test_jaimini_padas.py's own
+    test_all_12_houses_match_book) means house 1 is always padas[0].
+
+    Args:
+        chart_data: calculate_chart() output for a single native.
+
+    Returns:
+        {"arudha_sign": str, "lagna_sign": str, "lord": str,
+         "co_lord_deciding_step": str | None, "tier": "TIER_1_EXACT",
+         "sources": ("padas.py",)}
+
+    Raises:
+        RuntimeError: helpers.ephemeris.sidereal_longitude failed for any
+            of the 8 directly-computed planets (Ketu is derived, not
+            separately queried).
+        ValueError: propagated UNMODIFIED from compute_bhava_padas() --
+            lagna_sign not a canonical rasi, or (for a Scorpio/Aquarius
+            Lagna) strength.py's D2 (both co-lords resident) / D6 (exact
+            Step-5(b) tie) fail-closed cases. Not caught or reinterpreted
+            here, matching arudha.py/strength.py's own precedent.
+    """
+    jd_ut = chart_data["meta"]["jd_ut"]
+
+    try:
+        planet_longitudes = {
+            name: ephemeris.sidereal_longitude(jd_ut, swe_id)
+            for name, swe_id in _JAIMINI_PLANET_SWE_IDS.items()
+        }
+    except ephemeris.EphemerisError as exc:
+        raise RuntimeError(
+            f"helpers.ephemeris.sidereal_longitude failed (arudha_lagna "
+            f"planet_longitudes): {exc}"
+        ) from exc
+    planet_longitudes["Ketu"] = (planet_longitudes["Rahu"] + 180) % 360
+
+    lagna_sign = chart_data["lagna_chart"]["rasi"]
+
+    # ValueError (bad lagna_sign, or D2/D6 co-lord fail-closed for a
+    # Scorpio/Aquarius Lagna) propagates unmodified -- no try/except here.
+    bhava_padas = compute_bhava_padas(lagna_sign, planet_longitudes)
+    house_1 = bhava_padas.padas[0]
+
+    return {
+        "arudha_sign": house_1.result.arudha_sign,
+        "lagna_sign": bhava_padas.lagna_sign,
+        "lord": house_1.result.lord,
+        "co_lord_deciding_step": house_1.result.co_lord_deciding_step,
+        "tier": "TIER_1_EXACT",
+        "sources": ("padas.py",),
+    }
