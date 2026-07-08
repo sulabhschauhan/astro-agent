@@ -192,6 +192,17 @@ class TestCoLordDependency:
         assert result.lord == "Saturn"
         assert result.co_lord_deciding_step == "basic_rule"
 
+    def test_c4_sulabh_scorpio_cascade_ketu_at_step_2(self):
+        # Neither Mars (Cp) nor Ketu (Le) is resident in Scorpio -> full
+        # cascade runs (not basic_rule). Per
+        # test_jaimini_strength.py's own
+        # test_sulabh_scorpio_cascade_ketu_at_step_2, Ketu wins at
+        # step_2. Routing check only -- arudha_sign is self-derived, no
+        # book/JHora parity source, not asserted here.
+        result = compute_arudha_pada("Scorpio", SULABH)
+        assert result.lord == "Ketu"
+        assert result.co_lord_deciding_step == "step_2"
+
     def test_c3_d2_both_resident_propagates_unmodified(self):
         # strength.py's D2 fail-closed (both co-lords resident in the
         # contested sign) must propagate out of arudha.py unmodified --
