@@ -1,86 +1,84 @@
-# P6 Jaimini: Bhava Padas test suite (tests/calculations/test_jaimini_padas.py)
+# Session 58: P6->P7 Arudha Lagna wiring (chart_profile.py + tests)
 
-**Task type:** new test file only. `agent/calculations/jaimini/padas.py`
-and every other module untouched -- this run adds
-`tests/calculations/test_jaimini_padas.py` exclusively, mirroring
-`test_jaimini_arudha.py`'s structure, provenance discipline, and
-CHART1 fixture (copied verbatim).
+## Status
 
-## Layer A: PVR Example 29 labeled book oracle
+`build_arudha_lagna_profile(chart_data) -> dict` (agent/infra/chart_profile.py)
+is DONE: bridges calculate_chart() output -> jaimini.padas.compute_bhava_padas(),
+extracting only the house-1 (AL) entry. Standalone -- NOT yet wired into
+build_domain_profile()/_VALID_DOMAINS/calc_router.py/result_formatter.py.
+Router + formatter wiring is next, pending a separate design-chat decision
+on question-routing keywords for this domain.
 
-Single test (`test_all_12_houses_match_book`) calls
-`compute_bhava_padas("Virgo", CHART1)` once and asserts against the
-book-printed (label, arudha_sign) table for all 12 houses:
+Bug fixed en route: the first draft read `chart_data["lagna_chart"]["rasi"]`
+as the Lagna sign -- that field is actually Moon-sign (Chandra Rasi), not
+the Ascendant (confirmed via a REPL diagnostic: Sulabh's `rasi`=Scorpio vs
+`ascendant`=Sagittarius; `_koota_natal_info_from_chart` already reads this
+same field into a variable named `moon_sign`). Fixed to read
+`chart_data["lagna_chart"]["ascendant"]` instead.
 
-| House | Label (book) | arudha_sign (book) | Match |
-|---|---|---|---|
-| 1 | AL | Gemini | PASS |
-| 2 | A2 | Leo | PASS |
-| 3 | A3 | Virgo | PASS |
-| 4 | A4 | Leo | PASS |
-| 5 | A5 | Aries | PASS |
-| 6 | A6 | Gemini | PASS |
-| 7 | A7 | Taurus | PASS |
-| 8 | A8 | Capricorn | PASS |
-| 9 | A9 | Capricorn | PASS |
-| 10 | A10 | Virgo | PASS |
-| 11 | A11 | Taurus | PASS |
-| 12 | UL | Libra | PASS |
+## 4-chart Arudha Lagna table
 
-Also asserted in this same test: `len(bps.padas) == 12` and
-`house_num` runs 1..12 in order. Only `label` + `arudha_sign` are
-book-printed per house -- `house_sign`/`lord`/`count`/etc. on
-`BhavaPada.result` are already covered by test_jaimini_arudha.py's own
-Layer A and deliberately not re-asserted here.
+| Chart    | lagna_sign  | arudha_sign | lord      | co_lord_deciding_step | Ratification |
+|----------|-------------|-------------|-----------|------------------------|--------------|
+| Sulabh   | Sagittarius | Leo         | Jupiter   | None                   | RATIFIED (hand-verified: PVR Ch.9 counting, Sg->Ar=5, 5 from Ar=Le, no step-5 exception) |
+| Surbhi   | Libra       | Leo         | Venus     | None                   | Ratified (internal-consistency only -- PVR counting engine, no independent oracle) |
+| Sheridan | Taurus      | Aquarius    | Venus     | None                   | Ratified (internal-consistency only) |
+| David    | Virgo       | Taurus      | Mercury   | None                   | Ratified (internal-consistency only) |
 
-## Layer B: fail-closed D2 propagation through the full loop
+None of the 4 charts have a Scorpio/Aquarius Lagna, so `co_lord_deciding_step`
+is None across the board here -- the co-lord cascade path (stronger_co_lord)
+is exercised separately by test_jaimini_arudha.py's own Layer C fixtures and
+by this file's Layer B (see below), not by any of these 4 reference charts'
+own Lagna.
 
-This closes the specific gap test_jaimini_arudha.py's own C3 left
-open: C3 called `compute_arudha_pada()` directly (single house), never
-`compute_bhava_padas()`'s own 12-house loop. Here, `lagna_sign="Scorpio"`
-makes house 1 itself Scorpio -- the synthetic chart (Mars@210.0 +
-Ketu@220.0 both resident in Scorpio) triggers strength.py's D2
-fail-closed on the very first loop iteration.
-`pytest.raises(ValueError, match="D2|both")` around
-`compute_bhava_padas("Scorpio", ...)`: PASS. Confirms the exception
-propagates UNMODIFIED out of the whole-loop orchestration, not just
-out of the single-house kernel.
+## Test suite: tests/infra/test_chart_profile_arudha_lagna.py (+9 tests)
 
-## Layer C: input contract
+- Layer A: Sulabh AL=Leo asserted directly (ratified). Surbhi/Sheridan/David
+  measure-first (shape asserted, arudha_sign not asserted -- see table above).
+- Layer B: D2 fail-closed (Saturn+Rahu both in Aquarius) propagates
+  unmodified through build_arudha_lagna_profile(). Real chart_data cannot
+  trigger this -- the function recomputes every planet longitude live from
+  jd_ut, and no real jd_ut exists where Saturn+Rahu are both in sidereal
+  Aquarius (see Known Issue below). Tested via monkeypatch on the shared
+  `swisseph.calc_ut` (Saturn/Rahu forced into Aquarius, real ephemeris for
+  every other planet) -- the same test seam helpers/ephemeris.py's own
+  CONSTRAINT section documents.
+- Layer C: missing `lagna_chart` key -> KeyError; missing `ascendant` key ->
+  KeyError; invalid ascendant sign string -> ValueError (from
+  compute_bhava_padas).
+- Layer D: result dict has exactly 6 keys, correct types.
 
-- Unrecognized `lagna_sign` ("Xyz") raises ValueError naming it, before
-  any pada is computed (checked ahead of the loop). PASS.
-- Missing planet key (Ketu deleted from a CHART1 copy) raises
-  ValueError naming it -- confirms the validation split documented in
-  padas.py's own docstring: `lagna_sign` is checked locally,
-  `planet_longitudes` validation is delegated entirely to
-  `compute_arudha_pada()`, not duplicated in padas.py. PASS.
+## Baseline
 
-## Layer D: result-shape locks
+3120 passed, 3 skipped, 0 failed (3111 + 9 new, zero regressions elsewhere).
 
-- `BhavaPadaSet` confirmed frozen (`FrozenInstanceError` on `setattr`)
-  and hashable (`hash(bps)` succeeds). PASS.
-- `BhavaPada` confirmed frozen (`FrozenInstanceError` on a pada's own
-  `label` setattr). PASS.
-- Type-checks: `BhavaPadaSet` and every element of `.padas` is a
-  `BhavaPada`. PASS.
-- Label scheme: house 1 == "AL", house 12 == "UL", houses 2-11 ==
-  `f"A{n}"`. PASS.
+## Known issue found this session (not fixed, tracked in CLAUDE.md)
 
-## Full suite verification
+`strength.py`'s D2 docstring cites "2022-23, when Saturn and Rahu were both
+transiting Aquarius" as a real, documented example. Checked directly via
+swisseph: Saturn was in sidereal Aquarius through 2022-23, but Rahu (Mean
+Node) was in Aries/Pisces that entire window. A 1900-2030 scan at 10-day
+resolution found no real Saturn+Rahu-both-in-Aquarius overlap at all. The
+D2 fail-closed mechanism itself is correct and unaffected (verified via
+synthetic fixtures in test_jaimini_strength.py and via this session's own
+monkeypatch test) -- only the illustrative citation in the docstring is
+wrong. See CLAUDE.md Carry-Forward.
 
-- New file alone: **9 passed**, 0 failed (0.20s).
-- Baseline (pre-change, confirmed by running the full suite before
-  adding this file): 3102 passed, 3 skipped, 0 failed.
-- Full suite after adding the file: **3111 passed, 3 skipped, 0
-  failed** (104.30s) -- exactly 3102 + 9, matching the expected total.
+## Open items (not this session's scope)
 
-## Files touched
+(a) Fix strength.py's D2 docstring citation (see above) -- ride-along with
+    the next file touch, not a standalone prompt.
+(b) calc_router.py needs a keyword set for an "arudha_lagna" domain, plus a
+    collision check against `_STEM_MAP` (existing domains' keywords) before
+    wiring routing -- not started.
+(c) result_formatter.py needs a render branch for arudha_lagna's
+    TIER_1_EXACT payload shape (arudha_sign/lagna_sign/lord/
+    co_lord_deciding_step) -- not started.
 
-- `tests/calculations/test_jaimini_padas.py` -- new file, 9 tests.
-- No other file edited.
+## Files touched this session
 
-## Not committed
-
-Per task instruction, nothing has been committed. This report and the
-new test file are pending review.
+- `agent/infra/chart_profile.py` -- `build_arudha_lagna_profile()` added,
+  then its lagna-key bug fixed.
+- `tests/infra/test_chart_profile_arudha_lagna.py` -- new file, 9 tests.
+- `CLAUDE.md` -- Carry-Forward entry for the strength.py D2 docstring issue.
+- `diagnostics/latest_run.md` -- this file.
