@@ -1975,6 +1975,37 @@ failed**, verified directly after each commit in this list.
    contract; Layer E, result-shape locks (frozen, hashable). Baseline
    3074 -> 3101. (4dac9cc)
 
+5. `jaimini/padas.py` kernel + test suite -- orchestration layer over
+   `arudha.py`: whole-sign house assembly (house n = lagna_idx+n-1 mod
+   12) + PVR's An/AL/UL labeling (Ch.9 Section 9.2, Table 18). Kernel
+   hand-verified against all 12 houses of PVR's Example 29 (Chart 1),
+   exact match on both label and arudha_sign, zero pytest delta.
+   (db8d981) Followed by a 9-test suite: Layer A, the same Example 29
+   full 12-house (label, arudha_sign) book oracle in a single
+   parametrized-by-house test; Layer B, `strength.py`'s D2
+   both-co-lords-resident fail-closed verified propagating through the
+   FULL 12-house loop (lagna_sign="Scorpio" puts the failure at house
+   1) -- closing the gap `arudha.py`'s own test suite left open, where
+   C3 only ever exercised `compute_arudha_pada()` directly, never
+   `compute_bhava_padas()`'s loop; Layer C, input contract confirming
+   the validation split (`lagna_sign` checked locally, `planet_
+   longitudes` delegated entirely to `compute_arudha_pada()`); Layer D,
+   result-shape locks (frozen, hashable) + the AL/An/UL label scheme.
+   Baseline 3102 -> 3111. (59d1396)
+
+   Note: Layer B verifies fail-closed propagation via D2 raising at
+   house 1 specifically. D6 (exact Step-5(b) tie) and a mid-loop
+   (rather than first-house) failure position both ride the exact same
+   no-catch `ValueError` propagation path mechanically -- `strength.py`
+   already owns dedicated D6 coverage at the single-house level, and
+   `padas.py`'s loop has no branch that could special-case house
+   position, so a second synthetic fixture would exercise identical
+   code, not new code. Not separately tested here by design, not an
+   oversight.
+
+**P6 Jaimini (Arudha/Padas) is now CLOSED**: karakas.py, rasi_aspects.py,
+strength.py, arudha.py, padas.py all shipped with kernel + test suite.
+
 ### Baseline discrepancy carry-forward
 The 2948 (Session 56 stated close) vs. 2972 (actual, commit-verified)
 gap noted in this session's own "Test baseline" section above was
@@ -1982,6 +2013,6 @@ promoted to a standing CLAUDE.md Carry-Forward item this session, so
 it isn't lost to compression before being reconciled.
 
 ### Next task
-See CLAUDE.md Current Session Focus: padas.py (orchestrate
-`compute_arudha_pada()` across houses 1-12, attach An/AL/UL labels per
-PVR's Table 18).
+P6 Jaimini closed this session. See CLAUDE.md Current Session Focus:
+P6->P7 wiring (exposing bhava padas to the answer pipeline) -- TBD
+pending design-chat decision, not yet scoped.
