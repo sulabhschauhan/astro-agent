@@ -1,67 +1,95 @@
-# P6 Jaimini: Stronger Co-Lord Cascade -- Test Suite (PVR 15.5.1)
+# P6 Jaimini: Bhava Arudha Kernel (PVR Ch.9 Section 9.2)
 
-**Task type:** new-file test addition. One file only:
-`tests/calculations/test_jaimini_strength.py`, covering the previously
-test-free `agent/calculations/jaimini/strength.py` (committed 2ca52bc).
-No production code touched.
+**Task type:** new-file implementation. One file only:
+`agent/calculations/jaimini/arudha.py`. No test file, no other module
+touched, nothing imports this module yet.
 
 ## What was built
 
-24 tests across 5 layers, mirroring `test_jaimini_karakas.py`'s
-layered-oracle discipline:
+`compute_arudha_pada(house_sign, planet_longitudes) -> ArudhaPadaResult`
+-- implements PVR Ch.9 Section 9.2's general Bhava Arudha procedure
+(steps 1-6). This is the SAME algorithm for every house, AL (Arudha
+Lagna, house 1) included -- AL is not a separate calculation, just this
+procedure with `house_sign` = Lagna's sign. `jaimini/padas.py` (a later
+file, per the Master Build Plan's own file split) will call this kernel
+once per house (1-12) and attach the An/AL/UL labels from PVR's Table
+18; that labeling layer deliberately does not live here.
 
-- **Layer A (real-chart oracle, JHora v8 longitudes):** Sulabh-Aquarius
-  (basic rule -> Saturn), Sheridan-Scorpio (basic rule -> Mars),
-  Sulabh-Scorpio (cascade -> Ketu at step 2), Sheridan-Aquarius
-  (cascade -> Rahu at step 1). Ketu longitudes derived as Rahu+180,
-  cross-checked against `tests/fixtures/jhora_sulabh.md`'s own raw Ketu
-  row (28 Le 25'02.40" = 28 Aq 25'02.40" + 180 exactly).
-- **Layer B (PVR book-verbatim):** the Section 15.5.1 Step-2
-  Saturn-count=2 worked example; Exercise 25 both halves (Aquarius:
-  Saturn wins at step 4, dual beats movable; Scorpio: Ketu wins at
-  basic rule); the Step 5(b) worked example using PVR's own two
-  longitudes verbatim (Mars 23Li17, Ketu 5Cn54). Where PVR's prose
-  gives only partial chart data (a few planets' signs, not a full
-  9-planet set), the remaining planets were hand-placed and verified to
-  be step-1/step-2/step-3/step-4-neutral so the fixture reaches the
-  intended step on the book's own arithmetic, not by accident.
-- **Layer C (design-lock regressions):** D2 (Saturn+Rahu both in
-  Aquarius simultaneously -> fails closed, the real 2022-23 trigger),
-  D3 (Mars in Aries contesting Scorpio -- self-dispositor conjoins
-  trivially, isolated as the sole source of Mars's step-2 win), D4
-  (Ketu placed in Capricorn -- Mars's own classical exaltation sign --
-  proves a node gains nothing there), D6 (Saturn Ge15/Rahu Vi15 exact
-  advancement tie after steps 1-4 all tie -> fails closed).
-- **Layer D (input contract):** bad sign, both `purpose` reject paths
-  (`dasa_duration` cites footnote 53; any other value lists the two
-  recognized literals), missing/extra planet keys, out-of-range and
-  negative longitudes, NaN (via the `not (0<=lon<360)` form).
-- **Layer E (result-shape locks):** hashability, diagnostics is a
-  tuple of 2-tuples, basic-rule short-circuit has empty diagnostics,
-  return type check.
+Step 2's own text ("Take the stronger lord... The chapter on 'Strength
+of Planets and Rasis' will explain the rules") is a direct, explicit
+cross-reference to Ch.15 Section 15.5.1 -- confirming
+`strength.stronger_co_lord()` (built and tested earlier this session)
+is the PVR-mandated dependency for Scorpio/Aquarius house signs, not an
+inferred one. Every other house sign uses its single classical lord.
+`stronger_co_lord`'s own exceptions (D2 both-co-lords-resident, D6
+exact Step-5(b) tie) propagate unmodified -- this module does not catch
+or reinterpret them.
 
-## Fixture verification method
+Counting formula (steps 3-5) was derived from PVR's own inline worked
+numbers (Gemini->Aquarius = 9, 9 signs from Aquarius = Libra) as an
+inclusive 1-based zodiacal count, with the "1st or 7th from the
+original sign" exception check expressed as distance 0 or 6 (mod 12),
+applied at most once (no worked example in the book chains the
+correction).
 
-Every synthetic Layer B/C fixture was hand-derived against PVR's rasi
-drishti rules (`rasi_aspects.py`'s movable/fixed/dual scheme) before
-being run, then cross-checked by executing `stronger_co_lord` directly
-against each fixture and diffing the actual `deciding_step` /
-diagnostics against the hand derivation -- all matched on the first
-pass, no fixture required adjustment to match code output (which would
-have defeated the purpose of an independent oracle check).
+Input contract mirrors karakas.py/strength.py: all 9 Title-case planet
+keys required and range-validated ([0,360), NaN-safe form) even though
+a classical (non-co-lorded) house sign only needs one planet's
+position -- uniform full-birth-chart contract, same as the sibling
+kernels.
+
+`ArudhaPadaResult` is a frozen dataclass with explicit named fields
+(house_sign, lord, lord_sign, co_lord_deciding_step, count,
+raw_ending_sign, exception_applied, arudha_sign) -- flat-field style
+like `CharaKarakasResult`, not a diagnostics tuple like
+`StrongerCoLordResult`, because every arudha computation runs the same
+fixed sequence of steps with no step-dependent early return.
+
+## Oracle verification (no test file, per this task's scope)
+
+PVR's own Example 29 (Chart 1, printed p.87 / PDF p.99) gives a FULL
+12-house worked answer key -- every house's lord, sign, count, and
+final arudha sign, including both co-lord cases (House 3 = Scorpio ->
+Mars, House 6 = Aquarius -> Saturn, both resolved at step 1 per the
+book's own "with 2 other planets" phrasing). Chart 1's planet-to-sign
+placements were reconstructed from Example 29 + the companion Example
+30 (Graha Arudha, same chart) and cross-checked for internal
+consistency (e.g. Moon's sign independently confirmed from both
+examples) before use.
+
+All 12 houses matched exactly on the first run, including the two
+co-lord cases resolving at `deciding_step="step_1"` as the book
+narrates:
+
+```
+House  1 (Virgo)       -> Gemini      [AL]  OK
+House  2 (Libra)       -> Leo               OK
+House  3 (Scorpio)     -> Virgo   (Mars, step_1)  OK
+House  4 (Sagittarius) -> Leo               OK
+House  5 (Capricorn)   -> Aries             OK
+House  6 (Aquarius)    -> Gemini  (Saturn, step_1) OK
+House  7 (Pisces)      -> Taurus            OK
+House  8 (Aries)       -> Capricorn         OK
+House  9 (Taurus)      -> Capricorn         OK
+House 10 (Gemini)      -> Virgo             OK
+House 11 (Cancer)      -> Taurus            OK
+House 12 (Leo)         -> Libra       [UL]  OK
+```
+
+Error paths spot-checked by hand: bad house_sign, missing planet key --
+both raised as designed.
 
 ## Verify
 
+Full suite, zero delta expected (nothing imports the new module yet):
+
 ```
-tests/calculations/test_jaimini_strength.py: 24 passed
-Full suite: 3074 passed, 3 skipped, 0 failed in 117.13s
+3074 passed, 3 skipped, 0 failed in 97.00s
 ```
 
-Baseline was 3050 passed / 3 skipped (strength.py's prior no-test-file
-commit). Delta is exactly +24, matching the new test count -- zero
-delta elsewhere.
+Matches the expected baseline exactly (unchanged from the prior
+strength.py test-suite commit).
 
 ## Commit
 
-Pending: `P6 Jaimini: stronger co-lord cascade test suite (PVR
-15.5.1)`.
+Pending: `P6 Jaimini: bhava arudha kernel (PVR Ch.9 Section 9.2)`.
