@@ -1961,7 +1961,27 @@ unchanged after arudha.py's kernel commit (+0, no test file, nothing
 imports it yet). Final state this session: **3074 passed, 3 skipped, 0
 failed**, verified directly after each commit in this list.
 
+4. `jaimini/arudha.py` test suite -- 27 tests, 5 layers: Layer A,
+   PVR's Example 29 (Chart 1) 12-house book oracle, `arudha_sign` only
+   (inputs reconstructed from the PDF's printed longitude table, not
+   book-narrated arithmetic, so `count`/`raw_ending_sign`/
+   `co_lord_deciding_step` are not asserted here); Layer B, 3 synthetic
+   step-5 exception fixtures (1st-house trigger, 7th-house trigger, and
+   PVR's own inline no-exception worked example); Layer C, co-lord
+   `basic_rule` routing checks (SHERIDAN/SULABH, reused verbatim from
+   strength.py's test fixtures) plus a synthetic D2 both-co-lords-
+   resident regression confirming `strength.py`'s fail-closed
+   ValueError propagates out of `arudha.py` unmodified; Layer D, input
+   contract; Layer E, result-shape locks (frozen, hashable). Baseline
+   3074 -> 3101. (4dac9cc)
+
+### Baseline discrepancy carry-forward
+The 2948 (Session 56 stated close) vs. 2972 (actual, commit-verified)
+gap noted in this session's own "Test baseline" section above was
+promoted to a standing CLAUDE.md Carry-Forward item this session, so
+it isn't lost to compression before being reconciled.
+
 ### Next task
-See CLAUDE.md Current Session Focus: arudha.py test suite, then
-padas.py (orchestrate `compute_arudha_pada()` across houses 1-12,
-attach An/AL/UL labels per PVR's Table 18).
+See CLAUDE.md Current Session Focus: padas.py (orchestrate
+`compute_arudha_pada()` across houses 1-12, attach An/AL/UL labels per
+PVR's Table 18).

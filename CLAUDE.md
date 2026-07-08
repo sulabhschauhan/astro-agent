@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 57: P6 Jaimini (Arudha/Padas).** Shipped: rasi_aspects.py + strength.py (kernels + test suites), arudha.py (kernel, no test file yet). Next: arudha.py test suite, then padas.py.
+**Session 57: P6 Jaimini (Arudha/Padas).** Shipped: rasi_aspects.py + strength.py (kernels + test suites), arudha.py (kernel + test suite). Next: padas.py.
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -82,5 +82,5 @@ Ayana Bala Kranti (RESOLVED Session 47), Sun Ayana Bala doubling (RESOLVED Sessi
 - **Rahu/Ketu unknown-planet message** (Session 54) — `av_transit_scorer.py`'s generic "unknown transit_planet" ValueError needs its own design-reason text for Rahu/Ketu specifically (currently folded into the generic unknown-planet path); ride-along with the next file touch, not a standalone prompt.
 - **RouteResult route marker** (Session 55) — `calc_router.py`'s `RouteResult` carries no field identifying which path (Stage 1 / Stage 2 / fastpath) resolved a question; `golden_harness.py` currently reconstructs this by fragile question-text/timestamp correlation against `calc_router_stage2.log`. Add a router-emitted `route` field next time `calc_router.py` is touched, and switch the harness to read it directly.
 - **`golden_harness.py` stale `_KNOWN_GAPS` prose** (Session 55) — 5 entries' "Session 50 observed mechanism" text describes pre-Session-55 routing behavior (now superseded by the `route`-field split, MATCH vs MATCH_STAGE2); refresh opportunistically, not a standalone prompt.
-- **arudha.py test suite** (Session 57) — `compute_arudha_pada()` verified by hand against PVR's Example 29 (all 12 houses of a real worked chart, both co-lord cases included) but has no test file yet; mirror strength.py's kernel-then-test-suite rhythm next.
 - **padas.py** (Session 57) — still an empty stub; orchestrate `compute_arudha_pada()` across houses 1-12 and attach the An/AL/UL labels (PVR Table 18, printed p.87).
+- **Session 56->57 baseline discrepancy** (Session 57) — Session 56 logged close at 2948 passed; the actual pre-Session-57 baseline verified from commit 3993d79 was 2972 (24-test gap). Root cause not investigated, not blocking. Reconcile before trusting any future absolute baseline delta.
