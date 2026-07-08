@@ -866,7 +866,9 @@ def build_arudha_lagna_profile(chart_data: dict) -> dict:
         ) from exc
     planet_longitudes["Ketu"] = (planet_longitudes["Rahu"] + 180) % 360
 
-    lagna_sign = chart_data["lagna_chart"]["rasi"]
+    # ascendant = Lagna sign (Whole-Sign house 1); 'rasi' in this dict is
+    # Moon-sign -- see _koota_natal_info_from_chart.
+    lagna_sign = chart_data["lagna_chart"]["ascendant"]
 
     # ValueError (bad lagna_sign, or D2/D6 co-lord fail-closed for a
     # Scorpio/Aquarius Lagna) propagates unmodified -- no try/except here.
