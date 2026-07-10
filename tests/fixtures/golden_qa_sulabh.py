@@ -641,4 +641,88 @@ GOLDEN_QA: list[dict] = [
         "expected_techniques": ["vimshottari"],
         "adjudication": "pending_jhora",
     },
+    {
+        "id": "sulabh_arudha_q1_stage1",
+        "chart": "sulabh",
+        "domain": "arudha_lagna",
+        "question": "what is my arudha lagna and public image",
+        "baseline_source": "s59_ratified_oracle",
+        "baseline_answer_summary": (
+            "S59-ratified Stage-1 phrasing (>=2 _ARUDHA_LAGNA_KEYWORDS hits, "
+            "clears the 0.4 floor/0.15 margin): resolves via Stage 1 keyword "
+            "routing, not a live Stage 2 LLM call."
+        ),
+        "claims": [
+            {
+                "claim": "Arudha Lagna = Leo",
+                "verdict": "MATCH",
+                "note": "S59 PVR-counting ratification (Ch.15 arudha padas, "
+                        "same-house/9th-from-lord counting rule); oracle-locked "
+                        "for Sulabh in the S59 orchestrator e2e suite.",
+            },
+        ],
+        "v1_answerable": True,
+        "expected_tier": "TIER_1_EXACT",
+        "expected_techniques": ["arudha_lagna"],
+        "adjudication": "ratified_s59",
+    },
+    {
+        "id": "sulabh_arudha_q2_stage2",
+        "chart": "sulabh",
+        "domain": "arudha_lagna",
+        "question": "what is my arudha lagna",
+        "baseline_source": "s59_ratified_oracle",
+        "baseline_answer_summary": (
+            "This phrasing is expected to fall below the Stage 1 keyword floor "
+            "(single-mention, score 0.333 < 0.4 floor per CLAUDE.md's "
+            "'arudha_lagna Stage 1 unreachable for single-mention questions' "
+            "carry-forward item) and resolve via a live GPT-4o-mini Stage 2 "
+            "call on every run -- MATCH_STAGE2 posture: monitored via "
+            "calc_router_stage2.log, not asserted as a stable MATCH. Raises "
+            "per-run live Stage 2 calls from 9 to 10."
+        ),
+        "claims": [
+            {
+                "claim": "Arudha Lagna = Leo",
+                "verdict": "MATCH",
+                "note": "S59 PVR-counting ratification, same oracle value as "
+                        "sulabh_arudha_q1_stage1; routing path differs "
+                        "(Stage 2), calculation result does not.",
+            },
+        ],
+        "v1_answerable": True,
+        "expected_tier": "TIER_1_EXACT",
+        "expected_techniques": ["arudha_lagna"],
+        "adjudication": "ratified_s59",
+    },
+    {
+        "id": "sulabh_arudha_q3_refusal_probe",
+        "chart": "sulabh",
+        "domain": "arudha_lagna",
+        "question": "what does my upapada lagna say about my marriage",
+        "baseline_source": "s59_ratified_oracle",
+        "baseline_answer_summary": (
+            "Upapada Lagna is built at calc level (annual/jaimini karakas "
+            "pipeline) but is NOT a wired Q&A domain -- no _STEM_MAP entry, no "
+            "built-module fastpath. Router behavior on this probe is "
+            "unmeasured; do not guess REFUSAL vs any other tier ahead of the "
+            "follow-up harness run."
+        ),
+        "claims": [
+            {
+                "claim": "MEASURE-FIRST: router disposition for an unwired "
+                         "calc-level-only construct is not yet observed",
+                "verdict": "PENDING",
+                "note": "Design intent is deliberately withheld pending a real "
+                        "harness run; the observed tier gets recorded here, "
+                        "design chat ratifies it, then this row's "
+                        "expected_tier placeholder is replaced with the "
+                        "ratified value.",
+            },
+        ],
+        "v1_answerable": False,
+        "expected_tier": "MEASURE_FIRST_PENDING_RATIFICATION",
+        "expected_techniques": ["arudha_lagna"],
+        "adjudication": "pending_jhora",
+    },
 ]
