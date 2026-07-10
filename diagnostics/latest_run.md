@@ -283,3 +283,38 @@ answer_question("what is my arudha lagna public image", chart)
   fixed.
 
 Not committed — diff above for review. No test file changes this session.
+
+## Follow-up: doc-only fixes (chart_profile.py) + commit
+
+Two stale-docstring fixes, `agent/infra/chart_profile.py` only, no logic
+changed:
+
+1. `build_arudha_lagna_profile()`'s docstring claimed `lagna_sign` comes
+   from `chart_data["lagna_chart"]["rasi"]` -- verified against the actual
+   code (line 932) before writing anything: the real call reads
+   `chart_data["lagna_chart"]["ascendant"]`, with an existing inline
+   comment (lines 930-931) already explaining `"rasi"` holds the MOON sign
+   in that dict, not the Lagna sign. Docstring corrected to match, with an
+   explicit "do not regress into the Session 58 lagna-key bug" clause
+   (git history: commit `83cae16`, "fix lagna key: ascendant, not rasi",
+   part of the Session 58 arudha_lagna profile-builder work).
+2. Module top docstring's "Covers the 3 domains..." sentence was flagged
+   stale in the prior entry above (never mentioned av_transit or
+   arudha_lagna at all, predating this session). Updated to state "Covers
+   6 domains as of Session 59" and added a sentence each for av_transit
+   and arudha_lagna, matching this file's own convention of documenting
+   each domain addition.
+
+Also added to `CLAUDE.md` Carry-Forward: arudha_lagna's payload passes
+through meta keys `tier`/`sources` unreconciled -- flagged for whenever
+the next Jaimini domain lands (dual tier representation risk: `payload["tier"]`
+as a string literal vs. `DomainAnswer.tier`'s `AnswerTier` enum, currently
+harmless only because `_format_arudha_lagna()` ignores the payload key).
+
+pytest re-run after both doc fixes: `3120 passed, 3 skipped, 1 warning in
+91.19s` -- exact match, confirms doc-only. Golden harness skipped per
+instruction (no code path touched).
+
+Commit: `S59: arudha_lagna wired into build_domain_profile dispatch +
+chart_profile _VALID_DOMAINS (orchestrator sync pending)` -- hash
+`<filled in after commit>`.

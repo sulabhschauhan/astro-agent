@@ -1,16 +1,21 @@
 """Domain-scoped input/output types for the thin-slice answer pipeline.
 
-Covers the 3 domains locked for the pipeline checkpoint (Session 31 key
-decision 3): marriage_compatibility, career_strength, current_dasha. Plus
-sade_sati (Session 50/P7.2a): a TIER_1_EXACT sub-path for q14-class
-questions, carrying ONLY Sade Sati fields (deterministic sign-boundary
-ephemeris scan) -- never mahadasha/antardasha fields, and never touching
-the general current_dasha payload/uncertainty_days, which stays at its
-locked always-TIER_2_RANGE (Session 49/P7.0c "tier = payload property"
-lock: current_dasha always carries dated Mahadasha/Antardasha boundaries,
-which always carry the documented +/-37-day drift; sade_sati's payload
-carries no such dated dasha claims, so it earns its own T1 sub-path
-instead of inheriting current_dasha's demotion).
+Covers 6 domains as of Session 59 -- the 3 locked for the original pipeline
+checkpoint (Session 31 key decision 3): marriage_compatibility,
+career_strength, current_dasha. Plus sade_sati (Session 50/P7.2a): a
+TIER_1_EXACT sub-path for q14-class questions, carrying ONLY Sade Sati
+fields (deterministic sign-boundary ephemeris scan) -- never mahadasha/
+antardasha fields, and never touching the general current_dasha
+payload/uncertainty_days, which stays at its locked always-TIER_2_RANGE
+(Session 49/P7.0c "tier = payload property" lock: current_dasha always
+carries dated Mahadasha/Antardasha boundaries, which always carry the
+documented +/-37-day drift; sade_sati's payload carries no such dated
+dasha claims, so it earns its own T1 sub-path instead of inheriting
+current_dasha's demotion). Plus av_transit (Session 55): always
+TIER_2_RANGE, Ashtakavarga-based transit quality within the current
+Antardasha envelope. Plus arudha_lagna (Session 59): another TIER_1_EXACT
+sub-path, same payload-property reasoning as sade_sati -- Jaimini Arudha
+Lagna carries no dated claims either.
 Deterministic T1/T2 output only -- NO LLM synthesis anywhere in this
 pipeline (Session 23 V1 lock; any handover text mentioning "Calc Router ->
 GPT-4o-mini synthesis" is stale and superseded).
@@ -881,9 +886,12 @@ def build_arudha_lagna_profile(chart_data: dict) -> dict:
     route fails closed via orchestrator.answer_question()'s own defensive
     ValueError, not a silent misroute.
 
-    lagna_sign comes from chart_data["lagna_chart"]["rasi"] (whole-sign
-    house 1, same field _koota_natal_info_from_chart already reads for
-    Ashtakoot's moon_sign). planet_longitudes is recomputed via
+    lagna_sign comes from chart_data["lagna_chart"]["ascendant"] (whole-sign
+    house 1) -- NOT "rasi", which holds the MOON sign in that same dict
+    (the Session 58 lagna-key bug this function itself was fixed to avoid
+    regressing into; see _koota_natal_info_from_chart, which reads "rasi"
+    for exactly that different purpose, Ashtakoot's moon_sign).
+    planet_longitudes is recomputed via
     helpers/ephemeris.py's sidereal_longitude() (calculate_chart()'s public
     planetary_positions strips raw longitude, per this file's own
     _koota_natal_info_from_chart docstring) for the 9 keys
