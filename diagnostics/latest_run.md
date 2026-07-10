@@ -1,3 +1,69 @@
+# Session 59 (cont. 5): fix sulabh_arudha_q2_stage2 question collision with sentinel test
+
+ONE FILE: `tests/fixtures/golden_qa_sulabh.py`. Row `sulabh_arudha_q2_stage2`
+only. Not committed — awaiting review.
+
+## Why
+
+`sulabh_arudha_q2_stage2`'s question `"what is my arudha lagna"` was a
+verbatim collision with `tests/infra/test_orchestrator_arudha_lagna.py`'s
+`_STAGE1_MISS_QUESTION` (same literal string, used in
+`test_a2_single_keyword_phrasing_attempts_stage2_and_refuses`).
+`golden_harness._used_stage2_since()` correlates
+`diagnostics/calc_router_stage2.log` entries to golden rows by exact
+question text; `_log_stage2_invocation` logs unconditionally, including
+sentinel/pytest-fixture runs — so any pytest run of the sentinel test
+would pollute this golden row's Stage-2-log correlation, violating the
+harness docstring's stated uniqueness invariant.
+
+## Edit applied
+
+`question` changed from `"what is my arudha lagna"` to
+`"tell me my arudha lagna"` — still exactly one `_ARUDHA_LAGNA_KEYWORDS`
+hit (`"arudha lagna"`), so `_score_domain` still returns `1/3 = 0.333 <
+0.4` floor, preserving the row's Stage-2-dependent design intent
+unchanged. `baseline_answer_summary` appended with a sentence explaining
+the rephrase and citing the collision it avoids.
+
+## Verification
+
+**1. New string uniqueness** — grepped `"tell me my arudha lagna"`
+across `tests/`: exactly 1 hit, `tests/fixtures/golden_qa_sulabh.py:673`
+(the edited row itself). Zero collisions.
+
+**2. Collision-class check on the other 2 new rows (report only, no fix)**:
+- `"what is my arudha lagna and public image"`
+  (`sulabh_arudha_q1_stage1`) — **COLLIDES**. Same string as
+  `test_orchestrator_arudha_lagna.py`'s `_STAGE1_CLEAN_QUESTION`
+  (lines 21, 33, 66). This row is Stage-1-clean by design (score 0.667,
+  never reaches Stage 2), so the harness's Stage-2-log correlation isn't
+  triggered by this collision the way it was for q2 — but the literal
+  question-text duplication across files still exists and violates the
+  same invariant in spirit. Not fixed — awaiting ratification, since the
+  task prompt scoped this run to `sulabh_arudha_q2_stage2` only.
+- `"what does my upapada lagna say about my marriage"`
+  (`sulabh_arudha_q3_refusal_probe`) — grepped `"upapada lagna"`
+  (case-insensitive) across `tests/`: only 2 hits, both inside
+  `golden_qa_sulabh.py` itself (the question string and the
+  `baseline_answer_summary` prose that also mentions "Upapada Lagna").
+  No collision with any other test file.
+
+**Net: 1 of 3 new rows (q1_stage1) still has an unresolved collision.**
+Flagging for a follow-up ratification/fix decision, not fixing
+preemptively.
+
+## Fixture import check
+
+```
+total rows: 21
+duplicate questions within ledger: NONE
+IMPORT_OK
+```
+
+No commit made — review pending.
+
+---
+
 # Session 59 (cont. 4): ratify David/Sheridan/Surbhi lord/co_lord_deciding_step + docs
 
 Uncommented and pinned the 3 previously-print-only RATIFY assertion blocks
