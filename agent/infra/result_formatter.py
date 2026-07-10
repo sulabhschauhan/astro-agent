@@ -36,7 +36,7 @@ convergence wiring and router are later, separate changes) -- the payload
 shape is frozen by design-chat ahead of that layer's construction, so this
 branch is unreachable via any live router path until that wiring lands.
 
-Session 58 adds a 6th domain, "arudha_lagna" -- TIER_1_EXACT only, mirroring
+Session 59 adds a 6th domain, "arudha_lagna" -- TIER_1_EXACT only, mirroring
 sade_sati's pattern (no dated claims anywhere in the payload, so no drift
 language, no _format_jd calls). Same staged-rollout precedent as av_transit
 above: chart_profile.py's build_arudha_lagna_profile() is a standalone
@@ -528,7 +528,7 @@ def _format_arudha_lagna(profile: DomainChartProfile) -> DomainAnswer:
     precedent as _format_av_transit()'s Session 55 landing above: this
     branch is dead code until that separate, later wiring lands.
 
-    DEVIATION FLAGGED (Session 58, design-chat decision): the original
+    DEVIATION FLAGGED (Session 59, design-chat decision): the original
     branch spec called for a rendered prose paragraph inside
     answer_payload, but DomainAnswer.answer_payload is documented
     (chart_profile.py) as "deterministic values the formatter renders

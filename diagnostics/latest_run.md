@@ -1,4 +1,4 @@
-# Session 58: arudha_lagna render branch (result_formatter.py, ONE FILE)
+# Session 59: arudha_lagna render branch (result_formatter.py, ONE FILE)
 
 Scope: add the arudha_lagna render branch to
 `agent/infra/result_formatter.py` only. No test file this session. Not
@@ -74,7 +74,7 @@ instructions)
  shape is frozen by design-chat ahead of that layer's construction, so this
  branch is unreachable via any live router path until that wiring lands.
 +
-+Session 58 adds a 6th domain, "arudha_lagna" -- TIER_1_EXACT only, mirroring
++Session 59 adds a 6th domain, "arudha_lagna" -- TIER_1_EXACT only, mirroring
 +sade_sati's pattern (no dated claims anywhere in the payload, so no drift
 +language, no _format_jd calls). Same staged-rollout precedent as av_transit
 +above: chart_profile.py's build_arudha_lagna_profile() is a standalone
@@ -119,7 +119,7 @@ instructions)
 +    precedent as _format_av_transit()'s Session 55 landing above: this
 +    branch is dead code until that separate, later wiring lands.
 +
-+    DEVIATION FLAGGED (Session 58, design-chat decision): the original
++    DEVIATION FLAGGED (Session 59, design-chat decision): the original
 +    branch spec called for a rendered prose paragraph inside
 +    answer_payload, but DomainAnswer.answer_payload is documented
 +    (chart_profile.py) as "deterministic values the formatter renders
@@ -259,3 +259,24 @@ routes to arudha_lagna (S58 router-wiring session already confirmed this).
 
 Not committed — diff above for review. No test file this session (tests
 are the next prompt, per task instruction).
+
+## Follow-up: Session 58 -> Session 59 label fix (no logic changes)
+
+This branch's own session-label references (module docstring paragraph
+introducing the 6th domain + `_format_arudha_lagna`'s docstring, both in
+`result_formatter.py`; this file's own header + diff-block copies) were
+originally mislabeled "Session 58" (that number belongs to the prior,
+separate `calc_router.py` router-wiring turn). Relabeled to "Session 59"
+throughout — comment/doc text only, no code changed. Pre-existing
+Session 55/56 references elsewhere in the file were left untouched.
+
+Also added to `CLAUDE.md`'s Carry-Forward: uncertainty_days ownership
+for arudha_lagna (formatter hardcodes 0.0; the `build_domain_profile()`
+dispatch prompt must ratify single source of truth before wiring).
+
+pytest re-run after the label fix: `3120 passed, 3 skipped, 1 warning in
+73.63s` -- exact match, confirming this was comment-only. Golden harness
+skipped per instruction (no code path touched).
+
+Commit: `S59: arudha_lagna TIER_1_EXACT formatter branch (dead code
+until dispatch/orchestrator sync)` -- hash `<filled in after commit>`.
