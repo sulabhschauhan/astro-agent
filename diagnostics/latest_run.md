@@ -1,3 +1,116 @@
+# Session 59 (cont. 2): arudha_lagna admitted into orchestrator._VALID_DOMAINS — last gate
+
+Scope: ONE FILE, `agent/infra/orchestrator.py` — admit `"arudha_lagna"` into
+`_VALID_DOMAINS`. Not committed — user reviews diffs first. This closes the
+arudha_lagna staged rollout: router (S58) + formatter (S59) + chart_profile
+dispatch/`_VALID_DOMAINS` (S59) were already live; this was the last gate.
+
+## Pre-edit review
+
+Read `orchestrator.py` end-to-end. Located `_VALID_DOMAINS` and its
+`SENSITIVE_TO` comment block documenting the Session 55 av_transit incident
+(chart_profile.py's own gate was missed for a full session after
+orchestrator.py's gate shipped). Grepped `tests/` for any test asserting
+`answer_question()` raises on `"arudha_lagna"`, asserting `_VALID_DOMAINS`'
+exact contents/length, or asserting the "unrecognized domain" ValueError
+message listing exactly 5 domains — no matches found (only
+`test_chart_profile_arudha_lagna.py`, which exercises
+`build_arudha_lagna_profile()` directly, never the orchestrator). Clear to
+proceed.
+
+## Edit applied (single)
+
+`_VALID_DOMAINS` += `"arudha_lagna"`, with a comment stating: added S59,
+closes the av_transit-precedent staged rollout (router S58 -> formatter S59
+-> chart_profile S59 -> this gate); SENSITIVE_TO chart_profile.py's own
+`_VALID_DOMAINS` (both now list the same 6 domains — keep in sync by hand,
+per the existing incident note above); and that `_merge_router_demotion()`
+needs NO change (calc_router.py emits `demotion_reason=None` for
+arudha_lagna and the formatter's `_format_arudha_lagna()` branch also sets
+`None`, so the merge is a no-op passthrough — confirmed by reading, not
+preemptively wired).
+
+```diff
+ _VALID_DOMAINS = {
+     "marriage_compatibility",
+     "career_strength",
+     "current_dasha",
+     "sade_sati",
+     "av_transit",
++    "arudha_lagna",
+ }
++# "arudha_lagna" added Session 59 -- closes the av_transit-precedent staged
++# rollout (router S58 -> formatter S59 -> chart_profile.py's own dispatch/
++# _VALID_DOMAINS S59 -> this gate, the last one). SENSITIVE_TO
++# chart_profile.py's own _VALID_DOMAINS constant (see incident note above):
++# both now list the same 6 domains -- keep in sync by hand.
++#
++# _merge_router_demotion() needs NO change for this domain: calc_router.py
++# emits demotion_reason=None for arudha_lagna and result_formatter.py's
++# _format_arudha_lagna() branch also sets demotion_reason=None (payload-
++# property principle, same as current_dasha/sade_sati/av_transit), so the
++# merge below is a no-op passthrough -- not preemptively wiring anything.
+```
+
+No other lines in the file touched (the older "DEMOTION LOCK (Session 55,
+av_transit)" comment block further down and the `transit_planet` docstring
+prose still read as av_transit-specific — left alone, out of scope for a
+one-edit prompt).
+
+## Live E2E smoke (first reachable execution of the full chain)
+
+Ran directly against `agent.infra.orchestrator.answer_question()` with the
+real Sulabh chart (6 Apr 1988, 00:30, Calcutta) — no mocks.
+
+**(a) `"what is my arudha lagna"`** — matches expectation exactly:
+- `domain`: `arudha_lagna`
+- `tier`: `AnswerTier.TIER_1_EXACT`
+- `answer_payload`: `{'arudha_sign': 'Leo', 'lagna_sign': 'Sagittarius', 'lord': 'Jupiter', 'co_lord_deciding_step': None}`
+- `demotion_reason`: `None`
+- (also observed: `stub_caveats=()`, `uncertainty_virupa=0.0`, `uncertainty_days=0.0`, `sources=('padas.py',)`)
+
+**(b) `"how do people see me in public"`** — reported verbatim, NOT tuned:
+this did **not** miss Stage 1 as anticipated in the task prompt. It routed
+straight to `domain=arudha_lagna`, `tier=TIER_1_EXACT`, same payload as (a),
+`demotion_reason=None` — i.e. Stage 1 keyword scoring matched arudha_lagna
+directly on this wording (public image / how others see you is evidently
+one of its keyword hits) rather than missing and falling to Stage 2 or
+refusal. Router posture (refuse-heavy, S44 lock) not touched; this is a
+report only, no keyword/threshold changes made.
+
+**(c) `"what is my current dasha"`** — zero behavior change confirmed:
+`domain=current_dasha`, `tier=AnswerTier.TIER_2_RANGE` (router-demoted for
+the ±37-day Antardasha-drift caveat, pre-existing behavior, unrelated to
+this edit), full mahadasha/antardasha/timing_enrichment payload present,
+`demotion_reason="Antardasha boundaries carry ±37-day drift vs AstroSage;
+the current lord itself is reliable, but any date given for its start/end
+should be treated as approximate"` — identical shape/content to what this
+domain has always returned; `_VALID_DOMAINS` widening does not perturb any
+other domain's dispatch.
+
+## pytest full suite
+
+`3120 passed, 3 skipped, 1 warning in 74.59s` — exact match to the expected
+3120/3/0, no flips.
+
+## Golden harness
+
+Ran `python -m agent.eval.golden_harness`:
+`runnable=16 non_runnable_batch=2 match=7 match_stage2=5 design_debt=0
+known_gap=4 new_gap=0 error=0` — new report
+`diagnostics/golden_scorecard_20260710_175732.md`.
+
+Diffed against the immediately-prior scorecard
+(`diagnostics/golden_scorecard_20260710_170315.md`, generated during the
+earlier S59 chart_profile-dispatch task this session): the ONLY diff line
+is the `evaluated_at_jd` run timestamp. Zero rows moved category —
+confirms the S58-observed "no golden row routes to arudha_lagna" holds
+after this gate opened too.
+
+Not committed — diffs above for review; no test files touched.
+
+---
+
 # Session 59 (cont.): arudha_lagna wired into build_domain_profile() dispatch
 
 Scope: ONE FILE, `agent/infra/chart_profile.py` — widen `_VALID_DOMAINS` and

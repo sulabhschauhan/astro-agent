@@ -64,7 +64,19 @@ _VALID_DOMAINS = {
     "current_dasha",
     "sade_sati",
     "av_transit",
+    "arudha_lagna",
 }
+# "arudha_lagna" added Session 59 -- closes the av_transit-precedent staged
+# rollout (router S58 -> formatter S59 -> chart_profile.py's own dispatch/
+# _VALID_DOMAINS S59 -> this gate, the last one). SENSITIVE_TO
+# chart_profile.py's own _VALID_DOMAINS constant (see incident note above):
+# both now list the same 6 domains -- keep in sync by hand.
+#
+# _merge_router_demotion() needs NO change for this domain: calc_router.py
+# emits demotion_reason=None for arudha_lagna and result_formatter.py's
+# _format_arudha_lagna() branch also sets demotion_reason=None (payload-
+# property principle, same as current_dasha/sade_sati/av_transit), so the
+# merge below is a no-op passthrough -- not preemptively wiring anything.
 
 # DEMOTION LOCK (Session 55, av_transit): route_question() will set
 # demotion_reason=None for this domain once router wiring lands --
