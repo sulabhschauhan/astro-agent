@@ -64,6 +64,63 @@ No commit made — review pending.
 
 ---
 
+# Session 59 (cont. 6): fix sulabh_arudha_q1_stage1 question collision with sentinel test
+
+ONE FILE: `tests/fixtures/golden_qa_sulabh.py`. Row `sulabh_arudha_q1_stage1`
+only. Not committed — awaiting review.
+
+## Edit applied
+
+`question` changed from `"what is my arudha lagna and public image"` to
+`"what is my arudha pada and public perception"` — a verbatim collision
+with `test_orchestrator_arudha_lagna.py`'s `_STAGE1_CLEAN_QUESTION`
+constant. Inert today (Stage-1-clean phrasings never log to
+`calc_router_stage2.log`, so no live misattribution currently occurs) but
+violated the harness docstring's absolute uniqueness invariant and was a
+live risk if future keyword tuning ever shifted this phrasing's routing.
+Replacement was already measured in the same S59 sentinel run recorded in
+that test file's own module docstring: 2 keyword hits (`"arudha pada"` +
+`"public perception"`), score 0.667, Stage 1 clean, sentinel calls=0,
+`TIER_1_EXACT` — equally ratified, no re-measurement needed.
+`baseline_answer_summary` appended with a sentence explaining the
+rephrase and citing the collision avoided.
+
+## Verification
+
+**1. New string grep across `tests/`** — NOT a clean zero-outside-row
+result; flagging precisely rather than rounding up:
+
+```
+tests\infra\test_orchestrator_arudha_lagna.py:25:    "what is my arudha pada and public perception" -> score 0.667, sentinel
+tests\fixtures\golden_qa_sulabh.py:648:        "question": "what is my arudha pada and public perception",
+```
+
+Line 25 is inside that file's MODULE DOCSTRING (lines 1-50) — part of
+the prose table documenting all 5 candidate phrasings measured against
+`route_question()` before any test was written (see that file's own
+"MEASURE-FIRST FINDING" section). It is never assigned to a variable and
+never passed to `route_question()`/any test call — the only LIVE
+constant in that file is `_STAGE1_CLEAN_QUESTION = "what is my arudha "
+"lagna and public image"` (line 66, unchanged, still distinct from the
+new golden-row string). So this is inert docstring prose, not an
+executable-string collision of the kind that broke q2 — but it is still
+a literal text duplication across files. Not fixed (out of scope for a
+golden-fixture-only edit; would require touching the test file).
+
+**2. Fixture import + ledger-wide uniqueness**:
+
+```
+total rows: 21
+duplicate questions within ledger: NONE
+unique: True
+IMPORT_OK
+```
+
+No commit made — review pending, including on the docstring-prose
+duplication noted above.
+
+---
+
 # Session 59 (cont. 4): ratify David/Sheridan/Surbhi lord/co_lord_deciding_step + docs
 
 Uncommented and pinned the 3 previously-print-only RATIFY assertion blocks
