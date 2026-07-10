@@ -1,3 +1,209 @@
+# Session 59 (cont. 3): new test file test_orchestrator_arudha_lagna.py — router-provenance + e2e oracle
+
+ONE FILE (new): `tests/infra/test_orchestrator_arudha_lagna.py`. No source
+files touched. Not committed — user reviews + ratifies first.
+
+## Pre-edit step 1: exact `_score_domain` formula (read, not assumed)
+
+`agent/infra/calc_router.py:415-422`:
+
+```python
+def _score_domain(question_tokens: list[str], keywords: tuple[str, ...]) -> float:
+    """Saturating score: min(matched_keywords, 3) / 3. ..."""
+    matched = sum(1 for kw in keywords if _keyword_hits(kw, question_tokens))
+    return min(matched, 3) / 3
+```
+
+Confirmed: the denominator is a FIXED 3 (saturating cap), NOT
+`len(keywords)`. `arudha_lagna`'s own `_ARUDHA_LAGNA_KEYWORDS` has 4
+entries (`"arudha lagna"`, `"arudha pada"`, `"public image"`,
+`"public perception"`) — a single-keyword hit always scores `1/3 = 0.333`
+regardless of that list's length, matching the log's observed 0.333
+exactly. `_CONFIDENCE_FLOOR = 0.4` — so 1 match never clears Stage 1; 2
+matches score `2/3 = 0.667`, clearing both the floor and the
+`_CONFIDENCE_MARGIN = 0.15` gap against every other domain's 0.0 for these
+phrasings.
+
+## Pre-edit step 2: MEASURE-FIRST candidate phrasings (recording sentinel)
+
+Ran `route_question()` directly against a recording sentinel client
+(records the call in `.calls`, then raises `RuntimeError` — never returns a
+canned response) for 5 candidate phrasings, BEFORE writing any test:
+
+```
+Q: 'what is my arudha lagna and public image'
+  all scores: {'marriage_compatibility': 0.0, 'career_strength': 0.0, 'current_dasha': 0.0, 'av_transit': 0.0, 'arudha_lagna': 0.6667}
+  best=arudha_lagna score=0.6667 second=0.0000 margin=0.6667
+  sentinel invoked: False (calls=0)
+  route_question result: domain=arudha_lagna tier=AnswerTier.TIER_1_EXACT
+
+Q: 'arudha lagna public image'
+  all scores: {..., 'arudha_lagna': 0.6667}
+  sentinel invoked: False (calls=0)
+  route_question result: domain=arudha_lagna tier=AnswerTier.TIER_1_EXACT
+
+Q: 'what is my arudha lagna'
+  all scores: {..., 'arudha_lagna': 0.3333}
+  sentinel invoked: True (calls=1)
+  route_question result: domain=None tier=AnswerTier.REFUSAL
+
+Q: 'how do people see me in public'
+  all scores: {..., 'arudha_lagna': 0.0}  (best=marriage_compatibility, all 0.0)
+  sentinel invoked: True (calls=1)
+  route_question result: domain=None tier=AnswerTier.REFUSAL
+
+Q: 'what is my arudha pada and public perception'
+  all scores: {..., 'arudha_lagna': 0.6667}
+  sentinel invoked: False (calls=0)
+  route_question result: domain=arudha_lagna tier=AnswerTier.TIER_1_EXACT
+```
+
+3 of 5 phrasings clear Stage 1 alone (2 keyword hits each); the other 2
+score 0.333/0.0 and fall through to a Stage-2 attempt that fails closed
+(sentinel raises, `_stage2_fallback`'s `except Exception` converts it to
+REFUSAL). Full `RouteResult` for the chosen Stage-1-clean phrasing
+(`"what is my arudha lagna and public image"`):
+
+```
+RouteResult(domain='arudha_lagna', tier=<AnswerTier.TIER_1_EXACT: 'TIER_1_EXACT'>, confidence=0.6666666666666666, demotion_reason=None, requires_partner=False)
+calls: []
+```
+
+Selected this phrasing (over the shorter `"arudha lagna public image"`)
+because it reads as an actual question, matching
+`test_orchestrator_e2e.py`'s existing full-question convention.
+
+## Pre-edit step 3: `route_question` signature confirmation
+
+`agent/infra/calc_router.py:751-757`:
+
+```python
+def route_question(
+    question: str,
+    has_partner_data: bool = False,
+    *,
+    chart_data: dict | None = None,
+    _stage2_client: object | None = None,
+) -> RouteResult:
+```
+
+Confirmed the injection kwarg is `_stage2_client`, threaded into
+`_stage2_classify(question, client=client)` only inside `_stage2_fallback`
+— matches `tests/infra/test_calc_router_stage2.py`'s own usage.
+
+IMPORTANT divergence caught before writing Layer C: `agent/infra/
+orchestrator.py`'s `answer_question()` signature does NOT accept or thread
+a `_stage2_client` kwarg through to `route_question()` at all. So Layer C's
+"recording sentinel" cannot use that seam — the correct seam (confirmed by
+reading, not assumed) is monkeypatching `calc_router._stage2_classify`
+itself, the module-level function `_stage2_fallback` calls internally. Used
+that instead for Layer C only; Layer A (direct `route_question()` calls)
+uses the real `_stage2_client` kwarg.
+
+## Pre-edit step 4: fixture/prompt-verification conventions
+
+Read `tests/infra/test_orchestrator_e2e.py` (module-scoped
+`calculate_chart()` fixture per reference chart, standalone test function
+per chart) and `tests/infra/test_chart_profile_arudha_lagna.py` (measure-
+first ratify pattern: print `"RATIFY BEFORE COMMIT -- {chart}: ..."`,
+assert only what's independently verified, leave the rest commented).
+Mirrored both in the new file.
+
+Also verified the task prompt's claimed ratified `arudha_sign` values
+against a live run of `build_arudha_lagna_profile()` BEFORE writing any
+assertion (per CLAUDE.md's "verify task prompts against code" memory) --
+all 3 confirmed exact:
+
+```
+Sulabh   {'arudha_sign': 'Leo', 'lagna_sign': 'Sagittarius', 'lord': 'Jupiter', 'co_lord_deciding_step': None, ...}
+Surbhi   {'arudha_sign': 'Leo', 'lagna_sign': 'Libra', 'lord': 'Venus', 'co_lord_deciding_step': None, ...}
+Sheridan {'arudha_sign': 'Aquarius', 'lagna_sign': 'Taurus', 'lord': 'Venus', 'co_lord_deciding_step': None, ...}
+David    {'arudha_sign': 'Taurus', 'lagna_sign': 'Virgo', 'lord': 'Mercury', 'co_lord_deciding_step': None, ...}
+```
+
+David=Taurus, Sheridan=Aquarius, Surbhi=Leo all matched the prompt exactly
+-- no correction needed.
+
+## New file: `tests/infra/test_orchestrator_arudha_lagna.py` (7 tests)
+
+**Layer A (router provenance, `route_question()` in isolation):**
+- `test_a1_stage1_clean_phrasing_never_touches_stage2` — Stage-1-clean
+  phrasing + recording sentinel -> `domain=arudha_lagna`,
+  `TIER_1_EXACT`, `demotion_reason=None`, `requires_partner=False`,
+  sentinel `.calls == []`.
+- `test_a2_single_keyword_phrasing_attempts_stage2_and_refuses` —
+  `"what is my arudha lagna"` + recording sentinel -> sentinel invoked
+  (`len(calls) == 1`), `domain=None`, `tier=REFUSAL`. Docstring explicitly
+  states this pins CURRENT behavior (CLAUDE.md carry-forward, 2026-07-10),
+  not desired behavior, and that a future scorecard-gated tuning should
+  flip it deliberately.
+
+**Layer B (chart_profile.build_domain_profile -> result_formatter.
+format_answer, router bypassed, no LLM):**
+- Sulabh: FULL assert — exact `answer_payload` dict match, exact 4-key
+  set (pins no tier/sources meta-key leakage from chart_profile.py's
+  documented payload passthrough), `TIER_1_EXACT`, `demotion_reason=None`,
+  `uncertainty_days=0.0`, `sources=("padas.py",)`.
+- David (hardest case, tested first among the 3 partial rows): assert
+  `arudha_sign="Taurus"` only; `lord`/`co_lord_deciding_step` printed via
+  `RATIFY BEFORE COMMIT` line, assertions commented out.
+- Sheridan: assert `arudha_sign="Aquarius"` only, same RATIFY treatment.
+- Surbhi: assert `arudha_sign="Leo"` only, same RATIFY treatment.
+
+**Layer C (full chain, `answer_question()`, Sulabh, Stage-1-clean
+phrasing):**
+- `test_sulabh_full_chain_matches_layer_b` — monkeypatches
+  `calc_router._stage2_classify` with a spy that records + raises;
+  asserts it's never called, then asserts the full `DomainAnswer` is
+  `==` to Layer B's independently-built Sulabh row byte-for-byte —
+  pins `_merge_router_demotion`'s no-op passthrough for this domain.
+
+## Test run (`-s`) output
+
+```
+tests/infra/test_orchestrator_arudha_lagna.py::TestLayerARouterProvenance::test_a1_stage1_clean_phrasing_never_touches_stage2 PASSED
+tests/infra/test_orchestrator_arudha_lagna.py::TestLayerARouterProvenance::test_a2_single_keyword_phrasing_attempts_stage2_and_refuses PASSED
+tests/infra/test_orchestrator_arudha_lagna.py::TestLayerBRealChartOracle::test_sulabh_full_assert PASSED
+tests/infra/test_orchestrator_arudha_lagna.py::TestLayerBRealChartOracle::test_david_arudha_sign_ratified RATIFY BEFORE COMMIT -- David: lord='Mercury' co_lord_deciding_step=None
+PASSED
+tests/infra/test_orchestrator_arudha_lagna.py::TestLayerBRealChartOracle::test_sheridan_arudha_sign_ratified RATIFY BEFORE COMMIT -- Sheridan: lord='Venus' co_lord_deciding_step=None
+PASSED
+tests/infra/test_orchestrator_arudha_lagna.py::TestLayerBRealChartOracle::test_surbhi_arudha_sign_ratified RATIFY BEFORE COMMIT -- Surbhi: lord='Venus' co_lord_deciding_step=None
+PASSED
+tests/infra/test_orchestrator_arudha_lagna.py::TestLayerCFullChain::test_sulabh_full_chain_matches_layer_b PASSED
+
+[_patch_stage2_openai] stub invocation count: 0
+7 passed in 1.03s
+```
+
+Stub invocation count 0 confirms no test in this file reaches the real
+(stubbed) Stage 2 path -- consistent with Layer A/C's own sentinel
+evidence.
+
+**RATIFY BEFORE COMMIT lines, for your review:**
+- David: `lord='Mercury'`, `co_lord_deciding_step=None`
+- Sheridan: `lord='Venus'`, `co_lord_deciding_step=None`
+- Surbhi: `lord='Venus'`, `co_lord_deciding_step=None`
+
+## pytest full suite
+
+`3127 passed, 3 skipped, 1 warning in 75.67s` — exactly the expected
+3120 + 7 new, 3 skipped, 0 failed.
+
+## Golden harness
+
+`runnable=16 non_runnable_batch=2 match=7 match_stage2=5 design_debt=0
+known_gap=4 new_gap=0 error=0` — new report
+`diagnostics/golden_scorecard_20260710_181527.md`. Diffed against the
+immediately-prior scorecard
+(`diagnostics/golden_scorecard_20260710_175732.md`): only the
+`evaluated_at_jd` timestamp differs. Zero rows moved.
+
+Not committed — new test file only, no source files touched; awaiting
+ratification of the 3 RATIFY lines above before any commit.
+
+---
+
 # Session 59 (cont. 2): arudha_lagna admitted into orchestrator._VALID_DOMAINS — last gate
 
 Scope: ONE FILE, `agent/infra/orchestrator.py` — admit `"arudha_lagna"` into
