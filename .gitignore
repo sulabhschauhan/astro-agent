@@ -27,3 +27,6 @@ diagnostics/*snapshot*.jsonl
 
 # Vendored third-party JHora reference library — not our source, kept local only
 PyJHora-main/
+
+# Stage 2 router classification log — local diagnostic output, not source
+diagnostics/calc_router_stage2.log

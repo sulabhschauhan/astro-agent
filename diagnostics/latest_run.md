@@ -62,7 +62,24 @@ one-edit prompt).
 Ran directly against `agent.infra.orchestrator.answer_question()` with the
 real Sulabh chart (6 Apr 1988, 00:30, Calcutta) — no mocks.
 
-**(a) `"what is my arudha lagna"`** — matches expectation exactly:
+> **CORRECTION (post-review):** the original version of this section
+> claimed both (a) and (b) resolved via Stage 1 keyword scoring. That
+> claim was **wrong** and is corrected below after reading
+> `diagnostics/calc_router_stage2.log` directly. Both questions actually
+> routed through **Stage 2** (the GPT-4o-mini LLM classifier), not Stage
+> 1. Verbatim log lines, `diagnostics/calc_router_stage2.log`:
+>
+> ```
+> {"timestamp": "2026-07-10T17:55:44.464274+00:00", "question": "what is my arudha lagna", "stage1_best_score": 0.3333333333333333, "stage1_margin": 0.3333333333333333, "stage2_domain": "arudha_lagna", "stage2_confidence": "high", "outcome": "ROUTED:arudha_lagna"}
+> {"timestamp": "2026-07-10T17:55:45.598533+00:00", "question": "how do people see me in public", "stage1_best_score": 0.0, "stage1_margin": 0.0, "stage2_domain": "arudha_lagna", "stage2_confidence": "high", "outcome": "ROUTED:arudha_lagna"}
+> ```
+
+**(a) `"what is my arudha lagna"`** — result payload matches expectation
+exactly, but the ROUTE was via Stage 2, not Stage 1: `stage1_best_score`
+0.333 (a single keyword hit — the literal domain name still falls below
+calc_router.py's 0.4 confidence floor per the S44 refuse-heavy posture),
+`stage2_domain="arudha_lagna"`, `stage2_confidence="high"` ->
+`ROUTED:arudha_lagna`.
 - `domain`: `arudha_lagna`
 - `tier`: `AnswerTier.TIER_1_EXACT`
 - `answer_payload`: `{'arudha_sign': 'Leo', 'lagna_sign': 'Sagittarius', 'lord': 'Jupiter', 'co_lord_deciding_step': None}`
@@ -70,13 +87,16 @@ real Sulabh chart (6 Apr 1988, 00:30, Calcutta) — no mocks.
 - (also observed: `stub_caveats=()`, `uncertainty_virupa=0.0`, `uncertainty_days=0.0`, `sources=('padas.py',)`)
 
 **(b) `"how do people see me in public"`** — reported verbatim, NOT tuned:
-this did **not** miss Stage 1 as anticipated in the task prompt. It routed
-straight to `domain=arudha_lagna`, `tier=TIER_1_EXACT`, same payload as (a),
-`demotion_reason=None` — i.e. Stage 1 keyword scoring matched arudha_lagna
-directly on this wording (public image / how others see you is evidently
-one of its keyword hits) rather than missing and falling to Stage 2 or
-refusal. Router posture (refuse-heavy, S44 lock) not touched; this is a
-report only, no keyword/threshold changes made.
+this scored `stage1_best_score=0.0` (a complete Stage 1 miss, zero keyword
+hits — not a Stage 1 match as originally misreported), fell through to
+Stage 2, and the LLM classifier resolved it to
+`stage2_domain="arudha_lagna"` at `stage2_confidence="high"` ->
+`ROUTED:arudha_lagna`, same payload as (a), `demotion_reason=None`. Router
+posture (refuse-heavy, S44 lock) not touched; this is a report only, no
+keyword/threshold changes made — but see the new CLAUDE.md carry-forward
+below: for arudha_lagna specifically, Stage 1 is currently unreachable even
+on the best-case single-keyword question, so *every* live route to this
+domain is a Stage 2 LLM call.
 
 **(c) `"what is my current dasha"`** — zero behavior change confirmed:
 `domain=current_dasha`, `tier=AnswerTier.TIER_2_RANGE` (router-demoted for
