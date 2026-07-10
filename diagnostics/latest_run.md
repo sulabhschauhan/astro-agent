@@ -127,7 +127,9 @@ is the `evaluated_at_jd` run timestamp. Zero rows moved category —
 confirms the S58-observed "no golden row routes to arudha_lagna" holds
 after this gate opened too.
 
-Not committed — diffs above for review; no test files touched.
+Commit: `S59: orchestrator _VALID_DOMAINS admits arudha_lagna -- domain
+live e2e; smoke provenance corrected (both routes were Stage 2)` -- hash
+`919eb4a`. Pushed to `main`.
 
 ---
 
