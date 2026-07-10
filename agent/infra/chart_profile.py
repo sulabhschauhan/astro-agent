@@ -68,6 +68,16 @@ _VALID_DOMAINS = {
     # gate was widened to admit it -- fix-forward, Session 55 continued:
     # the branch was unreachable dead code until this entry was added.
     "av_transit",
+    # arudha_lagna (Session 59): this entry lands in the SAME change as
+    # build_domain_profile()'s own arudha_lagna dispatch branch below --
+    # deliberately avoiding a repeat of the exact av_transit incident
+    # documented above. orchestrator.py's own _VALID_DOMAINS does NOT yet
+    # admit "arudha_lagna" -- that sync is a separate, later prompt (same
+    # staged-rollout precedent as av_transit's router-then-orchestrator
+    # split); until it lands, a live "arudha_lagna" route fails closed via
+    # orchestrator.answer_question()'s own defensive ValueError, not a
+    # silent misroute.
+    "arudha_lagna",
 }
 
 # career_strength's compute_bhava_bala_totals() call needs planet_lons
@@ -438,7 +448,7 @@ def build_domain_profile(
 
     Args:
         domain: one of "marriage_compatibility", "career_strength",
-            "current_dasha", "sade_sati", "av_transit".
+            "current_dasha", "sade_sati", "av_transit", "arudha_lagna".
         chart_data: calculate_chart() output for the primary native.
         evaluated_at_jd: JD (UT) instant this profile is evaluated as-of.
             Caller-supplied, not sampled here -- must be the SAME instant the
@@ -453,7 +463,12 @@ def build_domain_profile(
             instant is NOT used directly (the scan window is the current
             Antardasha envelope, read from chart_data["dasha"] -- see below);
             it is accepted uniformly across all domains but genuinely unused
-            by this branch.
+            by this branch. For domain="arudha_lagna", this instant is ALSO
+            not used -- Arudha Lagna is a purely natal calculation (birth
+            longitudes only, via build_arudha_lagna_profile()) with no
+            "as-of a different moment" concept of its own, same
+            accepted-uniformly-but-unused precedent as av_transit's case
+            just above.
         partner_chart_data: calculate_chart() output for the second native.
             Required (and only accepted) for domain="marriage_compatibility" --
             Ashtakoot (compute_ashtakoot_compatibility) needs two natives.
@@ -477,12 +492,18 @@ def build_domain_profile(
             the Mahadasha envelope is never silently substituted); or
             transit_planet outside {Saturn, Jupiter, Sun, Mars} (propagated
             unwrapped from av_transit_scanner.scan_av_transit_segments()'s
-            own validation -- not duplicated here).
+            own validation -- not duplicated here); or, for arudha_lagna,
+            a non-canonical lagna_sign or a Scorpio/Aquarius D2 (both
+            co-lords resident)/D6 (exact Step-5(b) tie) fail-closed case,
+            propagated UNMODIFIED from build_arudha_lagna_profile() ->
+            compute_bhava_padas() (not caught or reinterpreted here,
+            matching that function's own documented precedent).
         RuntimeError: a wrapped, module-named failure from any underlying
             calculation call (ashtakoot, mangal_dosha, shadbala_totals,
             compute_porphyry_house_cusps, bhava_bala_totals, sade_sati.
-            compute_sade_sati, ashtakavarga natal-table assembly, or the
-            Moon-longitude ephemeris bridge).
+            compute_sade_sati, ashtakavarga natal-table assembly, the
+            Moon-longitude ephemeris bridge, or arudha_lagna's own planet-
+            longitude ephemeris bridge inside build_arudha_lagna_profile()).
     """
     if domain not in _VALID_DOMAINS:
         raise ValueError(f"domain must be one of {sorted(_VALID_DOMAINS)}, got {domain!r}")
@@ -746,6 +767,41 @@ def build_domain_profile(
         # inherits that same documented drift envelope.
         uncertainty_days = 37.0
 
+    elif domain == "arudha_lagna":
+        # Session 59: build_arudha_lagna_profile() is a purely natal
+        # calculation (see this function's own evaluated_at_jd Args note
+        # above) -- chart_data only, no evaluated_at_jd argument. Mirrors
+        # sade_sati's own T1, no-stub, no-virupa-envelope convention below
+        # (this domain's payload carries no dated claims, same "tier =
+        # payload property" reasoning documented in the module docstring).
+        #
+        # PAYLOAD PASSTHROUGH (flagged, not silently decided): the returned
+        # dict is assigned to `payload` UNMODIFIED, including its "tier"/
+        # "sources" keys -- keys DomainChartProfile.payload does not need
+        # (tier is decided by the router/formatter from `domain`, not
+        # carried on the profile; sources is a result_formatter.py-local
+        # hardcoded literal per _format_arudha_lagna(), which already
+        # ignores payload["sources"]). No existing branch in this file has
+        # ever faced this situation: every other domain's payload is either
+        # assembled inline as an exact-keys dict literal (marriage_
+        # compatibility/career_strength/current_dasha/sade_sati) or comes
+        # from a helper (_build_av_timing_block()) whose return contract is
+        # already exactly the render-needed keys -- so there is no existing
+        # "strip meta keys" convention to follow here. Passing the extra
+        # keys through unmodified is harmless (result_formatter.py's
+        # _format_arudha_lagna() reads only the 4 keys it needs by name,
+        # direct-indexed) but is called out here rather than silently
+        # stripped, in case a future caller ever inspects payload's key set
+        # directly (e.g. an exhaustiveness test) and is surprised by it.
+        payload = build_arudha_lagna_profile(chart_data)
+        stub_caveats = ()
+        uncertainty_virupa = 0.0
+        # RATIFIED S59 -- formatter's _format_arudha_lagna also asserts 0.0
+        # as a hardcoded contract assertion (payload structurally has no
+        # dated claims); both literals intentional, neither is the other's
+        # source.
+        uncertainty_days = 0.0
+
     else:  # sade_sati (Session 50/P7.2a) -- NO mahadasha/antardasha fields
         # here; this is a payload-property-consistent T1 sub-path, distinct
         # from current_dasha's always-T2 payload (module docstring above).
@@ -815,10 +871,15 @@ def build_arudha_lagna_profile(chart_data: dict) -> dict:
     """Bridge calculate_chart() output -> the Arudha Lagna (AL, house 1)
     entry of jaimini.padas.compute_bhava_padas()'s 12-house result.
 
-    Standalone builder, NOT yet wired into build_domain_profile()/
-    _VALID_DOMAINS/the router or formatter -- this function only assembles
-    the AL-specific payload; domain/router/formatter integration is a
-    separate, later prompt.
+    Wired into build_domain_profile()'s "arudha_lagna" branch and this
+    file's own _VALID_DOMAINS as of Session 59 (calc_router.py's Stage 1/
+    Stage 2/route branch already landed Session 58; result_formatter.py's
+    _format_arudha_lagna() already landed Session 59). orchestrator.py's
+    own _VALID_DOMAINS does NOT yet admit "arudha_lagna" -- that sync is a
+    separate, later prompt, same staged-rollout precedent as av_transit's
+    router-then-orchestrator split; until it lands, a live "arudha_lagna"
+    route fails closed via orchestrator.answer_question()'s own defensive
+    ValueError, not a silent misroute.
 
     lagna_sign comes from chart_data["lagna_chart"]["rasi"] (whole-sign
     house 1, same field _koota_natal_info_from_chart already reads for
