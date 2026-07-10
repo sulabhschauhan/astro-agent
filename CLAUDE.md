@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**Session 57: P6 Jaimini (Arudha/Padas) — CLOSED.** Shipped: karakas.py, rasi_aspects.py, strength.py, arudha.py, padas.py (all kernels + test suites). Next: P6->P7 wiring (exposing bhava padas to the answer pipeline) — TBD pending design-chat decision.
+**Session 58: P6->P7 arudha_lagna router wiring — CLOSED.** calc_router.py: Stage 1 keywords + Stage 2 domain + route branch for arudha_lagna; jaimini guard removed from _UNBUILT_MODULE_KEYWORDS. orchestrator.py/_VALID_DOMAINS sync still pending (separate, later prompt).
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
@@ -84,3 +84,4 @@ Ayana Bala Kranti (RESOLVED Session 47), Sun Ayana Bala doubling (RESOLVED Sessi
 - **`golden_harness.py` stale `_KNOWN_GAPS` prose** (Session 55) — 5 entries' "Session 50 observed mechanism" text describes pre-Session-55 routing behavior (now superseded by the `route`-field split, MATCH vs MATCH_STAGE2); refresh opportunistically, not a standalone prompt.
 - **Session 56->57 baseline discrepancy** (Session 57) — Session 56 logged close at 2948 passed; the actual pre-Session-57 baseline verified from commit 3993d79 was 2972 (24-test gap). Root cause not investigated, not blocking. Reconcile before trusting any future absolute baseline delta.
 - **strength.py D2 docstring citation is factually wrong** (Session 58) — the D2 (Basic Rule both-resident gap) docstring's "2022-23 Saturn+Rahu-in-Aquarius" worked example doesn't hold empirically: Rahu was in Aries/Pisces that whole window (a 1900-2030 scan found no real overlap at all). The D2 fail-closed MECHANISM is unaffected; only the illustrative citation is wrong. Fix opportunistically next time strength.py is touched, not a standalone prompt.
+- **`_route_to_domain` hardcoded `current_dasha` fallthrough** (Session 58) — `calc_router.py`'s final block returns a hardcoded `domain="current_dasha"` literal for ANY domain string not explicitly branched, instead of an else/raise; arudha_lagna's wiring this session added its own branch specifically to avoid falling into this trap, but the underlying pattern (silent mis-route instead of fail-closed) remains for any future domain added to `_DOMAIN_KEYWORDS`/`_STAGE2_VALID_DOMAINS` without a matching branch. Defensive refactor (explicit `else: raise`) deferred — ride-along with the next `calc_router.py` touch, not a standalone prompt.
