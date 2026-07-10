@@ -35,6 +35,19 @@ as of this branch landing (Session 54 Conflict A: formatter lands first,
 convergence wiring and router are later, separate changes) -- the payload
 shape is frozen by design-chat ahead of that layer's construction, so this
 branch is unreachable via any live router path until that wiring lands.
+
+Session 58 adds a 6th domain, "arudha_lagna" -- TIER_1_EXACT only, mirroring
+sade_sati's pattern (no dated claims anywhere in the payload, so no drift
+language, no _format_jd calls). Same staged-rollout precedent as av_transit
+above: chart_profile.py's build_arudha_lagna_profile() is a standalone
+builder, not yet wired into build_domain_profile()'s dispatch, and
+orchestrator.py's _VALID_DOMAINS does not yet admit "arudha_lagna" -- this
+branch is dead code until that separate, later wiring lands. Deviation
+flagged: the branch's original spec called for a rendered prose paragraph
+inside answer_payload, but this field is documented below as "NEVER prose"
+-- no other domain branch violates that, so answer_payload here stays
+structured-only (arudha_sign/lagna_sign/lord/co_lord_deciding_step,
+verbatim); prose rendering is deferred to a separate concern.
 """
 
 from __future__ import annotations
@@ -122,6 +135,8 @@ def format_answer(profile: DomainChartProfile) -> DomainAnswer:
         return _format_sade_sati(profile)
     if profile.domain == "av_transit":
         return _format_av_transit(profile)
+    if profile.domain == "arudha_lagna":
+        return _format_arudha_lagna(profile)
     raise ValueError(f"result_formatter: unknown domain {profile.domain!r}")
 
 
@@ -495,4 +510,58 @@ def _format_av_transit(profile: DomainChartProfile) -> DomainAnswer:
             "vimshottari_dasha",
         ),
         uncertainty_days=profile.uncertainty_days,
+    )
+
+
+def _format_arudha_lagna(profile: DomainChartProfile) -> DomainAnswer:
+    """Always TIER_1_EXACT, always demotion_reason=None -- mirrors
+    _format_sade_sati()'s pattern above: this payload carries no dated
+    claims at all (no JD fields anywhere in
+    chart_profile.py's build_arudha_lagna_profile() contract), so it never
+    inherits current_dasha's/av_transit's drift-language demotion, and this
+    branch makes no _format_jd() calls.
+
+    UNREACHABLE VIA ANY LIVE ROUTER PATH as of this branch landing:
+    build_arudha_lagna_profile() is a standalone builder, not yet wired
+    into build_domain_profile()'s own dispatch, and orchestrator.py's
+    _VALID_DOMAINS does not yet admit "arudha_lagna" -- same staged-rollout
+    precedent as _format_av_transit()'s Session 55 landing above: this
+    branch is dead code until that separate, later wiring lands.
+
+    DEVIATION FLAGGED (Session 58, design-chat decision): the original
+    branch spec called for a rendered prose paragraph inside
+    answer_payload, but DomainAnswer.answer_payload is documented
+    (chart_profile.py) as "deterministic values the formatter renders
+    (scores, ranks, date ranges) -- NEVER prose" -- no other branch in
+    this file violates that contract. Resolved by keeping answer_payload
+    structured-only, verbatim from the payload; a prose rendering, if
+    wanted, is a separate concern for a later prompt/layer.
+
+    sources=("padas.py",) is hardcoded here, NOT read from
+    profile.payload["sources"] -- matches this file's existing convention
+    (every other branch's sources tuple is a formatter-local literal, never
+    copied from the payload; see _format_sade_sati/_format_av_transit
+    above).
+
+    Missing payload keys are NOT defended against here (existing module
+    convention, see _format_marriage/_format_dasha/_format_sade_sati
+    above): direct dict indexing raises KeyError with the offending key
+    name, never a partial render.
+    """
+    answer_payload = {
+        "arudha_sign": profile.payload["arudha_sign"],
+        "lagna_sign": profile.payload["lagna_sign"],
+        "lord": profile.payload["lord"],
+        "co_lord_deciding_step": profile.payload["co_lord_deciding_step"],
+    }
+
+    return DomainAnswer(
+        domain=profile.domain,
+        tier=AnswerTier.TIER_1_EXACT,
+        answer_payload=answer_payload,
+        stub_caveats=profile.stub_caveats,
+        uncertainty_virupa=profile.uncertainty_virupa,
+        demotion_reason=None,
+        sources=("padas.py",),
+        uncertainty_days=0.0,
     )
