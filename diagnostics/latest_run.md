@@ -1,3 +1,74 @@
+# Session 60: pin q3 ratified REFUSAL + commit both sessions' staged arudha_lagna work
+
+Scope: `tests/fixtures/golden_qa_sulabh.py` (surgical, row
+`sulabh_arudha_q3_refusal_probe` only) + a supersession header on
+`diagnostics/golden_scorecard_20260710_184703.md` + this diagnostics
+entry. No other code file touched.
+
+## Edit 1 -- golden_qa_sulabh.py, `sulabh_arudha_q3_refusal_probe`
+
+- `expected_tier`: `"MEASURE_FIRST_PENDING_RATIFICATION"` ->
+  `"REFUSAL"`, ratified from the S59(cont.7) live run's observed actual
+  tier (`diagnostics/golden_scorecard_20260710_184703.md`).
+- Claim verdict `"PENDING"` -> `"MATCH"`; note rewritten to record: the
+  REFUSAL is produced by the Stage 2 low-confidence fallback ("question
+  not classifiable with confidence"), NOT deterministic Stage 1 --
+  category posture is MATCH_STAGE2, monitored not asserted, same as the
+  ledger's other Stage-2-routed rows. Documented a MONITORED RISK: a
+  future run where Stage 2 instead classifies this question as
+  marriage_compatibility at high confidence is expected variance by
+  construction, but a SUBSTANTIVE answer from that flip would be a
+  product-quality signal (Upapada Lagna != Ashtakoot marriage
+  compatibility) -- escalate to design chat if ever observed, don't
+  silently reclassify or fold into `_KNOWN_GAPS`/`_DESIGN_DEBT`.
+
+## Edit 2 -- supersession header, golden_scorecard_20260710_184703.md
+
+Prepended a header mirroring `golden_scorecard_20260707_091459_
+post_av_transit.md`'s own convention: declares this file the new frozen
+comparison baseline (21-row ledger, first run to execute the 3 arudha
+rows), and notes `sulabh_arudha_q3_refusal_probe`'s `NEW_GAP` categorization
+in this specific run's own per-row table is a run-time artifact (row
+executed before ratification, still carrying the placeholder) rather than
+a live gap -- with the post-pin expectation for any future re-run:
+`match=8, match_stage2=7, known_gap=4, new_gap=0`.
+
+## Verification
+
+Fixture import:
+```
+total rows: 21
+q3 expected_tier: REFUSAL
+q3 claim verdict: MATCH
+IMPORT_OK
+```
+
+Grep for `MEASURE_FIRST_PENDING_RATIFICATION`: zero hits in `tests/` or
+`agent/` (confirmed by directory-scoped greps). 5 remaining hits are all
+in `diagnostics/` -- historical run logs (`latest_run.md`'s own prior
+entries) and this scorecard's per-row table, which accurately records
+what the placeholder value WAS at the moment that run executed, before
+ratification. These are historical record, not live references, and were
+deliberately left unscrubbed -- rewriting a past run's own recorded
+output would misrepresent history, not fix a bug.
+
+## Commit
+
+Both this session's fixture pin and the prior session's staged
+`golden_harness.py` whitelist wiring committed together, per task
+instruction, as one commit:
+
+`S60: golden set arudha_lagna coverage (3 rows), harness whitelist, q3
+ratified REFUSAL, baseline superseded`
+
+Files: `agent/eval/golden_harness.py`, `tests/fixtures/golden_qa_sulabh.py`,
+`diagnostics/golden_scorecard_20260710_184703.md` (new), this
+`diagnostics/latest_run.md` entry. `diagnostics/calc_router_stage2.log`
+remains uncommitted/gitignored -- unchanged, still an open carry-forward
+per CLAUDE.md.
+
+---
+
 # Session 59 (cont. 7): wire arudha_lagna into golden_harness.py
 
 ONE FILE: `agent/eval/golden_harness.py`. Not committed — q3's ratification

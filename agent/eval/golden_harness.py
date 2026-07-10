@@ -8,8 +8,8 @@ already-built deterministic pipeline (CLAUDE.md V1 scope: LLM-generated
 interpretive Q&A is OUT; this harness never invokes one).
 
 Runnability: a row is RUNNABLE when it is a single question against the
-sulabh chart in one of the three pipeline-whitelisted domains
-(career/marriage/dasha). Rows batching multiple probes under
+sulabh chart in one of the four pipeline-whitelisted domains
+(career/marriage/dasha/arudha_lagna). Rows batching multiple probes under
 domain == "refusal_probe" (the R1-R5 / QUEST1-QUEST2 bundles) are
 NON_RUNNABLE_BATCH -- listed in the report, never executed, per the task
 spec for this session.
@@ -94,11 +94,12 @@ from tests.fixtures.golden_qa_sulabh import GOLDEN_QA
 _BASELINE_TEST_COUNT = 1769
 
 # Golden-set domain string -> pipeline domain string (calc_router.py /
-# chart_profile.py's 3-domain whitelist).
+# chart_profile.py's 4-domain whitelist).
 _GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN: dict[str, str] = {
     "career": "career_strength",
     "marriage": "marriage_compatibility",
     "dasha": "current_dasha",
+    "arudha_lagna": "arudha_lagna",
 }
 
 # Canonical, verified chart-construction data (see tests/infra/test_orchestrator_e2e.py

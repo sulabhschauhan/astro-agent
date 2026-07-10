@@ -645,12 +645,18 @@ GOLDEN_QA: list[dict] = [
         "id": "sulabh_arudha_q1_stage1",
         "chart": "sulabh",
         "domain": "arudha_lagna",
-        "question": "what is my arudha lagna and public image",
+        "question": "what is my arudha pada and public perception",
         "baseline_source": "s59_ratified_oracle",
         "baseline_answer_summary": (
             "S59-ratified Stage-1 phrasing (>=2 _ARUDHA_LAGNA_KEYWORDS hits, "
             "clears the 0.4 floor/0.15 margin): resolves via Stage 1 keyword "
-            "routing, not a live Stage 2 LLM call."
+            "routing, not a live Stage 2 LLM call. Phrased 'what is my arudha "
+            "pada and public perception' (not the sentinel test's 'what is my "
+            "arudha lagna and public image') to avoid a verbatim collision "
+            "with test_orchestrator_arudha_lagna.py's _STAGE1_CLEAN_QUESTION; "
+            "measured in the same S59 sentinel run -- 2 keyword hits "
+            "('arudha pada' + 'public perception'), score 0.667, Stage 1 "
+            "clean, sentinel calls=0, TIER_1_EXACT -- equally ratified."
         ),
         "claims": [
             {
@@ -670,7 +676,7 @@ GOLDEN_QA: list[dict] = [
         "id": "sulabh_arudha_q2_stage2",
         "chart": "sulabh",
         "domain": "arudha_lagna",
-        "question": "what is my arudha lagna",
+        "question": "tell me my arudha lagna",
         "baseline_source": "s59_ratified_oracle",
         "baseline_answer_summary": (
             "This phrasing is expected to fall below the Stage 1 keyword floor "
@@ -679,7 +685,12 @@ GOLDEN_QA: list[dict] = [
             "carry-forward item) and resolve via a live GPT-4o-mini Stage 2 "
             "call on every run -- MATCH_STAGE2 posture: monitored via "
             "calc_router_stage2.log, not asserted as a stable MATCH. Raises "
-            "per-run live Stage 2 calls from 9 to 10."
+            "per-run live Stage 2 calls from 9 to 10. Phrased 'tell me my "
+            "arudha lagna' (not the sentinel test's 'what is my arudha "
+            "lagna') to avoid a verbatim collision with "
+            "test_orchestrator_arudha_lagna.py's _STAGE1_MISS_QUESTION, "
+            "which golden_harness._used_stage2_since() correlates by exact "
+            "question text."
         ),
         "claims": [
             {
@@ -710,18 +721,32 @@ GOLDEN_QA: list[dict] = [
         ),
         "claims": [
             {
-                "claim": "MEASURE-FIRST: router disposition for an unwired "
-                         "calc-level-only construct is not yet observed",
-                "verdict": "PENDING",
-                "note": "Design intent is deliberately withheld pending a real "
-                        "harness run; the observed tier gets recorded here, "
-                        "design chat ratifies it, then this row's "
-                        "expected_tier placeholder is replaced with the "
-                        "ratified value.",
+                "claim": "Router disposition for an unwired calc-level-only "
+                         "construct",
+                "verdict": "MATCH",
+                "note": "Ratified S60 from golden_scorecard_20260710_184703.md: "
+                        "observed actual tier is REFUSAL. Produced by the Stage "
+                        "2 low-confidence fallback (\"question not classifiable "
+                        "with confidence\"), NOT deterministic Stage 1 keyword "
+                        "scoring -- category posture is MATCH_STAGE2, monitored "
+                        "not asserted, same as the ledger's other Stage-2-routed "
+                        "rows. MONITORED RISK: a future run where Stage 2 "
+                        "instead classifies this question as "
+                        "marriage_compatibility at high confidence is expected "
+                        "variance by construction (Stage 2 is non-deterministic "
+                        "even at temperature=0) -- but a SUBSTANTIVE answer "
+                        "resulting from that flip is a product-quality signal, "
+                        "not benign variance: Upapada Lagna is not Ashtakoot "
+                        "marriage compatibility, so an answered (non-refusal) "
+                        "response would misrepresent an unwired calculation as "
+                        "the wired one. If that flip is ever observed, escalate "
+                        "to design chat -- do not silently reclassify this row "
+                        "or absorb it into _KNOWN_GAPS/_DESIGN_DEBT without "
+                        "review.",
             },
         ],
         "v1_answerable": False,
-        "expected_tier": "MEASURE_FIRST_PENDING_RATIFICATION",
+        "expected_tier": "REFUSAL",
         "expected_techniques": ["arudha_lagna"],
         "adjudication": "pending_jhora",
     },
