@@ -1,3 +1,126 @@
+# Session 59 (cont. 7): wire arudha_lagna into golden_harness.py
+
+ONE FILE: `agent/eval/golden_harness.py`. Not committed — q3's ratification
+and the scorecard baseline-supersession decision happen in design chat
+first, per task instruction.
+
+## Edits applied (2, surgical)
+
+1. `_GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN` += `"arudha_lagna": "arudha_lagna"`
+   (golden row `domain` value and pipeline `domain` value are identical
+   strings for this domain, unlike career/marriage/dasha's renamed
+   mappings — confirmed by reading `chart_profile.py`'s `_VALID_DOMAINS`
+   and `calc_router.py`'s routing target before adding the entry). This
+   single entry makes all 3 new `golden_qa_sulabh.py` rows RUNNABLE (all
+   use `chart="sulabh"` + `domain="arudha_lagna"`, matching
+   `_classify_runnability()`'s existing chart+domain-membership check
+   unchanged).
+2. Module docstring's runnability sentence: "three pipeline-whitelisted
+   domains (career/marriage/dasha)" -> "four pipeline-whitelisted domains
+   (career/marriage/dasha/arudha_lagna)".
+
+Neither `_KNOWN_GAPS` nor `_DESIGN_DEBT` touched. Route-determination
+logic (`_run_runnable_row`'s stage1/stage2/fastpath branching) untouched
+— arudha_lagna needs no fastpath branch (routes via Stage 1 keyword
+scoring like career/marriage/dasha; only sade_sati has a fastpath).
+
+## Live harness run
+
+```
+runnable=19 non_runnable_batch=2 match=8 match_stage2=6 design_debt=0 known_gap=4 new_gap=1 error=0
+report: diagnostics/golden_scorecard_20260710_184703.md
+```
+
+19 runnable = 16 prior + 3 new arudha rows, as expected.
+
+### Per-row results, 3 new arudha rows (verbatim from the report)
+
+| id | expected_tier | actual | route | category |
+|---|---|---|---|---|
+| sulabh_arudha_q1_stage1 | TIER_1_EXACT | TIER_1_EXACT | stage1 | MATCH |
+| sulabh_arudha_q2_stage2 | TIER_1_EXACT | TIER_1_EXACT | stage2 | MATCH_STAGE2 |
+| sulabh_arudha_q3_refusal_probe | MEASURE_FIRST_PENDING_RATIFICATION | **REFUSAL** | stage2 | NEW_GAP |
+
+- `q1_stage1` -> exactly as predicted: `TIER_1_EXACT`/`stage1`/`MATCH`.
+- `q2_stage2` -> exactly as predicted: routed via `stage2`,
+  `MATCH_STAGE2` (monitored, not asserted — a live GPT-4o-mini call
+  resolved it correctly this run).
+- `q3_refusal_probe` -> `NEW_GAP` by construction (placeholder
+  `expected_tier` never matches any real tier), as predicted. **Observed
+  actual tier: `REFUSAL`**, `demotion_reason="question not classifiable
+  with confidence"`, routed via `stage2` (upapada lagna hits zero
+  `_ARUDHA_LAGNA_KEYWORDS` and no other domain's keywords strongly
+  enough to clear Stage 1, so it falls through to Stage 2, which itself
+  returned a non-"high"-confidence/unclassifiable result and REFUSED).
+  This is the value for design chat to ratify against
+  `MEASURE_FIRST_PENDING_RATIFICATION`.
+
+### Deviation from the task's stated call-count expectation (reporting exactly, not rounding up)
+
+Task text predicted "10 live Stage 2 calls this run, up from 9" (9 prior
++ 1 for q2 alone). The report's own computed `stage2_routed_rows` list is
+**11**, not 10:
+`sulabh_career_q1, sulabh_career_q2, sulabh_career_q3, sulabh_career_q4,
+sulabh_marriage_q7, sulabh_marriage_q8, sulabh_marriage_q9,
+sulabh_marriage_q10, sulabh_dasha_q15, sulabh_arudha_q2_stage2,
+sulabh_arudha_q3_refusal_probe` (9 pre-existing + q2 + q3). The task's
+prediction only accounted for q2 needing Stage 2; q3 also required a live
+Stage 2 call (it isn't Stage-1-clean either, for the keyword-miss reason
+above) — an 11th call, not anticipated in the task's own count. Flagging
+this rather than silently reporting "10 as expected."
+
+## Diff: 18 pre-existing rows vs. baseline `golden_scorecard_20260707_091459_post_av_transit.md`
+
+Compared `actual` tier and `route` (baseline's "routed via" column,
+Stage 1 vs Stage 2 vs fastpath) for all 18 pre-existing row IDs against
+this run's report. **Zero `actual`-tier changes; zero route changes.**
+Every row that was `TIER_2_RANGE`/`TIER_1_EXACT`/`REFUSAL` in the
+baseline is the identical tier this run; every row's Stage
+1/Stage 2/fastpath route is unchanged.
+
+The only differences are `category` LABEL naming, and they are 100%
+explained by the two reports using different classification schemes
+(documented in the baseline file's own header, not a real divergence):
+- `sulabh_career_q1/q2/q3`, `sulabh_marriage_q7/q8`: baseline labels
+  `STAGE2_VARIABLE` (its own stricter "any Stage-2-routed row" scheme);
+  this run labels `MATCH_STAGE2` (`golden_harness.py`'s native
+  scheme for "Stage 2 routed AND tier matched"). Same underlying
+  outcome, different label vocabulary.
+- `sulabh_career_q4`, `sulabh_marriage_q9/q10`, `sulabh_dasha_q15`:
+  baseline labels `STAGE2_VARIABLE`; this run labels `KNOWN_GAP`
+  (these 4 IDs are exactly `_KNOWN_GAPS`'s existing seeded entries,
+  unmodified by this task). Same underlying REFUSAL outcome both runs.
+- All 7 true Stage-1/fastpath `MATCH` rows and both `NON_RUNNABLE_BATCH`
+  rows: identical label in both reports.
+
+**Conclusion: zero deviations outside expected/documented Stage-2
+variance semantics.** No row's actual behavior changed; only the
+comparison report's independent labeling scheme differs, as that file's
+own header already anticipated.
+
+## Full pytest suite
+
+```
+3127 passed, 3 skipped, 1 warning in 90.32s
+```
+
+Exact match to the expected 3127/3/0 — zero delta, confirms
+`golden_harness.py` is not imported by the pytest suite (as expected;
+this module is a standalone `diagnostics/`-writing script, never
+`test_*`-collected).
+
+## Not committed
+
+Per task instruction: q3's `MEASURE_FIRST_PENDING_RATIFICATION` ->
+observed-`REFUSAL` ratification, AND the baseline-scorecard-supersession
+decision (does `golden_scorecard_20260710_184703.md` become the new
+frozen comparison baseline, given it's the first run where arudha_lagna
+rows execute) both happen in design chat before any commit. Nothing in
+`agent/eval/golden_harness.py`, `tests/fixtures/golden_qa_sulabh.py`, or
+`calc_router.py` committed this task.
+
+---
+
 # Session 59 (cont. 5): fix sulabh_arudha_q2_stage2 question collision with sentinel test
 
 ONE FILE: `tests/fixtures/golden_qa_sulabh.py`. Row `sulabh_arudha_q2_stage2`
