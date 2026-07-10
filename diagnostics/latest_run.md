@@ -1,3 +1,58 @@
+# Session 59 (cont. 4): ratify David/Sheridan/Surbhi lord/co_lord_deciding_step + docs
+
+Uncommented and pinned the 3 previously-print-only RATIFY assertion blocks
+in `tests/infra/test_orchestrator_arudha_lagna.py`:
+
+```
+David:    lord="Mercury", co_lord_deciding_step=None
+Sheridan: lord="Venus",   co_lord_deciding_step=None
+Surbhi:   lord="Venus",   co_lord_deciding_step=None
+```
+
+Each pinned with an inline comment: "RATIFIED S59 (design-chat sign-off,
+2026-07-10) -- derived live, cross-checked against S57 PVR counting
+ratification." `_print_ratify_line()` helper removed (nothing else used
+it once all 3 call sites became live assertions); the David test's own
+docstring updated to drop its now-stale "print-only pending ratification"
+line.
+
+## CLAUDE.md updates
+
+1. Added a carry-forward item: the arudha_lagna co-lord cascade
+   (`strength.py`'s `stronger_co_lord()`) has zero real-chart coverage --
+   none of the 4 canonical charts has a Scorpio/Aquarius Lagna. Flagged
+   Session 57 in `test_chart_profile_arudha_lagna.py`'s DEVIATIONS #2;
+   reconfirmed Session 59 at the orchestrator/e2e layer via this file's
+   own 4-chart Layer B row (Sulabh=Sagittarius, Surbhi=Libra,
+   Sheridan=Taurus, David=Virgo -- none co-lorded). Still deferred, no
+   new reference chart being added; bundle unchanged.
+
+   **Discrepancy flagged**: the task prompt asked to update a carry-forward
+   item labeled "C4" for this gap. Grepped CLAUDE.md and SESSION_LOG.md for
+   "C4" -- no existing item by that label exists (the only "C4" hit in
+   either file is `mangal_dosha.py`'s unrelated cancellation-rule C4,
+   "movable sign," excluded from V1 -- a different C4 entirely). Added the
+   co-lord-cascade item fresh instead of guessing which existing line was
+   meant, with a note in CLAUDE.md itself.
+
+2. Added a second carry-forward item: `answer_question()` has no Stage 2
+   client injection seam (unlike `route_question()`'s own `_stage2_client`
+   kwarg) -- `test_orchestrator_arudha_lagna.py`'s Layer C test had to
+   monkeypatch `calc_router._stage2_classify` directly instead. Bundled
+   with the existing `RouteResult.route` marker carry-forward for a future
+   joint decision.
+
+## pytest full suite
+
+`3127 passed, 3 skipped, 1 warning in 72.50s` -- exact match to the
+expected 3127/3/0 with the 3 ratified assertions now live (no delta from
+the prior print-only run).
+
+Golden harness skipped per instruction (no source file touched, docs +
+test-file assertions only).
+
+---
+
 # Session 59 (cont. 3): new test file test_orchestrator_arudha_lagna.py — router-provenance + e2e oracle
 
 ONE FILE (new): `tests/infra/test_orchestrator_arudha_lagna.py`. No source

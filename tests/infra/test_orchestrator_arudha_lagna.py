@@ -184,15 +184,6 @@ def _evaluated_at_jd() -> float:
     return swe.julday(2000, 1, 1, 0.0)
 
 
-def _print_ratify_line(chart_name: str, answer) -> None:
-    payload = answer.answer_payload
-    print(
-        f"RATIFY BEFORE COMMIT -- {chart_name}: "
-        f"lord={payload['lord']!r} "
-        f"co_lord_deciding_step={payload['co_lord_deciding_step']!r}"
-    )
-
-
 class TestLayerBRealChartOracle:
     def test_sulabh_full_assert(self, sulabh_chart):
         """Hardest-case-first note: David (below) is the actual hardest
@@ -224,19 +215,18 @@ class TestLayerBRealChartOracle:
         rows per CLAUDE.md Working Style #3. arudha_sign="Taurus" verified
         directly against build_arudha_lagna_profile(david_chart) before
         writing this assertion (measured, not copied from the task prompt
-        unverified) -- lord/co_lord_deciding_step remain print-only pending
-        ratification.
+        unverified) -- lord/co_lord_deciding_step now RATIFIED (see inline
+        comment below).
         """
         profile = build_domain_profile("arudha_lagna", david_chart, _evaluated_at_jd())
         answer = format_answer(profile)
 
         assert answer.answer_payload["lagna_sign"] in _CANONICAL_SIGNS
         assert answer.answer_payload["arudha_sign"] == "Taurus"
-        _print_ratify_line("David", answer)
-        # RATIFY BEFORE COMMIT -- uncomment once lord/co_lord_deciding_step
-        # are ratified:
-        # assert answer.answer_payload["lord"] == "Mercury"
-        # assert answer.answer_payload["co_lord_deciding_step"] is None
+        # RATIFIED S59 (design-chat sign-off, 2026-07-10) -- derived live,
+        # cross-checked against S57 PVR counting ratification.
+        assert answer.answer_payload["lord"] == "Mercury"
+        assert answer.answer_payload["co_lord_deciding_step"] is None
 
     def test_sheridan_arudha_sign_ratified(self, sheridan_chart):
         profile = build_domain_profile("arudha_lagna", sheridan_chart, _evaluated_at_jd())
@@ -244,11 +234,10 @@ class TestLayerBRealChartOracle:
 
         assert answer.answer_payload["lagna_sign"] in _CANONICAL_SIGNS
         assert answer.answer_payload["arudha_sign"] == "Aquarius"
-        _print_ratify_line("Sheridan", answer)
-        # RATIFY BEFORE COMMIT -- uncomment once lord/co_lord_deciding_step
-        # are ratified:
-        # assert answer.answer_payload["lord"] == "Venus"
-        # assert answer.answer_payload["co_lord_deciding_step"] is None
+        # RATIFIED S59 (design-chat sign-off, 2026-07-10) -- derived live,
+        # cross-checked against S57 PVR counting ratification.
+        assert answer.answer_payload["lord"] == "Venus"
+        assert answer.answer_payload["co_lord_deciding_step"] is None
 
     def test_surbhi_arudha_sign_ratified(self, surbhi_chart):
         profile = build_domain_profile("arudha_lagna", surbhi_chart, _evaluated_at_jd())
@@ -256,11 +245,10 @@ class TestLayerBRealChartOracle:
 
         assert answer.answer_payload["lagna_sign"] in _CANONICAL_SIGNS
         assert answer.answer_payload["arudha_sign"] == "Leo"
-        _print_ratify_line("Surbhi", answer)
-        # RATIFY BEFORE COMMIT -- uncomment once lord/co_lord_deciding_step
-        # are ratified:
-        # assert answer.answer_payload["lord"] == "Venus"
-        # assert answer.answer_payload["co_lord_deciding_step"] is None
+        # RATIFIED S59 (design-chat sign-off, 2026-07-10) -- derived live,
+        # cross-checked against S57 PVR counting ratification.
+        assert answer.answer_payload["lord"] == "Venus"
+        assert answer.answer_payload["co_lord_deciding_step"] is None
 
 
 # ─── Layer C: full chain (router included, no LLM reached) ─────────────────
