@@ -82,11 +82,21 @@ _AV_TRANSIT_KEYWORDS: tuple[str, ...] = (
     "ashtakavarga", "bindu", "kakshya",
 )
 
+# arudha_lagna (Session 58 router wiring). Public-image/perception phrasing
+# ("public image", "public perception") alongside the literal Jaimini terms
+# ("arudha lagna", "arudha pada") -- mirrors av_transit's precedent of
+# pairing a technical term list with the layman phrasing Stage 1 can catch
+# directly, without requiring Stage 2 for the common case.
+_ARUDHA_LAGNA_KEYWORDS: tuple[str, ...] = (
+    "arudha lagna", "arudha pada", "public image", "public perception",
+)
+
 _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "marriage_compatibility": _MARRIAGE_KEYWORDS,
     "career_strength": _CAREER_KEYWORDS,
     "current_dasha": _DASHA_KEYWORDS,
     "av_transit": _AV_TRANSIT_KEYWORDS,
+    "arudha_lagna": _ARUDHA_LAGNA_KEYWORDS,
 }
 
 # Calculation modules referenced in a question but NOT in the routable
@@ -101,6 +111,9 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
 # built and 4-chart validated, unlike the genuinely-unbuilt modules below
 # -- refusing it here was product debt, not a locked decision). Now routed
 # via _BUILT_MODULE_FASTPATH instead.
+# Session 58: "jaimini" removed -- all jaimini/ modules exist as of
+# Session 57; unwired-Q&A refusals now go through the router's normal
+# "domain not routable" path, not this guard.
 _UNBUILT_MODULE_KEYWORDS: dict[str, str] = {
     "yoga": "yoga detection",
     "transit": "transit engine (gochara)",
@@ -110,7 +123,6 @@ _UNBUILT_MODULE_KEYWORDS: dict[str, str] = {
     "d10": "D10 divisional chart",
     "d9": "D9 (Navamsa) divisional chart",
     "varga": "divisional charts (vargas)",
-    "jaimini": "Jaimini karakas/arudha/padas",
     "chara": "Chara dasha",
     "yogini": "Yogini dasha",
     "ashtottari": "Ashtottari dasha",
@@ -244,6 +256,7 @@ _STAGE2_VALID_DOMAINS: frozenset[str] = frozenset(
         "current_dasha",
         "sade_sati",
         "av_transit",
+        "arudha_lagna",
         "none",
     }
 )
@@ -269,7 +282,7 @@ _STAGE2_LOG_PATH = Path(__file__).resolve().parents[2] / "diagnostics" / "calc_r
 _STAGE2_SYSTEM_PROMPT = """\
 You are a routing classifier for a Vedic astrology calculation Q&A pipeline.
 
-This pipeline can ONLY answer questions in exactly 5 domains:
+This pipeline can ONLY answer questions in exactly 6 domains:
 - marriage_compatibility: Ashtakoot/Guna Milan, Mangal Dosha, spouse or \
 partner compatibility.
 - career_strength: career/profession/work strength, based on Shadbala \
@@ -284,15 +297,17 @@ current, previous, or next Sade Sati cycle starts or ends.
 sub-windows, from Bindu/Kakshya strength) of a specific transiting planet \
 DURING the current Antardasha -- finer-grained timing WITHIN the current \
 dasha period, not just which lord is currently running.
+- arudha_lagna: questions about self-image, public perception, reputation, \
+how one is seen by others (Jaimini Arudha Lagna).
 
 Classify the question into exactly one of these domains, or "none" if it
-does not clearly ask about one of these 5 things (for example: health,
+does not clearly ask about one of these 6 things (for example: health,
 travel, gemstones, lucky numbers, or any other topic).
 
 Call classify_domain with:
 - domain: the single best-matching domain, or "none".
 - confidence: "high" ONLY if the question clearly and unambiguously asks
-  about exactly one of the 5 domains above; "medium" or "low" for any
+  about exactly one of the 6 domains above; "medium" or "low" for any
   ambiguity, a different topic, or a domain this pipeline does not cover.
 """
 
@@ -300,9 +315,13 @@ _STAGE2_TOOL_SCHEMA = {
     "type": "function",
     "function": {
         "name": "classify_domain",
+        # Session 58: "3 routable domains" was already stale pre-edit
+        # (actual count had drifted to 5 with sade_sati/av_transit) --
+        # design-chat-flagged pre-existing bug, fixed opportunistically here
+        # alongside the arudha_lagna wiring, not a drive-by unrelated change.
         "description": (
             "Classify a Vedic astrology question into one of the pipeline's "
-            "3 routable domains, or none."
+            "6 routable domains, or none."
         ),
         "parameters": {
             "type": "object",
@@ -593,6 +612,32 @@ def _route_to_domain(
         return RouteResult(
             domain="av_transit",
             tier=AnswerTier.TIER_2_RANGE,
+            confidence=confidence,
+            demotion_reason=None,
+            requires_partner=False,
+        )
+
+    if domain == "arudha_lagna":
+        # T1, no demotion, no partner -- mirrors sade_sati's pattern above:
+        # chart_profile.py's build_arudha_lagna_profile() payload docstring
+        # states tier="TIER_1_EXACT" (single deterministic Arudha sign/lord,
+        # no uncertainty envelope). NOTE (Session 58): this branch exists so
+        # Stage 1's fallthrough never mislabels an arudha_lagna keyword hit
+        # as current_dasha (the previous unconditional final block below
+        # returns a hardcoded "current_dasha" literal for ANY unhandled
+        # domain) -- without this branch, a keyword-scoring win here would
+        # silently produce a wrong-domain answer instead of failing safely.
+        # orchestrator.py's own _VALID_DOMAINS does NOT yet admit
+        # "arudha_lagna" (build_domain_profile()/formatter integration is a
+        # separate, later prompt per chart_profile.py's
+        # build_arudha_lagna_profile() docstring) -- until that sync lands,
+        # a question routed here will fail closed with orchestrator's
+        # defensive ValueError, same "_VALID_DOMAINS sync discipline"
+        # precedent as av_transit's Session 55 router-then-orchestrator
+        # staged rollout.
+        return RouteResult(
+            domain="arudha_lagna",
+            tier=AnswerTier.TIER_1_EXACT,
             confidence=confidence,
             demotion_reason=None,
             requires_partner=False,

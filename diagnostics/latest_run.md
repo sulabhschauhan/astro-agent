@@ -1,84 +1,252 @@
-# Session 58: P6->P7 Arudha Lagna wiring (chart_profile.py + tests)
+# Session 58: arudha_lagna router wiring (calc_router.py, ONE FILE)
 
-## Status
+Scope: wire `arudha_lagna` into `agent/infra/calc_router.py` only. No test
+file this session. Not committed — user reviews diffs first.
 
-`build_arudha_lagna_profile(chart_data) -> dict` (agent/infra/chart_profile.py)
-is DONE: bridges calculate_chart() output -> jaimini.padas.compute_bhava_padas(),
-extracting only the house-1 (AL) entry. Standalone -- NOT yet wired into
-build_domain_profile()/_VALID_DOMAINS/calc_router.py/result_formatter.py.
-Router + formatter wiring is next, pending a separate design-chat decision
-on question-routing keywords for this domain.
+## Pre-edit review finding (flagged before editing, per CLAUDE.md Working
+Style #1/#11)
 
-Bug fixed en route: the first draft read `chart_data["lagna_chart"]["rasi"]`
-as the Lagna sign -- that field is actually Moon-sign (Chandra Rasi), not
-the Ascendant (confirmed via a REPL diagnostic: Sulabh's `rasi`=Scorpio vs
-`ascendant`=Sagittarius; `_koota_natal_info_from_chart` already reads this
-same field into a variable named `moon_sign`). Fixed to read
-`chart_data["lagna_chart"]["ascendant"]` instead.
+Read `calc_router.py` end-to-end before editing. The task's original 4-edit
+list registered `arudha_lagna` in `_DOMAIN_KEYWORDS` (Stage 1) and
+`_STAGE2_VALID_DOMAINS` (Stage 2), but did not add a matching branch to
+`_route_to_domain()`. That function's final block is an *unconditional*
+fallthrough that returns a **hardcoded literal** `domain="current_dasha"`
+for any domain string not explicitly branched. Net effect: an
+`arudha_lagna` keyword win (e.g. "what is my public image") would have
+silently been answered as `current_dasha` — wrong domain, wrong tier, wrong
+content — and would have passed `orchestrator.py`'s `_VALID_DOMAINS` gate
+cleanly (since `"current_dasha"` is valid), so nothing downstream would
+have caught it.
 
-## 4-chart Arudha Lagna table
+Cross-checked against the av_transit precedent this task is modeled on:
+when av_transit entered `_DOMAIN_KEYWORDS` (Session 55), its
+`_route_to_domain` branch (lines 583-599 pre-edit) landed **in the same
+change** — keyword registration alone makes a domain Stage-1-live, so the
+branch is not optional.
 
-| Chart    | lagna_sign  | arudha_sign | lord      | co_lord_deciding_step | Ratification |
-|----------|-------------|-------------|-----------|------------------------|--------------|
-| Sulabh   | Sagittarius | Leo         | Jupiter   | None                   | RATIFIED (hand-verified: PVR Ch.9 counting, Sg->Ar=5, 5 from Ar=Le, no step-5 exception) |
-| Surbhi   | Libra       | Leo         | Venus     | None                   | Ratified (internal-consistency only -- PVR counting engine, no independent oracle) |
-| Sheridan | Taurus      | Aquarius    | Venus     | None                   | Ratified (internal-consistency only) |
-| David    | Virgo       | Taurus      | Mercury   | None                   | Ratified (internal-consistency only) |
+Raised this to the user; they approved adding a 5th edit (the
+`_route_to_domain` branch) rather than shipping the gap. Tier chosen
+(`TIER_1_EXACT`, no demotion) matches `chart_profile.py`'s
+`build_arudha_lagna_profile()` payload docstring, which already documents
+`"tier": "TIER_1_EXACT"`. Confirmed `orchestrator.py`'s own
+`_VALID_DOMAINS` does NOT yet admit `"arudha_lagna"` (that sync is
+explicitly deferred — `build_arudha_lagna_profile()`'s docstring: "NOT yet
+wired into build_domain_profile()/_VALID_DOMAINS/the router or formatter
+— domain/router/formatter integration is a separate, later prompt") — so
+with the new branch in place, a live `arudha_lagna` route now fails CLOSED
+via orchestrator's defensive `ValueError`, not a silent wrong answer. Same
+staged-rollout precedent as av_transit's Session 55 router-then-orchestrator
+split.
 
-None of the 4 charts have a Scorpio/Aquarius Lagna, so `co_lord_deciding_step`
-is None across the board here -- the co-lord cascade path (stronger_co_lord)
-is exercised separately by test_jaimini_arudha.py's own Layer C fixtures and
-by this file's Layer B (see below), not by any of these 4 reference charts'
-own Lagna.
+## 5 edits applied (4 requested + 1 approved)
 
-## Test suite: tests/infra/test_chart_profile_arudha_lagna.py (+9 tests)
+1. `_ARUDHA_LAGNA_KEYWORDS` added, registered in `_DOMAIN_KEYWORDS` (mirrors
+   `_AV_TRANSIT_KEYWORDS`).
+2. `"arudha_lagna"` added to `_STAGE2_VALID_DOMAINS`; `_STAGE2_SYSTEM_PROMPT`
+   bullet added, "5 domains" → "6 domains" (both mentions).
+3. `_STAGE2_TOOL_SCHEMA` description "3 routable domains" → "6" (was already
+   stale pre-edit at the true count of 5 — flagged as pre-existing,
+   fixed opportunistically, inline comment added so a reviewer doesn't
+   mistake it for drive-by scope creep).
+4. `"jaimini"` removed from `_UNBUILT_MODULE_KEYWORDS`; comment added above
+   the tuple.
+5. **(approved addition)** `_route_to_domain()` gained an `arudha_lagna`
+   branch: `TIER_1_EXACT`, `demotion_reason=None`, `requires_partner=False`
+   — see finding above.
 
-- Layer A: Sulabh AL=Leo asserted directly (ratified). Surbhi/Sheridan/David
-  measure-first (shape asserted, arudha_sign not asserted -- see table above).
-- Layer B: D2 fail-closed (Saturn+Rahu both in Aquarius) propagates
-  unmodified through build_arudha_lagna_profile(). Real chart_data cannot
-  trigger this -- the function recomputes every planet longitude live from
-  jd_ut, and no real jd_ut exists where Saturn+Rahu are both in sidereal
-  Aquarius (see Known Issue below). Tested via monkeypatch on the shared
-  `swisseph.calc_ut` (Saturn/Rahu forced into Aquarius, real ephemeris for
-  every other planet) -- the same test seam helpers/ephemeris.py's own
-  CONSTRAINT section documents.
-- Layer C: missing `lagna_chart` key -> KeyError; missing `ascendant` key ->
-  KeyError; invalid ascendant sign string -> ValueError (from
-  compute_bhava_padas).
-- Layer D: result dict has exactly 6 keys, correct types.
+## Diffs
 
-## Baseline
+```diff
+--- a/agent/infra/calc_router.py
++++ b/agent/infra/calc_router.py
+@@ -82,11 +82,21 @@ _AV_TRANSIT_KEYWORDS: tuple[str, ...] = (
+     "ashtakavarga", "bindu", "kakshya",
+ )
 
-3120 passed, 3 skipped, 0 failed (3111 + 9 new, zero regressions elsewhere).
++# arudha_lagna (Session 58 router wiring). Public-image/perception phrasing
++# ("public image", "public perception") alongside the literal Jaimini terms
++# ("arudha lagna", "arudha pada") -- mirrors av_transit's precedent of
++# pairing a technical term list with the layman phrasing Stage 1 can catch
++# directly, without requiring Stage 2 for the common case.
++_ARUDHA_LAGNA_KEYWORDS: tuple[str, ...] = (
++    "arudha lagna", "arudha pada", "public image", "public perception",
++)
++
+ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
+     "marriage_compatibility": _MARRIAGE_KEYWORDS,
+     "career_strength": _CAREER_KEYWORDS,
+     "current_dasha": _DASHA_KEYWORDS,
+     "av_transit": _AV_TRANSIT_KEYWORDS,
++    "arudha_lagna": _ARUDHA_LAGNA_KEYWORDS,
+ }
+```
 
-## Known issue found this session (not fixed, tracked in CLAUDE.md)
+```diff
+--- a/agent/infra/calc_router.py
++++ b/agent/infra/calc_router.py
+@@ -244,6 +256,7 @@ _STAGE2_VALID_DOMAINS: frozenset[str] = frozenset(
+         "current_dasha",
+         "sade_sati",
+         "av_transit",
++        "arudha_lagna",
+         "none",
+     }
+ )
+@@ -269,7 +282,7 @@ _STAGE2_LOG_PATH = Path(__file__).resolve().parents[2] / "diagnostics" / "calc_r
+ _STAGE2_SYSTEM_PROMPT = """\
+ You are a routing classifier for a Vedic astrology calculation Q&A pipeline.
 
-`strength.py`'s D2 docstring cites "2022-23, when Saturn and Rahu were both
-transiting Aquarius" as a real, documented example. Checked directly via
-swisseph: Saturn was in sidereal Aquarius through 2022-23, but Rahu (Mean
-Node) was in Aries/Pisces that entire window. A 1900-2030 scan at 10-day
-resolution found no real Saturn+Rahu-both-in-Aquarius overlap at all. The
-D2 fail-closed mechanism itself is correct and unaffected (verified via
-synthetic fixtures in test_jaimini_strength.py and via this session's own
-monkeypatch test) -- only the illustrative citation in the docstring is
-wrong. See CLAUDE.md Carry-Forward.
+-This pipeline can ONLY answer questions in exactly 5 domains:
++This pipeline can ONLY answer questions in exactly 6 domains:
+  marriage_compatibility: Ashtakoot/Guna Milan, Mangal Dosha, spouse or \
+ partner compatibility.
+  career_strength: career/profession/work strength, based on Shadbala \
+@@ -284,15 +297,17 @@ current, previous, or next Sade Sati cycle starts or ends.
+ sub-windows, from Bindu/Kakshya strength) of a specific transiting planet \
+ DURING the current Antardasha -- finer-grained timing WITHIN the current \
+ dasha period, not just which lord is currently running.
++ arudha_lagna: questions about self-image, public perception, reputation, \
++how one is seen by others (Jaimini Arudha Lagna).
 
-## Open items (not this session's scope)
+ Classify the question into exactly one of these domains, or "none" if it
+-does not clearly ask about one of these 5 things (for example: health,
++does not clearly ask about one of these 6 things (for example: health,
+ travel, gemstones, lucky numbers, or any other topic).
 
-(a) Fix strength.py's D2 docstring citation (see above) -- ride-along with
-    the next file touch, not a standalone prompt.
-(b) calc_router.py needs a keyword set for an "arudha_lagna" domain, plus a
-    collision check against `_STEM_MAP` (existing domains' keywords) before
-    wiring routing -- not started.
-(c) result_formatter.py needs a render branch for arudha_lagna's
-    TIER_1_EXACT payload shape (arudha_sign/lagna_sign/lord/
-    co_lord_deciding_step) -- not started.
+ Call classify_domain with:
+- domain: the single best-matching domain, or "none".
+- confidence: "high" ONLY if the question clearly and unambiguously asks
+-  about exactly one of the 5 domains above; "medium" or "low" for any
++  about exactly one of the 6 domains above; "medium" or "low" for any
+   ambiguity, a different topic, or a domain this pipeline does not cover.
+ """
+```
 
-## Files touched this session
+```diff
+--- a/agent/infra/calc_router.py
++++ b/agent/infra/calc_router.py
+@@ -300,9 +315,13 @@ _STAGE2_TOOL_SCHEMA = {
+     "type": "function",
+     "function": {
+         "name": "classify_domain",
++        # Session 58: "3 routable domains" was already stale pre-edit
++        # (actual count had drifted to 5 with sade_sati/av_transit) --
++        # design-chat-flagged pre-existing bug, fixed opportunistically here
++        # alongside the arudha_lagna wiring, not a drive-by unrelated change.
+         "description": (
+             "Classify a Vedic astrology question into one of the pipeline's "
+-            "3 routable domains, or none."
++            "6 routable domains, or none."
+         ),
+```
 
-- `agent/infra/chart_profile.py` -- `build_arudha_lagna_profile()` added,
-  then its lagna-key bug fixed.
-- `tests/infra/test_chart_profile_arudha_lagna.py` -- new file, 9 tests.
-- `CLAUDE.md` -- Carry-Forward entry for the strength.py D2 docstring issue.
-- `diagnostics/latest_run.md` -- this file.
+```diff
+--- a/agent/infra/calc_router.py
++++ b/agent/infra/calc_router.py
+@@ -101,6 +111,9 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
+ # built and 4-chart validated, unlike the genuinely-unbuilt modules below
+ # -- refusing it here was product debt, not a locked decision). Now routed
+ # via _BUILT_MODULE_FASTPATH instead.
++# Session 58: "jaimini" removed -- all jaimini/ modules exist as of
++# Session 57; unwired-Q&A refusals now go through the router's normal
++# "domain not routable" path, not this guard.
+ _UNBUILT_MODULE_KEYWORDS: dict[str, str] = {
+     "yoga": "yoga detection",
+     "transit": "transit engine (gochara)",
+@@ -110,7 +123,6 @@ _UNBUILT_MODULE_KEYWORDS: dict[str, str] = {
+     "d10": "D10 divisional chart",
+     "d9": "D9 (Navamsa) divisional chart",
+     "varga": "divisional charts (vargas)",
+-    "jaimini": "Jaimini karakas/arudha/padas",
+     "chara": "Chara dasha",
+     "yogini": "Yogini dasha",
+     "ashtottari": "Ashtottari dasha",
+```
+
+```diff
+--- a/agent/infra/calc_router.py
++++ b/agent/infra/calc_router.py
+@@ -598,6 +617,32 @@ def _route_to_domain(
+             requires_partner=False,
+         )
+
++    if domain == "arudha_lagna":
++        # T1, no demotion, no partner -- mirrors sade_sati's pattern above:
++        # chart_profile.py's build_arudha_lagna_profile() payload docstring
++        # states tier="TIER_1_EXACT" (single deterministic Arudha sign/lord,
++        # no uncertainty envelope). NOTE (Session 58): this branch exists so
++        # Stage 1's fallthrough never mislabels an arudha_lagna keyword hit
++        # as current_dasha (the previous unconditional final block below
++        # returns a hardcoded "current_dasha" literal for ANY unhandled
++        # domain) -- without this branch, a keyword-scoring win here would
++        # silently produce a wrong-domain answer instead of failing safely.
++        # orchestrator.py's own _VALID_DOMAINS does NOT yet admit
++        # "arudha_lagna" (build_domain_profile()/formatter integration is a
++        # separate, later prompt per chart_profile.py's
++        # build_arudha_lagna_profile() docstring) -- until that sync lands,
++        # a question routed here will fail closed with orchestrator's
++        # defensive ValueError, same "_VALID_DOMAINS sync discipline"
++        # precedent as av_transit's Session 55 router-then-orchestrator
++        # staged rollout.
++        return RouteResult(
++            domain="arudha_lagna",
++            tier=AnswerTier.TIER_1_EXACT,
++            confidence=confidence,
++            demotion_reason=None,
++            requires_partner=False,
++        )
++
+     # current_dasha -- ALWAYS TIER_2_RANGE in V1 (design-chat reversal of
+```
+
+## pytest (full suite)
+
+```
+3120 passed, 3 skipped, 1 warning in 88.62s
+```
+
+Exactly matches expected 3120/3/0.
+
+## Golden harness delta
+
+Ran `python -m agent.eval.golden_harness`:
+
+```
+runnable=16 non_runnable_batch=2 match=7 match_stage2=5 design_debt=0 known_gap=4 new_gap=0 error=0
+report: diagnostics\golden_scorecard_20260710_161744.md
+```
+
+Baseline verification (CLAUDE.md rule #12 — baseline filenames are claims,
+not facts): confirmed `golden_scorecard_20260707_112916.md` is the most
+recent pre-edit scorecard file by mtime before diffing against it.
+
+```
+$ diff diagnostics/golden_scorecard_20260707_112916.md diagnostics/golden_scorecard_20260710_161744.md
+3c3
+< - Run evaluated_at_jd: `2461228.978414352`
+---
+> - Run evaluated_at_jd: `2461232.1788078705`
+```
+
+**Zero delta** beyond the run timestamp. All tallies identical
+(`match=7 match_stage2=5 known_gap=4 new_gap=0 error=0`) — no golden row
+touches arudha_lagna or jaimini, as expected.
+
+## Not touched (deliberately out of scope this session)
+
+- Module docstring's "4 routable domains as of Session 50/P7.2c" header
+  comment (line 3) is now stale (true count is 6) — not touched, scope was
+  ONE FILE / 5 edits only, not a full-file docstring pass.
+- `_UNBUILT_MODULE_KEYWORDS` REFUSAL message body (route_question(), ~line
+  744) still lists only `(marriage_compatibility, career_strength,
+  current_dasha, sade_sati)` — already missing av_transit pre-edit, now
+  also missing arudha_lagna. Pre-existing staleness, not introduced this
+  session, not part of the scoped edits.
+- `orchestrator.py`'s `_VALID_DOMAINS` and `chart_profile.py`'s
+  `build_domain_profile()`/formatter wiring for arudha_lagna — explicitly
+  deferred to a separate, later prompt per
+  `build_arudha_lagna_profile()`'s own docstring. Until that lands, a live
+  `arudha_lagna` route fails closed with `orchestrator.answer_question()`'s
+  defensive `ValueError`, by design.
+
+Not committed — diffs above for review.
