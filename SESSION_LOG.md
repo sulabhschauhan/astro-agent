@@ -2016,3 +2016,104 @@ it isn't lost to compression before being reconciled.
 P6 Jaimini closed this session. See CLAUDE.md Current Session Focus:
 P6->P7 wiring (exposing bhava padas to the answer pipeline) -- TBD
 pending design-chat decision, not yet scoped.
+
+## Session 59 — arudha_lagna shipped end-to-end: formatter -> chart_profile dispatch -> orchestrator gate -> e2e test suite (2026-07-10)
+
+### What landed
+1. `result_formatter.py`'s `_format_arudha_lagna()` branch -- always
+   `TIER_1_EXACT`, always `demotion_reason=None` (mirrors
+   `_format_sade_sati()`'s no-dated-claims pattern). Landed as dead code
+   (formatter branch built ahead of dispatch/orchestrator wiring, same
+   staged-rollout precedent as av_transit's Session 55 landing). (58a94c5)
+2. `chart_profile.py`'s `build_domain_profile()` gains an
+   `elif domain == "arudha_lagna":` dispatch branch (`payload =
+   build_arudha_lagna_profile(chart_data)`, `stub_caveats=()`,
+   `uncertainty_virupa=0.0`, `uncertainty_days=0.0`) plus its own
+   `_VALID_DOMAINS` widened to admit `"arudha_lagna"` in the SAME change
+   -- avoiding a repeat of the Session 55 av_transit incident where
+   chart_profile.py's gate was missed for a full session after
+   orchestrator.py's own gate shipped. (2226691)
+3. `orchestrator.py`'s `_VALID_DOMAINS` admits `"arudha_lagna"` -- the
+   LAST gate in the staged rollout (router S58 -> formatter -> chart_profile
+   dispatch -> this gate). `_merge_router_demotion()` needed no change
+   (calc_router.py and the formatter both emit `demotion_reason=None` for
+   this domain, so the merge is a no-op passthrough). Live E2E smoke
+   confirmed against the real Sulabh chart; full pytest suite and golden
+   harness both showed zero delta. (e0cdfcd)
+4. `tests/infra/test_orchestrator_arudha_lagna.py` -- new 7-test suite,
+   3 layers: Layer A pins router provenance (measured directly against
+   `route_question()` with a recording sentinel BEFORE writing any
+   assertion -- confirmed `_score_domain`'s exact formula is
+   `min(matched,3)/3`, not `matched/len(keywords)`); Layer B is the
+   4-chart real-chart oracle via `build_domain_profile()` ->
+   `format_answer()` (Sulabh fully asserted including an exact-answer_
+   payload-key-set check; David/Sheridan/Surbhi's `arudha_sign` asserted,
+   `lord`/`co_lord_deciding_step` ratified in a follow-up commit: David=
+   Mercury, Sheridan=Venus, Surbhi=Venus, all `co_lord_deciding_step=
+   None`); Layer C proves the full `answer_question()` chain produces a
+   byte-identical `DomainAnswer` to Layer B's Sulabh row, pinning
+   `_merge_router_demotion`'s no-op passthrough end to end. Baseline
+   3120 -> 3127. (d816b92, ratified b4be25a)
+
+### Key incidents this session
+1. **Prose-in-payload contract conflict** -- the original
+   `_format_arudha_lagna()` task spec called for a rendered prose
+   paragraph inside `answer_payload`, but `DomainAnswer.answer_payload`
+   is documented (chart_profile.py) as "deterministic values the
+   formatter renders -- NEVER prose," a contract no other branch in
+   `result_formatter.py` violates. Resolved by keeping `answer_payload`
+   structured-only (4 keys: `arudha_sign`, `lagna_sign`, `lord`,
+   `co_lord_deciding_step`), verbatim from the payload; a prose
+   rendering, if wanted, is deferred to a separate concern/layer.
+2. **Smoke provenance misreport, corrected** -- an early live-smoke
+   report for this session claimed two test questions ("what is my
+   arudha lagna" and "how do people see me in public") both resolved via
+   Stage 1 keyword scoring. That was wrong: `diagnostics/
+   calc_router_stage2.log` showed both actually routed through Stage 2
+   (GPT-4o-mini, `confidence=high`) -- `stage1_best_score` 0.333 and 0.0
+   respectively, both below `_CONFIDENCE_FLOOR`. Corrected in
+   `diagnostics/latest_run.md` with the verbatim log lines once caught
+   on review, not silently left standing. This incident motivated
+   escalating the pre-existing `RouteResult.route`-marker carry-forward
+   (Session 55) from routine ride-along to priority -- a first-class
+   `route` field on `RouteResult` would have made this class of mistake
+   structurally impossible instead of requiring a manual log read to
+   catch.
+3. **Stage-1-unreachable finding logged as scorecard evidence, not
+   tuned** -- measuring candidate phrasings directly against
+   `route_question()` established that `arudha_lagna`'s own 4-keyword
+   list can never clear Stage 1 on a single-keyword hit (`1/3 = 0.333`,
+   below the `0.4` floor) regardless of list length, so even the literal
+   phrase "what is my arudha lagna" alone always falls through to a
+   Stage 2 LLM call. Logged as a CLAUDE.md carry-forward with the
+   scorecard evidence and timestamp; explicitly NOT tuned this session
+   (router refuse-heavy posture, Session 44 lock -- tune only with
+   Answer Scorecard evidence, not preemptive guesses). `test_
+   orchestrator_arudha_lagna.py`'s own Layer A pins this as CURRENT, not
+   desired, behavior.
+4. **`diagnostics/calc_router_stage2.log` gitignored** -- this
+   append-only JSONL diagnostic log was tracked in git; added to
+   `.gitignore` and `git rm --cached`'d. Local-only diagnostic output,
+   not committed history, closing an open carry-forward item.
+
+### Carry-forward added this session
+- arudha_lagna's co-lord cascade (`strength.py`'s `stronger_co_lord()`)
+  has zero real-chart coverage -- none of the 4 canonical charts has a
+  Scorpio/Aquarius Lagna; reconfirmed at this orchestrator/e2e layer via
+  `test_orchestrator_arudha_lagna.py`'s own 4-chart Layer B row. Still
+  deferred, no new reference chart being added.
+- `answer_question()` has no Stage 2 client injection seam (unlike
+  `route_question()`'s own `_stage2_client` kwarg) -- bundled with the
+  `RouteResult.route` marker work above for a future joint decision.
+- Golden harness eval coverage gap: zero golden rows exercise the now-
+  live arudha_lagna domain. Flagged as next session's focus (CLAUDE.md
+  Current Session Focus).
+
+### Test baseline
+Entered this session at 3120 passed, 3 skipped (formatter + chart_profile
+dispatch already landed from the prior thread's work). Ended at **3127
+passed, 3 skipped, 0 failed** after the new 7-test suite -- verified
+directly after each commit, zero regressions throughout. Golden harness:
+`match=7 match_stage2=5 known_gap=4 new_gap=0 error=0` unchanged across
+every checkpoint this session -- no golden row routes to arudha_lagna yet
+(the gap carried forward above).
