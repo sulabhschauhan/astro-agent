@@ -1,3 +1,116 @@
+# S71: new test file tests/infra/test_orchestrator_upapada.py
+
+ONE NEW FILE: `tests/infra/test_orchestrator_upapada.py`. No source
+files touched. Mirrors `test_orchestrator_arudha_lagna.py`'s structure,
+fixtures, sentinel pattern, and per-file duplication conventions.
+
+## Pre-write measurement (per task instruction, before any assertion written)
+
+Measured both candidate Stage 1 phrasings directly against
+`route_question()` with a recording sentinel client:
+
+```
+what is my upapada lagna
+  scores: {'marriage_compatibility': 0.0, 'career_strength': 0.0, 'current_dasha': 0.0, 'av_transit': 0.0, 'arudha_lagna': 0.0, 'upapada_lagna': 0.6666666666666666}
+  sentinel calls: 0
+  result domain: upapada_lagna tier: AnswerTier.TIER_1_EXACT demotion: None
+
+what is my upapada
+  scores: {'marriage_compatibility': 0.0, 'career_strength': 0.0, 'current_dasha': 0.0, 'av_transit': 0.0, 'arudha_lagna': 0.0, 'upapada_lagna': 0.3333333333333333}
+  sentinel calls: 1
+  result domain: None tier: AnswerTier.REFUSAL demotion: question not classifiable with confidence
+```
+
+Confirms the task prompt's stated numbers exactly (2 hits/0.667/no
+sentinel call; 1 hit/0.333/sentinel invoked, fails closed). Grepped
+`tests/` for both candidate strings and cross-checked against
+`golden_qa_sulabh.py`'s question texts and
+`test_orchestrator_arudha_lagna.py`'s own constants -- **no
+collision** found (golden's q3 uses the longer, different phrasing
+"what does my upapada lagna say about my marriage"; the arudha suite's
+constants are arudha, not upapada, phrasings).
+
+## Shape-helper correction caught before writing Layer B (important)
+
+Initial draft of the Layer B shape helper asserted
+`_house_12_sign(lagna_sign) == upapada_sign` -- this is WRONG and
+failed immediately on a live check: for Sulabh,
+`_house_12_sign("Sagittarius") == "Scorpio"`, but `upapada_sign ==
+"Aquarius"`. These are two different signs: `_house_12_sign()` derives
+the sign OCCUPYING house 12 (an input to the Arudha-pada counting
+procedure), while `upapada_sign` is the Arudha PADA computed FROM that
+house (the counting procedure's output). The payload's `lord` field is
+the (possibly co-lord-cascade-resolved) lord of the INPUT sign
+(house-12's own sign), not of the output pada sign -- this is exactly
+why Sulabh's house-12 sign (Scorpio, co-lorded Mars/Ketu) triggers
+`co_lord_deciding_step="step_2"` even though the resulting
+`upapada_sign` (Aquarius) is itself also independently co-lorded.
+Caught and corrected before any assertion was committed to the file,
+per CLAUDE.md Working Style #2 (REVIEW before PROCEED).
+
+Corrected shape check, computed live for all 4 charts before writing
+final assertions:
+
+```
+Sulabh: lagna_sign='Sagittarius' house12_sign(derived)='Scorpio' upapada_sign='Aquarius' lord='Ketu' co_lord_deciding_step='step_2'
+  -> co-lorded house12 sign (Scorpio): step non-None? True
+Surbhi: lagna_sign='Libra' house12_sign(derived)='Virgo' upapada_sign='Cancer' lord='Mercury' co_lord_deciding_step=None
+  -> single-lord house12 sign (Virgo): lord=='Mercury'? True; step None? True
+Sheridan: lagna_sign='Taurus' house12_sign(derived)='Aries' upapada_sign='Capricorn' lord='Mars' co_lord_deciding_step=None
+  -> single-lord house12 sign (Aries): lord=='Mars'? True; step None? True
+David: lagna_sign='Virgo' house12_sign(derived)='Leo' upapada_sign='Gemini' lord='Sun' co_lord_deciding_step=None
+  -> single-lord house12 sign (Leo): lord=='Sun'? True; step None? True
+```
+
+None of David/Sheridan/Surbhi land on a Scorpio/Aquarius house-12 sign
+-- all 3 exercise the single-classical-lord branch, not the co-lord
+cascade. Only Sulabh (the fully-ratified row) exercises the cascade in
+this 4-chart set.
+
+## RATIFY BEFORE COMMIT lines, verbatim (pytest -s output)
+
+```
+RATIFY BEFORE COMMIT (David): upapada_sign='Gemini' lord='Sun' co_lord_deciding_step=None (lagna_sign='Virgo', house_12_sign='Leo')
+RATIFY BEFORE COMMIT (Sheridan): upapada_sign='Capricorn' lord='Mars' co_lord_deciding_step=None (lagna_sign='Taurus', house_12_sign='Aries')
+RATIFY BEFORE COMMIT (Surbhi): upapada_sign='Cancer' lord='Mercury' co_lord_deciding_step=None (lagna_sign='Libra', house_12_sign='Virgo')
+```
+
+Not asserted against `upapada_sign` values in the test file itself --
+ratification of these 3 rows is pending design-chat sign-off, same
+posture as `test_orchestrator_arudha_lagna.py`'s own David/Sheridan/
+Surbhi rows before their S59 ratification.
+
+## Verification
+
+New file alone, `-s -v`:
+```
+7 passed in 1.33s
+```
+All 7 (2 Layer A + 4 Layer B + 1 Layer C) green.
+
+Full suite:
+```
+3134 passed, 3 skipped, 1 warning in 115.20s
+```
+Exact match to expectation (3127 + 7 new = 3134, skip count
+unchanged).
+
+Golden harness: **NOT run**, per task instruction (test-file-only
+change, arudha precedent -- `test_orchestrator_arudha_lagna.py`'s own
+S59 landing didn't trigger a harness re-run either since no
+`GOLDEN_QA` row or `golden_harness.py` logic changed).
+
+## Not committed
+
+Per task instruction. New test file plus this diagnostics entry are
+the only changes; all prior session work
+(`calc_router.py`/`orchestrator.py`/`chart_profile.py`/
+`result_formatter.py`/`golden_harness.py`/`golden_qa_sulabh.py`, all
+diagnostics) was already committed and pushed (`e414faf`) before this
+prompt.
+
+---
+
 # S70: q3 domain flip + new frozen-baseline scorecard header
 
 ONE SOURCE FILE: `tests/fixtures/golden_qa_sulabh.py`. Plus a new
