@@ -49,6 +49,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 from agent.infra.chart_profile import AnswerTier
 
@@ -391,6 +392,18 @@ class RouteResult:
     confidence: float           # 0.0 on REFUSAL
     demotion_reason: str | None # set on REFUSAL or T1->T2 demotion
     requires_partner: bool      # True only for marriage domain
+    # Which mechanism actually resolved this result (Session 72 carry-
+    # forward, escalated Session 55/59). "fastpath" is distinct from
+    # "stage1": the sade_sati fast-path bypasses _DOMAIN_KEYWORDS/
+    # _score_domain entirely (see module docstring), so it is not the
+    # same mechanism as Stage 1's floor+margin keyword scoring even
+    # though both are LLM-free. "pre_classification" covers the
+    # unbuilt-module-keyword and out-of-scope-keyword guards in
+    # route_question(), which REFUSE before Stage 1 scoring, the
+    # fast-path, or Stage 2 ever run -- no domain-resolution mechanism
+    # was engaged at all for these. No default: every construction site
+    # must set this explicitly.
+    route: Literal["stage1", "stage2", "fastpath", "pre_classification"]
 
 
 # Irregular/derivational-form -> canonical keyword. S44.3b's suffix-strip
@@ -592,6 +605,7 @@ def _route_to_domain(
     confidence: float,
     has_partner_data: bool,
     chart_data: dict | None,
+    route: Literal["stage1", "stage2", "fastpath"],
 ) -> RouteResult:
     """Build the final RouteResult for a resolved domain.
 
@@ -600,7 +614,11 @@ def _route_to_domain(
     fast-path (Session 50/P7.2c) -- the has_partner_data hard guard,
     career's fixed T2 demotion, sade_sati's fixed T1/no-demotion, and
     dasha's ALWAYS-T2 rule (Session 49/P7.0c) apply identically regardless
-    of which of the three resolved the domain.
+    of which of the three resolved the domain. `route` has no default:
+    since all three callers can reach any of this function's domain
+    branches (Session 72 carry-forward tracing), the correct provenance
+    value cannot be inferred from the domain alone -- each caller must
+    state which mechanism it is.
     """
     if domain == "marriage_compatibility":
         if not has_partner_data:
@@ -611,6 +629,7 @@ def _route_to_domain(
                 confidence=0.0,
                 demotion_reason="marriage_compatibility requires partner birth data",
                 requires_partner=True,
+                route=route,
             )
         return RouteResult(
             domain="marriage_compatibility",
@@ -618,6 +637,7 @@ def _route_to_domain(
             confidence=confidence,
             demotion_reason=None,
             requires_partner=True,
+            route=route,
         )
 
     if domain == "career_strength":
@@ -627,6 +647,7 @@ def _route_to_domain(
             confidence=confidence,
             demotion_reason=_CAREER_DEMOTION_REASON,
             requires_partner=False,
+            route=route,
         )
 
     if domain == "sade_sati":
@@ -643,6 +664,7 @@ def _route_to_domain(
             confidence=confidence,
             demotion_reason=None,
             requires_partner=False,
+            route=route,
         )
 
     if domain == "av_transit":
@@ -661,6 +683,7 @@ def _route_to_domain(
             confidence=confidence,
             demotion_reason=None,
             requires_partner=False,
+            route=route,
         )
 
     if domain == "arudha_lagna":
@@ -687,6 +710,7 @@ def _route_to_domain(
             confidence=confidence,
             demotion_reason=None,
             requires_partner=False,
+            route=route,
         )
 
     if domain == "upapada_lagna":
@@ -712,6 +736,7 @@ def _route_to_domain(
             confidence=confidence,
             demotion_reason=None,
             requires_partner=False,
+            route=route,
         )
 
     # current_dasha -- ALWAYS TIER_2_RANGE in V1 (design-chat reversal of
@@ -736,6 +761,7 @@ def _route_to_domain(
         confidence=confidence,
         demotion_reason=demotion_reason,
         requires_partner=False,
+        route=route,
     )
 
 
@@ -778,6 +804,7 @@ def _stage2_fallback(
             confidence=0.0,
             demotion_reason="question not classifiable with confidence",
             requires_partner=False,
+            route="stage2",
         )
 
     if stage2_domain is not None and stage2_confidence == "high":
@@ -786,6 +813,7 @@ def _stage2_fallback(
             _STAGE2_CONFIDENCE_MAP["high"],
             has_partner_data,
             chart_data,
+            route="stage2",
         )
         outcome = (
             f"ROUTED:{result.domain}"
@@ -816,6 +844,7 @@ def _stage2_fallback(
         confidence=0.0,
         demotion_reason="question not classifiable with confidence",
         requires_partner=False,
+        route="stage2",
     )
 
 
@@ -860,6 +889,7 @@ def route_question(
                     f"career_strength, current_dasha, sade_sati)"
                 ),
                 requires_partner=False,
+                route="pre_classification",
             )
 
     for keyword in _OUT_OF_SCOPE_KEYWORDS:
@@ -873,6 +903,7 @@ def route_question(
                     f"(matched out-of-scope term: {keyword!r})"
                 ),
                 requires_partner=False,
+                route="pre_classification",
             )
 
     # sade_sati deterministic fast-path (Session 50/P7.2c) -- checked AFTER
@@ -883,7 +914,9 @@ def route_question(
     # never depend on Stage 2/GPT-4o-mini being available or correct.
     for keyword, domain in _BUILT_MODULE_FASTPATH.items():
         if re.search(rf"\b{re.escape(keyword)}s?\b", question_lower):
-            return _route_to_domain(domain, 1.0, has_partner_data, chart_data)
+            return _route_to_domain(
+                domain, 1.0, has_partner_data, chart_data, route="fastpath"
+            )
 
     # Domain classification.
     question_tokens = _normalize_tokens(question)
@@ -905,4 +938,6 @@ def route_question(
             _stage2_client,
         )
 
-    return _route_to_domain(best_domain, best_score, has_partner_data, chart_data)
+    return _route_to_domain(
+        best_domain, best_score, has_partner_data, chart_data, route="stage1"
+    )
