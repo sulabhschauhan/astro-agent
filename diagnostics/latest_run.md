@@ -1,3 +1,78 @@
+# S69: harness whitelist admits upapada_lagna (golden_harness.py only)
+
+ONE FILE: `agent/eval/golden_harness.py`.
+
+## Edits applied
+
+1. `_GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN += "upapada_lagna": "upapada_lagna"`
+   -- identity mapping, confirmed by reading `calc_router.py`'s
+   `_route_to_domain()` first (not assumed): its `upapada_lagna` branch
+   returns `RouteResult(domain="upapada_lagna", ...)` verbatim, same
+   string in and out, exactly matching `arudha_lagna`'s own precedent.
+   Dead entry as of this session: no `GOLDEN_QA` row's `domain` field is
+   `"upapada_lagna"` yet -- `sulabh_arudha_q3_refusal_probe` still
+   carries `domain="arudha_lagna"` per its own S67 NOTE comment
+   (deliberately deferred there to avoid `_classify_runnability()`
+   dropping the row to `NON_RUNNABLE_BATCH`). Flipping that row's
+   `domain` field is a separate, later prompt.
+2. Module docstring's pipeline-whitelisted-domains sentence -- read
+   first, exactly as instructed: it said **"one of the four
+   pipeline-whitelisted domains (career/marriage/dasha/arudha_lagna)"**
+   (S59's wording, unchanged since -- av_transit/sade_sati never
+   appeared in this particular sentence; they're each `NON_RUNNABLE`
+   via other paths, sade_sati has no `GOLDEN_QA` row at all and
+   av_transit likewise). Bumped to **"one of the five
+   pipeline-whitelisted domains
+   (career/marriage/dasha/arudha_lagna/upapada_lagna)"**.
+
+## Item 3: `_KNOWN_GAPS` prose check (report only, no edit)
+
+Grepped the whole file for `upapada`/`jaimini` (case-insensitive)
+before this session's own edits landed. **Zero hits.** Neither
+`_KNOWN_GAPS` entry (`sulabh_marriage_q10`, `sulabh_dasha_q15`)
+references upapada, Jaimini, or an arudha/upapada refusal posture at
+all -- both are about unrelated mechanisms (q10: Stage 2
+medium-confidence + the TIER_4_INTERPRETIVE V1-scope lock; q15: Stage 2
+domain=none + the TIER_3_MUHURTA P2-order lock). **Nothing stale to
+report or fix here.**
+
+(Noted in passing, NOT edited, out of this prompt's explicit scope:
+two OTHER stale domain-count references exist nearby --
+`_GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN`'s own preceding comment, "4-domain
+whitelist" (now 5), and `_classify_runnability()`'s docstring,
+"3-domain whitelist" (already stale before this session, now off by
+2). Task item 2 scoped this prompt to the ONE module-docstring sentence
+specifically; these two are separate, pre-existing drift, flagged here
+for visibility, not touched.)
+
+## Verification
+
+Full suite:
+```
+3127 passed, 3 skipped, 1 warning in 103.09s
+```
+Exact match, zero delta.
+
+Golden harness, one run:
+```
+runnable=19 non_runnable_batch=2 match=9 match_stage2=8 design_debt=0 known_gap=2 new_gap=0 error=0
+report: diagnostics/golden_scorecard_20260711_111937.md
+```
+**Exact match to the task's stated expectation.** Diffed every row
+against the S67 run's report (`golden_scorecard_20260711_110324.md`)
+-- **byte-identical**, confirming the new mapping entry is dead code as
+predicted (nothing yet references `"upapada_lagna"` as a golden row's
+`domain` value).
+
+## Not committed
+
+Per task instruction. This session's other uncommitted work
+(`calc_router.py`/`orchestrator.py`/`chart_profile.py`/
+`result_formatter.py`, `tests/fixtures/golden_qa_sulabh.py`) is
+unaffected by this file-only edit.
+
+---
+
 # S68: refusal topic-list re-sync -- fires the S62 carry-forward (result_formatter.py only)
 
 ONE FILE: `agent/infra/result_formatter.py`.
