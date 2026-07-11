@@ -32,6 +32,7 @@ stub-with-TODO precedent as calculations/helpers/ephemeris.py.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Literal
 
@@ -51,6 +52,7 @@ from agent.calculations.jaimini.padas import compute_bhava_padas
 from agent.calculations.strength.bhava_bala import compute_bhava_bala_totals
 from agent.calculations.strength.shadbala_totals import compute_shadbala_totals
 from agent.calculations.transits.av_transit_scanner import scan_av_transit_segments
+from agent.calculations.transits.muhurta_scorer import find_muhurta_windows
 from agent.calculations.transits.sade_sati import compute_sade_sati
 from agent.chart_calculator import NAKSHATRAS, SIGNS, compute_porphyry_house_cusps
 
@@ -151,6 +153,14 @@ _SADE_SATI_SCAN_STEP_DAYS = 1.0
 _AV_TRANSIT_NATAL_PLANETS: tuple[str, ...] = (
     "Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn",
 )
+
+# THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4) -- sizes
+# build_muhurta_profile()'s find_muhurta_windows() scan.
+#
+# V1 fixed 7-day window: Chandrabala ~2.27d/sign, Tarabala ~1d/nakshatra
+# cadence guarantees multiple windows of each limb (S24 scans: 4 and 8
+# windows/7d); explicit-date parsing deferred V1.1.
+_MUHURTA_SCAN_WINDOW_DAYS = 7.0
 
 
 class AnswerTier(Enum):
@@ -1065,3 +1075,111 @@ def build_upapada_profile(chart_data: dict) -> dict:
             here, matching arudha.py/strength.py's own precedent.
     """
     return _build_bhava_pada_profile(chart_data, house_num=12, sign_key="upapada_sign")
+
+
+def build_muhurta_profile(chart_data: dict, evaluated_at_jd: float | None = None) -> dict:
+    """Bridge calculate_chart() output + a scan-window start -> a list of
+    MuhurtaWindow scorings from muhurta_scorer.find_muhurta_windows() (P2.3.5
+    composite scorer over Chandrabala/Tarabala/Panchaka).
+
+    RETURN SHAPE (deliberate departure from the task's original ask): this
+    returns a plain payload dict, NOT a DomainAnswer. This module's own
+    SCOPE BOUNDARY (module docstring, top of file) locks DomainAnswer
+    construction to the not-yet-built Result Formatter -- "this module
+    does not construct DomainAnswer instances itself" (DomainAnswer's own
+    docstring, same file). Every existing single-chart builder
+    (build_arudha_lagna_profile, build_upapada_profile) already follows
+    this split: plain dict out, DomainAnswer assembled later in
+    result_formatter.py (_format_arudha_lagna / _format_upapada). This
+    function matches that precedent instead of the literal task text.
+    DomainAnswer assembly for domain="muhurta_window" is a LATER staged-
+    rollout step, same router-then-formatter-then-orchestrator split as
+    av_transit/arudha_lagna/upapada_lagna. Standalone as of this step --
+    NOT yet wired into build_domain_profile()'s dispatch or this file's
+    own _VALID_DOMAINS (nothing calls this function yet; the full suite
+    is unaffected by this addition).
+
+    natal_moon_sign / janma_nakshatra: read directly off
+    chart_data["lagna_chart"]["rasi"]/["nakshatra"] via SIGNS.index()/
+    NAKSHATRAS.index() -- same access pattern as
+    _koota_natal_info_from_chart() and the sade_sati branch of
+    build_domain_profile() above. Deliberately NOT re-derived via an
+    ephemeris longitude call: chandrabala/tarabala only need the integer
+    sign/nakshatra index, and calculate_chart() already stores the Moon's
+    rasi/nakshatra as strings under lagna_chart's "rasi"/"nakshatra" keys
+    (see _koota_natal_info_from_chart's own docstring for why that key
+    name, despite reading "lagna_chart", holds Moon data, not the
+    Ascendant -- Ascendant lives at lagna_chart["ascendant"], see
+    _build_bhava_pada_profile's own comment on that same distinction).
+
+    evaluated_at_jd: defaults to now-UTC via swe.julday when None, same
+    now_utc/hour_decimal/swe.julday capture orchestrator.answer_question()
+    uses for its own evaluated_at_jd.
+
+    Scan window: [evaluated_at_jd, evaluated_at_jd + 7.0] -- see
+    _MUHURTA_SCAN_WINDOW_DAYS for the width justification.
+
+    Args:
+        chart_data: calculate_chart() output for a single native.
+        evaluated_at_jd: JD (UT) instant to start the scan window at.
+            None (default) computes now-UTC internally.
+
+    Returns:
+        {"windows": [{"start_jd": float, "end_jd": float, "tier": str,
+         "favorable_count": int, "warnings": tuple[str, ...]}, ...],
+         "tier": "TIER_3_MUHURTA", "sources": ("muhurta_scorer.py",)}
+        windows is ordered ascending by start_jd, contiguously tiling the
+        scan window with no gaps (find_muhurta_windows()'s own contract).
+        Each window's "tier" is muhurta_scorer.MuhurtaTier's VALUE STRING
+        (e.g. "TIER_1") -- per-window Muhurta QUALITY, a DISTINCT enum
+        from this dict's own top-level "tier" key (AnswerTier's value,
+        the pipeline-level answer-confidence tier, always
+        "TIER_3_MUHURTA" here). Do not conflate the two "tier" fields.
+
+    Raises:
+        ValueError: propagated UNMODIFIED from find_muhurta_windows()'s
+            own input validation (natal_moon_sign/janma_nakshatra out of
+            range, or start_jd > end_jd -- neither should occur in
+            practice here, since both indices come from a real chart's
+            own stored rasi/nakshatra strings and the window is always
+            evaluated_at_jd to evaluated_at_jd+7.0). Not caught or
+            reinterpreted here, matching this file's arudha_lagna/
+            upapada_lagna precedent.
+        RuntimeError: any other failure inside find_muhurta_windows()
+            (e.g. EphemerisError from one of the three sub-limb finders'
+            own Moon/Saturn calc_ut calls), wrapped with the module name
+            for audit.
+    """
+    if evaluated_at_jd is None:
+        now_utc = datetime.now(timezone.utc)
+        hour_decimal = now_utc.hour + now_utc.minute / 60.0 + now_utc.second / 3600.0
+        evaluated_at_jd = swe.julday(now_utc.year, now_utc.month, now_utc.day, hour_decimal)
+
+    lagna = chart_data["lagna_chart"]
+    natal_moon_sign = SIGNS.index(lagna["rasi"])
+    janma_nakshatra = NAKSHATRAS.index(lagna["nakshatra"])
+
+    start_jd = evaluated_at_jd
+    end_jd = evaluated_at_jd + _MUHURTA_SCAN_WINDOW_DAYS
+
+    try:
+        windows = find_muhurta_windows(natal_moon_sign, janma_nakshatra, start_jd, end_jd)
+    except ValueError:
+        raise  # scorer's own input validation -- propagate unmodified, not reinterpreted here
+    except Exception as exc:
+        raise RuntimeError(f"muhurta_scorer.find_muhurta_windows failed: {exc}") from exc
+
+    return {
+        "windows": [
+            {
+                "start_jd": w.start_jd,
+                "end_jd": w.end_jd,
+                "tier": w.tier.value,
+                "favorable_count": w.favorable_count,
+                "warnings": w.warnings,
+            }
+            for w in windows
+        ],
+        "tier": "TIER_3_MUHURTA",
+        "sources": ("muhurta_scorer.py",),
+    }
