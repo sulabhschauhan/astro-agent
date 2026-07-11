@@ -1,3 +1,87 @@
+# Session 63 close: CLAUDE.md + SESSION_LOG.md
+
+Doc-only closeout. Files: `CLAUDE.md`, `SESSION_LOG.md`, this
+`diagnostics/latest_run.md` entry. No source/test edits.
+
+## CLAUDE.md edits (6, surgical)
+
+1. Current Session Focus: `Session 62 CLOSED: refusal UX...` ->
+   `Session 63 CLOSED: upapada_lagna live e2e (full staged rollout...)
+   + q10 routing-shift ruling + refusal topic-list re-sync. Next: open.`
+2. New Locked Decisions bullet: "upapada_lagna V1 wiring (Session 63)"
+   -- 6th routed domain, payload shape, two-source ratification (S57
+   JHora cascade + this session's pipeline smoke), golden q3
+   re-ratification, frozen baseline
+   `golden_scorecard_20260711_112836.md`.
+3. New Locked Decisions bullet: "q10 routing shift ruled
+   correct-classification improvement (Session 63)" -- the gloss's
+   negative instruction, 5/5 probe, no gloss edit, `KNOWN_GAP`
+   unaffected, re-open condition.
+4. Carry-Forward: appended a "PARTIALLY CLOSED (S63)" clause to the
+   arudha_lagna co-lord-cascade-zero-coverage item -- house-12-level
+   cascade now real-chart-asserted (Sulabh), lagna-level (arudha) half
+   still open.
+5. Carry-Forward: struck the Session 62
+   `_GENERIC_REFUSAL_MESSAGE` topic-list-drift item as CLOSED (Session
+   63) -- both lists at 7 topics, guard comment extended to both sites.
+6. Carry-Forward: added a new item -- `golden_harness.py`'s two stale
+   domain-count comments ("4-domain"/"3-domain", actual 5), flagged
+   Session 63, ride-along fix next touch.
+
+**Correction caught while writing item 6**: initial draft wrote "now 6"
+for the mapping-comment count and "off by 3" for the docstring count --
+both wrong. Checked `_GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN`'s actual key
+count directly (5: career/marriage/dasha/arudha_lagna/upapada_lagna)
+before finalizing the wording, per this project's own "verify before
+writing" discipline -- corrected to "5-domain" and "off by 2"
+respectively before saving.
+
+## SESSION_LOG.md edit
+
+Appended a full `## Session 63` entry after the existing Session 62
+entry, following that entry's own established format (What landed /
+Consensus rulings / Test baseline / Golden harness / Commit hashes /
+Carry-forward resolved / Carry-forward added), with two additional
+subsections specific to this session's own content: "Shape-helper
+correction incident" (the `_house_12_sign() == upapada_sign` bug caught
+before any assertion was written) and "JHora-capture non-issue" (no new
+oracle capture was needed for the David/Sheridan/Surbhi ratification --
+Sulabh's existing S57 capture already validates the shared kernel).
+Also added a "NUMBERING NOTE" subsection explicitly documenting that
+this arc's `diagnostics/latest_run.md` entries self-labeled `S62`,
+`S64`-`S71` (`S63` was never used as a diagnostics-entry label in this
+arc), and that `test_orchestrator_upapada.py`'s own code comments
+(added in the final promotion prompt) continued that same drift one
+step further to `S72` -- while that promotion's COMMIT MESSAGE
+independently says `"S63"`, which happens to be the actual correct
+session number by coincidence, not derived from the diagnostics
+sequence. All of `S62`/`S64`-`S71`/the code-comment `S72` are prompts
+within this single Session 63, not separate sessions -- a future reader
+should treat those labels as a per-prompt sequence, not a session
+count, and cross-reference this SESSION_LOG entry for the authoritative
+session-level record. Not corrected in the test file itself this
+session (doc-only closeout).
+
+Commit hashes recorded: `e414faf` (mid-session bundle), `19c9d1b` (new
+test file, pre-promotion), `793a277` (the ratification commit --
+David/Sheridan/Surbhi RATIFY lines promoted to live assertions). This
+doc-closeout commit's own hash is reported below/in chat per the
+existing self-reference limitation noted in the Session 62 entry this
+one mirrors.
+
+## Verification
+
+No source/test files touched this prompt -- no suite re-run performed
+(doc-only change, same posture as Session 62's own closeout entry,
+which likewise didn't re-run the suite for a docs-only diff).
+
+## Commit
+
+`S63 close: CLAUDE.md + SESSION_LOG.md` -- all three files together,
+one commit, per task instruction. Pushed.
+
+---
+
 # S71: new test file tests/infra/test_orchestrator_upapada.py
 
 ONE NEW FILE: `tests/infra/test_orchestrator_upapada.py`. No source

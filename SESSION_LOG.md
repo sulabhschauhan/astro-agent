@@ -2464,3 +2464,213 @@ session's work.
   list; the `SENSITIVE_TO` comment guarding domain-set sync currently
   covers only the dict. Extend the guard comment to both sites and
   re-sync wording when the next domain wires (upapada candidate).
+
+## Session 63 -- upapada_lagna shipped end-to-end: chart_profile builder -> formatter -> router (Stage 1+2) -> orchestrator gate -> golden harness mapping -> golden re-ratification -> e2e test suite (2026-07-11)
+
+### What landed
+This session shipped the Jaimini Upapada Lagna (UL) domain through the
+full staged-rollout pattern established for arudha_lagna (Sessions
+58-59), one file per prompt, each verified independently before the
+next:
+1. **`agent/infra/chart_profile.py`** -- extracted
+   `build_arudha_lagna_profile()`'s shared plumbing into
+   `_build_bhava_pada_profile(chart_data, house_num, sign_key)`, added
+   `build_upapada_profile()` (house_num=12) on top of it, wired
+   `_VALID_DOMAINS` + `build_domain_profile()`'s dispatch branch.
+2. **`agent/infra/result_formatter.py`** -- added `_format_upapada()`
+   mirroring `_format_arudha_lagna()`, wired `format_answer()`'s
+   dispatch.
+3. **`agent/infra/calc_router.py`** -- added the Stage 1
+   `_UPAPADA_LAGNA_KEYWORDS` set (`"upapada"`, `"upapada lagna"`) and a
+   Stage 2 gloss with an explicit bidirectional negative instruction
+   distinguishing UL (single-chart) from marriage_compatibility
+   (two-chart); wired the `upapada_lagna` routing branch.
+4. **`agent/infra/orchestrator.py`** -- admitted `upapada_lagna`
+   through `_VALID_DOMAINS`, confirmed by reading (not assumed) that
+   the marriage/av_transit special-case branches evaluate to their
+   pass-through-unchanged path for this domain. This prompt's own
+   golden-harness verification run surfaced an UNEXPECTED second
+   deviation beyond the predicted one (see "q10 routing shift" below)
+   -- session halted per its own instruction ("any OTHER row deviating
+   is a real stop") rather than force a fix, pending design-chat
+   review.
+5. **Design-chat consensus** (mid-session): q10's routing shift ruled
+   a correct-classification improvement, not a regression (see
+   Consensus rulings below) -- unblocked the rest of the rollout.
+6. **`tests/fixtures/golden_qa_sulabh.py`** -- re-ratified
+   `sulabh_arudha_q3_refusal_probe` (previously an unwired-construct
+   REFUSAL probe) to `TIER_1_EXACT`/upapada_lagna, citing the two-source
+   ratification (S57 JHora capture + this session's own pipeline
+   smoke); `sulabh_marriage_q10`'s note extended (tier/category
+   unchanged) to record the routing-shift ruling.
+7. **`agent/eval/golden_harness.py`** -- added the
+   `"upapada_lagna": "upapada_lagna"` identity mapping to
+   `_GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN`; bumped the module docstring's
+   whitelisted-domain-count sentence.
+8. **`tests/fixtures/golden_qa_sulabh.py`** (second touch) -- flipped
+   `sulabh_arudha_q3_refusal_probe`'s `domain` field
+   `"arudha_lagna"` -> `"upapada_lagna"` now that the harness mapping
+   existed; row `id` kept unchanged (scorecard-history correlation) with
+   a NOTE recording the `"refusal_probe"` suffix is now historical.
+9. **New frozen-baseline scorecard**
+   (`diagnostics/golden_scorecard_20260711_112836.md`) -- supersedes
+   `golden_scorecard_20260711_045928.md`; header records q3's new
+   MATCH/stage1/TIER_1_EXACT status, q10's routing-shift note, and both
+   count-prediction errata (see below).
+10. **New test file `tests/infra/test_orchestrator_upapada.py`** (7
+    tests) -- mirrors `test_orchestrator_arudha_lagna.py`'s Layer
+    A/B/C structure exactly. Layer B initially shape-asserted David/
+    Sheridan/Surbhi only (print-only RATIFY lines for
+    `upapada_sign`/`lord`/`co_lord_deciding_step`, pending design-chat
+    sign-off) -- promoted to live literal assertions in a follow-up
+    prompt once ratified (see "Shape-helper correction" and "JHora-
+    capture non-issue" below).
+
+### Consensus rulings this session (design-chat gate)
+- **q10 routing shift ruled correct-classification improvement, NOT a
+  regression.** `sulabh_marriage_q10`'s question ("What does our
+  overall compatibility mean for us as a couple?") shifted from
+  Stage-2-medium/REFUSAL to Stage-2-high/`marriage_compatibility`,
+  traced via `calc_router_stage2.log` to the new upapada_lagna gloss's
+  negative-instruction sentence ("couple compatibility... is
+  marriage_compatibility"). A 5-run live probe confirmed 5/5 routes at
+  `confidence=high`. Ruled correct in design chat: this genuinely IS a
+  couple-compatibility question, partner data is supplied by the
+  harness, and marriage_compatibility is a wired domain -- routing it
+  is the right behavior, not a side effect to suppress. **No gloss
+  edit made.** `expected_tier` stays `TIER_4_INTERPRETIVE`
+  (`KNOWN_GAP`), unaffected either way since the row was always going
+  to mismatch that locked V1-scope exclusion regardless of routing
+  outcome. Full row-diff evidence recorded in this session's fixture
+  note and the new frozen-baseline scorecard header. Re-open only if a
+  future routing shift is semantically WRONG (not merely a confidence
+  improvement on an already-correct classification).
+- **Ratification standard for the 3 non-Sulabh upapada charts
+  (David/Sheridan/Surbhi)**: plain-path output of the same
+  dual-oracle-validated padas kernel already validated for Sulabh (S57
+  JHora dual-confirmed capture, full BPHS/PVR Ch.15 §15.5.1 cascade) +
+  this session's own pipeline smoke test; each row's lord
+  additionally cross-checked against design-chat whole-sign
+  derivation. No new external oracle capture needed or sought -- see
+  "JHora-capture non-issue" below.
+
+### Shape-helper correction incident
+`test_orchestrator_upapada.py`'s first draft of the Layer B shape
+helper asserted `_house_12_sign(lagna_sign) == upapada_sign` -- WRONG,
+caught by a live check BEFORE any assertion was committed (CLAUDE.md
+Working Style #2, REVIEW before PROCEED): for Sulabh,
+`_house_12_sign("Sagittarius") == "Scorpio"`, but `upapada_sign ==
+"Aquarius"`. These are two different signs -- `_house_12_sign()`
+derives the sign OCCUPYING house 12 (an INPUT to the Arudha-pada
+counting procedure), while `upapada_sign` is the procedure's OUTPUT.
+The payload's `lord` field is the (possibly co-lord-cascade-resolved)
+lord of the INPUT sign, not the output -- this is exactly why Sulabh's
+house-12 sign (Scorpio, co-lorded Mars/Ketu) triggers
+`co_lord_deciding_step="step_2"` even though the resulting
+`upapada_sign` (Aquarius) is itself also independently co-lorded. Full
+before/after measurement for all 4 charts recorded in
+`diagnostics/latest_run.md`'s corresponding entry.
+
+### JHora-capture non-issue
+The promotion prompt asked for a two-source citation (S57 JHora capture
++ pipeline smoke) for the 3 newly-ratified rows. No new JHora capture
+was needed or performed this session -- Sulabh's own S57 dual-confirmed
+capture (full §15.5.1 cascade -> Aquarius/Ketu/step_2) already
+validates the underlying `padas.py` kernel that all 4 charts share; the
+3 new rows are that same kernel's plain-path output on charts whose
+house-12 sign happens not to be co-lorded (confirmed via this session's
+own shape-check measurement: none of David/Sheridan/Surbhi land on
+Scorpio/Aquarius). Provenance found via past-chat/prior-session search,
+not a new external data-gathering step.
+
+### Count-prediction errata (already documented, cited not restated)
+Both count-prediction slips surfaced mid-arc (design chat's
+`match_stage2=9` guess for a post-q3-ratification run; this session's
+own diagnostics write-up initially mis-framing "prior" as an
+already-degraded intermediate value rather than the true frozen
+baseline) are recorded in full, with the corrected reconciliation, in
+`diagnostics/golden_scorecard_20260711_112836.md`'s own header -- not
+restated here.
+
+### NUMBERING NOTE (read before trusting any "S##" label in diagnostics/latest_run.md or test_orchestrator_upapada.py from this arc)
+This session's `diagnostics/latest_run.md` entries were written
+per-prompt across ~10 separate prompts and self-labeled sequentially:
+`S62` for the first (the chart_profile builder prompt -- mislabeled,
+should have been S63 already), then `S64` through `S71` for the rest
+(`S63` itself was never used as a diagnostics-entry label in this arc).
+Separately, `test_orchestrator_upapada.py`'s own code comments (added
+in the final promotion prompt) continued that SAME drifted per-prompt
+count one step further and say `S72` -- while that promotion's COMMIT
+MESSAGE independently says `"S63: orchestrator e2e suite..."`, which
+happens to be the CORRECT actual session number (coincidence, not
+derived from the diagnostics sequence). **All of these labels --
+`S62`, `S64`-`S71`, and the `S72` inside the test file -- refer to
+prompts WITHIN this single Session 63, not separate sessions**; only
+the promotion commit's own message text ("S63") is accidentally
+correct. The drift happened because each prompt was issued and
+executed independently without a running session-number anchor; future
+baseline lookups against `diagnostics/latest_run.md` or
+`test_orchestrator_upapada.py`'s code comments should treat any such
+`S##` label from this arc as a **per-prompt sequence number**, not a
+session number -- cross-check against this SESSION_LOG.md entry
+(Session 63) and its commit hashes below for the authoritative
+session-level record. Not corrected in the test file itself this
+session (doc-only closeout, no source/test edits) -- ride-along fix
+next time that file is touched, if it's ever judged worth the churn.
+
+### Test baseline
+Full pytest suite: **3127 -> 3134 passed, 3 skipped** (7 new tests from
+`test_orchestrator_upapada.py`; zero regressions at every intermediate
+step this session, each verified independently before proceeding to
+the next file).
+
+### Golden harness
+Re-run at multiple points across the arc; final steady state
+`match=9/match_stage2=8/known_gap=2/new_gap=0`, frozen at
+`diagnostics/golden_scorecard_20260711_112836.md` (supersedes
+`golden_scorecard_20260711_045928.md`). See that file's own header for
+the full row-level history (q3's MATCH/stage1 flip, q10's routing-shift
+note, both count-prediction errata).
+
+### Commit hashes
+- `e414faf` -- "Wire upapada_lagna (Upapada Lagna) end-to-end: builder,
+  formatter, router, orchestrator, harness" (mid-session bundle:
+  `chart_profile.py`, `result_formatter.py`, `calc_router.py`,
+  `orchestrator.py`, `golden_harness.py`,
+  `tests/fixtures/golden_qa_sulabh.py`, plus this arc's diagnostics
+  scorecards and `latest_run.md` entries up to that point).
+- `19c9d1b` -- "Add tests/infra/test_orchestrator_upapada.py: e2e +
+  router-provenance coverage for upapada_lagna" (new test file,
+  pre-promotion: David/Sheridan/Surbhi still print-only RATIFY lines).
+- `793a277` -- "S63: orchestrator e2e suite for upapada_lagna (7 tests,
+  4-chart ratified oracle; first real-chart co-lord cascade assertion
+  -- Sulabh UL, house-12 Scorpio, Ketu step_2)" -- THE RATIFICATION
+  COMMIT: David/Sheridan/Surbhi's RATIFY print lines promoted to live
+  literal assertions (`upapada_sign`/`lord`/`co_lord_deciding_step`
+  per chart), per the design-chat consensus above.
+- Docs-closeout commit ("S63 close: CLAUDE.md + SESSION_LOG.md",
+  `CLAUDE.md`/`SESSION_LOG.md`/`diagnostics/latest_run.md`) -- hash
+  recorded in `diagnostics/latest_run.md` and reported in chat (cannot
+  self-reference its own hash from inside its own diff).
+
+### Carry-forward resolved this session
+- `_GENERIC_REFUSAL_MESSAGE` topic-list drift (Session 62) -- CLOSED:
+  both `_REFUSAL_USER_MESSAGES`'s not-classifiable message and
+  `_GENERIC_REFUSAL_MESSAGE` now list Upapada Lagna (7 topics each,
+  semantically 1:1 with `_STAGE2_VALID_DOMAINS`); the `SENSITIVE_TO`
+  guard comment extended to cover both sites explicitly.
+- `arudha_lagna co-lord cascade has zero real-chart coverage` (Session
+  57/59) -- PARTIALLY CLOSED: house-12-level cascade now exercised on
+  a real chart end to end (Sulabh's UL: house-12 sign Scorpio, lord
+  Ketu via `co_lord_deciding_step="step_2"`,
+  `test_orchestrator_upapada.py`). Lagna-level (arudha_lagna itself)
+  coverage remains open -- no new reference chart added to close that
+  half.
+
+### Carry-forward added this session
+- `golden_harness.py` stale domain-count comments (flagged, not fixed)
+  -- `_GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN`'s own preceding comment still
+  says "4-domain whitelist" and `_classify_runnability()`'s docstring
+  still says "3-domain whitelist"; actual is 5
+  (career/marriage/dasha/arudha_lagna/upapada_lagna). Ride-along fix
+  next time `golden_harness.py` is touched, not a standalone prompt.
