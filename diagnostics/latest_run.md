@@ -1,3 +1,146 @@
+# S65: upapada_lagna Stage 1 + Stage 2 router wiring (calc_router.py only)
+
+ONE FILE: `agent/infra/calc_router.py`. No test/formatter edits.
+
+## Structures touched (6, listed per task instruction)
+
+1. `_UPAPADA_LAGNA_KEYWORDS` (new tuple) -- `("upapada", "upapada lagna")`.
+   Single unambiguous Sanskrit term + its natural bigram, mirroring
+   `_ARUDHA_LAGNA_KEYWORDS`'s idiom but deliberately narrower: no layman
+   synonyms added (layman reachability is Stage 2's job, per the Session
+   61 Stage 2 layman-intent convergence lock cited in-file). The bigram
+   entry means a full "upapada lagna" mention scores 2 hits (both list
+   entries match) -- enough to clear Stage 1's floor/margin directly,
+   same >=2-hits-to-route mechanics documented on `_CONFIDENCE_FLOOR`;
+   a bare "upapada" mention alone (1 hit) still falls through to Stage 2.
+2. `_DOMAIN_KEYWORDS` -- added `"upapada_lagna": _UPAPADA_LAGNA_KEYWORDS`.
+3. `_STAGE2_VALID_DOMAINS` -- added `"upapada_lagna"` to the frozenset.
+4. `_STAGE2_SYSTEM_PROMPT` -- added a new gloss bullet (format matches
+   the existing bullets: what it is, Layman line, explicit negative
+   instruction both directions, Examples). Also bumped the domain-count
+   text "6 domains"/"6 things" -> "7" in the two prompt-text spots --
+   same opportunistic-fix posture as Session 58's tool-schema count fix
+   (flagged explicitly here, not a silent drive-by): the count text
+   would otherwise be factually wrong (7 bullets, claims 6) the moment
+   the new bullet lands. No existing bullet's wording was changed.
+5. `_STAGE2_TOOL_SCHEMA`'s `description` -- same count bump, "6 routable
+   domains" -> "7 routable domains" (the enum list itself is
+   `sorted(_STAGE2_VALID_DOMAINS)`, already correct via item 3, no
+   separate edit needed there).
+6. `_route_to_domain()` -- added an `upapada_lagna` branch mirroring
+   `arudha_lagna`'s branch exactly: TIER_1_EXACT, `demotion_reason=None`,
+   `requires_partner=False` (single-chart significator, never conflated
+   with `marriage_compatibility`'s `has_partner_data` hard guard).
+
+`_STEM_MAP` and `_BUILT_MODULE_FASTPATH`/`_UNBUILT_MODULE_KEYWORDS`
+NOT touched -- confirmed by reading the arudha_lagna S58 wiring's own
+diff pattern first: neither structure was touched for arudha_lagna
+either (no irregular stem needed for Sanskrit technical terms; arudha
+isn't a fastpath module). Mirrors that precedent exactly.
+
+orchestrator.py's own `_VALID_DOMAINS` and `chart_profile.py`'s
+`build_domain_profile()` dispatch already admit `"upapada_lagna"`
+(Session 62/64) -- but per the S58/S59 staged-rollout precedent, THIS
+prompt's scope was router-only; whether the orchestrator-level gate is
+now fully open end-to-end was not re-verified here (out of scope per
+task instruction: "do NOT run the golden harness").
+
+## Verification 4: full pytest suite
+
+```
+3127 passed, 3 skipped, 1 warning in 82.57s
+```
+
+Exact match, zero delta. No test asserted on `_STAGE2_VALID_DOMAINS`
+size or `_STAGE2_SYSTEM_PROMPT` content in a way that broke.
+
+## Verification 5: standing 12-phrasing reachability probe, pre- vs post-edit
+
+Same script pattern as the S61 "Verification 1" probe (scratchpad,
+router-layer only, `answer_question()` never called, live OpenAI
+client, same 12 questions in the same order, `chart_data` passed only
+for the 2 dasha-intent phrasings). "Pre" = the S61 post-edit baseline
+already on record (`latest_run.md`'s S61 "Verification 1" table,
+frozen); "post" = this session's fresh live run, taken after the Stage
+1 keyword + Stage 2 prompt/enum changes above.
+
+| # | question | pre (S61 baseline) | post (this run) | changed? |
+|---|---|---|---|---|
+| 1 | how do people see me in public | arudha_lagna/high/TIER_1_EXACT | arudha_lagna/high/TIER_1_EXACT | no |
+| 2 | what is my public reputation | arudha_lagna/high/TIER_1_EXACT | arudha_lagna/high/TIER_1_EXACT | no |
+| 3 | will I be famous | None/high/REFUSAL | None/high/REFUSAL | no |
+| 4 | what impression do I make on others | arudha_lagna/high/TIER_1_EXACT | arudha_lagna/high/TIER_1_EXACT | no |
+| 5 | should I change my job this year | career_strength/high/TIER_2_RANGE | career_strength/high/TIER_2_RANGE | no |
+| 6 | is my career going anywhere | career_strength/high/TIER_2_RANGE | career_strength/high/TIER_2_RANGE | no |
+| 7 | what phase of life am I in right now | current_dasha/high/TIER_2_RANGE | current_dasha/high/TIER_2_RANGE | no |
+| 8 | when will my bad time end | current_dasha/high/TIER_2_RANGE | current_dasha/high/TIER_2_RANGE | no |
+| 9 | will my marriage be happy | marriage_compatibility/high/REFUSAL (partner guard) | marriage_compatibility/high/REFUSAL (partner guard) | no |
+| 10 | are we compatible | marriage_compatibility/high/REFUSAL (partner guard) | marriage_compatibility/high/REFUSAL (partner guard) | no |
+| 11 | what do the stars say about me | None/high/REFUSAL | None/high/REFUSAL | no |
+| 12 | tell me my future | None/high/REFUSAL | None/high/REFUSAL | no |
+
+**All 12 rows unchanged.** The 4 previously-routing rows (5, 6, 7, 8 --
+career/dasha, rescued by the S61 Stage 2 prompt expansion) and the 2
+correct adversarial refusals (3, 12) are byte-identical pre/post,
+confirming the upapada_lagna keyword/prompt/enum changes above did not
+perturb any other domain's classification.
+
+`diagnostics/calc_router_stage2.log` grew by 13 entries across this
+run's full 14-question set (12 above + the 2 in Verification 6 below);
+the 1 question that resolved via Stage 1 alone (no log entry) is the
+first upapada_lagna probe in Verification 6, not one of these 12.
+Gitignored, not committed.
+
+## Verification 6: upapada_lagna-specific probes
+
+Same live run, 2 additional questions appended after the 12 above.
+Full stage1 scores (all 6 domains), stage2 fired/domain/confidence, and
+final route, verbatim:
+
+**"what does my upapada lagna say about my marriage" (golden q3 phrasing):**
+```
+stage1 scores: marriage_compatibility=0.333, career_strength=0.000,
+  current_dasha=0.000, av_transit=0.000, arudha_lagna=0.000,
+  upapada_lagna=0.667
+stage2 fired: False
+ROUTE: domain=upapada_lagna tier=TIER_1_EXACT confidence=0.667
+  demotion_reason=None
+```
+Resolved entirely at **Stage 1** -- both `_UPAPADA_LAGNA_KEYWORDS`
+entries match ("upapada" token + "upapada lagna" phrase both present),
+scoring 2/3=0.667, clearing both the 0.4 floor and the 0.15 margin
+against `marriage_compatibility`'s single-hit 0.333 score. Stage 2
+never fires for this phrasing -- the negative-instruction gloss
+("explicit upapada/UL mentions -> upapada_lagna even when the question
+mentions marriage") is not even exercised here, though it remains
+necessary for phrasings that don't clear Stage 1's 2-hit threshold.
+
+**"what is my upapada":**
+```
+stage1 scores: marriage_compatibility=0.000, career_strength=0.000,
+  current_dasha=0.000, av_transit=0.000, arudha_lagna=0.000,
+  upapada_lagna=0.333
+stage2 fired: True  stage2_domain=upapada_lagna  stage2_confidence=high
+ROUTE: domain=upapada_lagna tier=TIER_1_EXACT confidence=1.0
+  demotion_reason=None
+```
+Only 1 keyword hit ("upapada" alone, bare mention with no "lagna")
+-> 0.333, below the 0.4 floor -> falls through to Stage 2, which
+correctly classifies `upapada_lagna` at `high` confidence via the new
+gloss.
+
+Both probes route correctly to `upapada_lagna`/`TIER_1_EXACT`, one via
+each stage -- confirming the keyword bigram design and the Stage 2
+gloss both work as intended, independently of each other.
+
+## Not committed
+
+Per task instruction: `agent/infra/calc_router.py`'s edit remains in
+the working tree, uncommitted. Only this `diagnostics/latest_run.md`
+entry is new.
+
+---
+
 # S64: upapada_lagna formatter branch (result_formatter.py only)
 
 Added `_format_upapada(profile)` mirroring `_format_arudha_lagna()`
