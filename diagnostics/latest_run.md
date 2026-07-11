@@ -1,3 +1,70 @@
+# S61 close: docs + evidentiary scorecard
+
+Doc-only closeout. Files: `CLAUDE.md`, `SESSION_LOG.md`, this
+`diagnostics/latest_run.md` entry, plus `git add` (no edits) on the
+untracked `diagnostics/golden_scorecard_20260711_051020.md` -- the
+evidentiary verification-run scorecard cited in the S61 ratification
+commit message (`cad1e55`) as proof of exact steady-state reproduction,
+which was left untracked at the time.
+
+## CLAUDE.md edits
+
+1. Current Session Focus -> Session 61 closed (reachability 3/12 ->
+   7/12; q4/q9 retired).
+2. Locked Decisions: existing Session 60 bullet trimmed (its now-stale
+   frozen-baseline clause replaced with a pointer to the new Session 61
+   bullet, the arudha_lagna-row-count and q3-lock facts kept since still
+   true). New Session 61 bullet added recording: the resolution
+   mechanism (Stage 2 prompt expansion, not keyword/threshold tuning --
+   the Session 44 evidence-gated-tuning lock held), the new layman-
+   reachability tracked metric (7/12, baseline 3/12, pointer to
+   `latest_run.md`'s S61 probe tables), the new frozen baseline file +
+   counts, and the 2-entry `_KNOWN_GAPS` state with variance-triage
+   guidance.
+3. Carry-Forward: struck the Session 59 "arudha_lagna Stage 1
+   unreachable" item (RESOLVED S61, folded into the new Locked Decisions
+   bullet above). Added 3 new items: (a) `diagnostics/` scorecard
+   retention convention undecided; (b) marriage layman-phrasing gap in
+   router-only probes (see correction below); (c) post-V1 design gate
+   for a Lal Kitab remedy tier, gated on an R5 golden-row rewrite + V1-
+   scope amendment + design-chat consensus before any wiring.
+
+**Correction caught before writing (b)**: this task's own prompt text
+characterized "will my marriage be happy" as "still medium-confidence
+lost post-expansion." Checked against this session's own recorded probe
+data (`diagnostics/latest_run.md`'s prior S61 entry, table row 9) before
+writing anything: post-edit confidence is actually **HIGH**, not medium
+-- the row is lost via the `has_partner_data` hard guard (no partner
+chart supplied to this router-only probe), a different mechanism
+entirely from a confidence miss. Wrote the carry-forward item to the
+verified fact, not the prompt's claim.
+
+## SESSION_LOG.md edit
+
+Appended a full `## Session 61` entry after the existing Session 60
+entry, following the established format (What landed / Live Stage 2
+call count / Test baseline / Carry-forward resolved / Carry-forward
+added). Covers: the 12-phrasing baseline probe (3/12), the
+`calc_router.py` prompt expansion, the pre/post probe re-run (7/12), the
+golden harness diff + ratification commit, and the corrected marriage
+layman-gap carry-forward.
+
+## Evidentiary scorecard
+
+`git add`-ed `diagnostics/golden_scorecard_20260711_051020.md`
+unmodified (no edits) -- this is the verification-run report generated
+during the S61 ratification task, cited in that commit's message as
+proof the retired-entries state reproduces the frozen baseline's counts
+exactly, but was never itself staged at the time.
+
+## Commit
+
+`S61 close: docs + evidentiary scorecard` -- `CLAUDE.md`,
+`SESSION_LOG.md`, `diagnostics/golden_scorecard_20260711_051020.md`,
+this `diagnostics/latest_run.md` entry. Pushed.
+
+---
+
 # S61 ratification commit: golden_harness.py KNOWN_GAPS retirement + baseline supersession
 
 Two code-adjacent files edited (`calc_router.py`'s prompt edit was

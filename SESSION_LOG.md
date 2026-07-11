@@ -2195,3 +2195,118 @@ unchanged after the harness-wiring edit.
   set now accrues that evidence directly (`q2`/`q3` rows exercise the
   exact single-keyword-miss and zero-keyword-miss paths respectively) --
   revisit with dogfood/scorecard data, not preemptively.
+
+## Session 61 -- Stage 2 layman-intent prompt expansion; reachability 3/12 -> 7/12; q4/q9 KNOWN_GAP retired (2026-07-11)
+
+### What landed
+1. **Layman-phrasing Stage-2 reachability probe (diagnostics only)** --
+   ran `route_question()` (router layer only, `answer_question()` never
+   called) against 12 layman phrasings across 5 intent groups
+   (arudha/career/dasha/marriage/adversarial), live OpenAI client, no
+   source edits. All 12 fired Stage 2. Baseline result: **3/12** final
+   routes succeeded (arudha's 3 already-rescued rows only); the other 9
+   REFUSED -- either Stage 2 classified the right domain but only at
+   `confidence="medium"` (career q5/q6, marriage q9), or classified
+   `domain="none"` even at high confidence (dasha q7/q8, "will I be
+   famous", "what do the stars say", "tell me my future"), or classified
+   correctly at high confidence but hit the `has_partner_data` hard guard
+   ("are we compatible", no partner chart in this router-only probe).
+2. **`agent/infra/calc_router.py` -- `_STAGE2_SYSTEM_PROMPT` expanded.**
+   ONE FILE, prompt-text only -- no keywords, `_CONFIDENCE_FLOOR`/
+   `_MARGIN`, routing logic, or confidence-threshold change (still routes
+   only on `"high"`). Each domain bullet gained a one-line "Layman:"
+   gloss + 2-3 example layman phrasings drawn directly from the probe's
+   losses (marriage_compatibility, career_strength, current_dasha,
+   arudha_lagna; av_transit got a gloss only, no probe losses to draw
+   from). Added one new paragraph: fortune-telling requests with no
+   computable basis (unqualified future, fame, lottery, death/longevity)
+   must classify `domain="none"`, explicitly citing the phrasings that
+   already refused correctly pre-edit -- locking in, not risking, that
+   behavior.
+3. **Identical 12-phrasing probe re-run, pre- vs post-edit table.** 4
+   phrasings flipped from REFUSAL to correctly routed (career q5/q6 ->
+   `career_strength`/high/TIER_2_RANGE; dasha q7/q8 -> `current_dasha`/
+   high/TIER_2_RANGE). 2 more improved classification confidence without
+   changing the final REFUSAL outcome (marriage q9: medium->high, still
+   blocked by the partner-data guard; "what do the stars say about me":
+   low->high, still correctly `domain=None`). The 3 already-rescued
+   arudha rows and both hard adversarial refusals ("will I be famous",
+   "tell me my future") were unchanged. **Net: 7/12 final-route-succeeds,
+   up from 3/12.**
+4. **Golden harness re-run vs. frozen baseline
+   (`golden_scorecard_20260710_184703.md`, match=8/match_stage2=7/
+   known_gap=4/new_gap=0):** `match=8/match_stage2=9/known_gap=2/
+   new_gap=0`. `sulabh_career_q4` and `sulabh_marriage_q9` flipped
+   KNOWN_GAP -> MATCH_STAGE2 (Stage 2 now high-confidence on both; the
+   harness supplies partner chart data for marriage rows, so q9 hits no
+   partner-guard block unlike the standalone probe's "are we
+   compatible"). `sulabh_marriage_q10`/`sulabh_dasha_q15` stayed
+   KNOWN_GAP -- both independent of Stage 2 confidence entirely (locked
+   V1-interpretive-scope-out and P2-order/Muhurta-not-wired exclusions
+   respectively). `new_gap` stayed 0 throughout.
+5. **Ratification commit**: `agent/eval/golden_harness.py` -- deleted
+   `sulabh_career_q4`/`sulabh_marriage_q9` from `_KNOWN_GAPS` (Session
+   50/P7.1e retirement precedent), extended the dict's comment block with
+   a Session 61 paragraph (deletion is behavior-neutral on MATCH; a
+   future mismatch surfaces as NEW_GAP and should be treated as SUSPECTED
+   STAGE-2 VARIANCE FIRST, check the log before regression triage; don't
+   silently re-add without checking). Verified the 2 remaining entries'
+   prose still cites live CLAUDE.md locks (not stale).
+   `diagnostics/golden_scorecard_20260711_045928.md` marked the new
+   frozen baseline via a supersession header (mirroring Session 60's own
+   convention), including the variance-triage note and the layman-
+   reachability metric line. A second, independent harness run against
+   the retired-entries state reproduced the expected steady state
+   EXACTLY (`match=8/match_stage2=9/known_gap=2/new_gap=0`, zero Stage-2
+   variance that run) before commit.
+
+### Live Stage 2 call count
+24 live Stage 2 calls total this session across the two identical
+12-phrasing probe runs (pre-edit + post-edit), plus 2 golden harness runs
+(11+ live calls each) plus the final verification run -- all against the
+live OpenAI client, `diagnostics/calc_router_stage2.log` grew
+accordingly (gitignored, not committed).
+
+### Test baseline
+Full pytest suite unaffected throughout (Stage 2 is fully
+conftest-stubbed in the pytest suite): **3127 passed, 3 skipped, 0
+failed**, confirmed unchanged after both the prompt edit and the
+`_KNOWN_GAPS` retirement.
+
+### Carry-forward resolved this session
+- `arudha_lagna` Stage 1 unreachable for single-mention questions
+  (Session 59, held through Session 60) -- RESOLVED. Fixed via the Stage
+  2 prompt expansion above (layman glosses/examples + the fortune-telling
+  negative instruction), NOT by loosening Stage 1 keywords or
+  `_CONFIDENCE_FLOOR`/`_MARGIN` -- the Session 44 "tune only with Answer
+  Scorecard evidence" lock held; the remedy was converging Stage 2's
+  classification quality, not preemptive router-threshold tuning. Struck
+  from CLAUDE.md's Carry-Forward, folded into a new Locked Decisions
+  entry recording the layman-reachability metric (7/12, up from 3/12)
+  and the frozen-baseline/`_KNOWN_GAPS` facts.
+
+### Carry-forward added this session
+- `diagnostics/` scorecard retention convention undecided -- the
+  directory now carries multiple generations of timestamped
+  `golden_scorecard_*.md` files (superseded frozen baselines, one-off
+  verification re-runs, evidentiary runs a commit message cites) with no
+  policy distinguishing keep-forever from safe-to-prune.
+- Marriage layman-phrasing gap in router-only probes -- "will my
+  marriage be happy" and "are we compatible" both classify
+  `marriage_compatibility` at HIGH confidence post-prompt-expansion but
+  still REFUSE via the `has_partner_data` hard guard when run through a
+  bare `route_question()` probe with no partner chart supplied (this
+  session's probe methodology, not `answer_question()`); correct,
+  expected behavior, not a routing-quality miss -- noted so a future
+  reviewer doesn't mistake these 2 "lost" rows in the reachability count
+  for a Stage 2 classification failure. (Correction from this task's own
+  prompt text, which had claimed these stayed "medium-confidence" post-
+  expansion -- verified against this session's own recorded probe data
+  before writing this entry: post-edit confidence is HIGH, not medium;
+  the loss is the partner-data guard, a different mechanism.)
+- Post-V1 design gate: Lal Kitab remedy tier (RAG-grounded, cited, never
+  prescriptive) -- requires a golden-set R5 row rewrite (currently
+  asserts REFUSAL on a gemstone-remedy sub-probe under the "remedies are
+  out of V1 scope entirely" posture), a V1-scope amendment to CLAUDE.md's
+  Locked Decisions, and design-chat consensus before ANY wiring. Not
+  started this session; recorded as a placeholder only.
