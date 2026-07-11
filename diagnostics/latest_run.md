@@ -1,169 +1,146 @@
-# P7 Muhurta wiring, step 5 of 6: orchestrator gate (LAST gate)
+# P7 Muhurta wiring, step 6 of 7: test_orchestrator_muhurta.py
 
-Session 64. Wires `domain="muhurta_window"` into
-`agent/infra/orchestrator.py`'s `_VALID_DOMAINS` -- the last of the 5
-staged-rollout gates (chart_profile builder -> formatter -> chart_profile
-dispatch -> router -> this gate). ONE FILE, as scoped. NOT committed --
-design chat ratification pending (same posture as steps 1-4).
+Session 64. New file `tests/infra/test_orchestrator_muhurta.py` -- the
+3-layer router-provenance/oracle/full-chain test for muhurta_window,
+adapting the arudha_lagna/upapada_lagna precedent for wall-clock
+coupling. NEW TEST FILE ONLY, no source edits. NOT committed -- design
+chat ratifies the Layer B measured values (below) before they become
+asserts next prompt. (Plan renumbered per the task: this is step 6 of 7;
+step 7 = golden rows + dead `_KNOWN_GAPS` deletion + baseline freeze.)
 
-## Change: `_VALID_DOMAINS`
+## MEASURE-FIRST (per CLAUDE.md Working Style #2/#3): ran once, before writing any assertion
 
-```python
-_VALID_DOMAINS = {
-    "marriage_compatibility",
-    "career_strength",
-    "current_dasha",
-    "sade_sati",
-    "av_transit",
-    "arudha_lagna",
-    "upapada_lagna",
-+   "muhurta_window",
-}
+### Layer A -- router provenance (deterministic)
+
+```
+CLEAN "what is an auspicious muhurta for me this week"
+  domain=muhurta_window tier=TIER_3_MUHURTA confidence=0.6666666666666666 (2/3)
+  route=stage1 demotion=None requires_partner=False   sentinel_calls=0
+
+MISS "muhurta"
+  domain=None tier=REFUSAL confidence=0.0 route=stage2   _stage2_fallback_calls=1
 ```
 
-## Audit: every domain-conditional branch in `answer_question()`, checked by reading
+CLEAN scores 2 keyword hits ("auspicious" + "muhurta") -> min(2,3)/3 =
+0.667, clears the 0.4 floor and 0.15 margin, resolves at Stage 1 with the
+recording sentinel NEVER invoked. MISS scores 1 hit -> 0.333, below floor
+-> `route_question()` enters the `_stage2_fallback` path.
 
-| Branch | Behavior for muhurta_window | Code change needed? |
-|---|---|---|
-| `partner_chart_data`/`primary_role` validation (top of function) | Unconditional -- applies to ANY domain if `partner_chart_data` is supplied at all; muhurta_window questions never supply it, so this never fires for this domain, exactly as for sade_sati/career/dasha/arudha/upapada today. | No |
-| `route_result.domain not in _VALID_DOMAINS` guard | Now passes for `"muhurta_window"` (the one-line change above). | No (this IS the change) |
-| `marriage_compatibility`-only partner-data guard (`if route_result.domain == "marriage_compatibility" and partner_chart_data is None`) | String-equality-gated to exactly `"marriage_compatibility"` -- evaluates False for muhurta_window, confirmed by reading, not assumed. | No |
-| `evaluated_at_jd` computation (`now_utc` -> `swe.julday`) | Unconditional -- computed for every domain regardless of routing outcome, then passed to `build_domain_profile()` unconditionally. | No |
-| `is_marriage`/`is_av_transit` gates -> `partner_chart_data`/`primary_role`/`transit_planet` kwargs | Both booleans evaluate False for muhurta_window (neither is `"marriage_compatibility"` nor `"av_transit"`), so `build_domain_profile()` receives `partner_chart_data=None, primary_role=None, transit_planet="Saturn"` -- exactly the same values sade_sati/arudha_lagna/upapada_lagna already receive. `build_domain_profile()`'s own muhurta_window branch (step 3) doesn't accept or consume any of these three kwargs anyway. | No |
-| `route` stamping (`dataclasses.replace(format_answer(profile), route=route_result.route)`) | Unconditional -- every domain's `DomainAnswer` gets `route` stamped from the same `route_result.route`, regardless of domain. | No |
-| `_merge_router_demotion()` | See dedicated section below. | No |
+### Layer B -- 4-chart structural, PINNED JD (S24 anchor, 2026-06-20 18:30 UTC)
 
-**Conclusion: zero code changes needed beyond the `_VALID_DOMAINS` line.**
-No branch required a STOP. This matches the arudha_lagna (S59) and
-upapada_lagna (S66) precedent exactly -- the ONE genuinely new wrinkle
-(evaluated_at_jd being load-bearing for this domain, not merely
-"accepted uniformly but unused" like av_transit/arudha_lagna/
-upapada_lagna) still required no code change, because this function
-already threads `evaluated_at_jd` through unconditionally for every
-domain -- see step 3's own flagged departure/fix for why that threading
-exists at all. Documented this explicitly in both the `_VALID_DOMAINS`
-comment block and the `answer_question()` docstring's own NOTE
-paragraph, following the existing per-domain-addition documentation
-precedent in this file.
+```
+Sulabh:   natal=(7,15)  [Scorpio/Vishakha]      count=11 span=7.0 contiguous=True tiers={T1,T2,T3} tier1_count=4
+David:    natal=(4,9)   [Leo/Magha]             count=11 span=7.0 contiguous=True tiers={T1,T2,T3} tier1_count=2
+Surbhi:   natal=(10,23) [Aquarius/Shatabhisha]  count=11 span=7.0 contiguous=True tiers={T1,T2,T3} tier1_count=3
+Sheridan: natal=(0,0)   [Aries/Ashwini]         count=11 span=7.0 contiguous=True tiers={T1,T2,T3} tier1_count=2
+```
 
-## `_merge_router_demotion()`: confirmed no-op by reading both sides
+All 4 charts: 11 windows, span exactly 7.0, fully contiguous, all three
+tier values present. (Every chart landing on count=11 at this particular
+anchor is a coincidence of this week's transit boundary structure, not an
+invariant -- the count is chart+JD-specific, which is exactly why it is a
+DEFERRED value-assert, see below.)
 
-- `calc_router.py`'s `_route_to_domain()` muhurta_window branch (step 4):
-  `demotion_reason=None`, hardcoded.
-- `result_formatter.py`'s `_format_muhurta_window()` (step 2):
-  `demotion_reason=None`, hardcoded.
+### Sulabh full window table @ _PINNED_JD -- the ratified-run candidate (NOT yet asserted)
 
-`_merge_router_demotion()`'s own logic: `if router_reason is None: return
-answer` (unchanged). Since the router's side is always `None` for this
-domain, the function returns the formatter's `DomainAnswer` completely
-unmodified -- a true no-op passthrough, same as arudha_lagna/
-upapada_lagna/sade_sati. Verified by reading, not assumed; also verified
-empirically in the live smoke test below (`demotion_reason: None` on the
-final `DomainAnswer`).
+```
+domain=muhurta_window tier=TIER_3_MUHURTA sources=('muhurta_scorer.py',)
+stub_caveats=() demotion=None uncertainty_virupa=0.0 uncertainty_days=0.0
+summary={'tier1_window_count': 4, 'earliest_tier1_start': '21 Jun 2026 04:01 UTC'}
+window_count=11
 
-## VERIFICATION 1: full pytest suite
+idx | start (UTC)          | end (UTC)            | tier   | fav | warnings
+ 0  | 20 Jun 2026 18:30     | 21 Jun 2026 04:01    | TIER_2 |  1  | ()
+ 1  | 21 Jun 2026 04:01     | 21 Jun 2026 10:10    | TIER_1 |  2  | ()
+ 2  | 21 Jun 2026 10:10     | 22 Jun 2026 04:52    | TIER_1 |  2  | ()
+ 3  | 22 Jun 2026 04:52     | 23 Jun 2026 06:24    | TIER_2 |  1  | ()
+ 4  | 23 Jun 2026 06:24     | 23 Jun 2026 19:23    | TIER_1 |  2  | ()
+ 5  | 23 Jun 2026 19:23     | 24 Jun 2026 08:29    | TIER_2 |  1  | ()
+ 6  | 24 Jun 2026 08:29     | 25 Jun 2026 10:59    | TIER_2 |  1  | ()
+ 7  | 25 Jun 2026 10:59     | 26 Jun 2026 07:03    | TIER_3 |  0  | ('Janma Tara',)
+ 8  | 26 Jun 2026 07:03     | 26 Jun 2026 13:46    | TIER_2 |  1  | ('Janma Tara', 'Janma Rashi')
+ 9  | 26 Jun 2026 13:46     | 27 Jun 2026 16:41    | TIER_1 |  2  | ('Janma Rashi',)
+10  | 27 Jun 2026 16:41     | 27 Jun 2026 18:30    | TIER_2 |  1  | ('Janma Rashi',)
+```
 
+This table is the candidate for the next prompt's value-asserts (window
+count == 11, per-window tier sequence, summary tier1_window_count == 4,
+the Janma Tara / Janma Rashi warning bands). **Design chat ratifies these
+before they become asserts** -- this prompt ships STRUCTURAL asserts only.
+Note both natal-warning paths fire in Sulabh's table (Janma Tara at
+idx 7-8, Janma Rashi at idx 8-10), which is why Sulabh is the
+hardest-case-first row: its Scorpio Moon-sign and Vishakha nakshatra both
+recur inside this particular 7-day window.
+
+## What the file asserts THIS prompt (structural only)
+
+**Layer A (`TestLayerARouterProvenance`)** -- fully asserted (deterministic):
+- `test_a1`: CLEAN -> Stage 1, domain=muhurta_window, tier=TIER_3_MUHURTA,
+  confidence == approx(2/3), route=="stage1", demotion None,
+  requires_partner False, recording sentinel `.calls == []`.
+- `test_a2`: MISS -> monkeypatches `_stage2_fallback` ITSELF (a canned
+  REFUSAL, never delegates), asserts it was called once, that
+  `route_question` returned that result, and that the recorded `best_score`
+  was below `_CONFIDENCE_FLOOR`. This is the DELIBERATE departure from
+  arudha/upapada's a2 (which pass a `_RecordingClient` and rely on the
+  record landing before `_stage2_classify`'s fail-closed swallow) -- per
+  the task's own S50 P7.2e note ("do NOT patch `_stage2_classify`; its
+  fail-closed swallows the signal"). No real OpenAI call is made.
+
+**Layer B (`TestLayerBRealChartOracle`, PINNED JD)** -- structural only:
+- `test_sulabh_structural_and_natal_ids`: natal ids **asserted == (7, 15)**
+  (closes step 1's verify-at-e2e obligation), domain/tier/sources/
+  stub_caveats/uncertainty fields, plus the shared window-structure
+  asserter (non-empty; `windows[0].start_jd == _PINNED_JD`;
+  `windows[-1].end_jd == _PINNED_JD + 7.0`; contiguity; each window
+  non-zero-width and ascending; every per-window tier in
+  {"TIER_1","TIER_2","TIER_3"}; total span == 7.0 EXACT; summary key-set).
+- `test_david/surbhi/sheridan_structural`: natal ids derived in valid
+  range (0..11 sign, 0..26 nakshatra), domain/tier, same window-structure
+  asserter. David first per HARDEST-CASE-first.
+- DEFERRED (value-asserts, next prompt after ratification): window
+  count == 11, the per-window tier sequence, summary
+  `tier1_window_count`, the warning bands. The observed table above is the
+  ratification candidate; none of its chart-specific literals are asserted
+  yet.
+
+**Layer C (`TestLayerCFullChain`)** -- STRUCTURAL, not byte-equal:
+- `test_sulabh_full_chain_structural`: full `answer_question()` chain.
+  domain, tier==TIER_3_MUHURTA, route=="stage1", demotion None, sources,
+  stub_caveats==(), uncertainty 0.0/0.0, plus the shared window-structure
+  asserter with `expected_start_jd=None` and `exact_span=False` (span
+  7.0 +/- 1e-6). Byte-equality vs Layer B is impossible BY DESIGN --
+  `answer_question()` samples its own `datetime.now(timezone.utc)` for
+  evaluated_at_jd (muhurta_window is the first wall-clock-anchored domain),
+  so its window boundaries start at "now", not at `_PINNED_JD`. This is
+  the documented departure from arudha/upapada's Layer C, which asserts
+  full `result == expected` byte-equality (safe there because those
+  domains are purely natal and evaluated_at_jd is genuinely unused).
+  Monkeypatches `_stage2_classify` to raise -- proves Stage 2 never fires
+  AND guarantees no accidental live OpenAI call.
+
+## Test run
+
+New file in isolation:
+```
+7 passed in 1.23s   ([_patch_stage2_openai] stub invocation count: 0 -- no live OpenAI call)
+```
+
+Full suite:
 ```
 python -m pytest -q
-3134 passed, 3 skipped, 0 failed  (85.32s)
+3141 passed, 3 skipped, 0 failed  (81.31s)
 ```
 
-Zero delta, exactly as expected -- no test exercises the live muhurta
-path yet.
-
-## VERIFICATION 2: live e2e smoke test
-
-```python
-answer_question("what is an auspicious muhurta for me this week", <sulabh chart>)
-```
-```
-domain: muhurta_window
-tier: AnswerTier.TIER_3_MUHURTA
-route: stage1
-route is not None: True
-sources: ('muhurta_scorer.py',)
-demotion_reason: None
-stub_caveats: ()
-uncertainty_virupa: 0.0   uncertainty_days: 0.0
-summary: {'tier1_window_count': 4, 'earliest_tier1_start': '12 Jul 2026 02:59 UTC'}
-first window: {"start_jd": 2461233.3059375, "end_jd": 2461233.624569149,
-  "start": "11 Jul 2026 19:20 UTC", "end": "12 Jul 2026 02:59 UTC",
-  "tier": "TIER_2", "favorable_count": 1, "warnings": []}
-window count: 12
-```
-
-`route` is stamped (`"stage1"`, not `None`) -- asserted, not just
-observed: `answer.route is not None` printed `True`. Full builder ->
-dispatch -> router -> orchestrator -> formatter chain works end to end,
-live, for the first time this staged rollout.
-
-## VERIFICATION 3: natal identifiers, closing the step-1 verify-at-e2e obligation
-
-```
-lagna_chart["rasi"]: Scorpio -> natal_moon_sign index: 7
-lagna_chart["nakshatra"]: Vishakha -> janma_nakshatra index: 15
-SIGNS[7]: Scorpio   NAKSHATRAS[15]: Vishakha
-```
-
-Confirmed **(7, 15)** = Scorpio/Vishakha, matching the S27 canonical
-values the task cited. Closes step 1's own verify-at-e2e obligation on
-the `lagna_chart` key semantics (`"rasi"`/`"nakshatra"` hold the MOON's
-sign/nakshatra, not the Ascendant's -- see `chart_profile.py`'s
-`_koota_natal_info_from_chart` docstring for the original documented
-precedent this reuses) -- now confirmed live, not just by reading.
-
-## VERIFICATION 4: full golden harness run vs. frozen baseline
-
-```
-python -m agent.eval.golden_harness
-runnable=19 non_runnable_batch=2 match=9 match_stage2=9 design_debt=0 known_gap=1 new_gap=0 error=0
-report: diagnostics/golden_scorecard_20260711_192135.md
-```
-
-Frozen baseline (`golden_scorecard_20260711_112836.md`) expected steady
-state: `match=9/match_stage2=8/known_gap=2/new_gap=0`.
-
-**One delta found: `match_stage2` 8 -> 9 (+1), `known_gap` 2 -> 1 (-1).**
-`match`, `new_gap`, `design_debt`, `error` all unchanged (9, 0, 0, 0).
-`runnable`/`non_runnable_batch` (19/2) inferred unchanged -- the frozen
-baseline file doesn't print an explicit count line for these two, but
-the golden-set row count is unchanged (21, untouched this session) and
-no row's runnability criteria were touched, so a change here would be
-surprising; not independently re-derived beyond that inference.
-
-**Identified the exact row, per CLAUDE.md's "check before treating a
-flip as regression" convention (not fixed, per this task's own
-instruction):**
-
-```
-baseline: | sulabh_dasha_q15 | dasha | TIER_3_MUHURTA | REFUSAL      | stage2 | question not classifiable with confidence | KNOWN_GAP    |
-this run: | sulabh_dasha_q15 | dasha | TIER_3_MUHURTA | TIER_3_MUHURTA | stage2 |                                          | MATCH_STAGE2 |
-```
-
-`sulabh_marriage_q10` (the other frozen-baseline `KNOWN_GAP` row) is
-UNCHANGED -- still `TIER_4_INTERPRETIVE` expected vs. `TIER_1_EXACT`
-actual, `KNOWN_GAP`, exactly as the frozen baseline's own header text
-predicts it should stay regardless of routing outcome (locked V1-scope
-Tier 4 interpretive-synthesis exclusion).
-
-`sulabh_dasha_q15`'s own fixture (`tests/fixtures/golden_qa_sulabh.py`
-line ~541) already carries `"expected_tier": "TIER_3_MUHURTA"` and
-`"expected_techniques": ["muhurta_scorer", "vimshottari"]` -- this row
-was WRITTEN in anticipation of muhurta_window eventually going live, and
-was tracked as `KNOWN_GAP` (actual REFUSAL, since the domain was entirely
-unrouteable before this session's steps 1-5) precisely until that day
-came. Now that muhurta_window is live end-to-end (this step closes the
-last gate), this row's live behavior changed to actually produce
-`TIER_3_MUHURTA` via Stage 2 classification, matching its long-standing
-expectation exactly -- **this reads as the golden set catching up with a
-newly-live domain, not a regression.** Per this task's explicit
-instruction ("report, don't fix"), no fixture/harness edit was made;
-whether to re-ratify this row's category (mirroring the
-`sulabh_arudha_q3_refusal_probe` precedent from Session 63, which
-similarly flipped `REFUSAL`->live-behavior and was re-ratified in a
-LATER, separate, dedicated step) is left to design chat.
+Exactly 3134 (prior baseline) + 7 new tests, zero regressions. The
+`[_patch_stage2_openai] stub invocation count: 5` on the full run is the
+pre-existing count from OTHER Stage-2 tests in the suite -- unchanged by
+this file (whose own isolated run showed count 0, confirming these 7
+tests make no Stage 2 calls of their own).
 
 ## Not committed
 
-Per constraint: `agent/infra/orchestrator.py` remains uncommitted in the
-working tree. Design chat ratifies before any commit.
+Per constraint: `tests/infra/test_orchestrator_muhurta.py` remains
+uncommitted in the working tree. Design chat ratifies the Layer B
+measured values (the Sulabh table above) before the deferred value-asserts
+land next prompt.
