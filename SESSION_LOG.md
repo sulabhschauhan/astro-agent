@@ -2674,3 +2674,192 @@ note, both count-prediction errata).
   still says "3-domain whitelist"; actual is 5
   (career/marriage/dasha/arudha_lagna/upapada_lagna). Ride-along fix
   next time `golden_harness.py` is touched, not a standalone prompt.
+
+## Session 64 -- RouteResult.route provenance bundle (incl. an aborted-squash episode + new standing rule) + muhurta_window shipped end-to-end, 7th routed domain, 7-step staged rollout (2026-07-11)
+
+### Part A: RouteResult.route provenance bundle
+
+Closed two long-standing carry-forwards (Session 55 flag, Session 59
+escalation): `RouteResult` had no field recording WHICH path
+(Stage 1 / Stage 2 / fastpath / pre-classification-REFUSAL) actually
+resolved a question, and `golden_harness.py` derived this after the
+fact by fragile question-text/timestamp correlation against
+`diagnostics/calc_router_stage2.log` (`_used_stage2_since()`).
+
+1. **Prompt 1** (`8e4d11d`) -- added `RouteResult.route: Literal["stage1",
+   "stage2", "fastpath", "pre_classification"]`, no default; every
+   construction site assigned explicitly. `9553183` -- full-suite
+   validation, 3134 passed/3 skipped, zero delta.
+2. **Prompt 2** (`994feb8`, diagnostics only, **no file edited**) --
+   `_route_to_domain()`'s 8 domain-branch `RouteResult(...)` sites are
+   each reachable from **either** Stage 1 or Stage 2 (via 3 different
+   real callers), so a hardcoded per-branch route literal would be
+   wrong part of the time. Task's own instruction ("if ambiguous, STOP
+   and flag") honored literally -- STOPPED rather than guess, full
+   caller-tracing table reported, non-guessing resolution identified
+   (thread `route` as a parameter into `_route_to_domain()`, sourced
+   from each of its 3 real callers) but not yet implemented.
+3. **Prompt 3** (`7e69614`) -- implemented prompt 2's identified fix:
+   `route` parameter threaded into `_route_to_domain()` from its 3
+   callers; `DomainAnswer.route` added (`chart_profile.py`) and stamped
+   by `orchestrator.py`'s `answer_question()` on both return paths;
+   Stage 2 client injection seam added. `3683119` -- strengthened Layer
+   C full-chain tests asserting the stamped route end to end.
+4. **ABANDONED-SQUASH EPISODE** -- a prompt in this bundle asked to
+   squash `7e69614`+`3683119` into one commit and force-push over
+   already-pushed `main` history. Before executing, confirmation was
+   sought given the destructive/shared-state nature of a force-push on
+   `main`; the user's next message aborted the rewrite outright rather
+   than answering the pending question. Recovery: `git reset --hard
+   3683119` restored the working tree to exactly its pre-reset state;
+   verified `git log --oneline -5` showed both commits intact in
+   original order, `git status` clean, `git log origin/main..main`
+   empty (local/origin identical). **No force-push occurred; both
+   commits remain separate, as originally committed and pushed.**
+   Consequence: CLAUDE.md Working Style #13 added ("NEVER REWRITE
+   PUSHED HISTORY ON MAIN" -- STOP and surface any instruction implying
+   amend/squash/force-push of already-pushed commits, treat it as
+   stale rather than executing).
+5. **Harness switchover** (`227cee1`/`e4fdfda`) -- `golden_harness.py`'s
+   `_run_runnable_row()` now reads `DomainAnswer.route` directly on the
+   success path (guarded: `route is None` raises, never silently
+   defaults); `_used_stage2_since()`'s log correlation retired to the
+   ERROR path only (no `DomainAnswer` exists there to read a route
+   off). Ride-along: both `_KNOWN_GAPS` entries' stale "Session 50
+   observed mechanism" prose refreshed to match current behavior;
+   module docstring's route paragraph rewritten (was: "derived by
+   correlating the log", now: "read directly, a first-class signal").
+   Verification re-run: `diagnostics/golden_scorecard_20260711_172257.md`
+   -- `match=9/match_stage2=8/known_gap=2/new_gap=0`, exact match to the
+   S63 frozen baseline, byte-identical row-by-row including every
+   `route` value (not itself a new frozen baseline -- a routine
+   verification re-run per the Session 62 retention convention, since
+   it changed nothing versus the existing frozen baseline).
+6. **Docs** (`c823cb5`) -- marked the RouteResult.route/harness-switchover
+   carry-forward RESOLVED in CLAUDE.md, added Working Style #13 (above),
+   added a carry-forward for `golden_qa_sulabh.py`'s now-obsolete
+   `sulabh_arudha_q2_stage2` collision-avoidance rationale (superseded
+   by the harness reading `DomainAnswer.route` directly on the success
+   path).
+
+### Part B: muhurta_window shipped end-to-end -- 7th routed domain, 7-step staged rollout
+
+Same staged-rollout pattern as arudha_lagna (S58-59) / upapada_lagna
+(S63), one file per prompt, each verified independently:
+
+1. **`chart_profile.py`** (`a2fb0c1`) -- `build_muhurta_profile()`, a
+   fixed 7-day scan window (`_MUHURTA_SCAN_WINDOW_DAYS`), sade_sati
+   natal-extraction precedent reused for natal_moon_sign/janma_nakshatra.
+2. **`result_formatter.py`** (`cd7a92e`) -- `_format_muhurta_window()`,
+   UTC-labeled per-window rendering; payload-signature deviation from
+   the T1/T2 flat-dict domains flagged (windows list + summary block,
+   not a flat 4-key dict).
+3. **`chart_profile.py`** dispatch (`35ff1b5`) -- `_VALID_DOMAINS` +
+   `build_domain_profile()` branch; `evaluated_at_jd` threaded through
+   for the first time as genuinely load-bearing (the scan window's own
+   start_jd), not accepted-but-unused like every prior domain.
+4. **`calc_router.py`** (`b6a0d94`) -- Stage 1 `_MUHURTA_WINDOW_KEYWORDS`
+   (muhurta/mahurat/auspicious/shubh/electional) + Stage 2 gloss with
+   an explicit electional-vs-natal-timing disambiguation instruction;
+   `_UNBUILT_MODULE_KEYWORDS["muhurta"]` removed. Two ride-alongs closed
+   here: `_GENERIC_REFUSAL_MESSAGE` re-synced to 8 domains
+   (`result_formatter.py`); `_route_to_domain`'s Session-58-flagged
+   hardcoded `current_dasha` fallthrough replaced with an explicit
+   `else: raise ValueError` (closes that carry-forward). Layman-phrasing
+   probe: 12/12 identical to the S63 baseline (no regression from the
+   new domain's keyword list).
+5. **`orchestrator.py`** (`c6f6af3`) -- `_VALID_DOMAINS` gate; full
+   chain live e2e-confirmed (Sulabh natal `(7, 15)` verified). Designed
+   the golden flip `sulabh_dasha_q15`: `KNOWN_GAP` -> `MATCH_STAGE2` (row
+   authored ahead of the domain existing); baseline supersession
+   deferred to the golden-row step.
+6. **`tests/infra/test_orchestrator_muhurta.py`** (`d635a81`, then
+   value-asserts promoted `13ab2d9`) -- 3-layer suite adapted for
+   wall-clock coupling (muhurta_window is the first domain where
+   `evaluated_at_jd` is genuinely load-bearing, so Layer C is
+   STRUCTURAL only, never byte-compared against Layer B's pinned-JD
+   oracle -- unlike arudha/upapada's byte-equal Layer C). Layer B:
+   Sulabh gets a FULL pin (11 windows, per-window tier/favorable_count/
+   warnings sequences, summary block) ratified in design chat; the
+   Janma Tara warning band (idx 7-8) independently corroborated by the
+   S24 Vishakha occupancy scan (verbatim minute match). David/Surbhi/
+   Sheridan get light pins (natal ids + `tier1_window_count` only) --
+   window COUNT==11 across all 4 charts at this anchor is a
+   transit-boundary coincidence, deliberately NOT asserted for the
+   non-Sulabh 3. 7 new tests, 3134 -> 3141 passed.
+7. **`golden_qa_sulabh.py` + `golden_harness.py`** (`b16ce82`) -- two
+   new golden rows (`sulabh_muhurta_q1_stage1`/`q2_stage2`);
+   `_GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN` gained the
+   `"muhurta_window": "muhurta_window"` identity mapping; dead
+   `_KNOWN_GAPS["sulabh_dasha_q15"]` entry deleted (S50 P7.2f
+   precedent -- MATCH_STAGE2 verified in the step 5 run before
+   deletion). Ride-along: `_classify_runnability()`'s stale "3-domain
+   whitelist" docstring and the module docstring's twin "five
+   pipeline-whitelisted domains" line both fixed to six. **Task's own
+   suggested `sulabh_muhurta_q2_stage2` candidate phrasing rejected
+   after verification**: "when is a good time for me to start
+   something new" scores 1 Stage 1 hit against `_DASHA_KEYWORDS` (bare
+   token "when"), not the required zero -- substituted "is this a
+   favorable moment to begin something new in my life" (verified 0
+   hits across all 7 domain keyword lists + `_STEM_MAP` +
+   `_UNBUILT_MODULE_KEYWORDS` + `_OUT_OF_SCOPE_KEYWORDS`, live-probed
+   4/4 stable before shipping). New frozen baseline:
+   `diagnostics/golden_scorecard_20260711_195218.md`.
+
+### Test baseline
+Full pytest suite: **3134 -> 3141 passed, 3 skipped** (7 new tests from
+`test_orchestrator_muhurta.py`; zero regressions at every intermediate
+step across both Part A and Part B, each verified independently).
+
+### Golden harness
+Final steady state `match=10/match_stage2=10/known_gap=1/new_gap=0`
+(23 rows, up from 21), frozen at
+`diagnostics/golden_scorecard_20260711_195218.md` (supersedes
+`golden_scorecard_20260711_112836.md`, which itself superseded
+`golden_scorecard_20260711_045928.md`). `sulabh_dasha_q15` is the one
+row that flipped category (`KNOWN_GAP` -> `MATCH_STAGE2`); every other
+row's category is unchanged from the S63 baseline. `sulabh_marriage_q10`
+remains the sole surviving `KNOWN_GAP` (independent, locked V1-scope
+Tier 4 interpretive-synthesis exclusion, unrelated to Muhurta).
+
+### Commit hashes
+Part A (RouteResult.route bundle): `8e4d11d`, `9553183`, `994feb8`
+(STOP, no edit), `7e69614`, `3683119`, [abandoned squash -- no commit,
+`git reset --hard 3683119` recovery], `227cee1`, `e4fdfda`, `c823cb5`.
+
+Part B (muhurta_window, 7 steps + diagnostics-only commits interleaved):
+`a2fb0c1`/`4c4fa70` (step 1), `cd7a92e`/`36e5d60` (step 2),
+`35ff1b5`/`8734f24` (step 3), `b6a0d94`/`d6dd29b` (step 4),
+`c6f6af3`/`5b14a9f` (step 5), `d635a81`/`5b4f828` (step 6),
+`13ab2d9`/`7132a21` (step 6b, value-assert promotion), `b16ce82`/`da4d93c`
+(step 7, golden rows + baseline freeze).
+
+Docs closeout: this commit ("S64 close-out: docs").
+
+### Carry-forward resolved this session
+- `RouteResult` route marker (Session 55 flag, Session 59 escalation)
+  -- RESOLVED: see Part A above.
+- `_route_to_domain` hardcoded `current_dasha` fallthrough (Session 58)
+  -- RESOLVED: closed as a Part B step-4 ride-along, explicit
+  `else: raise ValueError`.
+- `golden_harness.py` stale domain-count comments (flagged Session 63)
+  -- RESOLVED: closed as a Part B step-7 ride-along, "3-domain"/"five"
+  -> six.
+
+### Carry-forward added this session
+- `golden_qa_sulabh.py`'s `sulabh_arudha_q2_stage2` collision-avoidance
+  rationale now obsolete on the success path (Part A docs commit) --
+  refresh next time the fixture is touched, not a standalone prompt.
+- Per-window `MuhurtaTier` value strings (`TIER_1`/`TIER_2`/`TIER_3`) are
+  internal jargon in `answer_payload` -- layman relabeling belongs to a
+  future answer-text layer, not this payload.
+- Bare `"when"` in `_DASHA_KEYWORDS` is the same generic-token smell
+  class as the pre-existing "job"/`_STEM_MAP` dead-keyword bug (Session
+  49) -- freshly observed designing `sulabh_muhurta_q2_stage2`'s golden
+  phrasing. Still dogfood-gated per the Session 44 lock; not tuned
+  preemptively.
+- Kept open, unchanged: `strength.py` D2 docstring citation fix
+  (Session 58, ride-along next `strength.py` touch); ERROR-path
+  `_used_stage2_since()` correlation (accepted residual -- the sole
+  surviving use, documented in both `golden_harness.py`'s own
+  docstring and CLAUDE.md).
