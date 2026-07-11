@@ -131,3 +131,60 @@ and report exact pass/fail counts.
 
 Not committed -- no source edit made this prompt, diagnostics-only
 write.
+
+---
+
+# RouteResult.route implementation (option A) + full-suite validation
+
+Resolved the S72 STOP above via option A: 4-value
+`Literal["stage1", "stage2", "fastpath", "pre_classification"]`.
+
+## Implementation (agent/infra/calc_router.py only)
+
+- Added `route` field to `RouteResult` (no default).
+- Threaded a `route: Literal["stage1", "stage2", "fastpath"]` parameter
+  into `_route_to_domain()`'s signature (no default) and used it, not a
+  hardcoded literal, in all 8 `RouteResult(...)` calls inside it (the
+  7 domain branches + the marriage_compatibility has_partner_data
+  REFUSAL).
+- 3 real callers of `_route_to_domain()` updated to pass `route`
+  explicitly: `route_question()`'s sade_sati fast-path ->
+  `route="fastpath"`; `route_question()`'s Stage 1 floor+margin path ->
+  `route="stage1"`; `_stage2_fallback()`'s high-confidence path ->
+  `route="stage2"`.
+- `_stage2_fallback()`'s 2 direct `RouteResult(...)` sites (exception
+  handler, non-high-confidence REFUSAL) -> `route="stage2"`.
+- `route_question()`'s 2 pre-classification guard REFUSALs
+  (unbuilt-module-keyword, out-of-scope-keyword) -> `route="pre_classification"`.
+
+Post-edit re-grep of `RouteResult(`/`_route_to_domain(` confirmed exactly
+12 `RouteResult(` sites and exactly 3 `_route_to_domain(` callers --
+matches the plan exactly, no 13th site or unaccounted caller surfaced.
+
+Router-specific test file run at implementation time:
+`pytest tests/infra/test_calc_router_stage2.py -q` -> **16 passed**.
+
+Committed as `8e4d11d` and pushed *before* the full-suite gate below was
+requested -- flagged transparently rather than creating a duplicate or
+amended commit for an already-pushed change.
+
+## Full-suite validation (retroactive, against S63 baseline)
+
+```
+pytest -q
+3134 passed, 3 skipped, 1 warning in 93.64s
+```
+
+S63 baseline: 3134 passed / 3 skipped. **Zero delta.** Confirms no other
+file in the repo constructs `RouteResult(...)` directly without the new
+`route` arg (the Stage 2-only test file run at implementation time could
+not have caught that class of breakage on its own).
+
+`diagnostics/calc_router_stage2.log`'s growth from this run left out of
+any commit -- not shown as untracked by `git status`, already excluded
+(same as `2ca52bc` precedent).
+
+## Commit
+
+`8e4d11d` (already pushed, see above) -- working tree clean after the
+full-suite run; nothing new to commit for this validation pass.
