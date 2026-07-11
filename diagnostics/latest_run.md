@@ -1,566 +1,171 @@
-# tests/interpretive/test_palm_reading.py — new Ring 2 test file (Session 65)
-
-Docs/test-only task: two NEW files created
-(`tests/interpretive/__init__.py`, empty, matching the `tests/infra/`
-sibling-package convention; `tests/calculations/ashtakavarga/` and other
-leaf dirs under `tests/calculations/` deliberately do NOT get their own
-`__init__.py` — `tests/interpretive/` is a direct sibling of `tests/infra/`,
-not a leaf under an existing package, so it follows the `tests/infra/`
-precedent) and `tests/interpretive/test_palm_reading.py` (full file below).
-
-**No edits to `agent/interpretive/palm_reading.py`.** Every test passed on
-the first run — nothing to report as a blocked/failing case requiring a
-source change. Not committed — holding for design-chat ratification per
-the prompt.
-
-## One flagged non-blocking observation (documented in the test file's own docstring, not fixed)
-
-`palm_reading.py` does `from openai import OpenAI` at **module level**
-(import time), unlike `calc_router._stage2_classify`, which does the same
-import **inside the function body** specifically so the autouse
-`_patch_stage2_openai` conftest fixture (which patches `openai.OpenAI`,
-the attribute on the `openai` module) can intercept it. Because
-`palm_reading.OpenAI` is bound once at import time to the real class, that
-autouse fixture's patch has no effect on this module — if a future test
-ever called `generate_palm_reading(...)` **without** an explicit `client=`
-argument, it would attempt a real, unstubbed `OpenAI()` call.
-
-This does **not** affect any test in this file — every single test
-injects an explicit `client=` fake, so `generate_palm_reading`'s own
-`OpenAI()`-construction fallback is never reached. Flagged per the "no
-source edit" constraint; a fix (moving the import inside the function,
-matching the calc_router pattern) would be a one-line source change and
-is not made here.
-
-## Test list (in the order written, hardest-first per the task spec)
-
-1. `test_both_none_with_hand_detail_still_raises_value_error` — hardest
-   fail-closed case: `hand_detail` alone must not slip past the
-   both-None guard. Also asserts zero search/LLM calls occurred.
-2. `test_both_none_no_hand_detail_raises_value_error` — same guard, no
-   `hand_detail` at all.
-3. `test_jargon_injection_case_insensitive_and_word_boundary` — stub
-   prose containing `"LAGNA"`, `"Antardasha"`, `"yoga"` (mixed case) plus
-   an innocent `"yogart"` substring. Asserts `validation.passed is
-   False`, the exact hit set `{"lagna", "antardasha", "yoga"}`, and
-   (via a direct check against the module's own compiled
-   `_JARGON_PATTERN`) that `"yogart"` contributes zero extra matches.
-4. `test_fabricated_year_absent_from_context_fails` +
-   `test_year_supported_by_retrieved_chunk_does_not_fail` — boundary
-   pair: the same cited year (`"2031"`) fails when absent from every
-   input/chunk, and does NOT fail when present in a retrieved Cheiro
-   chunk.
-5. `test_length_over_700_words_fails` — 701-word stub trips the hard
-   length rail.
-6. `test_empty_retrieval_proceeds_with_low_confidence_caveat` — `search`
-   stub returns `[]`; asserts the call still proceeds (not refused), the
-   low-confidence caveat text (`"weak match"`) is present in the actual
-   system-prompt string recorded in the stub client's call kwargs, and
-   the result still validates normally.
-7. `test_happy_path_left_only` — clean prose, `passed=True`,
-   `reading_text` ends with `DISCLAIMER` exactly once; confirms
-   `palm_reading.py` exposes no pre-append seam (read the module first),
-   so the fallback assertion (disclaimer absent from the stub's own
-   returned text, present exactly once at the end of the final result)
-   is used instead.
-8. `test_client_raises_becomes_runtime_error_no_retry` — stub raises
-   `ConnectionError`; asserts `RuntimeError` with the expected message
-   substring and exactly one call attempt (no retry).
-9. `test_exactly_one_llm_call_on_happy_path` — explicit call-count
-   invariant, both hands present.
-10. `test_search_filters_to_canonical_cheiro_book` — independently
-    reads `ingestion/query_engine.py`'s `multi_source_search()` source
-    via `inspect.getsource()` to confirm the exact string
-    `"cheiroslanguageo00chei_1"` lives there (not hardcoded from
-    memory), cross-checks it equals `palm_reading._CHEIRO_BOOK`, then
-    asserts the recorded `search()` call kwargs carry
-    `book_name == palm_reading._CHEIRO_BOOK`.
-11. `test_sources_propagate_book_page_score` — two stubbed chunks
-    surface in `PalmReadingResult.sources` as exact `{"book", "page",
-    "score"}` dicts.
-
-## Stub design notes
-
-- **OpenAI client stub** (`_FakeClient` / `_FakeCompletions` /
-  `_FakeResponse` / `_FakeChoice` / `_FakeMessage`) mirrors
-  `tests/infra/test_calc_router_stage2.py`'s `_FakeClient` shape
-  (`.chat.completions.create(**kwargs)`, `.calls` list recording every
-  invocation), adapted for `palm_reading.py`'s plain-content response
-  (`response.choices[0].message.content`) instead of calc_router's
-  tool-call response shape.
-- **Retrieval stub** (`_FakeSearch`) is injected via
-  `monkeypatch.setattr(palm_reading, "search", fake_search)` — the
-  correct site because `palm_reading.py` does
-  `from ingestion.query_engine import search` at its own module level,
-  binding the name into `palm_reading`'s namespace; patching
-  `ingestion.query_engine.search` itself would have no effect on calls
-  made from inside `palm_reading.py`.
-- **`_explosive_client()`** (raises `AssertionError` if `.create()` is
-  ever called) is used as belt-and-suspenders proof in the two
-  fail-closed `ValueError` tests, on top of the real proof
-  (`.completions.calls == []`) — same pattern as
-  `test_calc_router_stage2.py`'s own `_explosive_client()`.
-
-## Pytest run 1: new file in isolation
-
-```
-$ python -m pytest tests/interpretive/test_palm_reading.py -v
-
-============================= test session starts =============================
-platform win32 -- Python 3.11.9, pytest-9.0.3, pluggy-1.6.0
-rootdir: C:\Users\sulab\Documents\Python Scripts\astro-agent
-configfile: pytest.ini
-plugins: anyio-4.6.2.post1
-collecting ... collected 12 items
-
-tests/interpretive/test_palm_reading.py::test_both_none_with_hand_detail_still_raises_value_error PASSED [  8%]
-tests/interpretive/test_palm_reading.py::test_both_none_no_hand_detail_raises_value_error PASSED [ 16%]
-tests/interpretive/test_palm_reading.py::test_jargon_injection_case_insensitive_and_word_boundary PASSED [ 25%]
-tests/interpretive/test_palm_reading.py::test_fabricated_year_absent_from_context_fails PASSED [ 33%]
-tests/interpretive/test_palm_reading.py::test_year_supported_by_retrieved_chunk_does_not_fail PASSED [ 41%]
-tests/interpretive/test_palm_reading.py::test_length_over_700_words_fails PASSED [ 50%]
-tests/interpretive/test_palm_reading.py::test_empty_retrieval_proceeds_with_low_confidence_caveat PASSED [ 58%]
-tests/interpretive/test_palm_reading.py::test_happy_path_left_only PASSED [ 66%]
-tests/interpretive/test_palm_reading.py::test_client_raises_becomes_runtime_error_no_retry PASSED [ 75%]
-tests/interpretive/test_palm_reading.py::test_exactly_one_llm_call_on_happy_path PASSED [ 83%]
-tests/interpretive/test_palm_reading.py::test_search_filters_to_canonical_cheiro_book PASSED [ 91%]
-tests/interpretive/test_palm_reading.py::test_sources_propagate_book_page_score PASSED [100%]
-
-============================== warnings summary ===============================
-..\..\..\AppData\Local\Programs\Python\Python311\Lib\site-packages\opentelemetry\util\_importlib_metadata.py:32
-  C:\Users\sulab\AppData\Local\Programs\Python\Python311\Lib\site-packages\opentelemetry\util\_importlib_metadata.py:32: DeprecationWarning: SelectableGroups dict interface is deprecated. Use select.
-    return EntryPoints(ep for group_eps in eps.values() for ep in group_eps)
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-[_patch_stage2_openai] stub invocation count: 0
-======================== 12 passed, 1 warning in 1.62s ========================
-```
-
-## Pytest run 2: full suite
-
-```
-$ python -m pytest -q
-
-[... 3153 dots/skips across 44 batches of 72 ...]
-s.....ss.  (3 skips, unchanged location/count vs. prior baseline)
-
-============================== warnings summary ===============================
-..\..\..\AppData\Local\Programs\Python\Python311\Lib\site-packages\opentelemetry\util\_importlib_metadata.py:32
-  DeprecationWarning: SelectableGroups dict interface is deprecated. Use select.
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-[_patch_stage2_openai] stub invocation count: 5
-3153 passed, 3 skipped, 1 warning in 81.51s (0:01:21)
-```
-
-## MEASURE-FIRST result
-
-Observed: **3153 passed, 3 skipped**.
-Expected shape per the task prompt: prior 3141 passed / 3 skipped + 12 new
-tests = 3153 passed / 3 skipped.
-
-**Delta = exactly +12 passed, 0 change in skip count, 0 regressions.**
-Matches the expected shape exactly — no discrepancy to report verbatim.
-
-## Full file: tests/interpretive/__init__.py
-
-Empty (0 bytes).
-
-## Full file: tests/interpretive/test_palm_reading.py
-
-```python
-"""
-tests/interpretive/test_palm_reading.py
-
-Ring 2 file for agent/interpretive/palm_reading.py (CLAUDE.md Session 65
-"T4 golden semantics" lock -- three-ring model: Ring 1 is the module's own
-pure-Python ValidationReport, Ring 2 is this file's stubbed-LLM tests, Ring
-3 is a human-rubric ratification artifact). Zero live API calls, zero live
-ChromaDB -- CI never asserts live prose here, only the deterministic
-plumbing around it.
-
-STUB PATTERN mirrors tests/infra/test_calc_router_stage2.py's Stage 2
-conftest-stub precedent: a fake OpenAI client is injected via
-generate_palm_reading's `client` seam, recording every call
-(`.completions.calls`) and returning canned content per test. Retrieval is
-stubbed independently -- palm_reading.py imports `search` from
-ingestion.query_engine at module import time (`from ingestion.query_engine
-import search`), so the correct monkeypatch site is the name bound inside
-the palm_reading module's own namespace (`palm_reading.search`), not
-`ingestion.query_engine.search` itself (confirmed by reading palm_reading.py
-before writing these tests, not assumed).
-
-NOTE on the autouse `_patch_stage2_openai` fixture in tests/conftest.py:
-that fixture patches `openai.OpenAI` (the attribute on the `openai` module),
-which is the correct seam for calc_router.py because
-calc_router._stage2_classify does `from openai import OpenAI` INSIDE the
-function body, re-reading the current attribute on every call. palm_reading.py
-instead does `from openai import OpenAI` at MODULE level (import time) --
-its own `OpenAI` name is bound once, at import, to the real class, and is
-NOT affected by the conftest fixture patching `openai.OpenAI` afterwards.
-This is a real difference from the calc_router pattern (flagged in this
-run's report, not fixed here per the no-source-edit constraint). It does
-not affect these tests: every test below injects an explicit `client=`
-argument, so `generate_palm_reading` never reaches its own
-`OpenAI()`-construction fallback at all.
-
-Hardest cases first (CLAUDE.md Working Style #3): the fail-closed
-ValueError battery (items 1-2) comes before anything that reaches the
-network-shaped stubs.
-"""
-from __future__ import annotations
-
-import inspect
-
-import pytest
-
-from agent.interpretive import palm_reading
-from agent.interpretive.palm_reading import (
-    PalmReadingResult,
-    ValidationReport,
-    generate_palm_reading,
-)
-from agent.prompt_builder import DISCLAIMER
-from ingestion.query_engine import multi_source_search
-
-
-# ─── Fakes ──────────────────────────────────────────────────────────────
-
-
-class _FakeSearch:
-    """Drop-in replacement for query_engine.search, injected via
-    monkeypatch.setattr(palm_reading, "search", ...). Records every call
-    (`.calls`) and returns a fixed, configurable chunk list."""
-
-    def __init__(self, results: list[dict]):
-        self._results = results
-        self.calls: list[dict] = []
-
-    def __call__(self, question, n_results=None, **filters):
-        self.calls.append({"question": question, "n_results": n_results, **filters})
-        return self._results
-
-
-class _FakeMessage:
-    def __init__(self, content: str):
-        self.content = content
-
-
-class _FakeChoice:
-    def __init__(self, content: str):
-        self.message = _FakeMessage(content)
-
-
-class _FakeResponse:
-    def __init__(self, content: str):
-        self.choices = [_FakeChoice(content)]
-
-
-class _FakeCompletions:
-    """Records every call (`.calls`); returns canned content or raises a
-    canned exception, per construction -- mirrors
-    tests/infra/test_calc_router_stage2.py's _FakeCompletions shape,
-    adapted for palm_reading.py's plain-content (not tool-call) response."""
-
-    def __init__(self, content: str | None = None, exception: Exception | None = None):
-        self._content = content
-        self._exception = exception
-        self.calls: list[dict] = []
-
-    def create(self, **kwargs):
-        self.calls.append(kwargs)
-        if self._exception is not None:
-            raise self._exception
-        return _FakeResponse(self._content)
-
-
-class _FakeClient:
-    """Minimal stand-in for openai.OpenAI, injected via
-    generate_palm_reading's `client` seam."""
-
-    def __init__(self, *, content: str | None = None, exception: Exception | None = None):
-        self.completions = _FakeCompletions(content=content, exception=exception)
-        self.chat = type("_FakeChat", (), {"completions": self.completions})()
-
-
-def _explosive_client() -> _FakeClient:
-    """A client whose create() raises AssertionError if invoked at all --
-    belt-and-suspenders proof for the fail-closed ValueError tests, where
-    `.completions.calls == []` is the real proof."""
-    return _FakeClient(exception=AssertionError("LLM call must not fire for a fail-closed ValueError case"))
-
-
-def _chunk(
-    text: str = "A long, unbroken life line indicates steady vitality.",
-    book_name: str = "cheiroslanguageo00chei_1",
-    page_ref: int = 42,
-    score: float = 0.71,
-    chunk_id: str = "c1",
-) -> dict:
-    """9-field dict shape matching query_engine.search()'s real return type."""
-    return {
-        "chunk_id": chunk_id,
-        "text": text,
-        "score": score,
-        "book_name": book_name,
-        "topic": "life_line",
-        "page_type": "body",
-        "language": "en",
-        "page_ref": page_ref,
-        "image_path": "",
-    }
-
-
-_CLEAN_STUB_TEXT = (
-    "Your hand shows a long, unbroken life line, suggesting steady vitality "
-    "and resilience. The heart line curves gently upward, pointing to warmth "
-    "and openness in close relationships. A well-defined head line reflects "
-    "clear, practical thinking, while a faint fate line hints at a path you "
-    "are still shaping through your own choices rather than one laid out for "
-    "you. Overall, this is a hand that reflects balance -- steady energy, "
-    "genuine warmth, and a thoughtful approach to the years ahead."
-)
-
-
-# ─── Items 1-2: fail-closed ValueError battery (hardest case first) ────
-
-
-def test_both_none_with_hand_detail_still_raises_value_error(monkeypatch):
-    """Hardest fail-closed case: partial input (hand_detail alone) must
-    not slip through the both-None guard."""
-    fake_search = _FakeSearch([])
-    monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _explosive_client()
-
-    with pytest.raises(ValueError, match="palm_left/palm_right"):
-        generate_palm_reading(
-            None, None, hand_detail="Long fingers, square palm.", client=client
-        )
-
-    assert fake_search.calls == []
-    assert client.completions.calls == []
-
-
-def test_both_none_no_hand_detail_raises_value_error(monkeypatch):
-    fake_search = _FakeSearch([])
-    monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _explosive_client()
-
-    with pytest.raises(ValueError, match="palm_left/palm_right"):
-        generate_palm_reading(None, None, client=client)
-
-    assert fake_search.calls == []
-    assert client.completions.calls == []
-
-
-# ─── Item 3: jargon injection, case-insensitivity + word boundary ──────
-
-_JARGON_STUB_TEXT = (
-    "Your LAGNA reveals strong ambition, while a favorable Antardasha this "
-    "season brings real opportunity. A gentle yoga forming across your "
-    "palm suggests balance and steady growth, and anyone with a bold "
-    "yogart mark on their hand should feel encouraged. It is a warm, "
-    "positive outlook for the months ahead, with room to deepen important "
-    "relationships and explore new creative directions along the way."
-)
-
-
-def test_jargon_injection_case_insensitive_and_word_boundary(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_JARGON_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="A long life line with a gentle curve.", palm_right=None, client=client
-    )
-
-    assert result.validation.passed is False
-    assert len(result.validation.failures) == 1
-    failure = result.validation.failures[0]
-    assert failure.startswith("jargon_blacklist: found ")
-    hits = {h.strip() for h in failure.removeprefix("jargon_blacklist: found ").split(",")}
-    # "LAGNA" and "Antardasha" hit despite mixed case; "yoga" hits once from
-    # "yoga forming" -- NOT from "yogart" (word-boundary must not trip on a
-    # substring match).
-    assert hits == {"lagna", "antardasha", "yoga"}
-
-    # Direct boundary proof against the module's own compiled pattern: only
-    # ONE "yoga" match in the stub text, from "yoga forming" -- if the
-    # word-boundary logic were broken, "yogart" would contribute a second.
-    raw_matches = palm_reading._JARGON_PATTERN.findall(_JARGON_STUB_TEXT)
-    assert raw_matches.count("yoga") == 1
-
-
-# ─── Item 4: fabricated year vs. supported year (boundary pair) ────────
-
-_YEAR_STUB_TEXT = (
-    "A period of expansion opens around 2031, bringing new opportunities "
-    "for growth and travel. Your hand shows steady resilience through "
-    "life's changes, with a natural warmth that draws others close. Trust "
-    "your instincts during this stretch and lean into new connections -- "
-    "they carry real long-term value."
-)
-
-
-def test_fabricated_year_absent_from_context_fails(monkeypatch):
-    monkeypatch.setattr(
-        palm_reading,
-        "search",
-        _FakeSearch([_chunk(text="A steady life line with no numeric markers.")]),
-    )
-    client = _FakeClient(content=_YEAR_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="A steady, long life line -- no dates mentioned.",
-        palm_right=None,
-        client=client,
-    )
-
-    assert result.validation.passed is False
-    assert any(
-        "unsupported_dates" in f and "2031" in f for f in result.validation.failures
-    )
-
-
-def test_year_supported_by_retrieved_chunk_does_not_fail(monkeypatch):
-    """Companion/boundary case: the SAME cited year, but now present in a
-    retrieved Cheiro chunk -- must NOT trip the date validator."""
-    chunk = _chunk(text="Cheiro documented a comparable case in 2031 involving a strong life line.")
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
-    client = _FakeClient(content=_YEAR_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="A steady, long life line.", palm_right=None, client=client
-    )
-
-    assert not any("unsupported_dates" in f for f in result.validation.failures)
-    assert result.validation.passed is True
-
-
-# ─── Item 5: length rail ────────────────────────────────────────────────
-
-
-def test_length_over_700_words_fails(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
-    long_text = " ".join(["word"] * 701)
-    client = _FakeClient(content=long_text)
-
-    result = generate_palm_reading(
-        palm_left="A long life line.", palm_right=None, client=client
-    )
-
-    assert result.validation.passed is False
-    assert any(f.startswith("length_guard:") for f in result.validation.failures)
-    assert any("701" in f for f in result.validation.failures)
-
-
-# ─── Item 6: empty retrieval proceeds with low-confidence caveat ───────
-
-
-def test_empty_retrieval_proceeds_with_low_confidence_caveat(monkeypatch):
-    fake_search = _FakeSearch([])
-    monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="A long, deep life line.", palm_right=None, client=client
-    )
-
-    # search WAS called (not refused) and returned an empty list.
-    assert len(fake_search.calls) == 1
-    assert len(client.completions.calls) == 1
-    system_prompt_sent = client.completions.calls[0]["messages"][0]["content"]
-    assert "weak match" in system_prompt_sent.lower()
-    assert result.validation.passed is True
-    assert result.sources == ()
-
-
-# ─── Item 7: happy path, left-only ──────────────────────────────────────
-
-
-def test_happy_path_left_only(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="A long, deep life line with a gentle curve.",
-        palm_right=None,
-        client=client,
-    )
-
-    assert result.validation.passed is True
-    assert result.validation.failures == ()
-    # DISCLAIMER appears exactly once, at the end.
-    assert result.reading_text.endswith(DISCLAIMER)
-    assert result.reading_text.count(DISCLAIMER) == 1
-    # No pre-append seam is exposed by palm_reading.py (confirmed by
-    # reading the module) -- fallback per the task spec: prove the
-    # disclaimer text was never part of what the stub returned, so it
-    # could not have been part of what the Ring 1 validators inspected.
-    assert DISCLAIMER not in _CLEAN_STUB_TEXT
-
-
-# ─── Item 8: client failure -> RuntimeError, no retry ──────────────────
-
-
-def test_client_raises_becomes_runtime_error_no_retry(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
-    client = _FakeClient(exception=ConnectionError("simulated network failure"))
-
-    with pytest.raises(RuntimeError, match="GPT-4o reading-generation call failed"):
-        generate_palm_reading(palm_left="A long life line.", palm_right=None, client=client)
-
-    assert len(client.completions.calls) == 1
-
-
-# ─── Item 9: exactly-one-call invariant on the happy path ─────────────
-
-
-def test_exactly_one_llm_call_on_happy_path(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
-
-    generate_palm_reading(
-        palm_left="A long life line.", palm_right="A curved heart line.", client=client
-    )
-
-    assert len(client.completions.calls) == 1
-
-
-# ─── Item 10: Cheiro book filter ────────────────────────────────────────
-
-
-def test_search_filters_to_canonical_cheiro_book(monkeypatch):
-    # Independent verification: the canonical Cheiro string is read directly
-    # from ingestion/query_engine.py's own source (its multi_source_search()
-    # default 14-book list, S12 fixed-exact-string convention) rather than
-    # hardcoded from memory, then cross-checked against the constant
-    # palm_reading.py itself exposes.
-    source = inspect.getsource(multi_source_search)
-    assert "cheiroslanguageo00chei_1" in source
-    assert palm_reading._CHEIRO_BOOK == "cheiroslanguageo00chei_1"
-
-    fake_search = _FakeSearch([_chunk()])
-    monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
-
-    generate_palm_reading(palm_left="A long life line.", palm_right=None, client=client)
-
-    assert len(fake_search.calls) == 1
-    assert fake_search.calls[0]["book_name"] == palm_reading._CHEIRO_BOOK
-
-
-# ─── Item 11: sources propagation ───────────────────────────────────────
-
-
-def test_sources_propagate_book_page_score(monkeypatch):
-    chunk1 = _chunk(text="Chunk one text.", page_ref=12, score=0.81, chunk_id="c1")
-    chunk2 = _chunk(text="Chunk two text.", page_ref=57, score=0.66, chunk_id="c2")
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk1, chunk2]))
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
-
-    result = generate_palm_reading(palm_left="A long life line.", palm_right=None, client=client)
-
-    assert result.sources == (
-        {"book": "cheiroslanguageo00chei_1", "page": 12, "score": 0.81},
-        {"book": "cheiroslanguageo00chei_1", "page": 57, "score": 0.66},
-    )
-```
+# frontend/app.py — palm human checkpoint + palm reading generation (Session 65)
+
+Docs/code task: ONE file edited (`frontend/app.py`), palm-related blocks
+only. Verified via `grep` that the diff touches zero lines matching
+`astrosage_pdf|spouse_pdf|chat_input|orchestrator|def ask|ask(` — the
+AstroSage PDF block, spouse PDF block, chat loop, and `ask()`/orchestrator
+wiring are untouched, as scoped. Syntax-checked with `ast.parse()` (passes)
+and the new import target resolves (`from agent.interpretive.palm_reading
+import generate_palm_reading` imports cleanly). No live Streamlit run, no
+live API calls performed — `st.set_page_config()` requires a real Streamlit
+runtime context, so a full `streamlit run` was out of scope for a
+static/syntax-level check; see the manual smoke checklist below for what a
+human should click through instead. Not committed — holding for
+design-chat ratification.
+
+## Design choices made, per the task's "your call — REPORT which and why"
+
+**st.markdown() inside st.expander(), not st.text_area()**, for displaying
+the vision-output description. Rationale: `st.text_area` is an editable
+widget — even though this code never reads back an edited value, presenting
+the description in an editable-looking box sends a misleading UI signal
+that free-text editing is supported, when the task explicitly bans it in
+V1 ("an edited description would be untraceable to the vision output").
+`st.markdown` in an `st.expander` unambiguously renders read-only text and
+reuses a pattern already established elsewhere in this same file (the
+"Kundali Summary" expander, the "Upload context" expander) — visual
+consistency, not a new UI idiom.
+
+**Confirmed badge** = `st.caption("✓ Description confirmed")` above a
+collapsed (`expanded=False`) expander holding the same read-only text —
+kept visible but out of the way once confirmed.
+
+## Session state keys added
+
+Only **one** new key: `palm_reading_result` (default `None`), added to the
+existing per-key `if "X" not in st.session_state: st.session_state.X = ...`
+defaults block. Everything else needed already existed in the file
+(`palm_left_confirmed` / `palm_right_confirmed` were already scaffolded —
+this task is what finally wires real UI to them; they were previously
+being auto-set to `True` immediately after `describe_palm_image()`
+succeeded, which is exactly the auto-confirm this task removes).
+
+## Enumeration of every touch point
+
+1. **Import** — added `from agent.interpretive.palm_reading import
+   generate_palm_reading` directly below the existing `agent.palm_processor`
+   import (same import block, same style).
+2. **Session default** — `palm_reading_result = None`.
+3. **Auto-confirm removal** (both hands) — `palm_X_confirmed = True` ->
+   `False` right after a successful `describe_palm_image()` call; success
+   toast changed from `"Left/Right palm read ✓"` to `"Left/Right palm
+   described — review below"`.
+4. **New content-confirmation UI** (both hands) — a new `elif` branch,
+   sibling to the existing `if not st.session_state.palm_X_hand_confirmed:`
+   ("Is this your hand?" orientation check). Gated so it only appears
+   *after* the orientation check passes — showing "confirm this text" before
+   the user has even confirmed which hand it is would be confusing, since a
+   swap at that point regenerates the text anyway. This ordering choice is
+   a judgment call, flagged here rather than silently assumed.
+   - Pending: `st.expander(..., expanded=True)` + `st.markdown(desc)`, two
+     buttons ("Looks right — use this description" -> confirmed=True;
+     "Discard — re-upload" -> full reset).
+   - Confirmed: `st.caption("✓ Description confirmed")` + collapsed
+     read-only expander.
+5. **"Discard — re-upload" reset** (both hands) — reuses the *exact* same
+   8-key reset shape already used by this file's existing "uploader cleared"
+   `elif` block (`palm_X_str/hash/status/bytes/confirmed/hand_confirmed/
+   needs_reupload/regen_warning` + `_palm_X_image_name`), plus the new
+   `palm_reading_result = None` stale-guard.
+6. **Swap-regen path** (both hands, both swap-button handlers — the
+   left-side and right-side "No (swap)" handlers contain byte-identical
+   regen code, so one `replace_all` edit updated both at once) — after each
+   successful `describe_palm_image()` regen call, that hand's
+   `palm_X_confirmed` is now set to `False`. The existing regen-failure
+   `except RuntimeError:` warning path is untouched, as instructed.
+7. **"Generate Palm Reading" button** — new block placed at the end of the
+   `with st.expander("Upload context (PDF + palms)")` block, right after
+   the Hand Detail Photo section (co-located with the rest of the palm
+   context UI, not mixed into the chat flow below). Rendered only when
+   `_any_hand_confirmed` is true. On click: builds `_confirmed_left` /
+   `_confirmed_right` by passing `None` for any hand whose `confirmed` flag
+   is `False`, even if that hand's description string still exists in
+   session state; calls `generate_palm_reading(palm_left=..., palm_right=...,
+   hand_detail=st.session_state.get("hand_detail_str"))` (no `client=` arg
+   — production path, real `OpenAI()` constructed inside the module); wraps
+   in `except (ValueError, RuntimeError) as e: st.error(str(e))`.
+8. **Result display** — reads `st.session_state.palm_reading_result` each
+   rerun (not just on click, so it persists across reruns without
+   regenerating). If `validation.passed is False`: `st.error(...)` listing
+   every failure string, `reading_text` is never rendered (fail-closed
+   display). If passed: `st.markdown(reading_text)`, then a collapsed
+   `st.expander("Classical sources")` listing `book, p.<page> (score:
+   <score>)` per chunk — sources never appear inline in the reading itself.
+9. **Stale-reading guard (`palm_reading_result = None`)** — added
+   everywhere a hand's description transitions to `None` within the palm
+   blocks: both `hard_reject` branches, both duplicate-image-uploaded
+   branches, both `describe_palm_image()` `RuntimeError` catches, both
+   "uploader cleared" `elif` auto-reset blocks, both swap-`else`
+   single-hand-present branches, and the two new "Discard — re-upload"
+   buttons. **12 sites total** (6 per hand).
+
+## One deliberately NOT-implemented case — flagged, not fixed
+
+Task item 5 scopes the stale-reading guard to exactly two triggers:
+**"discarded or re-uploaded."** I implemented it at every literal
+discard/re-upload/clear-to-`None` site (enumerated above), but I did
+**not** add it to the swap-regen success path (item 6) — a swap doesn't
+discard or re-upload anything; it regenerates fresh (unconfirmed) content
+for both hands while leaving `palm_reading_result` alone. This means: if a
+user generates a reading, then later clicks "No (swap)," the old
+`palm_reading_result` stays on screen even though it was built from
+pre-swap descriptions and both hands are now newly unconfirmed. The
+`palm_X_confirmed = False` change (item 6) does correctly force the user
+through fresh confirmation before they can *generate a new* reading, but
+the *stale old reading* itself is not proactively cleared or hidden in
+the meantime. I stayed literal to the item-5 wording rather than
+expanding scope unilaterally — **flagging this as a probable real gap**
+for a design-chat call: should swap-regen also clear
+`palm_reading_result`?
+
+## Manual smoke checklist (not run — no live API calls made)
+
+**Checkpoint -> confirm -> generate path:**
+1. Enter birth details, calculate chart.
+2. Open "Upload context" expander, upload a left-hand image.
+3. Confirm "Is this your Left hand?" -> Yes.
+4. Expect: success toast reads "Left palm described — review below" (not
+   "read ✓"); an expanded "Review left palm description" box appears with
+   the raw vision-output text; two buttons below it.
+5. Click "Looks right — use this description."
+6. Expect: box collapses to a caption "✓ Description confirmed" + a
+   collapsed "Left palm description" expander; a "Generate Palm Reading"
+   button now appears further down (since `_any_hand_confirmed` is now
+   true with only one hand).
+7. Click "Generate Palm Reading."
+8. Expect: spinner "Generating your palm reading…", then either a rendered
+   reading (`st.markdown`) with a collapsed "Classical sources" expander
+   below it, or an `st.error` if validation failed or the call raised.
+
+**Discard path:**
+9. Upload a right-hand image, confirm orientation Yes, but this time click
+   "Discard — re-upload" instead of "Looks right."
+10. Expect: all right-hand state clears (image preview disappears, hash/
+    status/bytes/confirmed/hand_confirmed/needs_reupload/regen_warning all
+    reset) and, if a reading had already been generated, it disappears too
+    (stale-guard).
+
+**Fail-closed validation path:**
+11. (Requires a stubbed/mocked `generate_palm_reading` to force
+    `validation.passed=False` without a live call — not exercised here.)
+    Expect: `st.error("Palm reading failed validation and cannot be
+    shown: ...")` listing each failure string, and `reading_text` is never
+    rendered anywhere on the page.
+
+**Swap-after-reading path (the flagged gap above):**
+12. Generate a reading with both hands confirmed, then click "No (swap)"
+    on either hand.
+13. Expect (per current implementation): both hands regenerate and both
+    `confirmed` flags reset to `False` (fresh confirmation required before
+    a NEW reading can be generated) — but the OLD `palm_reading_result`
+    remains visible on screen until a new reading is generated or a
+    discard/re-upload happens. Confirm whether this is acceptable or
+    should be closed per the flag above.
+
+**Partial-confirmation exclusion path:**
+14. Confirm only the left hand (leave right unconfirmed, description
+    string still present). Click "Generate Palm Reading."
+15. Expect: `generate_palm_reading` is called with `palm_left=<left
+    description>, palm_right=None` — the unconfirmed right description is
+    never passed through, even though `st.session_state.palm_right_str`
+    still holds a value.

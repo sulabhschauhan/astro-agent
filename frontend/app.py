@@ -23,6 +23,7 @@ from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf
 from PIL import Image
 from agent.palm_processor import validate_palm_image, describe_palm_image, describe_hand_detail_image
+from agent.interpretive.palm_reading import generate_palm_reading
 
 # ─── Page config (must be first Streamlit call) ───────────────────────────────
 
@@ -100,6 +101,8 @@ if "hand_detail_str" not in st.session_state:
     st.session_state.hand_detail_str = None
 if "_hand_detail_image_name" not in st.session_state:
     st.session_state["_hand_detail_image_name"] = None
+if "palm_reading_result" not in st.session_state:
+    st.session_state.palm_reading_result = None
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -242,16 +245,18 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                 _vr = validate_palm_image(_lb, "left")
             if _vr["hard_reject"]:
                 st.error(_vr["reject_message"])
-                st.session_state.palm_left_str    = None
-                st.session_state.palm_left_hash   = None
-                st.session_state.palm_left_status = None
-                st.session_state.palm_left_bytes  = None
+                st.session_state.palm_left_str       = None
+                st.session_state.palm_left_hash      = None
+                st.session_state.palm_left_status    = None
+                st.session_state.palm_left_bytes     = None
+                st.session_state.palm_reading_result = None
             elif st.session_state.palm_right_hash == _lh:
                 st.error("Same image uploaded for both hands — please upload each hand separately")
-                st.session_state.palm_left_str    = None
-                st.session_state.palm_left_hash   = None
-                st.session_state.palm_left_status = None
-                st.session_state.palm_left_bytes  = None
+                st.session_state.palm_left_str       = None
+                st.session_state.palm_left_hash      = None
+                st.session_state.palm_left_status    = None
+                st.session_state.palm_left_bytes     = None
+                st.session_state.palm_reading_result = None
             else:
                 if _vr["warn"]:
                     st.warning(_vr["warn_message"])
@@ -264,11 +269,12 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                         _desc = describe_palm_image(_lb, "left")
                     st.session_state.palm_left_str            = _desc
                     st.session_state["_palm_left_image_name"] = uploaded_left.name
-                    st.session_state.palm_left_confirmed      = True
-                    st.success("Left palm read ✓")
+                    st.session_state.palm_left_confirmed      = False
+                    st.success("Left palm described — review below")
                 except RuntimeError as e:
                     st.error(f"Could not read palm image: {e}")
-                    st.session_state.palm_left_str = None
+                    st.session_state.palm_left_str       = None
+                    st.session_state.palm_reading_result = None
     elif st.session_state.palm_left_hash is not None or st.session_state.palm_left_needs_reupload:
         st.session_state.palm_left_str            = None
         st.session_state.palm_left_hash           = None
@@ -279,6 +285,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
         st.session_state.palm_left_needs_reupload = False
         st.session_state.palm_left_regen_warning  = None
         st.session_state["_palm_left_image_name"] = None
+        st.session_state.palm_reading_result      = None
 
     # ── Left palm: preview, tips, hand confirmation ─────────────────────────────
     if uploaded_left is not None and st.session_state.palm_left_bytes is not None:
@@ -321,6 +328,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                         st.session_state.palm_left_bytes, "left"
                                     )
                                     st.session_state.palm_left_regen_warning = None
+                                    st.session_state.palm_left_confirmed     = False
                                 except RuntimeError:
                                     st.session_state.palm_left_regen_warning = (
                                         "Could not regenerate the left palm reading after "
@@ -332,6 +340,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                         st.session_state.palm_right_bytes, "right"
                                     )
                                     st.session_state.palm_right_regen_warning = None
+                                    st.session_state.palm_right_confirmed     = False
                                 except RuntimeError:
                                     st.session_state.palm_right_regen_warning = (
                                         "Could not regenerate the right palm reading after "
@@ -346,9 +355,35 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                             st.session_state.palm_left_confirmed      = False
                             st.session_state.palm_left_hand_confirmed = False
                             st.session_state.palm_left_needs_reupload = True
+                            st.session_state.palm_reading_result      = None
                     except Exception as e:
                         st.error(f"Could not update palm state: {e}")
                     st.rerun()
+        elif not st.session_state.palm_left_confirmed:
+            with st.expander("Review left palm description", expanded=True):
+                st.markdown(st.session_state.palm_left_str)
+            _lky, _lkn = st.columns(2)
+            with _lky:
+                if st.button("Looks right — use this description", key="left_desc_confirm"):
+                    st.session_state.palm_left_confirmed = True
+                    st.rerun()
+            with _lkn:
+                if st.button("Discard — re-upload", key="left_desc_discard"):
+                    st.session_state.palm_left_str            = None
+                    st.session_state.palm_left_hash           = None
+                    st.session_state.palm_left_status         = None
+                    st.session_state.palm_left_bytes          = None
+                    st.session_state.palm_left_confirmed      = False
+                    st.session_state.palm_left_hand_confirmed = False
+                    st.session_state.palm_left_needs_reupload = False
+                    st.session_state.palm_left_regen_warning  = None
+                    st.session_state["_palm_left_image_name"] = None
+                    st.session_state.palm_reading_result      = None
+                    st.rerun()
+        else:
+            st.caption("✓ Description confirmed")
+            with st.expander("Left palm description", expanded=False):
+                st.markdown(st.session_state.palm_left_str)
     elif st.session_state.palm_left_needs_reupload and uploaded_left is not None:
         st.warning(
             "This image doesn't belong in the Left hand slot — please remove it "
@@ -369,16 +404,18 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                 _vr = validate_palm_image(_rb, "right")
             if _vr["hard_reject"]:
                 st.error(_vr["reject_message"])
-                st.session_state.palm_right_str    = None
-                st.session_state.palm_right_hash   = None
-                st.session_state.palm_right_status = None
-                st.session_state.palm_right_bytes  = None
+                st.session_state.palm_right_str      = None
+                st.session_state.palm_right_hash     = None
+                st.session_state.palm_right_status   = None
+                st.session_state.palm_right_bytes    = None
+                st.session_state.palm_reading_result = None
             elif st.session_state.palm_left_hash == _rh:
                 st.error("Same image uploaded for both hands — please upload each hand separately")
-                st.session_state.palm_right_str    = None
-                st.session_state.palm_right_hash   = None
-                st.session_state.palm_right_status = None
-                st.session_state.palm_right_bytes  = None
+                st.session_state.palm_right_str      = None
+                st.session_state.palm_right_hash     = None
+                st.session_state.palm_right_status   = None
+                st.session_state.palm_right_bytes    = None
+                st.session_state.palm_reading_result = None
             else:
                 if _vr["warn"]:
                     st.warning(_vr["warn_message"])
@@ -391,11 +428,12 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                         _desc = describe_palm_image(_rb, "right")
                     st.session_state.palm_right_str            = _desc
                     st.session_state["_palm_right_image_name"] = uploaded_right.name
-                    st.session_state.palm_right_confirmed      = True
-                    st.success("Right palm read ✓")
+                    st.session_state.palm_right_confirmed      = False
+                    st.success("Right palm described — review below")
                 except RuntimeError as e:
                     st.error(f"Could not read palm image: {e}")
-                    st.session_state.palm_right_str = None
+                    st.session_state.palm_right_str      = None
+                    st.session_state.palm_reading_result = None
     elif st.session_state.palm_right_hash is not None or st.session_state.palm_right_needs_reupload:
         st.session_state.palm_right_str            = None
         st.session_state.palm_right_hash           = None
@@ -406,6 +444,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
         st.session_state.palm_right_needs_reupload = False
         st.session_state.palm_right_regen_warning  = None
         st.session_state["_palm_right_image_name"] = None
+        st.session_state.palm_reading_result       = None
 
     # ── Right palm: preview, tips, hand confirmation ────────────────────────────
     if uploaded_right is not None and st.session_state.palm_right_bytes is not None:
@@ -448,6 +487,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                         st.session_state.palm_left_bytes, "left"
                                     )
                                     st.session_state.palm_left_regen_warning = None
+                                    st.session_state.palm_left_confirmed     = False
                                 except RuntimeError:
                                     st.session_state.palm_left_regen_warning = (
                                         "Could not regenerate the left palm reading after "
@@ -459,6 +499,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                         st.session_state.palm_right_bytes, "right"
                                     )
                                     st.session_state.palm_right_regen_warning = None
+                                    st.session_state.palm_right_confirmed     = False
                                 except RuntimeError:
                                     st.session_state.palm_right_regen_warning = (
                                         "Could not regenerate the right palm reading after "
@@ -473,9 +514,35 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                             st.session_state.palm_right_confirmed      = False
                             st.session_state.palm_right_hand_confirmed = False
                             st.session_state.palm_right_needs_reupload = True
+                            st.session_state.palm_reading_result       = None
                     except Exception as e:
                         st.error(f"Could not update palm state: {e}")
                     st.rerun()
+        elif not st.session_state.palm_right_confirmed:
+            with st.expander("Review right palm description", expanded=True):
+                st.markdown(st.session_state.palm_right_str)
+            _rky, _rkn = st.columns(2)
+            with _rky:
+                if st.button("Looks right — use this description", key="right_desc_confirm"):
+                    st.session_state.palm_right_confirmed = True
+                    st.rerun()
+            with _rkn:
+                if st.button("Discard — re-upload", key="right_desc_discard"):
+                    st.session_state.palm_right_str            = None
+                    st.session_state.palm_right_hash           = None
+                    st.session_state.palm_right_status         = None
+                    st.session_state.palm_right_bytes          = None
+                    st.session_state.palm_right_confirmed      = False
+                    st.session_state.palm_right_hand_confirmed = False
+                    st.session_state.palm_right_needs_reupload = False
+                    st.session_state.palm_right_regen_warning  = None
+                    st.session_state["_palm_right_image_name"] = None
+                    st.session_state.palm_reading_result       = None
+                    st.rerun()
+        else:
+            st.caption("✓ Description confirmed")
+            with st.expander("Right palm description", expanded=False):
+                st.markdown(st.session_state.palm_right_str)
     elif st.session_state.palm_right_needs_reupload and uploaded_right is not None:
         st.warning(
             "This image doesn't belong in the Right hand slot — please remove it "
@@ -524,6 +591,46 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
     elif st.session_state["_hand_detail_image_name"] is not None:
         st.session_state.hand_detail_str = None
         st.session_state["_hand_detail_image_name"] = None
+
+    # ── Palm reading generation (Session 65 T4 upload-triggered artifact) ─────
+    # Upload-triggered, never question-routed (CLAUDE.md "T4 architecture"
+    # lock) — only confirmed hand descriptions are ever passed through; an
+    # unconfirmed hand's description string is withheld even if it exists.
+    _any_hand_confirmed = (
+        st.session_state.palm_left_confirmed and st.session_state.palm_left_str
+    ) or (
+        st.session_state.palm_right_confirmed and st.session_state.palm_right_str
+    )
+    if _any_hand_confirmed:
+        if st.button("Generate Palm Reading", key="generate_palm_reading_btn"):
+            _confirmed_left = (
+                st.session_state.palm_left_str if st.session_state.palm_left_confirmed else None
+            )
+            _confirmed_right = (
+                st.session_state.palm_right_str if st.session_state.palm_right_confirmed else None
+            )
+            try:
+                with st.spinner("Generating your palm reading…"):
+                    st.session_state.palm_reading_result = generate_palm_reading(
+                        palm_left=_confirmed_left,
+                        palm_right=_confirmed_right,
+                        hand_detail=st.session_state.get("hand_detail_str"),
+                    )
+            except (ValueError, RuntimeError) as e:
+                st.error(str(e))
+
+    if st.session_state.palm_reading_result is not None:
+        _reading = st.session_state.palm_reading_result
+        if not _reading.validation.passed:
+            st.error(
+                "Palm reading failed validation and cannot be shown: "
+                + "; ".join(_reading.validation.failures)
+            )
+        else:
+            st.markdown(_reading.reading_text)
+            with st.expander("Classical sources"):
+                for _src in _reading.sources:
+                    st.caption(f"{_src['book']}, p.{_src['page']} (score: {_src['score']})")
 
 if not st.session_state.chart_ready:
     st.info("Enter your birth details in the sidebar to begin.")
