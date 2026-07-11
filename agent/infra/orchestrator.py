@@ -66,6 +66,7 @@ _VALID_DOMAINS = {
     "av_transit",
     "arudha_lagna",
     "upapada_lagna",
+    "muhurta_window",
 }
 # "arudha_lagna" added Session 59 -- closes the av_transit-precedent staged
 # rollout (router S58 -> formatter S59 -> chart_profile.py's own dispatch/
@@ -88,6 +89,29 @@ _VALID_DOMAINS = {
 # for upapada_lagna and result_formatter.py's _format_upapada() branch also
 # sets demotion_reason=None (same payload-property principle), so the merge
 # below is a no-op passthrough here too.
+#
+# "muhurta_window" added Session 64 (P7 Muhurta wiring, step 5 of 6 -- the
+# LAST gate, same arudha_lagna/upapada_lagna staged-rollout precedent:
+# router S64-step-4 -> this gate; formatter/chart_profile builder + dispatch
+# already landed steps 1-3). SENSITIVE_TO chart_profile.py's own
+# _VALID_DOMAINS constant (see incident note above): both now list the same
+# 8 domains -- keep in sync by hand. _merge_router_demotion() needs NO
+# change for this domain either: calc_router.py's _route_to_domain()
+# muhurta_window branch emits demotion_reason=None and result_formatter.py's
+# _format_muhurta_window() also hardcodes demotion_reason=None, so the merge
+# below is a no-op passthrough here too -- verified by reading both branches
+# directly, not assumed (see diagnostics/latest_run.md for the full audit).
+# Also unlike every prior domain added at this gate, muhurta_window is the
+# first case where evaluated_at_jd (computed unconditionally below,
+# regardless of domain) is actually LOAD-BEARING for the domain it routes
+# to -- chart_profile.py's build_muhurta_profile() consumes it as the scan
+# window's own start_jd (step 3's own flagged departure/fix). No code
+# change was needed here for that either: this function already computes
+# and passes evaluated_at_jd unconditionally to build_domain_profile() for
+# every domain, so muhurta_window inherits a correct, non-duplicated value
+# for free -- the same call shape that was previously "accepted uniformly
+# but unused" for av_transit/arudha_lagna/upapada_lagna becomes load-bearing
+# here without needing to change.
 
 # DEMOTION LOCK (Session 55, av_transit): route_question() will set
 # demotion_reason=None for this domain once router wiring lands --
@@ -173,12 +197,21 @@ def answer_question(
     the two conditionals are independent and mutually exclusive (a
     question can only ever route to one domain), not a chain of
     special cases growing more entangled over time. "arudha_lagna" (Session
-    59) and "upapada_lagna" (Session 66) join this pass-through-unchanged
-    set too -- both is_marriage and is_av_transit evaluate False for
-    either domain, confirmed by reading (not assumed): neither introduces
-    a new special-cased branch of its own, so both fall through
+    59), "upapada_lagna" (Session 66), and "muhurta_window" (Session 64,
+    P7 Muhurta wiring step 5 of 6) join this pass-through-unchanged
+    set too -- is_marriage and is_av_transit both evaluate False for any
+    of the three, confirmed by reading (not assumed): none introduces a
+    new special-cased branch of its own, so all three fall through
     is_marriage/is_av_transit's existing False/None paths exactly like
     "sade_sati"/"career_strength"/"current_dasha" already do.
+    muhurta_window differs from the other two in one respect only:
+    evaluated_at_jd (computed unconditionally a few lines below,
+    regardless of domain) is genuinely CONSUMED by this domain's builder
+    (chart_profile.build_muhurta_profile()'s scan-window start), not
+    merely accepted-uniformly-but-unused like av_transit/arudha_lagna/
+    upapada_lagna -- still requires no code change here, since this
+    function already threads it through unconditionally for every
+    domain.
     """
     if partner_chart_data is not None and primary_role is None:
         raise ValueError(
