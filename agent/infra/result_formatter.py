@@ -175,20 +175,22 @@ _TIMING_ENRICHMENT_RESOLUTION_NOTE = (
 # to key on, so those fall through to the generic branch below by design,
 # not by omission.
 #
-# SENSITIVE_TO calc_router.py's own _STAGE2_VALID_DOMAINS -- this guard now
+# SENSITIVE_TO calc_router.py's own _STAGE2_VALID_DOMAINS -- this guard
 # covers BOTH user-facing topic-list sites below: _REFUSAL_USER_MESSAGES's
 # "not classifiable" message AND _GENERIC_REFUSAL_MESSAGE (Session 67 fires
 # the Session 62 carry-forward that flagged this comment as guarding only
 # the dict). Domain lists in both messages are hand-written here (not
 # imported) from calc_router.py's own _STAGE2_VALID_DOMAINS as read at the
 # time this was written: {marriage_compatibility, career_strength,
-# current_dasha, sade_sati, av_transit, arudha_lagna, upapada_lagna}
-# (frozenset minus the "none" sentinel) -- SENSITIVE_TO that set: if a
-# future domain is added to or removed from _STAGE2_VALID_DOMAINS, BOTH
-# messages must be re-checked for drift, same obligation as
-# _SADE_SATI_UNKNOWN_BOUNDARY's SENSITIVE_TO note above. The two lists are
-# independently worded by design (each message has its own voice/flow) --
-# keep their DOMAIN SET in sync, not their exact phrasing.
+# current_dasha, sade_sati, av_transit, arudha_lagna, upapada_lagna,
+# muhurta_window} (frozenset minus the "none" sentinel; re-synced Session
+# 64 P7 Muhurta wiring step 4 of 6 ride-along 1 -- muhurta_window added to
+# both messages below) -- SENSITIVE_TO that set: if a future domain is
+# added to or removed from _STAGE2_VALID_DOMAINS, BOTH messages must be
+# re-checked for drift, same obligation as _SADE_SATI_UNKNOWN_BOUNDARY's
+# SENSITIVE_TO note above. The two lists are independently worded by
+# design (each message has its own voice/flow) -- keep their DOMAIN SET in
+# sync, not their exact phrasing.
 _REFUSAL_USER_MESSAGES: dict[str, str] = {
     "marriage_compatibility requires partner birth data": (
         "To check marriage compatibility, I also need your partner's birth "
@@ -201,8 +203,9 @@ _REFUSAL_USER_MESSAGES: dict[str, str] = {
         "compatibility, career strength, the life period (dasha) you're "
         "currently in, Sade Sati (Saturn's roughly 7.5-year transit around "
         "your Moon sign), how a specific planet's transit is playing out "
-        "right now, your public image/reputation, and your Upapada Lagna "
-        "(a marriage indicator read from your own chart)."
+        "right now, your public image/reputation, your Upapada Lagna "
+        "(a marriage indicator read from your own chart), and picking an "
+        "auspicious time (Muhurta) to start something."
     ),
 }
 
@@ -215,8 +218,9 @@ _GENERIC_REFUSAL_MESSAGE = (
     "I'm not able to answer that confidently. Could you try rephrasing "
     "your question, or ask about marriage compatibility, career strength, "
     "your current dasha, Sade Sati (Saturn's roughly 7.5-year transit "
-    "around your Moon sign), transit timing, your public image, or your "
-    "Upapada Lagna (a marriage indicator read from your own chart)?"
+    "around your Moon sign), transit timing, your public image, your "
+    "Upapada Lagna (a marriage indicator read from your own chart), or "
+    "picking an auspicious time (Muhurta) to start something?"
 )
 
 

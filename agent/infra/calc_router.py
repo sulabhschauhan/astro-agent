@@ -110,6 +110,28 @@ _UPAPADA_LAGNA_KEYWORDS: tuple[str, ...] = (
     "upapada", "upapada lagna",
 )
 
+# muhurta_window (Session 64, P7 Muhurta wiring step 4 of 6). Electional-
+# astrology terms: the Sanskrit term itself ("muhurta"), its common Hindi/
+# Devanagari-transliteration variant ("mahurat"), and layman auspicious-
+# timing vocabulary ("auspicious", "shubh", "electional"). Unlike
+# sade_sati, this domain is NOT a deterministic fast-path -- it goes
+# through the normal _DOMAIN_KEYWORDS/_score_domain floor+margin scoring
+# like marriage/career/dasha/av_transit/arudha_lagna/upapada_lagna above,
+# because (unlike sade_sati.py's single flagship-differentiator status)
+# there is no product reason to bypass Stage 2 for this domain.
+# Collision-checked programmatically (diagnostics/latest_run.md) against
+# every existing domain's keyword list, _STEM_MAP, _UNBUILT_MODULE_KEYWORDS
+# (post-"muhurta"-removal), _OUT_OF_SCOPE_KEYWORDS, and
+# _BUILT_MODULE_FASTPATH before wiring -- zero collisions found. "when" (a
+# _DASHA_KEYWORDS entry) is NOT a collision risk: Stage 1 scoring tallies
+# each domain's keyword hits independently, not from a shared token pool,
+# so a question containing both "when" and "muhurta" simply scores both
+# domains separately, resolved normally by the floor/margin/Stage-2
+# mechanics -- no special-casing needed here.
+_MUHURTA_WINDOW_KEYWORDS: tuple[str, ...] = (
+    "muhurta", "mahurat", "auspicious", "shubh", "electional",
+)
+
 _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "marriage_compatibility": _MARRIAGE_KEYWORDS,
     "career_strength": _CAREER_KEYWORDS,
@@ -117,14 +139,12 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "av_transit": _AV_TRANSIT_KEYWORDS,
     "arudha_lagna": _ARUDHA_LAGNA_KEYWORDS,
     "upapada_lagna": _UPAPADA_LAGNA_KEYWORDS,
+    "muhurta_window": _MUHURTA_WINDOW_KEYWORDS,
 }
 
 # Calculation modules referenced in a question but NOT in the routable
 # whitelist -> immediate REFUSAL naming the unbuilt module, checked BEFORE
-# domain classification. "muhurta" gets its own message: the scorer exists
-# (transits/chandrabala.py, tarabala.py, panchaka.py) but is not wired to
-# Q&A in V1 -- distinct from the other keywords, which name modules that
-# are either unbuilt or simply out of this pipeline's scope.
+# domain classification.
 #
 # "sade sati" REMOVED Session 50/P7.2c (was DESIGN_DEBT per
 # golden_harness.py's _DESIGN_DEBT["sulabh_dasha_q14"]: sade_sati.py is
@@ -134,6 +154,12 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
 # Session 58: "jaimini" removed -- all jaimini/ modules exist as of
 # Session 57; unwired-Q&A refusals now go through the router's normal
 # "domain not routable" path, not this guard.
+# Session 64 (P7 Muhurta wiring step 4 of 6): "muhurta" REMOVED -- same
+# precedent as sade_sati/jaimini above: the scorer (transits/chandrabala.py,
+# tarabala.py, panchaka.py, muhurta_scorer.py) is now wired to Q&A, routed
+# via _DOMAIN_KEYWORDS/_score_domain like any other keyword-scored domain
+# (NOT a deterministic fast-path like sade_sati -- see
+# _MUHURTA_WINDOW_KEYWORDS's own comment, below, for why).
 _UNBUILT_MODULE_KEYWORDS: dict[str, str] = {
     "yoga": "yoga detection",
     "transit": "transit engine (gochara)",
@@ -147,7 +173,6 @@ _UNBUILT_MODULE_KEYWORDS: dict[str, str] = {
     "yogini": "Yogini dasha",
     "ashtottari": "Ashtottari dasha",
     "varshaphal": "Varshaphal annual chart",
-    "muhurta": "Muhurta scorer (module exists but is not wired to Q&A in V1)",
 }
 
 # Deterministic fast-path for the ONE built-and-validated module this
@@ -269,6 +294,11 @@ _STAGE2_TIMEOUT_SECONDS = 8.0
 # when within the current Antardasha a given transit planet's influence is
 # actually favorable/unfavorable, with no "Ashtakavarga"/"bindu"/"kakshya"
 # term for _AV_TRANSIT_KEYWORDS to catch, still needs a route.
+# "muhurta_window" added Session 64 (P7 Muhurta wiring step 4 of 6) --
+# unlike sade_sati, this domain is NOT a deterministic fast-path, so its
+# only route to Stage 2 is through this set + the system prompt's own
+# gloss/negative-instruction below (same mechanism as every other
+# keyword-scored domain).
 _STAGE2_VALID_DOMAINS: frozenset[str] = frozenset(
     {
         "marriage_compatibility",
@@ -278,6 +308,7 @@ _STAGE2_VALID_DOMAINS: frozenset[str] = frozenset(
         "av_transit",
         "arudha_lagna",
         "upapada_lagna",
+        "muhurta_window",
         "none",
     }
 )
@@ -303,7 +334,7 @@ _STAGE2_LOG_PATH = Path(__file__).resolve().parents[2] / "diagnostics" / "calc_r
 _STAGE2_SYSTEM_PROMPT = """\
 You are a routing classifier for a Vedic astrology calculation Q&A pipeline.
 
-This pipeline can ONLY answer questions in exactly 7 domains:
+This pipeline can ONLY answer questions in exactly 8 domains:
 - marriage_compatibility: Ashtakoot/Guna Milan, Mangal Dosha, spouse or \
 partner compatibility. Layman: relationship happiness, partner match. \
 Example: "will my marriage be happy".
@@ -340,9 +371,28 @@ people's charts, couple compatibility, or "are we compatible" is \
 marriage_compatibility, NEVER upapada_lagna, regardless of any Jaimini \
 term present. Examples: "what does my upapada lagna say about my \
 marriage", "what is my upapada".
+- muhurta_window: Muhurta (electional astrology) -- finding a favorable/ \
+auspicious time-WINDOW, in the near future, to START or DO a specific \
+action or event (a composite of Chandrabala, Tarabala, and Panchaka over \
+a short scan). Layman: picking a good/auspicious time to begin something. \
+Examples: "when is a good time to start something new", "what is an \
+auspicious muhurta for me this week", "shubh muhurat for starting my \
+business", "is this a good day to sign the papers". Muhurta is \
+ELECTIONAL -- choosing WHEN, in the near future, to DO something -- and \
+must NEVER be confused with NATAL-timing questions about a life period \
+or a transit already in progress: "when will my bad time end" or "what \
+phase of life am I in" is current_dasha, NOT muhurta_window; "how is \
+[planet]'s transit playing out right now" is av_transit, NOT \
+muhurta_window; and "when will I get a job" asks when a future life \
+EVENT will happen TO the person (current_dasha/natal-timing territory), \
+NOT when to ACT (muhurta_window) -- even though all of these questions \
+use the word "when". The deciding question: is the person asking to \
+PICK a moment to act (muhurta_window), or asking WHEN something already \
+in motion (a period, a transit, a life event) will happen or change \
+(current_dasha / av_transit)?
 
 Classify the question into exactly one of these domains, or "none" if it
-does not clearly ask about one of these 7 things (for example: health,
+does not clearly ask about one of these 8 things (for example: health,
 travel, gemstones, lucky numbers, or any other topic).
 
 Fortune-telling requests with no computable basis in this pipeline -- \
@@ -354,7 +404,7 @@ even though they superficially resemble astrology questions.
 Call classify_domain with:
 - domain: the single best-matching domain, or "none".
 - confidence: "high" ONLY if the question clearly and unambiguously asks
-  about exactly one of the 6 domains above; "medium" or "low" for any
+  about exactly one of the 8 domains above; "medium" or "low" for any
   ambiguity, a different topic, or a domain this pipeline does not cover.
 """
 
@@ -368,7 +418,7 @@ _STAGE2_TOOL_SCHEMA = {
         # alongside the arudha_lagna wiring, not a drive-by unrelated change.
         "description": (
             "Classify a Vedic astrology question into one of the pipeline's "
-            "7 routable domains, or none."
+            "8 routable domains, or none."
         ),
         "parameters": {
             "type": "object",
@@ -739,30 +789,76 @@ def _route_to_domain(
             route=route,
         )
 
-    # current_dasha -- ALWAYS TIER_2_RANGE in V1 (design-chat reversal of
-    # the Session 45 conditional-demotion behavior, Session 49/P7.0c;
-    # exposed by golden-harness rows sulabh_dasha_q11/q12/q13/r4_exact_date,
-    # all mid-period and all wrongly resolving TIER_1_EXACT under the old
-    # rule). Rationale: the payload always surfaces Mahadasha/Antardasha
-    # boundary DATES (chart_profile.py's current_dasha payload), and those
-    # dates carry the documented +/-37-day drift vs AstroSage regardless of
-    # how far evaluated_at sits from a boundary -- tier is a property of
-    # the answer's claims (which always include dated boundaries), not of
-    # the evaluation moment. _near_dasha_boundary()/_DASHA_BOUNDARY_WINDOW_DAYS
-    # are kept, repurposed below to choose WHICH demotion_reason applies
-    # (dates-only vs identity-also-uncertain), not whether to demote.
-    if chart_data is None or _near_dasha_boundary(chart_data):
-        demotion_reason = _DASHA_DEMOTION_REASON_NEAR_BOUNDARY
-    else:
-        demotion_reason = _DASHA_DEMOTION_REASON
-    return RouteResult(
-        domain="current_dasha",
-        tier=AnswerTier.TIER_2_RANGE,
-        confidence=confidence,
-        demotion_reason=demotion_reason,
-        requires_partner=False,
-        route=route,
-    )
+    if domain == "muhurta_window":
+        # TIER_3_MUHURTA, no demotion, no partner (Session 64, P7 Muhurta
+        # wiring step 4 of 6). chart_profile.py's build_muhurta_profile()
+        # payload docstring states tier="TIER_3_MUHURTA" -- the pipeline's
+        # first and only T3 domain: per-window Chandrabala/Tarabala/
+        # Panchaka composite scoring over a fixed 7-day scan carries
+        # genuinely dated per-window claims, unlike every T1/T2 domain
+        # above, which is why this does NOT fit the "tier = payload
+        # property" T1/T2 framing those domains share (see chart_profile.py's
+        # own module docstring). requires_partner=False -- single-chart
+        # natal-plus-transit calculation, same as every domain here except
+        # marriage_compatibility. demotion_reason=None -- same DEMOTION
+        # LOCK posture as av_transit's branch above: if this domain ever
+        # needs an uncertainty-disclosure string, it belongs to
+        # result_formatter.py's _format_muhurta_window(), not this router,
+        # to avoid orchestrator._merge_router_demotion()'s " | "
+        # double-disclosure trap.
+        # orchestrator.py's own _VALID_DOMAINS does NOT yet admit
+        # "muhurta_window" -- until that sync lands (step 5), a question
+        # routed here will fail closed with orchestrator's defensive
+        # ValueError, same staged-rollout precedent as every prior
+        # new-domain landing (arudha_lagna Session 58, upapada_lagna
+        # Session 65).
+        return RouteResult(
+            domain="muhurta_window",
+            tier=AnswerTier.TIER_3_MUHURTA,
+            confidence=confidence,
+            demotion_reason=None,
+            requires_partner=False,
+            route=route,
+        )
+
+    if domain == "current_dasha":
+        # current_dasha -- ALWAYS TIER_2_RANGE in V1 (design-chat reversal of
+        # the Session 45 conditional-demotion behavior, Session 49/P7.0c;
+        # exposed by golden-harness rows sulabh_dasha_q11/q12/q13/r4_exact_date,
+        # all mid-period and all wrongly resolving TIER_1_EXACT under the old
+        # rule). Rationale: the payload always surfaces Mahadasha/Antardasha
+        # boundary DATES (chart_profile.py's current_dasha payload), and those
+        # dates carry the documented +/-37-day drift vs AstroSage regardless of
+        # how far evaluated_at sits from a boundary -- tier is a property of
+        # the answer's claims (which always include dated boundaries), not of
+        # the evaluation moment. _near_dasha_boundary()/_DASHA_BOUNDARY_WINDOW_DAYS
+        # are kept, repurposed below to choose WHICH demotion_reason applies
+        # (dates-only vs identity-also-uncertain), not whether to demote.
+        if chart_data is None or _near_dasha_boundary(chart_data):
+            demotion_reason = _DASHA_DEMOTION_REASON_NEAR_BOUNDARY
+        else:
+            demotion_reason = _DASHA_DEMOTION_REASON
+        return RouteResult(
+            domain="current_dasha",
+            tier=AnswerTier.TIER_2_RANGE,
+            confidence=confidence,
+            demotion_reason=demotion_reason,
+            requires_partner=False,
+            route=route,
+        )
+
+    # DEFENSIVE FAIL-CLOSED (Session 58 carry-forward, closed here Session 64
+    # P7 Muhurta wiring step 4 of 6, ride-along 2 -- CLAUDE.md-flagged debt:
+    # this function previously fell through to a hardcoded "current_dasha"
+    # RouteResult for ANY domain string not explicitly branched above,
+    # instead of failing loudly. arudha_lagna's own branch comment (above)
+    # already documented dodging this trap by adding its own explicit
+    # branch rather than relying on the old fallthrough; this raise closes
+    # the underlying trap itself for any FUTURE domain added to
+    # _DOMAIN_KEYWORDS/_STAGE2_VALID_DOMAINS without a matching branch here
+    # -- a caller error (or a forgotten branch) now fails loudly with the
+    # offending domain name, never silently mis-routes to current_dasha.
+    raise ValueError(f"calc_router._route_to_domain: unknown domain {domain!r}")
 
 
 def _stage2_fallback(
