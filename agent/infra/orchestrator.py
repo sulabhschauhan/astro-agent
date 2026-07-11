@@ -35,7 +35,7 @@ import swisseph as swe
 
 from agent.infra.calc_router import RouteResult, route_question
 from agent.infra.chart_profile import AnswerTier, DomainAnswer, build_domain_profile
-from agent.infra.result_formatter import format_answer
+from agent.infra.result_formatter import format_answer, format_refusal
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +124,14 @@ def answer_question(
 
     Returns:
         DomainAnswer -- always, including AnswerTier.REFUSAL cases.
+        REFUSAL is formatter-owned: this function delegates to
+        result_formatter.format_refusal(route_result), which adds a
+        layman-phrased answer_payload["user_message"] on top of the
+        router's RouteResult. demotion_reason on a REFUSAL DomainAnswer
+        remains route_result.demotion_reason copied verbatim -- the
+        router's machine contract (golden-harness substring assertions,
+        _merge_router_demotion()'s " | " concatenation) is unchanged by
+        this delegation; only the presentation-layer message is new.
 
     Raises:
         ValueError: partner_chart_data given without primary_role;
@@ -160,16 +168,7 @@ def answer_question(
     )
 
     if route_result.tier == AnswerTier.REFUSAL:
-        return DomainAnswer(
-            domain=route_result.domain,
-            tier=AnswerTier.REFUSAL,
-            answer_payload={},
-            stub_caveats=(),
-            uncertainty_virupa=0.0,
-            demotion_reason=route_result.demotion_reason,
-            sources=(),
-            uncertainty_days=0.0,
-        )
+        return format_refusal(route_result)
 
     if route_result.domain not in _VALID_DOMAINS:
         raise ValueError(

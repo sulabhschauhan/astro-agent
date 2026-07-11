@@ -125,9 +125,23 @@ def _assert_career_answer(result, *, expected_uncertainty_virupa: float) -> None
 
 
 def _assert_refusal(result) -> None:
+    """REFUSAL contract check.
+
+    answer_payload is NOT empty by design as of S62: orchestrator.py's
+    REFUSAL branch delegates to result_formatter.format_refusal(), which
+    always attaches a formatter-owned, layman-phrased "user_message" --
+    the demotion_reason-is-machine-contract / user_message-is-presentation
+    split (demotion_reason stays the router's verbatim reason for
+    golden-harness/merge-logic purposes; user_message is what a real user
+    reads). Only the STRUCTURAL guarantee is asserted here (exactly one
+    key, a non-empty string) -- message wording is formatter-owned
+    presentation and may be reworded without this test contract changing.
+    """
     assert result.tier == AnswerTier.REFUSAL
     assert result.domain is None
-    assert result.answer_payload == {}
+    assert set(result.answer_payload.keys()) == {"user_message"}
+    assert isinstance(result.answer_payload["user_message"], str)
+    assert result.answer_payload["user_message"] != ""
     assert result.demotion_reason is not None
     assert result.sources == ()
 

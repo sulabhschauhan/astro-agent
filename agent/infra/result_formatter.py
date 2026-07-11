@@ -57,6 +57,7 @@ from datetime import datetime, timedelta, timezone
 
 import swisseph as swe
 
+from agent.infra.calc_router import RouteResult
 from agent.infra.chart_profile import AnswerTier, DomainAnswer, DomainChartProfile
 
 logger = logging.getLogger(__name__)
@@ -120,6 +121,71 @@ _TIMING_ENRICHMENT_RESOLUTION_NOTE = (
     "resolution (daily-step scanner, no sub-day bisection), and its "
     "Antardasha envelope carries ±37-day drift vs AstroSage -- exact "
     "transition dates should be cross-verified."
+)
+
+# ─── format_refusal() support (new prompt; orchestrator delegation is a ───
+# ─── separate, later prompt -- this helper is dead code until then) ──────
+#
+# DESIGN: RouteResult.demotion_reason is the machine contract -- calc_router.py
+# fixes its exact wording/value for routing logic, golden-harness substring
+# assertions, and _merge_router_demotion()'s " | " concatenation. The
+# strings in _REFUSAL_USER_MESSAGES below are the presentation layer: what a
+# non-technical user actually reads. Same split as the av_transit
+# formatter-owns-strings precedent above (_AV_TRANSIT_DEMOTION_REASON is
+# calc_router-facing machine wiring -- calc_router itself leaves
+# demotion_reason=None for av_transit and lets this file own the string);
+# here the two layers are simply two different strings keyed off the same
+# demotion_reason, rather than one module owning both ends.
+#
+# Keys copied verbatim from calc_router.py's own REFUSAL-path demotion_reason
+# literals (read directly from that file, not guessed/recalled) -- same
+# "copied verbatim, not imported" convention as _DASHA_DEMOTION_REASON above
+# (this module's contract: no dependency on calc_router.py's internal string
+# constants). Only calc_router.py's two FIXED (non-interpolated) REFUSAL
+# strings are keyable here:
+#   - "marriage_compatibility requires partner birth data"
+#       (_route_to_domain's has_partner_data hard guard)
+#   - "question not classifiable with confidence"
+#       (_stage2_fallback's exception path AND its low-confidence path --
+#       both emit this exact same literal)
+# calc_router.py's other two REFUSAL paths (_UNBUILT_MODULE_KEYWORDS and
+# _OUT_OF_SCOPE_KEYWORDS) build their demotion_reason via an f-string that
+# interpolates the matched keyword/module name -- there is no fixed literal
+# to key on, so those fall through to the generic branch below by design,
+# not by omission.
+#
+# Domain list in the "not classifiable" message is hand-written here (not
+# imported) from calc_router.py's own _STAGE2_VALID_DOMAINS as read at the
+# time this was written: {marriage_compatibility, career_strength,
+# current_dasha, sade_sati, av_transit, arudha_lagna} (frozenset minus the
+# "none" sentinel) -- SENSITIVE_TO that set: if a future domain is added to
+# or removed from _STAGE2_VALID_DOMAINS, this message must be re-checked for
+# drift, same obligation as _SADE_SATI_UNKNOWN_BOUNDARY's SENSITIVE_TO note
+# above.
+_REFUSAL_USER_MESSAGES: dict[str, str] = {
+    "marriage_compatibility requires partner birth data": (
+        "To check marriage compatibility, I also need your partner's birth "
+        "details -- their date of birth, time of birth, and place of "
+        "birth. Please share those and I can take a look."
+    ),
+    "question not classifiable with confidence": (
+        "I couldn't confidently tell what you're asking. Could you try "
+        "rephrasing? I can help with questions about: marriage "
+        "compatibility, career strength, the life period (dasha) you're "
+        "currently in, Sade Sati (Saturn's roughly 7.5-year transit around "
+        "your Moon sign), how a specific planet's transit is playing out "
+        "right now, and your public image/reputation."
+    ),
+}
+
+# Generic fallback for any demotion_reason not in _REFUSAL_USER_MESSAGES
+# above (None, or one of calc_router.py's interpolated unbuilt-module/
+# out-of-scope strings) -- fail-closed, must never KeyError.
+_GENERIC_REFUSAL_MESSAGE = (
+    "I'm not able to answer that confidently. Could you try rephrasing "
+    "your question, or ask about marriage compatibility, career strength, "
+    "your current dasha, Sade Sati (Saturn's roughly 7.5-year transit "
+    "around your Moon sign), transit timing, or your public image?"
 )
 
 
@@ -563,5 +629,53 @@ def _format_arudha_lagna(profile: DomainChartProfile) -> DomainAnswer:
         uncertainty_virupa=profile.uncertainty_virupa,
         demotion_reason=None,
         sources=("padas.py",),
+        uncertainty_days=0.0,
+    )
+
+
+def format_refusal(route_result: RouteResult) -> DomainAnswer:
+    """Build the user-facing DomainAnswer for a REFUSAL RouteResult.
+
+    Dead code until a later prompt wires orchestrator.answer_question()'s
+    REFUSAL branch to call this instead of constructing the DomainAnswer
+    inline (see orchestrator.py's current inline REFUSAL construction,
+    which this mirrors field-for-field except for the new
+    answer_payload["user_message"] key).
+
+    demotion_reason is copied VERBATIM from route_result -- never rewritten,
+    never re-worded -- because it is the machine contract downstream code
+    (golden-harness substring assertions, _merge_router_demotion's " | "
+    concatenation) depends on. answer_payload["user_message"] is a SEPARATE,
+    new string: the presentation layer a real user reads. See the
+    _REFUSAL_USER_MESSAGES module comment above for the full
+    machine-contract-vs-presentation-layer design note (same split as the
+    av_transit formatter-owns-strings precedent).
+
+    _REFUSAL_USER_MESSAGES.get(...) with a generic-message default is the
+    ONLY defensive/fallback branch in this module, and deliberately so:
+    every other function here trusts its payload dict via direct KeyError-
+    raising indexing (existing module convention, see _format_marriage/
+    _format_dasha/_format_arudha_lagna above) because that payload is an
+    internal contract this pipeline's own code assembles end to end. A
+    REFUSAL's demotion_reason is different in kind -- it originates from a
+    different layer (calc_router.py's classification logic, including two
+    REFUSAL paths that interpolate arbitrary keyword/module-name text into
+    the string, so no exhaustive fixed key set can ever cover it) and is
+    not a payload this module's own contract controls. Falling through to
+    a generic safe message here is fail-closed correctness, not a
+    convention violation.
+    """
+    user_message = _REFUSAL_USER_MESSAGES.get(
+        route_result.demotion_reason, _GENERIC_REFUSAL_MESSAGE
+    )
+
+    return DomainAnswer(
+        domain=route_result.domain,
+        tier=AnswerTier.REFUSAL,
+        answer_payload={"user_message": user_message},
+        stub_caveats=(),
+        uncertainty_virupa=0.0,
+        demotion_reason=route_result.demotion_reason,
+        sources=(),
         uncertainty_days=0.0,
     )
