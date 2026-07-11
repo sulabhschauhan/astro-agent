@@ -212,6 +212,10 @@ class DomainAnswer:
     # already follow uncertainty_virupa here -- a defaulted field cannot
     # precede them without breaking Python's dataclass field-ordering rule.
     uncertainty_days: float = 0.0
+    # Routing provenance (stage1/stage2/fastpath/pre_classification), stamped
+    # by orchestrator.answer_question() via dataclasses.replace; None means
+    # un-stamped (formatter-level construction). Formatters must NOT set it.
+    route: str | None = None
 
 
 def _koota_natal_info_from_chart(chart_data: dict) -> KootaNatalInfo:

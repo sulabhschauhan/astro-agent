@@ -109,6 +109,7 @@ def answer_question(
     primary_role: str | None = None,
     *,
     transit_planet: str = "Saturn",
+    _stage2_client: object | None = None,
 ) -> DomainAnswer:
     """Route `question`, assemble its DomainChartProfile, and format a DomainAnswer.
 
@@ -132,6 +133,10 @@ def answer_question(
             is currently unreachable via any live question string --
             present now so build_domain_profile()'s call site is already
             correct once routing lands.
+        _stage2_client: test-only injection seam, passed through verbatim to
+            route_question()'s own same-named param. Not part of this
+            function's stable public contract; production callers never
+            pass it.
 
     Returns:
         DomainAnswer -- always, including AnswerTier.REFUSAL cases.
@@ -143,6 +148,9 @@ def answer_question(
         router's machine contract (golden-harness substring assertions,
         _merge_router_demotion()'s " | " concatenation) is unchanged by
         this delegation; only the presentation-layer message is new.
+        Both return paths (REFUSAL and success) stamp
+        route_result.route onto the returned DomainAnswer's own `route`
+        field -- no DomainAnswer leaves this function un-stamped.
 
     Raises:
         ValueError: partner_chart_data given without primary_role;
@@ -182,10 +190,11 @@ def answer_question(
         question,
         has_partner_data=partner_chart_data is not None,
         chart_data=chart_data,
+        _stage2_client=_stage2_client,
     )
 
     if route_result.tier == AnswerTier.REFUSAL:
-        return format_refusal(route_result)
+        return dataclasses.replace(format_refusal(route_result), route=route_result.route)
 
     if route_result.domain not in _VALID_DOMAINS:
         raise ValueError(
@@ -216,7 +225,7 @@ def answer_question(
         transit_planet=transit_planet if is_av_transit else "Saturn",
     )
 
-    formatted = format_answer(profile)
+    formatted = dataclasses.replace(format_answer(profile), route=route_result.route)
 
     return _merge_router_demotion(formatted, route_result)
 
