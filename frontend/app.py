@@ -329,24 +329,28 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                     )
                                     st.session_state.palm_left_regen_warning = None
                                     st.session_state.palm_left_confirmed     = False
+                                    st.session_state.palm_reading_result     = None
                                 except RuntimeError:
                                     st.session_state.palm_left_regen_warning = (
                                         "Could not regenerate the left palm reading after "
                                         "swapping — it may reference the wrong hand. "
                                         "Consider re-uploading this image."
                                     )
+                                    st.session_state.palm_reading_result = None
                                 try:
                                     st.session_state.palm_right_str = describe_palm_image(
                                         st.session_state.palm_right_bytes, "right"
                                     )
                                     st.session_state.palm_right_regen_warning = None
                                     st.session_state.palm_right_confirmed     = False
+                                    st.session_state.palm_reading_result      = None
                                 except RuntimeError:
                                     st.session_state.palm_right_regen_warning = (
                                         "Could not regenerate the right palm reading after "
                                         "swapping — it may reference the wrong hand. "
                                         "Consider re-uploading this image."
                                     )
+                                    st.session_state.palm_reading_result = None
                         else:
                             st.session_state.palm_left_str            = None
                             st.session_state.palm_left_hash           = None
@@ -488,24 +492,28 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                     )
                                     st.session_state.palm_left_regen_warning = None
                                     st.session_state.palm_left_confirmed     = False
+                                    st.session_state.palm_reading_result     = None
                                 except RuntimeError:
                                     st.session_state.palm_left_regen_warning = (
                                         "Could not regenerate the left palm reading after "
                                         "swapping — it may reference the wrong hand. "
                                         "Consider re-uploading this image."
                                     )
+                                    st.session_state.palm_reading_result = None
                                 try:
                                     st.session_state.palm_right_str = describe_palm_image(
                                         st.session_state.palm_right_bytes, "right"
                                     )
                                     st.session_state.palm_right_regen_warning = None
                                     st.session_state.palm_right_confirmed     = False
+                                    st.session_state.palm_reading_result      = None
                                 except RuntimeError:
                                     st.session_state.palm_right_regen_warning = (
                                         "Could not regenerate the right palm reading after "
                                         "swapping — it may reference the wrong hand. "
                                         "Consider re-uploading this image."
                                     )
+                                    st.session_state.palm_reading_result = None
                         else:
                             st.session_state.palm_right_str            = None
                             st.session_state.palm_right_hash           = None
