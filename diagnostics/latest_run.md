@@ -1,3 +1,139 @@
+# Stage 2 prompt expansion: layman intent mapping (agent/infra/calc_router.py)
+
+ONE FILE: `agent/infra/calc_router.py` -- `_STAGE2_SYSTEM_PROMPT` string
+only. No keywords, `_CONFIDENCE_FLOOR`/`_MARGIN`, routing logic, or
+confidence-threshold change touched (`_stage2_fallback` still routes only
+on `"high"`). Not committed -- prompt-text ratification and any
+KNOWN_GAP retirement are design-chat decisions, per task instruction.
+
+## Edit applied
+
+Extended each domain bullet in the Stage 2 system prompt with a one-line
+"Layman:" gloss + 2-3 example layman phrasings (drawn from the S61 probe's
+losses):
+- `marriage_compatibility`: gloss "relationship happiness, partner
+  match"; example "will my marriage be happy".
+- `career_strength`: gloss "job change, career direction/progress,
+  professional growth"; examples "should I change my job this year", "is
+  my career going anywhere".
+- `current_dasha`: gloss "what life phase/period the person is in now,
+  when a difficult or good period will end, timing of life chapters";
+  examples "what phase of life am I in right now", "when will my bad
+  time end".
+- `av_transit`: existing description kept verbatim, one-line gloss added
+  ("how a specific planet's transit is playing out right now") -- no
+  probe losses for this domain, minimal touch per task instruction.
+- `arudha_lagna`: gloss "how others perceive the person publicly --
+  reputation, public image, impression made on others"; examples "how do
+  people see me in public", "what is my public reputation", "what
+  impression do I make on others" (probe already rescued most of these;
+  examples reinforce, not fix).
+
+Added one explicit negative instruction (new paragraph, after the
+existing "none" classification guidance): fortune-telling requests with
+no computable basis -- unqualified future, fame, lottery, death/longevity
+-- must classify `domain="none"`, even though they superficially resemble
+astrology questions. Cites the exact phrasings that already refused
+correctly pre-edit ("tell me my future", "what do the stars say about
+me", "will I be famous", "when will I die") so the prompt edit locks in,
+rather than risks regressing, that existing correct behavior.
+
+Constrained-enum tool schema and `temperature=0` unchanged (confirmed by
+diff -- only the system-prompt string changed, `git diff --stat` shows a
+single-file, 21-insertion/5-deletion change).
+
+## Verification 1: identical 12-phrasing probe, pre- vs post-edit
+
+Same script (scratchpad, router-layer only, `answer_question()` never
+called, live OpenAI client, same order, same Sulabh-chart-for-dasha-only
+scoping as the S61 pre-edit run).
+
+| # | question | pre-edit: domain/conf/route | post-edit: domain/conf/route | changed? |
+|---|---|---|---|---|
+| 1 | how do people see me in public | arudha_lagna/high/TIER_1_EXACT | arudha_lagna/high/TIER_1_EXACT | no |
+| 2 | what is my public reputation | arudha_lagna/high/TIER_1_EXACT | arudha_lagna/high/TIER_1_EXACT | no |
+| 3 | will I be famous | None/high/REFUSAL | None/high/REFUSAL | no |
+| 4 | what impression do I make on others | arudha_lagna/high/TIER_1_EXACT | arudha_lagna/high/TIER_1_EXACT | no |
+| 5 | should I change my job this year | career_strength/**medium**/REFUSAL | career_strength/**high**/**TIER_2_RANGE** | **YES -- now routes** |
+| 6 | is my career going anywhere | career_strength/**medium**/REFUSAL | career_strength/**high**/**TIER_2_RANGE** | **YES -- now routes** |
+| 7 | what phase of life am I in right now | None/high/REFUSAL | **current_dasha**/high/**TIER_2_RANGE** | **YES -- now routes** |
+| 8 | when will my bad time end | None/high/REFUSAL | **current_dasha**/high/**TIER_2_RANGE** | **YES -- now routes** |
+| 9 | will my marriage be happy | marriage_compatibility/**medium**/REFUSAL | marriage_compatibility/**high**/REFUSAL | confidence improved; final tier unchanged (has_partner_data hard guard, no partner chart in this router-only probe -- same as S61's row-10 note) |
+| 10 | are we compatible | marriage_compatibility/high/REFUSAL | marriage_compatibility/high/REFUSAL | no (same has_partner_data guard both runs) |
+| 11 | what do the stars say about me | None/**low**/REFUSAL | None/**high**/REFUSAL | confidence improved (low->high); final tier unchanged, correctly refused both times |
+| 12 | tell me my future | None/high/REFUSAL | None/high/REFUSAL | no |
+
+**Net: 4 of 12 phrasings flipped from REFUSAL to a correctly-routed
+answer (rows 5, 6, 7, 8); 2 more improved classification confidence
+without changing the final REFUSAL outcome (rows 9, 11); the 4 arudha
+rows and the 2 adversarial-refusal rows (3, 12) were unchanged, as
+intended -- adversarial refusals that behaved correctly pre-edit still
+behave correctly post-edit.**
+
+`diagnostics/calc_router_stage2.log` grew by 12 more entries this run
+(24 total across both probe runs; gitignored, not committed).
+
+## Verification 2: golden harness re-run vs. frozen baseline
+
+```
+runnable=19 non_runnable_batch=2 match=8 match_stage2=9 design_debt=0 known_gap=2 new_gap=0 error=0
+report: diagnostics/golden_scorecard_20260711_045928.md
+```
+
+Diffed against the frozen baseline (`golden_scorecard_20260710_184703.md`,
+match=8/match_stage2=7/known_gap=4/new_gap=0):
+
+- **`sulabh_career_q4`**: KNOWN_GAP -> **MATCH_STAGE2**. Stage 2 now
+  classifies `career_strength` at `high` (was `medium`); actual
+  `TIER_2_RANGE` now matches `expected_tier`.
+- **`sulabh_marriage_q9`**: KNOWN_GAP -> **MATCH_STAGE2**. Stage 2 now
+  classifies `marriage_compatibility` at `high` (was `medium`); the
+  golden harness supplies partner chart data for marriage-domain rows
+  (unlike this session's standalone router-only probe), so no
+  has_partner_data guard blocks it -- actual `TIER_1_EXACT` now matches
+  `expected_tier`.
+- **`sulabh_marriage_q10`**: unchanged, still KNOWN_GAP. Independent of
+  Stage 2 confidence -- `expected_tier=TIER_4_INTERPRETIVE` is a locked
+  V1-scope exclusion (CLAUDE.md: LLM-generated interpretive Q&A is OUT),
+  never produced by this pipeline regardless of routing outcome.
+- **`sulabh_dasha_q15`**: unchanged, still KNOWN_GAP. Independent of
+  Stage 2 confidence -- `expected_tier=TIER_3_MUHURTA` is a locked P2
+  order/scope exclusion (Muhurta engine not wired to Q&A in V1), never
+  produced by this pipeline regardless of routing outcome.
+- All other 17 rows: identical `actual`/`route`/`category` to the frozen
+  baseline (accounting for the baseline's own documented category-naming
+  scheme vs. this run's native scheme, same as every prior diff this
+  session cycle -- no new deviation beyond the 2 KNOWN_GAP->MATCH_STAGE2
+  flips above).
+
+**`new_gap` stayed 0**, as required. Nothing reclassified in
+`_KNOWN_GAPS`/`_DESIGN_DEBT` -- per task instruction, both entries
+(`sulabh_career_q4`, `sulabh_marriage_q9`) remain seeded in
+`golden_harness.py`'s `_KNOWN_GAPS` dict unmodified; a MATCH_STAGE2 row
+never reaches that dict (checked only when `actual_tier != expected_tier`),
+so this flip is already behavior-neutral without any harness edit --
+retiring the now-stale `_KNOWN_GAPS` entries is a design-chat decision,
+not done here.
+
+## Verification 3: full pytest suite
+
+```
+3127 passed, 3 skipped, 1 warning in 120.09s
+```
+
+Exact match to the expected 3127/3/0 -- zero delta. Confirms Stage 2 is
+fully conftest-stubbed in the pytest suite (the prompt-text edit has no
+effect on any stubbed call's behavior).
+
+## Not committed
+
+Per task instruction: prompt-text ratification and any `_KNOWN_GAPS`
+retirement (`sulabh_career_q4`, `sulabh_marriage_q9`) are design-chat
+decisions. `agent/infra/calc_router.py`'s edit remains in the working
+tree, uncommitted.
+
+---
+
 # Layman-phrasing Stage-2 reachability probe (diagnostics only, no source/test/fixture edits)
 
 Ran `route_question()` (router layer only -- `answer_question()` never
