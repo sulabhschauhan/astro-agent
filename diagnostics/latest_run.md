@@ -1,3 +1,70 @@
+# S68: refusal topic-list re-sync -- fires the S62 carry-forward (result_formatter.py only)
+
+ONE FILE: `agent/infra/result_formatter.py`.
+
+## Edits applied
+
+1. Added Upapada Lagna to both user-facing refusal topic lists:
+   `_REFUSAL_USER_MESSAGES["question not classifiable with confidence"]`
+   and `_GENERIC_REFUSAL_MESSAGE`. Layman-first phrasing in both: "your
+   Upapada Lagna (a marriage indicator read from your own chart)" --
+   neutral, no valence, and structurally distinguished from the
+   existing "marriage compatibility" item (which stays worded as the
+   two-chart construct it is) by the explicit "read from your own
+   chart" qualifier.
+2. Extended the SENSITIVE_TO guard comment (previously sat only above
+   `_REFUSAL_USER_MESSAGES`, guarding just that dict) to explicitly
+   cover both message sites: the comment block now states up front
+   that it guards `_REFUSAL_USER_MESSAGES`'s "not classifiable" message
+   AND `_GENERIC_REFUSAL_MESSAGE`, and a short pointer comment was added
+   directly above `_GENERIC_REFUSAL_MESSAGE` referencing back to it.
+   Domain set in the comment bumped from 6 to 7 (added
+   `upapada_lagna`). This closes the CLAUDE.md S62 carry-forward exactly
+   as written ("Extend the guard comment to both sites and re-sync
+   wording when the next domain wires (upapada candidate)").
+3. Semantic sync check (topic SET, not wording) between the two lists,
+   BEFORE this edit: both already listed exactly 6 topics mapping 1:1 to
+   calc_router.py's 6 pre-upapada `_STAGE2_VALID_DOMAINS` members
+   (marriage compatibility, career strength, dasha/current period,
+   Sade Sati, transit timing, public image/reputation) -- no domain was
+   present in one list but absent from the other. AFTER this edit, both
+   lists list exactly 7 topics, still 1:1 with `_STAGE2_VALID_DOMAINS`'s
+   7 current members. **No cross-list gap found, before or after.** Not
+   restructured into a shared constant, per task instruction.
+
+## Verification: full pytest suite
+
+```
+3127 passed, 3 skipped, 1 warning in 99.59s
+```
+
+Exact match, zero delta -- no test asserts on either message's wording
+(S62's structural-only contract held).
+
+## Final messages, verbatim
+
+**`_REFUSAL_USER_MESSAGES["question not classifiable with confidence"]`:**
+```
+I couldn't confidently tell what you're asking. Could you try rephrasing? I can help with questions about: marriage compatibility, career strength, the life period (dasha) you're currently in, Sade Sati (Saturn's roughly 7.5-year transit around your Moon sign), how a specific planet's transit is playing out right now, your public image/reputation, and your Upapada Lagna (a marriage indicator read from your own chart).
+```
+
+**`_GENERIC_REFUSAL_MESSAGE`:**
+```
+I'm not able to answer that confidently. Could you try rephrasing your question, or ask about marriage compatibility, career strength, your current dasha, Sade Sati (Saturn's roughly 7.5-year transit around your Moon sign), transit timing, your public image, or your Upapada Lagna (a marriage indicator read from your own chart)?
+```
+
+(`_REFUSAL_USER_MESSAGES["marriage_compatibility requires partner birth
+data"]` unchanged -- not touched by this task, not reproduced here.)
+
+## Not committed
+
+Per task instruction. This session's other uncommitted work
+(`agent/infra/calc_router.py`/`orchestrator.py`/`chart_profile.py`, and
+`tests/fixtures/golden_qa_sulabh.py`) is unaffected by this file-only
+edit.
+
+---
+
 # S67: sulabh_marriage_q10 probe + fixture re-ratification (golden_qa_sulabh.py only)
 
 ONE FILE: `tests/fixtures/golden_qa_sulabh.py`. `calc_router.py`,
