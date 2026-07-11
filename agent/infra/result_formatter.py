@@ -48,6 +48,27 @@ inside answer_payload, but this field is documented below as "NEVER prose"
 -- no other domain branch violates that, so answer_payload here stays
 structured-only (arudha_sign/lagna_sign/lord/co_lord_deciding_step,
 verbatim); prose rendering is deferred to a separate concern.
+
+NOTE: this docstring's per-session paragraphs never got one for
+"upapada_lagna" (_format_upapada, landed Session 62) -- a pre-existing
+gap, flagged here rather than silently perpetuated, not backfilled (ride-
+along candidate for a future touch, not a standalone prompt).
+
+Session 64 (P7 Muhurta wiring, step 2 of 5) adds "muhurta_window" --
+always TIER_3_MUHURTA (a NEW tier value, first branch in this file to use
+it; every prior domain used only TIER_1_EXACT/TIER_2_RANGE). Its
+_format_muhurta_window() takes a bare payload dict, not a
+DomainChartProfile, and reads `sources` from that payload instead of
+hardcoding it locally -- both deliberate departures from the
+_format_arudha_lagna()/_format_upapada() precedent; see that function's
+own docstring for the full justification. Introduces this file's first
+sub-day-precision JD->string conversion (_jd_to_utc_str(), minute-level,
+explicit "UTC" label) since _format_jd() above is day-level only and
+unsuitable for Muhurta window boundaries. UNREACHABLE VIA ANY LIVE ROUTER
+PATH as of this branch landing: chart_profile.build_muhurta_profile() is
+a standalone builder (Session 64 step 1), not yet wired into
+build_domain_profile()'s dispatch or this project's _VALID_DOMAINS lists
+-- same staged-rollout precedent as every prior new-domain landing above.
 """
 
 from __future__ import annotations
@@ -215,6 +236,8 @@ def format_answer(profile: DomainChartProfile) -> DomainAnswer:
         return _format_arudha_lagna(profile)
     if profile.domain == "upapada_lagna":
         return _format_upapada(profile)
+    if profile.domain == "muhurta_window":
+        return _format_muhurta_window(profile.payload)
     raise ValueError(f"result_formatter: unknown domain {profile.domain!r}")
 
 
@@ -231,6 +254,32 @@ def _format_jd(jd_ut: float) -> str:
     y, mo, dy, hr = swe.revjul(jd_ut)
     dt = datetime(y, mo, dy, tzinfo=timezone.utc) + timedelta(hours=hr)
     return f"{dt.day} {dt.strftime('%b')} {dt.year}"
+
+
+def _jd_to_utc_str(jd_ut: float) -> str:
+    """JD (UT) -> human-readable UTC datetime string, minute-level
+    precision, explicit "UTC" label -- "D Mon YYYY HH:MM UTC".
+
+    NOT the same as _format_jd() above: that helper is day-level only
+    ("D Mon YYYY", no time-of-day) and is unsuitable for Muhurta windows,
+    whose entire purpose is pinpointing a specific hour-range within a
+    day (Chandrabala/Tarabala window boundaries do not align to day
+    boundaries). This helper reuses _format_jd()'s identical swe.revjul()
+    + timedelta conversion mechanics (same project-wide JD->datetime
+    precedent -- see panchanga.py's _julian_day_ut_to_datetime and
+    kala_bala.py's _jd_to_utc_datetime, both module-private, per this
+    project's own per-module duplication convention -- no importable
+    cross-module helper exists to reuse instead) and adds a new
+    formatting layer with time-of-day, needed nowhere else in this file
+    today.
+
+    V1 renders UTC with explicit UTC labels -- chart_data carries birth
+    place, not the user's current location; local-timezone rendering is
+    deferred to V1.1.
+    """
+    y, mo, dy, hr = swe.revjul(jd_ut)
+    dt = datetime(y, mo, dy, tzinfo=timezone.utc) + timedelta(hours=hr)
+    return f"{dt.day} {dt.strftime('%b')} {dt.year} {dt.strftime('%H:%M')} UTC"
 
 
 def _format_jd_or_unknown(jd_ut: float | None) -> str:
@@ -691,6 +740,145 @@ def _format_upapada(profile: DomainChartProfile) -> DomainAnswer:
         uncertainty_virupa=profile.uncertainty_virupa,
         demotion_reason=None,
         sources=("padas.py",),
+        uncertainty_days=0.0,
+    )
+
+
+def _format_muhurta_window(payload: dict) -> DomainAnswer:
+    """Builds the DomainAnswer for domain="muhurta_window" from
+    chart_profile.build_muhurta_profile()'s payload dict.
+
+    SIGNATURE DEVIATION FLAGGED: takes a bare `payload: dict`, not
+    `profile: DomainChartProfile` like every other _format_* branch in
+    this file. This is deliberate, not an oversight: every DomainAnswer
+    field this branch sets is EITHER a hardcoded literal (stub_caveats,
+    uncertainty_virupa, uncertainty_days -- per step 1's recommended
+    values, diagnostics/latest_run.md: no ephemeris stubs in the
+    Chandrabala/Tarabala/Panchaka chain, no virupa-axis concept, no dated
+    claims beyond the window boundaries already rendered) OR read
+    directly from the payload dict itself (sources -- see below); nothing
+    here ever needs profile.domain/profile.stub_caveats/profile.
+    uncertainty_virupa/profile.uncertainty_days, so there is no reason to
+    thread the whole DomainChartProfile through. UNREACHABLE VIA ANY LIVE
+    ROUTER PATH as of this branch landing (same staged-rollout precedent
+    as _format_arudha_lagna/_format_upapada above): build_muhurta_profile()
+    is a standalone builder, not yet wired into build_domain_profile()'s
+    dispatch, so format_answer() never actually receives a
+    domain="muhurta_window" DomainChartProfile to read profile.payload
+    off of yet -- this branch is dead code until that separate, later
+    wiring lands.
+
+    sources IS read from payload["sources"] here -- a DELIBERATE
+    DEPARTURE from _format_arudha_lagna()/_format_upapada()'s own
+    documented convention (formatter-local hardcoded literal, payload's
+    "sources" key ignored). Justified because chart_profile.py's
+    build_muhurta_profile() is the single place that knows which
+    calculation module actually produced this payload
+    (muhurta_scorer.py, which itself composes chandrabala/tarabala/
+    panchaka internally) -- duplicating that literal here would just be a
+    second, driftable copy of the same fact the builder already computed
+    once. tier is NOT read from payload["tier"] the same way -- it is
+    always AnswerTier.TIER_3_MUHURTA by construction (payload-property
+    principle, same reasoning as every other single-domain branch in this
+    file), so payload["tier"]'s own AnswerTier-value string is not
+    consulted for that purpose (see the tier-rendering comment below for
+    why it exists in payload at all).
+
+    Windows are asserted ascending/contiguous, never re-sorted --
+    chart_profile.build_muhurta_profile() (and, beneath it,
+    muhurta_scorer.find_muhurta_windows()'s own documented contract)
+    already guarantees this; a violation here means an upstream contract
+    broke, not something this formatter should silently paper over.
+
+    Missing/malformed payload keys ARE defended against here (unlike
+    _format_marriage/_format_dasha/_format_arudha_lagna/_format_upapada's
+    bare-KeyError convention) -- wrapped into a ValueError naming the
+    domain, per this branch's own spec.
+
+    Args:
+        payload: chart_profile.build_muhurta_profile()'s return dict --
+            {"windows": [...], "tier": "TIER_3_MUHURTA",
+            "sources": (...)}.
+
+    Returns:
+        DomainAnswer(domain="muhurta_window", tier=TIER_3_MUHURTA, ...).
+        answer_payload = {"windows": [rendered per-window dicts],
+        "summary": {"tier1_window_count": int, "earliest_tier1_start":
+        str}}. Each rendered window carries start_jd/end_jd (raw, for
+        machine-readable downstream use) alongside start/end (V1 UTC
+        strings via _jd_to_utc_str(), explicit "UTC" label -- see that
+        helper's own docstring for the local-timezone-deferred-to-V1.1
+        lock), plus tier/favorable_count/warnings carried through
+        verbatim.
+
+    Raises:
+        ValueError: payload missing an expected key, a window dict
+            missing an expected key (both surfaced via a caught
+            KeyError, re-raised as ValueError for a uniform error type
+            from this branch), or the windows list is not
+            ascending/contiguous (raised directly) -- message names
+            "muhurta_window" and the underlying cause.
+    """
+    try:
+        windows = payload["windows"]
+        sources = payload["sources"]
+
+        # Ascending/contiguous order is guaranteed by
+        # chart_profile.build_muhurta_profile() (which itself trusts
+        # muhurta_scorer.find_muhurta_windows()'s own documented
+        # contiguous-tiling/ascending-order contract) -- assert, don't
+        # re-sort.
+        for prev_w, next_w in zip(windows, windows[1:]):
+            if prev_w["end_jd"] > next_w["start_jd"]:
+                raise ValueError(
+                    "result_formatter: muhurta_window payload windows are "
+                    "not ascending/contiguous -- upstream "
+                    "find_muhurta_windows() contract violated "
+                    f"({prev_w['end_jd']} > {next_w['start_jd']})"
+                )
+
+        rendered_windows = [
+            {
+                "start_jd": w["start_jd"],
+                "end_jd": w["end_jd"],
+                "start": _jd_to_utc_str(w["start_jd"]),
+                "end": _jd_to_utc_str(w["end_jd"]),
+                # muhurta_scorer.MuhurtaTier VALUE STRING (TIER_1/TIER_2/
+                # TIER_3) -- per-window Muhurta QUALITY, a DISTINCT enum
+                # from this DomainAnswer's own pipeline-level tier
+                # (AnswerTier.TIER_3_MUHURTA, set below). Never map one
+                # onto the other.
+                "tier": w["tier"],
+                "favorable_count": w["favorable_count"],
+                "warnings": w["warnings"],
+            }
+            for w in windows
+        ]
+
+        tier1_windows = [w for w in rendered_windows if w["tier"] == "TIER_1"]
+        answer_payload = {
+            "windows": rendered_windows,
+            "summary": {
+                "tier1_window_count": len(tier1_windows),
+                # explicit marker when zero -- key is never omitted.
+                "earliest_tier1_start": (
+                    tier1_windows[0]["start"] if tier1_windows else "none in the scanned range"
+                ),
+            },
+        }
+    except KeyError as exc:
+        raise ValueError(
+            f"result_formatter: muhurta_window payload missing key {exc}"
+        ) from exc
+
+    return DomainAnswer(
+        domain="muhurta_window",
+        tier=AnswerTier.TIER_3_MUHURTA,
+        answer_payload=answer_payload,
+        stub_caveats=(),
+        uncertainty_virupa=0.0,
+        demotion_reason=None,
+        sources=sources,
         uncertainty_days=0.0,
     )
 
