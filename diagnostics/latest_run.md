@@ -1,317 +1,169 @@
-# P7 Muhurta wiring, step 4 of 6: router
+# P7 Muhurta wiring, step 5 of 6: orchestrator gate (LAST gate)
 
-Session 64. Wires `domain="muhurta_window"` into `agent/infra/calc_router.py`
-(Stage 1 keywords + `_route_to_domain()` + Stage 2), plus two ride-alongs.
-NOT committed -- design chat ratification pending (same posture as steps 1-3).
+Session 64. Wires `domain="muhurta_window"` into
+`agent/infra/orchestrator.py`'s `_VALID_DOMAINS` -- the last of the 5
+staged-rollout gates (chart_profile builder -> formatter -> chart_profile
+dispatch -> router -> this gate). ONE FILE, as scoped. NOT committed --
+design chat ratification pending (same posture as steps 1-4).
 
-## Scope notes flagged before reporting the changes
-
-1. **"ONE FILE: calc_router.py" vs. Change B's actual location.** The
-   task's header names one file, but Change B (`_GENERIC_REFUSAL_MESSAGE`
-   re-sync) targets constants that live in `result_formatter.py`, not
-   `calc_router.py` -- confirmed by grep, no such construct exists in
-   the router file. Edited `result_formatter.py` for Change B since
-   that's factually where the code is; the "ONE FILE" framing is a
-   inconsistency in the task text, not something I could resolve by
-   picking a different file.
-2. **"Three sanctioned ride-alongs" vs. two enumerated.** The task's
-   intro says "Three sanctioned ride-alongs included," but only two are
-   actually spelled out (Change B "ride-along 1", Change C "ride-along
-   2"). Flagged, not resolved by inventing a third -- implemented
-   exactly the two given.
-3. **Verification 1's stated premise did not hold** -- see that section
-   below; reported honestly rather than forced.
-
-## CHANGE A: domain wiring (calc_router.py)
-
-### A.1 -- removed from `_UNBUILT_MODULE_KEYWORDS`, verbatim
+## Change: `_VALID_DOMAINS`
 
 ```python
-"muhurta": "Muhurta scorer (module exists but is not wired to Q&A in V1)",
+_VALID_DOMAINS = {
+    "marriage_compatibility",
+    "career_strength",
+    "current_dasha",
+    "sade_sati",
+    "av_transit",
+    "arudha_lagna",
+    "upapada_lagna",
++   "muhurta_window",
+}
 ```
 
-Also rewrote the block's leading comment (previously explained exactly
-this entry's special-casing -- necessarily stale once removed) with a
-new paragraph matching the existing "sade sati REMOVED"/"jaimini
-removed" precedent style.
+## Audit: every domain-conditional branch in `answer_question()`, checked by reading
 
-### A.2 -- collision check (programmatic, not just inspection)
+| Branch | Behavior for muhurta_window | Code change needed? |
+|---|---|---|
+| `partner_chart_data`/`primary_role` validation (top of function) | Unconditional -- applies to ANY domain if `partner_chart_data` is supplied at all; muhurta_window questions never supply it, so this never fires for this domain, exactly as for sade_sati/career/dasha/arudha/upapada today. | No |
+| `route_result.domain not in _VALID_DOMAINS` guard | Now passes for `"muhurta_window"` (the one-line change above). | No (this IS the change) |
+| `marriage_compatibility`-only partner-data guard (`if route_result.domain == "marriage_compatibility" and partner_chart_data is None`) | String-equality-gated to exactly `"marriage_compatibility"` -- evaluates False for muhurta_window, confirmed by reading, not assumed. | No |
+| `evaluated_at_jd` computation (`now_utc` -> `swe.julday`) | Unconditional -- computed for every domain regardless of routing outcome, then passed to `build_domain_profile()` unconditionally. | No |
+| `is_marriage`/`is_av_transit` gates -> `partner_chart_data`/`primary_role`/`transit_planet` kwargs | Both booleans evaluate False for muhurta_window (neither is `"marriage_compatibility"` nor `"av_transit"`), so `build_domain_profile()` receives `partner_chart_data=None, primary_role=None, transit_planet="Saturn"` -- exactly the same values sade_sati/arudha_lagna/upapada_lagna already receive. `build_domain_profile()`'s own muhurta_window branch (step 3) doesn't accept or consume any of these three kwargs anyway. | No |
+| `route` stamping (`dataclasses.replace(format_answer(profile), route=route_result.route)`) | Unconditional -- every domain's `DomainAnswer` gets `route` stamped from the same `route_result.route`, regardless of domain. | No |
+| `_merge_router_demotion()` | See dedicated section below. | No |
 
-Ran a script exercising the router's OWN `_normalize_tokens`/
-`_keyword_hits` logic (not just eyeballing strings) against every
-existing keyword source: `_MARRIAGE_KEYWORDS`, `_CAREER_KEYWORDS`,
-`_DASHA_KEYWORDS`, `_AV_TRANSIT_KEYWORDS`, `_ARUDHA_LAGNA_KEYWORDS`,
-`_UPAPADA_LAGNA_KEYWORDS`, `_STEM_MAP` (keys and values),
-`_UNBUILT_MODULE_KEYWORDS` (post-muhurta-removal), `_OUT_OF_SCOPE_KEYWORDS`,
-`_BUILT_MODULE_FASTPATH`, against the 5 proposed new keywords (`muhurta`,
-`mahurat`, `auspicious`, `shubh`, `electional`):
+**Conclusion: zero code changes needed beyond the `_VALID_DOMAINS` line.**
+No branch required a STOP. This matches the arudha_lagna (S59) and
+upapada_lagna (S66) precedent exactly -- the ONE genuinely new wrinkle
+(evaluated_at_jd being load-bearing for this domain, not merely
+"accepted uniformly but unused" like av_transit/arudha_lagna/
+upapada_lagna) still required no code change, because this function
+already threads `evaluated_at_jd` through unconditionally for every
+domain -- see step 3's own flagged departure/fix for why that threading
+exists at all. Documented this explicitly in both the `_VALID_DOMAINS`
+comment block and the `answer_question()` docstring's own NOTE
+paragraph, following the existing per-domain-addition documentation
+precedent in this file.
 
-```
-=== Direct substring collision check (both directions, raw strings) ===
-No direct substring collisions found.
+## `_merge_router_demotion()`: confirmed no-op by reading both sides
 
-=== Simulated _keyword_hits cross-check ===
-normalized new-keyword tokens: ['muhurta', 'mahurat', 'auspicious', 'shubh', 'electional']
-No _keyword_hits-simulated collisions found.
-```
+- `calc_router.py`'s `_route_to_domain()` muhurta_window branch (step 4):
+  `demotion_reason=None`, hardcoded.
+- `result_formatter.py`'s `_format_muhurta_window()` (step 2):
+  `demotion_reason=None`, hardcoded.
 
-**Result: CLEAR.** Proceeded to wire.
-
-Added:
-```python
-_MUHURTA_WINDOW_KEYWORDS: tuple[str, ...] = (
-    "muhurta", "mahurat", "auspicious", "shubh", "electional",
-)
-```
-and `"muhurta_window": _MUHURTA_WINDOW_KEYWORDS` to `_DOMAIN_KEYWORDS`.
-
-### A.3 -- `_route_to_domain()` muhurta_window branch
-
-```python
-    if domain == "muhurta_window":
-        return RouteResult(
-            domain="muhurta_window",
-            tier=AnswerTier.TIER_3_MUHURTA,
-            confidence=confidence,
-            demotion_reason=None,
-            requires_partner=False,
-            route=route,
-        )
-```
-(Full in-file comment covers the T3 rationale, the demotion-lock
-posture matching av_transit's branch, and the staged-rollout note --
-longer than shown here.) Inserted directly ABOVE the `current_dasha`
-branch (itself now converted from an implicit fallthrough to an
-explicit `if domain == "current_dasha":` -- see Change C).
-
-### A.4 -- Stage 2 wiring
-
-`_STAGE2_VALID_DOMAINS` gained `"muhurta_window"` (8 entries + "none").
-
-`_STAGE2_SYSTEM_PROMPT` gained a new gloss bullet:
-
-```
-- muhurta_window: Muhurta (electional astrology) -- finding a favorable/
-auspicious time-WINDOW, in the near future, to START or DO a specific
-action or event (a composite of Chandrabala, Tarabala, and Panchaka over
-a short scan). Layman: picking a good/auspicious time to begin something.
-Examples: "when is a good time to start something new", "what is an
-auspicious muhurta for me this week", "shubh muhurat for starting my
-business", "is this a good day to sign the papers". Muhurta is
-ELECTIONAL -- choosing WHEN, in the near future, to DO something -- and
-must NEVER be confused with NATAL-timing questions about a life period
-or a transit already in progress: "when will my bad time end" or "what
-phase of life am I in" is current_dasha, NOT muhurta_window; "how is
-[planet]'s transit playing out right now" is av_transit, NOT
-muhurta_window; and "when will I get a job" asks when a future life
-EVENT will happen TO the person (current_dasha/natal-timing territory),
-NOT when to ACT (muhurta_window) -- even though all of these questions
-use the word "when". The deciding question: is the person asking to
-PICK a moment to act (muhurta_window), or asking WHEN something already
-in motion (a period, a transit, a life event) will happen or change
-(current_dasha / av_transit)?
-```
-
-Also fixed the domain-count text in the same prompt block: "exactly 7
-domains" -> 8, "one of these 7 things" -> 8, `_STAGE2_TOOL_SCHEMA`'s
-description "7 routable domains" -> 8. Additionally corrected an
-adjacent PRE-EXISTING staleness while editing the same sentence: the
-confidence-instruction line said "6 domains above" even before this
-change (already wrong -- there were 7) -- fixed to "8" rather than left
-doubly wrong, since I was rewriting this exact sentence anyway (not a
-separate ride-along; matches the "opportunistic fix while touching the
-same text" precedent Session 58 already established for the tool-schema
-count).
-
-## CHANGE B: `_GENERIC_REFUSAL_MESSAGE` / `_REFUSAL_USER_MESSAGES` re-sync (result_formatter.py)
-
-Old `_REFUSAL_USER_MESSAGES["question not classifiable with confidence"]`:
-```
-"I couldn't confidently tell what you're asking. Could you try
-rephrasing? I can help with questions about: marriage compatibility,
-career strength, the life period (dasha) you're currently in, Sade Sati
-(Saturn's roughly 7.5-year transit around your Moon sign), how a
-specific planet's transit is playing out right now, your public
-image/reputation, and your Upapada Lagna (a marriage indicator read
-from your own chart)."
-```
-New (added muhurta clause, replaced "and" with ", and" list continuation):
-```
-"... your public image/reputation, your Upapada Lagna (a marriage
-indicator read from your own chart), and picking an auspicious time
-(Muhurta) to start something."
-```
-
-Old `_GENERIC_REFUSAL_MESSAGE`:
-```
-"I'm not able to answer that confidently. Could you try rephrasing your
-question, or ask about marriage compatibility, career strength, your
-current dasha, Sade Sati (Saturn's roughly 7.5-year transit around your
-Moon sign), transit timing, your public image, or your Upapada Lagna (a
-marriage indicator read from your own chart)?"
-```
-New:
-```
-"... transit timing, your public image, your Upapada Lagna (a marriage
-indicator read from your own chart), or picking an auspicious time
-(Muhurta) to start something?"
-```
-
-`SENSITIVE_TO` guard comment's frozen domain-set snapshot updated:
-`{marriage_compatibility, career_strength, current_dasha, sade_sati,
-av_transit, arudha_lagna, upapada_lagna}` -> same set + `muhurta_window`,
-with a note recording this Session 64 re-sync explicitly (matching the
-comment's own precedent of recording each prior re-sync).
-
-## CHANGE C: `_route_to_domain()` fail-closed refactor
-
-Diff (structural; full comments in-file are longer):
-
-```python
--    # current_dasha -- ALWAYS TIER_2_RANGE in V1 (...)
--    if chart_data is None or _near_dasha_boundary(chart_data):
--        demotion_reason = _DASHA_DEMOTION_REASON_NEAR_BOUNDARY
--    else:
--        demotion_reason = _DASHA_DEMOTION_REASON
--    return RouteResult(
--        domain="current_dasha",
--        ...
--    )
-+    if domain == "current_dasha":
-+        # current_dasha -- ALWAYS TIER_2_RANGE in V1 (...)
-+        if chart_data is None or _near_dasha_boundary(chart_data):
-+            demotion_reason = _DASHA_DEMOTION_REASON_NEAR_BOUNDARY
-+        else:
-+            demotion_reason = _DASHA_DEMOTION_REASON
-+        return RouteResult(
-+            domain="current_dasha",
-+            ...
-+        )
-+
-+    raise ValueError(f"calc_router._route_to_domain: unknown domain {domain!r}")
-```
-
-Kept this function's own established idiom (sequential `if ... return`
-blocks, not literal `elif`/`else` keywords) rather than converting every
-prior branch to `elif` -- functionally identical, since every earlier
-branch already returns unconditionally, making the sequential-`if`
-pattern and a true `elif` chain behaviorally equivalent here. The new
-trailing `raise` is the only genuinely new control-flow node: any domain
-string not explicitly branched now fails loudly, naming itself, instead
-of silently mis-routing to `current_dasha` (the exact trap arudha_lagna's
-own branch comment already flagged as a workaround, and upapada_lagna's
-branch comment flagged again -- this closes the underlying pattern for
-good, not just for those two).
+`_merge_router_demotion()`'s own logic: `if router_reason is None: return
+answer` (unchanged). Since the router's side is always `None` for this
+domain, the function returns the formatter's `DomainAnswer` completely
+unmodified -- a true no-op passthrough, same as arudha_lagna/
+upapada_lagna/sade_sati. Verified by reading, not assumed; also verified
+empirically in the live smoke test below (`demotion_reason: None` on the
+final `DomainAnswer`).
 
 ## VERIFICATION 1: full pytest suite
 
 ```
 python -m pytest -q
-3134 passed, 3 skipped, 0 failed  (110.86s)
+3134 passed, 3 skipped, 0 failed  (85.32s)
 ```
 
-**The task's stated expectation ("any test asserting the 'muhurta'
-unbuilt-keyword REFUSAL... will fail") did NOT hold.** Searched the full
-test suite for any test asserting on the `"muhurta"` unbuilt-keyword
-REFUSAL path specifically (grepped for `"Muhurta scorer"`, `"not wired to
-Q&A"`, and `route_question(...muhurta...)` calls) and found none. The
-`test_calc_router_stage2.py` "yogini-substitution" comment the task cited
-as evidence is about a DIFFERENT, unrelated prior substitution
-(`ashtakavarga` -> `yogini`, Session 55) -- its existence does not imply a
-muhurta-specific test exists. Reporting this discrepancy directly rather
-than manufacturing a failure to match the prediction, or silently
-pretending it was correct.
+Zero delta, exactly as expected -- no test exercises the live muhurta
+path yet.
 
-## VERIFICATION 2: 12-phrasing layman reachability probe
-
-Standing directive (CLAUDE.md): mandatory after any Stage 2 prompt
-change. Located the most recent committed run of this exact probe via
-`git log` (commit `c93fc44`, "S65 upapada_lagna router wiring +
-reachability probe" -- the task calls this "the S63... baseline"; the
-task's session-numbering and the commit-message numbering appear to have
-drifted relative to each other, same class of discrepancy CLAUDE.md's
-own "Session 56->57 baseline discrepancy" carry-forward already
-documents. Used the most recent actual committed table regardless of the
-label mismatch, since that is the correct pre-edit state to diff
-against.) Re-ran the identical 12 questions, same order, same
-chart_data-only-for-dasha-rows convention (rows 7-8), live OpenAI
-client:
-
-| # | question | baseline (pre-edit, committed) | this run (post-edit) | changed? |
-|---|---|---|---|---|
-| 1 | how do people see me in public | arudha_lagna/high/TIER_1_EXACT | arudha_lagna/high/TIER_1_EXACT | no |
-| 2 | what is my public reputation | arudha_lagna/high/TIER_1_EXACT | arudha_lagna/high/TIER_1_EXACT | no |
-| 3 | will I be famous | None/high/REFUSAL | None/high/REFUSAL | no |
-| 4 | what impression do I make on others | arudha_lagna/high/TIER_1_EXACT | arudha_lagna/high/TIER_1_EXACT | no |
-| 5 | should I change my job this year | career_strength/high/TIER_2_RANGE | career_strength/high/TIER_2_RANGE | no |
-| 6 | is my career going anywhere | career_strength/high/TIER_2_RANGE | career_strength/high/TIER_2_RANGE | no |
-| 7 | what phase of life am I in right now | current_dasha/high/TIER_2_RANGE | current_dasha/high/TIER_2_RANGE | no |
-| 8 | when will my bad time end | current_dasha/high/TIER_2_RANGE | current_dasha/high/TIER_2_RANGE | no |
-| 9 | will my marriage be happy | marriage_compatibility/high/REFUSAL (partner guard) | REFUSAL (partner guard) | no |
-| 10 | are we compatible | marriage_compatibility/high/REFUSAL (partner guard) | REFUSAL (partner guard) | no |
-| 11 | what do the stars say about me | None/high/REFUSAL | None/high/REFUSAL | no |
-| 12 | tell me my future | None/high/REFUSAL | None/high/REFUSAL | no |
-
-**All 12 rows unchanged.** Confirms the muhurta Stage 2 gloss addition
-and keyword wiring did not perturb any other domain's classification.
-Raw per-row output (this run, verbatim):
-
-```
-1 | how do people see me in public | domain=arudha_lagna tier=TIER_1_EXACT confidence=1.000 route=stage2
-2 | what is my public reputation | domain=arudha_lagna tier=TIER_1_EXACT confidence=1.000 route=stage2
-3 | will I be famous | domain=None tier=REFUSAL confidence=0.000 route=stage2 demotion_reason='question not classifiable with confidence'
-4 | what impression do I make on others | domain=arudha_lagna tier=TIER_1_EXACT confidence=1.000 route=stage2
-5 | should I change my job this year | domain=career_strength tier=TIER_2_RANGE confidence=1.000 route=stage2
-6 | is my career going anywhere | domain=career_strength tier=TIER_2_RANGE confidence=1.000 route=stage2
-7 | what phase of life am I in right now | domain=current_dasha tier=TIER_2_RANGE confidence=1.000 route=stage2
-8 | when will my bad time end | domain=current_dasha tier=TIER_2_RANGE confidence=1.000 route=stage2
-9 | will my marriage be happy | domain=None tier=REFUSAL confidence=0.000 route=stage2 demotion_reason='marriage_compatibility requires partner birth data'
-10 | are we compatible | domain=None tier=REFUSAL confidence=0.000 route=stage2 demotion_reason='marriage_compatibility requires partner birth data'
-11 | what do the stars say about me | domain=None tier=REFUSAL confidence=0.000 route=stage2 demotion_reason='question not classifiable with confidence'
-12 | tell me my future | domain=None tier=REFUSAL confidence=0.000 route=stage2 demotion_reason='question not classifiable with confidence'
-```
-
-`diagnostics/calc_router_stage2.log` grew by 12 entries this run
-(gitignored, not committed).
-
-## VERIFICATION 3: live smoke test -- muhurta routing + fail-closed answer_question
-
-```python
-route_question("what is an auspicious muhurta for me this week",
-                has_partner_data=False, chart_data=<sulabh chart>)
-```
-```
-RouteResult:
-  domain: muhurta_window
-  tier: AnswerTier.TIER_3_MUHURTA
-  confidence: 0.6666666666666666
-  demotion_reason: None
-  requires_partner: False
-  route: stage1
-```
-
-Resolved entirely at **Stage 1** -- both "auspicious" and "muhurta"
-match (2/3 = 0.667), clearing the 0.4 floor and the 0.15 margin without
-needing Stage 2 at all.
+## VERIFICATION 2: live e2e smoke test
 
 ```python
 answer_question("what is an auspicious muhurta for me this week", <sulabh chart>)
 ```
 ```
-ValueError: answer_question: router returned unrecognized domain
-'muhurta_window' outside the routable whitelist ['arudha_lagna',
-'av_transit', 'career_strength', 'current_dasha',
-'marriage_compatibility', 'sade_sati', 'upapada_lagna']
+domain: muhurta_window
+tier: AnswerTier.TIER_3_MUHURTA
+route: stage1
+route is not None: True
+sources: ('muhurta_scorer.py',)
+demotion_reason: None
+stub_caveats: ()
+uncertainty_virupa: 0.0   uncertainty_days: 0.0
+summary: {'tier1_window_count': 4, 'earliest_tier1_start': '12 Jul 2026 02:59 UTC'}
+first window: {"start_jd": 2461233.3059375, "end_jd": 2461233.624569149,
+  "start": "11 Jul 2026 19:20 UTC", "end": "12 Jul 2026 02:59 UTC",
+  "tier": "TIER_2", "favorable_count": 1, "warnings": []}
+window count: 12
 ```
 
-Confirmed: fails closed exactly as expected. `orchestrator.py`'s own
-`_VALID_DOMAINS` does not yet admit `"muhurta_window"` -- that sync is
-step 5.
+`route` is stamped (`"stage1"`, not `None`) -- asserted, not just
+observed: `answer.route is not None` printed `True`. Full builder ->
+dispatch -> router -> orchestrator -> formatter chain works end to end,
+live, for the first time this staged rollout.
+
+## VERIFICATION 3: natal identifiers, closing the step-1 verify-at-e2e obligation
+
+```
+lagna_chart["rasi"]: Scorpio -> natal_moon_sign index: 7
+lagna_chart["nakshatra"]: Vishakha -> janma_nakshatra index: 15
+SIGNS[7]: Scorpio   NAKSHATRAS[15]: Vishakha
+```
+
+Confirmed **(7, 15)** = Scorpio/Vishakha, matching the S27 canonical
+values the task cited. Closes step 1's own verify-at-e2e obligation on
+the `lagna_chart` key semantics (`"rasi"`/`"nakshatra"` hold the MOON's
+sign/nakshatra, not the Ascendant's -- see `chart_profile.py`'s
+`_koota_natal_info_from_chart` docstring for the original documented
+precedent this reuses) -- now confirmed live, not just by reading.
+
+## VERIFICATION 4: full golden harness run vs. frozen baseline
+
+```
+python -m agent.eval.golden_harness
+runnable=19 non_runnable_batch=2 match=9 match_stage2=9 design_debt=0 known_gap=1 new_gap=0 error=0
+report: diagnostics/golden_scorecard_20260711_192135.md
+```
+
+Frozen baseline (`golden_scorecard_20260711_112836.md`) expected steady
+state: `match=9/match_stage2=8/known_gap=2/new_gap=0`.
+
+**One delta found: `match_stage2` 8 -> 9 (+1), `known_gap` 2 -> 1 (-1).**
+`match`, `new_gap`, `design_debt`, `error` all unchanged (9, 0, 0, 0).
+`runnable`/`non_runnable_batch` (19/2) inferred unchanged -- the frozen
+baseline file doesn't print an explicit count line for these two, but
+the golden-set row count is unchanged (21, untouched this session) and
+no row's runnability criteria were touched, so a change here would be
+surprising; not independently re-derived beyond that inference.
+
+**Identified the exact row, per CLAUDE.md's "check before treating a
+flip as regression" convention (not fixed, per this task's own
+instruction):**
+
+```
+baseline: | sulabh_dasha_q15 | dasha | TIER_3_MUHURTA | REFUSAL      | stage2 | question not classifiable with confidence | KNOWN_GAP    |
+this run: | sulabh_dasha_q15 | dasha | TIER_3_MUHURTA | TIER_3_MUHURTA | stage2 |                                          | MATCH_STAGE2 |
+```
+
+`sulabh_marriage_q10` (the other frozen-baseline `KNOWN_GAP` row) is
+UNCHANGED -- still `TIER_4_INTERPRETIVE` expected vs. `TIER_1_EXACT`
+actual, `KNOWN_GAP`, exactly as the frozen baseline's own header text
+predicts it should stay regardless of routing outcome (locked V1-scope
+Tier 4 interpretive-synthesis exclusion).
+
+`sulabh_dasha_q15`'s own fixture (`tests/fixtures/golden_qa_sulabh.py`
+line ~541) already carries `"expected_tier": "TIER_3_MUHURTA"` and
+`"expected_techniques": ["muhurta_scorer", "vimshottari"]` -- this row
+was WRITTEN in anticipation of muhurta_window eventually going live, and
+was tracked as `KNOWN_GAP` (actual REFUSAL, since the domain was entirely
+unrouteable before this session's steps 1-5) precisely until that day
+came. Now that muhurta_window is live end-to-end (this step closes the
+last gate), this row's live behavior changed to actually produce
+`TIER_3_MUHURTA` via Stage 2 classification, matching its long-standing
+expectation exactly -- **this reads as the golden set catching up with a
+newly-live domain, not a regression.** Per this task's explicit
+instruction ("report, don't fix"), no fixture/harness edit was made;
+whether to re-ratify this row's category (mirroring the
+`sulabh_arudha_q3_refusal_probe` precedent from Session 63, which
+similarly flipped `REFUSAL`->live-behavior and was re-ratified in a
+LATER, separate, dedicated step) is left to design chat.
 
 ## Not committed
 
-Per constraint: `agent/infra/calc_router.py` and
-`agent/infra/result_formatter.py` (Change B) both remain uncommitted in
-the working tree. Design chat ratifies before any commit -- test repairs
-(if any are ultimately deemed necessary, though Verification 1 found
-none required) land first per the task's own ordering.
+Per constraint: `agent/infra/orchestrator.py` remains uncommitted in the
+working tree. Design chat ratifies before any commit.
