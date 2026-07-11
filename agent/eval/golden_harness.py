@@ -8,9 +8,10 @@ already-built deterministic pipeline (CLAUDE.md V1 scope: LLM-generated
 interpretive Q&A is OUT; this harness never invokes one).
 
 Runnability: a row is RUNNABLE when it is a single question against the
-sulabh chart in one of the four pipeline-whitelisted domains
-(career/marriage/dasha/arudha_lagna). Rows batching multiple probes under
-domain == "refusal_probe" (the R1-R5 / QUEST1-QUEST2 bundles) are
+sulabh chart in one of the five pipeline-whitelisted domains
+(career/marriage/dasha/arudha_lagna/upapada_lagna). Rows batching
+multiple probes under domain == "refusal_probe" (the R1-R5 /
+QUEST1-QUEST2 bundles) are
 NON_RUNNABLE_BATCH -- listed in the report, never executed, per the task
 spec for this session.
 
@@ -100,6 +101,16 @@ _GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN: dict[str, str] = {
     "marriage": "marriage_compatibility",
     "dasha": "current_dasha",
     "arudha_lagna": "arudha_lagna",
+    # "upapada_lagna" added Session 69 -- identity mapping, same as
+    # arudha_lagna above (confirmed by reading calc_router.py's
+    # _route_to_domain(): its upapada_lagna branch returns
+    # RouteResult(domain="upapada_lagna", ...) verbatim, same string in
+    # and out). Dead entry as of this session: no GOLDEN_QA row's
+    # `domain` field is "upapada_lagna" yet (sulabh_arudha_q3_refusal_probe
+    # still carries domain="arudha_lagna" per its own S67 NOTE comment,
+    # deliberately deferred) -- flipping that row's domain field is a
+    # separate, later prompt.
+    "upapada_lagna": "upapada_lagna",
 }
 
 # Canonical, verified chart-construction data (see tests/infra/test_orchestrator_e2e.py

@@ -65,6 +65,7 @@ _VALID_DOMAINS = {
     "sade_sati",
     "av_transit",
     "arudha_lagna",
+    "upapada_lagna",
 }
 # "arudha_lagna" added Session 59 -- closes the av_transit-precedent staged
 # rollout (router S58 -> formatter S59 -> chart_profile.py's own dispatch/
@@ -77,6 +78,16 @@ _VALID_DOMAINS = {
 # _format_arudha_lagna() branch also sets demotion_reason=None (payload-
 # property principle, same as current_dasha/sade_sati/av_transit), so the
 # merge below is a no-op passthrough -- not preemptively wiring anything.
+#
+# "upapada_lagna" added Session 66 -- same staged rollout, same gate, one
+# step later (router S65 -> this gate, the last one; formatter/chart_profile
+# builder + dispatch already landed S62/S64). SENSITIVE_TO chart_profile.py's
+# own _VALID_DOMAINS constant (see incident note above): both now list the
+# same 7 domains -- keep in sync by hand. _merge_router_demotion() needs NO
+# change for this domain either: calc_router.py emits demotion_reason=None
+# for upapada_lagna and result_formatter.py's _format_upapada() branch also
+# sets demotion_reason=None (same payload-property principle), so the merge
+# below is a no-op passthrough here too.
 
 # DEMOTION LOCK (Session 55, av_transit): route_question() will set
 # demotion_reason=None for this domain once router wiring lands --
@@ -153,7 +164,13 @@ def answer_question(
     pass-through) that follows the identical pattern for "av_transit" --
     the two conditionals are independent and mutually exclusive (a
     question can only ever route to one domain), not a chain of
-    special cases growing more entangled over time.
+    special cases growing more entangled over time. "arudha_lagna" (Session
+    59) and "upapada_lagna" (Session 66) join this pass-through-unchanged
+    set too -- both is_marriage and is_av_transit evaluate False for
+    either domain, confirmed by reading (not assumed): neither introduces
+    a new special-cased branch of its own, so both fall through
+    is_marriage/is_av_transit's existing False/None paths exactly like
+    "sade_sati"/"career_strength"/"current_dasha" already do.
     """
     if partner_chart_data is not None and primary_role is None:
         raise ValueError(

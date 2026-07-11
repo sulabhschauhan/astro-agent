@@ -1,3 +1,80 @@
+# S70: q3 domain flip + new frozen-baseline scorecard header
+
+ONE SOURCE FILE: `tests/fixtures/golden_qa_sulabh.py`. Plus a new
+diagnostics scorecard file (harness output, not a source edit).
+
+## Edit applied
+
+`sulabh_arudha_q3_refusal_probe`: `domain` field `"arudha_lagna"` ->
+`"upapada_lagna"` -- semantic correction now that the S69 mapping entry
+exists (row was already runnable/MATCH before this; the flip corrects
+the label, doesn't change routing). Row `id` left unchanged (renaming
+would break scorecard-history correlation) -- added a one-line NOTE
+comment recording that the "refusal_probe" suffix is historical
+(pre-S63 wiring), plus a second NOTE explaining the domain-field
+history (S67 stopgap -> S69 mapping added -> S70 flip).
+
+## Verification
+
+Fixture import:
+```
+total rows: 21
+q3 domain: upapada_lagna
+IMPORT_OK
+```
+
+Full suite:
+```
+3127 passed, 3 skipped, 1 warning in 84.21s
+```
+Exact match, zero delta.
+
+Golden harness, one run:
+```
+runnable=19 non_runnable_batch=2 match=9 match_stage2=8 design_debt=0 known_gap=2 new_gap=0 error=0
+report: diagnostics/golden_scorecard_20260711_112836.md
+```
+Exact match to the task's stated expectation. q3's row, verbatim:
+```
+sulabh_arudha_q3_refusal_probe | upapada_lagna | TIER_1_EXACT | TIER_1_EXACT | stage1 |  | MATCH
+```
+Diffed every row against the S69 run's report
+(`golden_scorecard_20260711_111937.md`) -- only q3's `domain` column
+text changed (`arudha_lagna` -> `upapada_lagna`); tier/route/category
+identical. No other row moved.
+
+## New frozen-baseline header
+
+Prepended a supersession header to
+`diagnostics/golden_scorecard_20260711_112836.md`, mirroring
+`golden_scorecard_20260711_045928.md`'s own S61 header convention:
+declares this the new comparison baseline (supersedes
+`golden_scorecard_20260711_045928.md`), states the expected steady
+state (`match=9/match_stage2=8/known_gap=2/new_gap=0`), and records
+both count-prediction slips for history in an explicit errata section:
+
+1. Design chat's S67 prediction of `match_stage2=9` -- wrong because it
+   didn't account for q3 having already exited the Stage-2-classified
+   set one run earlier (S66), once the S65 Stage 1 keyword bigram gave
+   this question a deterministic match.
+2. This session's own S67 diagnostics write-up framed "prior" as the
+   already-degraded S66 value (8, "stays unchanged"), when the TRUE
+   frozen-baseline value (the file this one supersedes) was **9** --
+   the real, permanent movement is **9 -> 8**, driven entirely by S65's
+   bigram wiring, not by anything in S67 itself.
+
+Both corrected in the new baseline's own header for future reconciliation.
+
+## Not committed
+
+Per task instruction: "e2e suite next, then everything bundles." This
+fixture edit, the new scorecard file, and this diagnostics entry all
+remain uncommitted, alongside this session's other pending work
+(`calc_router.py`/`orchestrator.py`/`chart_profile.py`/
+`result_formatter.py`/`golden_harness.py`).
+
+---
+
 # S69: harness whitelist admits upapada_lagna (golden_harness.py only)
 
 ONE FILE: `agent/eval/golden_harness.py`.

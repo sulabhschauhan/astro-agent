@@ -361,7 +361,25 @@ GOLDEN_QA: list[dict] = [
                         "here. The interpretive synthesis itself is V1-scope-OUT: "
                         "TIER_4_INTERPRETIVE is locked OUT for V1 (CLAUDE.md V1 "
                         "scope) -- AstroSage paragraph + palm are the interpretive "
-                        "surface, not LLM-generated Q&A.",
+                        "surface, not LLM-generated Q&A. UPDATE (S67): as of the "
+                        "S65 Stage 2 system prompt expansion (the upapada_lagna "
+                        "gloss's added \"couple compatibility... is "
+                        "marriage_compatibility\" negative-instruction sentence), "
+                        "this question's live routing behavior shifted from "
+                        "Stage-2-medium/REFUSAL to a routed "
+                        "marriage_compatibility answer -- ROUTES (S67 probe: 5/5 "
+                        "live runs, all confidence=high/TIER_1_EXACT, with "
+                        "partner data present). Ruled in design chat: a correct-"
+                        "classification improvement, not a regression -- this is "
+                        "a genuine couple-compatibility question, partner chart "
+                        "data is supplied, and marriage_compatibility is a wired "
+                        "domain, so routing it is the right behavior. "
+                        "expected_tier/KNOWN_GAP are UNCHANGED by this: this row "
+                        "was always going to mismatch expected_tier regardless of "
+                        "routing outcome (REFUSAL and TIER_1_EXACT both != "
+                        "TIER_4_INTERPRETIVE) -- the KNOWN_GAP continues to track "
+                        "only the unbuilt Tier 4 interpretive-synthesis depth "
+                        "(V1-scope-OUT), never the routing question.",
             },
         ],
         "v1_answerable": False,
@@ -708,46 +726,62 @@ GOLDEN_QA: list[dict] = [
     },
     {
         "id": "sulabh_arudha_q3_refusal_probe",
+        # NOTE (S70): the "arudha_q3_refusal_probe" id is HISTORICAL --
+        # kept as-is (not renamed to something upapada-flavored) because
+        # renaming a golden-set id breaks scorecard-history correlation
+        # across every prior diagnostics/golden_scorecard_*.md report
+        # this row appears in. The id predates S63's Upapada Lagna wiring
+        # (when this row genuinely was an unwired-construct refusal
+        # probe, per its own original S59/S60 baseline_answer_summary);
+        # it no longer describes current behavior (domain below is now
+        # "upapada_lagna", expected_tier is TIER_1_EXACT, not REFUSAL).
         "chart": "sulabh",
-        "domain": "arudha_lagna",
+        # NOTE (S70): domain flipped "arudha_lagna" -> "upapada_lagna" --
+        # semantic correction, not a routing change. golden_harness.py's
+        # _GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN gained the
+        # "upapada_lagna": "upapada_lagna" identity mapping last prompt
+        # (S69); this was the row that mapping was added FOR. Confirmed
+        # (S69 diagnostics) this mapping keeps the row RUNNABLE, not
+        # NON_RUNNABLE_BATCH -- the S67-era concern that motivated leaving
+        # this field as "arudha_lagna" no longer applies now that the
+        # mapping exists.
+        "domain": "upapada_lagna",
         "question": "what does my upapada lagna say about my marriage",
-        "baseline_source": "s59_ratified_oracle",
+        "baseline_source": "s57_jhora_and_s63_chart_profile_smoke",
         "baseline_answer_summary": (
-            "Upapada Lagna is built at calc level (annual/jaimini karakas "
-            "pipeline) but is NOT a wired Q&A domain -- no _STEM_MAP entry, no "
-            "built-module fastpath. Router behavior on this probe is "
-            "unmeasured; do not guess REFUSAL vs any other tier ahead of the "
-            "follow-up harness run."
+            "Upapada Lagna is wired end-to-end as of S63 (chart_profile.py's "
+            "build_upapada_profile()), S64 (result_formatter.py's "
+            "_format_upapada()), S65 (calc_router.py Stage 1 keyword bigram "
+            "+ Stage 2 gloss), and S66 (orchestrator.py's _VALID_DOMAINS). "
+            "This question resolves via Stage 1's deterministic "
+            "\"upapada lagna\" bigram match (measured S65: 2 keyword hits, "
+            "0.667 score, clears both floor and margin without ever "
+            "invoking Stage 2)."
         ),
         "claims": [
             {
-                "claim": "Router disposition for an unwired calc-level-only "
-                         "construct",
+                "claim": "Upapada Lagna = Aquarius (Ketu primary via cascade "
+                         "step 2)",
                 "verdict": "MATCH",
-                "note": "Ratified S60 from golden_scorecard_20260710_184703.md: "
-                        "observed actual tier is REFUSAL. Produced by the Stage "
-                        "2 low-confidence fallback (\"question not classifiable "
-                        "with confidence\"), NOT deterministic Stage 1 keyword "
-                        "scoring -- category posture is MATCH_STAGE2, monitored "
-                        "not asserted, same as the ledger's other Stage-2-routed "
-                        "rows. MONITORED RISK: a future run where Stage 2 "
-                        "instead classifies this question as "
-                        "marriage_compatibility at high confidence is expected "
-                        "variance by construction (Stage 2 is non-deterministic "
-                        "even at temperature=0) -- but a SUBSTANTIVE answer "
-                        "resulting from that flip is a product-quality signal, "
-                        "not benign variance: Upapada Lagna is not Ashtakoot "
-                        "marriage compatibility, so an answered (non-refusal) "
-                        "response would misrepresent an unwired calculation as "
-                        "the wired one. If that flip is ever observed, escalate "
-                        "to design chat -- do not silently reclassify this row "
-                        "or absorb it into _KNOWN_GAPS/_DESIGN_DEBT without "
-                        "review.",
+                "note": "Two-source ratification. (1) S57 JHora capture: "
+                        "dual-confirmed render + blind PVR derivation, full "
+                        "§15.5.1 co-lord cascade (step-1 Mars/Ketu tie, "
+                        "step-2 Ketu wins via Jupiter's rasi aspect, "
+                        "7th-from-Scorpio exception) -> Aquarius. (2) S63 "
+                        "chart_profile.py smoke test: "
+                        "upapada_sign=\"Aquarius\", lord=\"Ketu\", "
+                        "co_lord_deciding_step=\"step_2\" -- exact match. The "
+                        "pipeline validates the FULL cascade path end-to-end, "
+                        "not just the Aquarius endpoint: an implementation "
+                        "that landed on Aquarius via a different (wrong) "
+                        "co-lord resolution would still fail this claim, "
+                        "since co_lord_deciding_step/lord are asserted too, "
+                        "not just the sign.",
             },
         ],
-        "v1_answerable": False,
-        "expected_tier": "REFUSAL",
-        "expected_techniques": ["arudha_lagna"],
-        "adjudication": "pending_jhora",
+        "v1_answerable": True,
+        "expected_tier": "TIER_1_EXACT",
+        "expected_techniques": ["upapada_lagna"],
+        "adjudication": "ratified_s67",
     },
 ]

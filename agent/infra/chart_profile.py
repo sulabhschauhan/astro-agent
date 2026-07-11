@@ -83,6 +83,15 @@ _VALID_DOMAINS = {
     # orchestrator.answer_question()'s own defensive ValueError, not a
     # silent misroute.
     "arudha_lagna",
+    # upapada_lagna (Session 62): same staged-rollout precedent as
+    # arudha_lagna above -- this entry lands in the SAME change as
+    # build_domain_profile()'s own upapada_lagna dispatch branch below.
+    # Neither orchestrator.py's own _VALID_DOMAINS nor calc_router.py
+    # admit "upapada_lagna" yet -- that sync is a separate, later prompt;
+    # until it lands, a live "upapada_lagna" route fails closed via
+    # orchestrator.answer_question()'s own defensive ValueError, not a
+    # silent misroute.
+    "upapada_lagna",
 }
 
 # career_strength's compute_bhava_bala_totals() call needs planet_lons
@@ -807,6 +816,22 @@ def build_domain_profile(
         # source.
         uncertainty_days = 0.0
 
+    elif domain == "upapada_lagna":
+        # Session 62: build_upapada_profile() is a purely natal
+        # calculation, same T1/no-stub/no-virupa-envelope convention as
+        # arudha_lagna above (identical "tier = payload property"
+        # reasoning -- see this function's module docstring). Same
+        # PAYLOAD PASSTHROUGH posture as arudha_lagna's branch above too
+        # -- reference that branch's own comment rather than duplicating
+        # it here: the returned dict is assigned to `payload` UNMODIFIED,
+        # including its "tier"/"sources" meta keys, for the same reasons.
+        payload = build_upapada_profile(chart_data)
+        stub_caveats = ()
+        uncertainty_virupa = 0.0
+        # Same rationale as arudha_lagna's uncertainty_days=0.0 above:
+        # payload structurally carries no dated claims.
+        uncertainty_days = 0.0
+
     else:  # sade_sati (Session 50/P7.2a) -- NO mahadasha/antardasha fields
         # here; this is a payload-property-consistent T1 sub-path, distinct
         # from current_dasha's always-T2 payload (module docstring above).
@@ -872,19 +897,15 @@ def build_domain_profile(
     )
 
 
-def build_arudha_lagna_profile(chart_data: dict) -> dict:
-    """Bridge calculate_chart() output -> the Arudha Lagna (AL, house 1)
+def _build_bhava_pada_profile(chart_data: dict, house_num: int, sign_key: str) -> dict:
+    """Shared plumbing: bridge calculate_chart() output -> one house's
     entry of jaimini.padas.compute_bhava_padas()'s 12-house result.
 
-    Wired into build_domain_profile()'s "arudha_lagna" branch and this
-    file's own _VALID_DOMAINS as of Session 59 (calc_router.py's Stage 1/
-    Stage 2/route branch already landed Session 58; result_formatter.py's
-    _format_arudha_lagna() already landed Session 59). orchestrator.py's
-    own _VALID_DOMAINS does NOT yet admit "arudha_lagna" -- that sync is a
-    separate, later prompt, same staged-rollout precedent as av_transit's
-    router-then-orchestrator split; until it lands, a live "arudha_lagna"
-    route fails closed via orchestrator.answer_question()'s own defensive
-    ValueError, not a silent misroute.
+    Extracted Session 62 from build_arudha_lagna_profile() (house_num=1,
+    "arudha_sign") so build_upapada_profile() (house_num=12,
+    "upapada_sign") can share it byte-identically -- both callers'
+    behavior/return-shape contract is unchanged by this extraction; see
+    each public wrapper's own docstring for its house-specific framing.
 
     lagna_sign comes from chart_data["lagna_chart"]["ascendant"] (whole-sign
     house 1) -- NOT "rasi", which holds the MOON sign in that same dict
@@ -898,16 +919,20 @@ def build_arudha_lagna_profile(chart_data: dict) -> dict:
     compute_bhava_padas()/compute_arudha_pada() require -- Rahu via
     swe.MEAN_NODE, Ketu derived as Rahu + 180 (see _JAIMINI_PLANET_SWE_IDS).
 
-    Only the house-1 (AL) BhavaPada is extracted from the 12-house
+    Only the house_num-th BhavaPada is extracted from the 12-house
     BhavaPadaSet; compute_bhava_padas()'s own ordering guarantee
     (house_num 1..12 in order, verified by test_jaimini_padas.py's own
-    test_all_12_houses_match_book) means house 1 is always padas[0].
+    test_all_12_houses_match_book) means house_num is always
+    padas[house_num - 1].
 
     Args:
         chart_data: calculate_chart() output for a single native.
+        house_num: 1..12, which house's BhavaPada to extract.
+        sign_key: the payload dict key under which the extracted pada's
+            sign is returned (e.g. "arudha_sign", "upapada_sign").
 
     Returns:
-        {"arudha_sign": str, "lagna_sign": str, "lord": str,
+        {sign_key: str, "lagna_sign": str, "lord": str,
          "co_lord_deciding_step": str | None, "tier": "TIER_1_EXACT",
          "sources": ("padas.py",)}
 
@@ -930,8 +955,8 @@ def build_arudha_lagna_profile(chart_data: dict) -> dict:
         }
     except ephemeris.EphemerisError as exc:
         raise RuntimeError(
-            f"helpers.ephemeris.sidereal_longitude failed (arudha_lagna "
-            f"planet_longitudes): {exc}"
+            f"helpers.ephemeris.sidereal_longitude failed (bhava_pada "
+            f"planet_longitudes, house_num={house_num}): {exc}"
         ) from exc
     planet_longitudes["Ketu"] = (planet_longitudes["Rahu"] + 180) % 360
 
@@ -942,13 +967,97 @@ def build_arudha_lagna_profile(chart_data: dict) -> dict:
     # ValueError (bad lagna_sign, or D2/D6 co-lord fail-closed for a
     # Scorpio/Aquarius Lagna) propagates unmodified -- no try/except here.
     bhava_padas = compute_bhava_padas(lagna_sign, planet_longitudes)
-    house_1 = bhava_padas.padas[0]
+    house = bhava_padas.padas[house_num - 1]
 
     return {
-        "arudha_sign": house_1.result.arudha_sign,
+        sign_key: house.result.arudha_sign,
         "lagna_sign": bhava_padas.lagna_sign,
-        "lord": house_1.result.lord,
-        "co_lord_deciding_step": house_1.result.co_lord_deciding_step,
+        "lord": house.result.lord,
+        "co_lord_deciding_step": house.result.co_lord_deciding_step,
         "tier": "TIER_1_EXACT",
         "sources": ("padas.py",),
     }
+
+
+def build_arudha_lagna_profile(chart_data: dict) -> dict:
+    """Bridge calculate_chart() output -> the Arudha Lagna (AL, house 1)
+    entry of jaimini.padas.compute_bhava_padas()'s 12-house result.
+
+    Wired into build_domain_profile()'s "arudha_lagna" branch and this
+    file's own _VALID_DOMAINS as of Session 59 (calc_router.py's Stage 1/
+    Stage 2/route branch already landed Session 58; result_formatter.py's
+    _format_arudha_lagna() already landed Session 59). orchestrator.py's
+    own _VALID_DOMAINS does NOT yet admit "arudha_lagna" -- that sync is a
+    separate, later prompt, same staged-rollout precedent as av_transit's
+    router-then-orchestrator split; until it lands, a live "arudha_lagna"
+    route fails closed via orchestrator.answer_question()'s own defensive
+    ValueError, not a silent misroute.
+
+    Thin wrapper (Session 62) over _build_bhava_pada_profile(house_num=1,
+    sign_key="arudha_sign") -- see that function's own docstring for the
+    shared planet-longitude/compute_bhava_padas() plumbing. This wrapper's
+    public signature, docstring contract, and return shape are unchanged
+    by the extraction.
+
+    Args:
+        chart_data: calculate_chart() output for a single native.
+
+    Returns:
+        {"arudha_sign": str, "lagna_sign": str, "lord": str,
+         "co_lord_deciding_step": str | None, "tier": "TIER_1_EXACT",
+         "sources": ("padas.py",)}
+
+    Raises:
+        RuntimeError: helpers.ephemeris.sidereal_longitude failed for any
+            of the 8 directly-computed planets (Ketu is derived, not
+            separately queried).
+        ValueError: propagated UNMODIFIED from compute_bhava_padas() --
+            lagna_sign not a canonical rasi, or (for a Scorpio/Aquarius
+            Lagna) strength.py's D2 (both co-lords resident) / D6 (exact
+            Step-5(b) tie) fail-closed cases. Not caught or reinterpreted
+            here, matching arudha.py/strength.py's own precedent.
+    """
+    return _build_bhava_pada_profile(chart_data, house_num=1, sign_key="arudha_sign")
+
+
+def build_upapada_profile(chart_data: dict) -> dict:
+    """Bridge calculate_chart() output -> the Upapada Lagna (UL, house 12)
+    entry of jaimini.padas.compute_bhava_padas()'s 12-house result.
+
+    UL = the bhava pada of house 12, per PVR Ch.9 Section 9.2 (printed
+    p.86-87 / PDF p.98-99): "arudha pada of 12th house is denoted as UL
+    (upapada lagna)" -- see jaimini/padas.py's own module CITATION for
+    the verbatim passage and full labeling scheme (padas.py's own "UL"
+    label, `_bhava_pada_label()`).
+
+    UL is a SINGLE-CHART significator (marriage/spouse significations
+    read from the native's own chart alone) -- explicitly NOT Ashtakoot
+    two-chart compatibility (compatibility/ashtakoot.py's
+    compute_ashtakoot_compatibility(), this file's marriage_compatibility
+    domain). Do not conflate the two when this domain is wired into a
+    router/formatter in a future prompt.
+
+    Thin wrapper (Session 62) over _build_bhava_pada_profile(house_num=12,
+    sign_key="upapada_sign") -- see that function's own docstring for the
+    shared planet-longitude/compute_bhava_padas() plumbing, same pattern
+    as build_arudha_lagna_profile().
+
+    Args:
+        chart_data: calculate_chart() output for a single native.
+
+    Returns:
+        {"upapada_sign": str, "lagna_sign": str, "lord": str,
+         "co_lord_deciding_step": str | None, "tier": "TIER_1_EXACT",
+         "sources": ("padas.py",)}
+
+    Raises:
+        RuntimeError: helpers.ephemeris.sidereal_longitude failed for any
+            of the 8 directly-computed planets (Ketu is derived, not
+            separately queried).
+        ValueError: propagated UNMODIFIED from compute_bhava_padas() --
+            lagna_sign not a canonical rasi, or (for a Scorpio/Aquarius
+            Lagna) strength.py's D2 (both co-lords resident) / D6 (exact
+            Step-5(b) tie) fail-closed cases. Not caught or reinterpreted
+            here, matching arudha.py/strength.py's own precedent.
+    """
+    return _build_bhava_pada_profile(chart_data, house_num=12, sign_key="upapada_sign")

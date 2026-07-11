@@ -91,12 +91,31 @@ _ARUDHA_LAGNA_KEYWORDS: tuple[str, ...] = (
     "arudha lagna", "arudha pada", "public image", "public perception",
 )
 
+# upapada_lagna (Session 65 router wiring). A single unambiguous Sanskrit
+# term ("upapada") plus its natural bigram ("upapada lagna") -- zero
+# collision risk with any other domain's keywords. Deliberately narrower
+# than arudha_lagna's keyword set above: NO layman phrasing is added here
+# (no "spouse image"/"marriage indicator"-style synonym) -- layman
+# reachability is Stage 2's job by design, per the Session 61 Stage 2
+# layman-intent prompt expansion convergence lock (CLAUDE.md Locked
+# Decisions: "converging Stage 2's classification quality is the locked
+# remedy path, router-threshold tuning stays gated on Answer Scorecard
+# evidence"). The bigram entry lets a full "upapada lagna" mention clear
+# both list entries (2 hits, same >=2-hits-to-route mechanics documented
+# on _CONFIDENCE_FLOOR above) while a bare "upapada" mention alone (1 hit)
+# still falls through to Stage 2, same as arudha_lagna's own keyword list
+# behavior for a bare technical-term mention.
+_UPAPADA_LAGNA_KEYWORDS: tuple[str, ...] = (
+    "upapada", "upapada lagna",
+)
+
 _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "marriage_compatibility": _MARRIAGE_KEYWORDS,
     "career_strength": _CAREER_KEYWORDS,
     "current_dasha": _DASHA_KEYWORDS,
     "av_transit": _AV_TRANSIT_KEYWORDS,
     "arudha_lagna": _ARUDHA_LAGNA_KEYWORDS,
+    "upapada_lagna": _UPAPADA_LAGNA_KEYWORDS,
 }
 
 # Calculation modules referenced in a question but NOT in the routable
@@ -257,6 +276,7 @@ _STAGE2_VALID_DOMAINS: frozenset[str] = frozenset(
         "sade_sati",
         "av_transit",
         "arudha_lagna",
+        "upapada_lagna",
         "none",
     }
 )
@@ -282,7 +302,7 @@ _STAGE2_LOG_PATH = Path(__file__).resolve().parents[2] / "diagnostics" / "calc_r
 _STAGE2_SYSTEM_PROMPT = """\
 You are a routing classifier for a Vedic astrology calculation Q&A pipeline.
 
-This pipeline can ONLY answer questions in exactly 6 domains:
+This pipeline can ONLY answer questions in exactly 7 domains:
 - marriage_compatibility: Ashtakoot/Guna Milan, Mangal Dosha, spouse or \
 partner compatibility. Layman: relationship happiness, partner match. \
 Example: "will my marriage be happy".
@@ -309,9 +329,19 @@ how one is seen by others (Jaimini Arudha Lagna). Layman: how others \
 perceive the person publicly -- reputation, public image, impression made \
 on others. Examples: "how do people see me in public", "what is my public \
 reputation", "what impression do I make on others".
+- upapada_lagna: Jaimini Upapada Lagna (UL) -- the bhava pada of the \
+12th house, a SINGLE-CHART marriage/spouse significator read from ONE \
+person's chart alone. Layman: what the person's OWN chart suggests \
+about their spouse/marriage, with no second person's chart involved. \
+An explicit mention of "upapada" or "UL" routes here EVEN IF the \
+question also mentions marriage. A question about matching TWO \
+people's charts, couple compatibility, or "are we compatible" is \
+marriage_compatibility, NEVER upapada_lagna, regardless of any Jaimini \
+term present. Examples: "what does my upapada lagna say about my \
+marriage", "what is my upapada".
 
 Classify the question into exactly one of these domains, or "none" if it
-does not clearly ask about one of these 6 things (for example: health,
+does not clearly ask about one of these 7 things (for example: health,
 travel, gemstones, lucky numbers, or any other topic).
 
 Fortune-telling requests with no computable basis in this pipeline -- \
@@ -337,7 +367,7 @@ _STAGE2_TOOL_SCHEMA = {
         # alongside the arudha_lagna wiring, not a drive-by unrelated change.
         "description": (
             "Classify a Vedic astrology question into one of the pipeline's "
-            "6 routable domains, or none."
+            "7 routable domains, or none."
         ),
         "parameters": {
             "type": "object",
@@ -653,6 +683,31 @@ def _route_to_domain(
         # staged rollout.
         return RouteResult(
             domain="arudha_lagna",
+            tier=AnswerTier.TIER_1_EXACT,
+            confidence=confidence,
+            demotion_reason=None,
+            requires_partner=False,
+        )
+
+    if domain == "upapada_lagna":
+        # T1, no demotion, no partner -- mirrors arudha_lagna's branch
+        # exactly (Session 65): chart_profile.py's build_upapada_profile()
+        # payload docstring states tier="TIER_1_EXACT" (single
+        # deterministic UL sign/lord, no uncertainty envelope), and it's a
+        # SINGLE-CHART significator, same as arudha_lagna, so
+        # requires_partner=False -- never conflate with
+        # marriage_compatibility's has_partner_data hard guard above. This
+        # branch exists so Stage 1's fallthrough never mislabels an
+        # upapada_lagna keyword hit as current_dasha (the unconditional
+        # final block below returns a hardcoded "current_dasha" literal
+        # for ANY unhandled domain) -- same "silent mis-route" trap
+        # arudha_lagna's own branch comment documents above.
+        # orchestrator.py's own _VALID_DOMAINS does NOT yet admit
+        # "upapada_lagna" -- until that sync lands, a question routed here
+        # will fail closed with orchestrator's defensive ValueError, same
+        # staged-rollout precedent as arudha_lagna's Session 58 landing.
+        return RouteResult(
+            domain="upapada_lagna",
             tier=AnswerTier.TIER_1_EXACT,
             confidence=confidence,
             demotion_reason=None,

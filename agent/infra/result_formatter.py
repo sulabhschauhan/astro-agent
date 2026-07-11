@@ -154,14 +154,20 @@ _TIMING_ENRICHMENT_RESOLUTION_NOTE = (
 # to key on, so those fall through to the generic branch below by design,
 # not by omission.
 #
-# Domain list in the "not classifiable" message is hand-written here (not
+# SENSITIVE_TO calc_router.py's own _STAGE2_VALID_DOMAINS -- this guard now
+# covers BOTH user-facing topic-list sites below: _REFUSAL_USER_MESSAGES's
+# "not classifiable" message AND _GENERIC_REFUSAL_MESSAGE (Session 67 fires
+# the Session 62 carry-forward that flagged this comment as guarding only
+# the dict). Domain lists in both messages are hand-written here (not
 # imported) from calc_router.py's own _STAGE2_VALID_DOMAINS as read at the
 # time this was written: {marriage_compatibility, career_strength,
-# current_dasha, sade_sati, av_transit, arudha_lagna} (frozenset minus the
-# "none" sentinel) -- SENSITIVE_TO that set: if a future domain is added to
-# or removed from _STAGE2_VALID_DOMAINS, this message must be re-checked for
-# drift, same obligation as _SADE_SATI_UNKNOWN_BOUNDARY's SENSITIVE_TO note
-# above.
+# current_dasha, sade_sati, av_transit, arudha_lagna, upapada_lagna}
+# (frozenset minus the "none" sentinel) -- SENSITIVE_TO that set: if a
+# future domain is added to or removed from _STAGE2_VALID_DOMAINS, BOTH
+# messages must be re-checked for drift, same obligation as
+# _SADE_SATI_UNKNOWN_BOUNDARY's SENSITIVE_TO note above. The two lists are
+# independently worded by design (each message has its own voice/flow) --
+# keep their DOMAIN SET in sync, not their exact phrasing.
 _REFUSAL_USER_MESSAGES: dict[str, str] = {
     "marriage_compatibility requires partner birth data": (
         "To check marriage compatibility, I also need your partner's birth "
@@ -174,18 +180,22 @@ _REFUSAL_USER_MESSAGES: dict[str, str] = {
         "compatibility, career strength, the life period (dasha) you're "
         "currently in, Sade Sati (Saturn's roughly 7.5-year transit around "
         "your Moon sign), how a specific planet's transit is playing out "
-        "right now, and your public image/reputation."
+        "right now, your public image/reputation, and your Upapada Lagna "
+        "(a marriage indicator read from your own chart)."
     ),
 }
 
 # Generic fallback for any demotion_reason not in _REFUSAL_USER_MESSAGES
 # above (None, or one of calc_router.py's interpolated unbuilt-module/
-# out-of-scope strings) -- fail-closed, must never KeyError.
+# out-of-scope strings) -- fail-closed, must never KeyError. SENSITIVE_TO
+# calc_router.py's own _STAGE2_VALID_DOMAINS -- see the guard comment above
+# _REFUSAL_USER_MESSAGES, which covers this site too.
 _GENERIC_REFUSAL_MESSAGE = (
     "I'm not able to answer that confidently. Could you try rephrasing "
     "your question, or ask about marriage compatibility, career strength, "
     "your current dasha, Sade Sati (Saturn's roughly 7.5-year transit "
-    "around your Moon sign), transit timing, or your public image?"
+    "around your Moon sign), transit timing, your public image, or your "
+    "Upapada Lagna (a marriage indicator read from your own chart)?"
 )
 
 
@@ -203,6 +213,8 @@ def format_answer(profile: DomainChartProfile) -> DomainAnswer:
         return _format_av_transit(profile)
     if profile.domain == "arudha_lagna":
         return _format_arudha_lagna(profile)
+    if profile.domain == "upapada_lagna":
+        return _format_upapada(profile)
     raise ValueError(f"result_formatter: unknown domain {profile.domain!r}")
 
 
@@ -616,6 +628,56 @@ def _format_arudha_lagna(profile: DomainChartProfile) -> DomainAnswer:
     """
     answer_payload = {
         "arudha_sign": profile.payload["arudha_sign"],
+        "lagna_sign": profile.payload["lagna_sign"],
+        "lord": profile.payload["lord"],
+        "co_lord_deciding_step": profile.payload["co_lord_deciding_step"],
+    }
+
+    return DomainAnswer(
+        domain=profile.domain,
+        tier=AnswerTier.TIER_1_EXACT,
+        answer_payload=answer_payload,
+        stub_caveats=profile.stub_caveats,
+        uncertainty_virupa=profile.uncertainty_virupa,
+        demotion_reason=None,
+        sources=("padas.py",),
+        uncertainty_days=0.0,
+    )
+
+
+def _format_upapada(profile: DomainChartProfile) -> DomainAnswer:
+    """Always TIER_1_EXACT, always demotion_reason=None -- mirrors
+    _format_arudha_lagna() above field-for-field (chart_profile.py's
+    build_upapada_profile() carries the identical no-dated-claims payload
+    shape, same "tier = payload property" reasoning), with
+    "upapada_sign" swapped in for "arudha_sign".
+
+    UL (Upapada Lagna) = the bhava pada of house 12 (see
+    jaimini/padas.py's own module CITATION, PVR Ch.9 Section 9.2) -- a
+    SINGLE-CHART marriage/spouse significator read from the native's own
+    chart alone. This is NOT _format_marriage()'s Ashtakoot two-chart
+    compatibility output above (compute_ashtakoot_compatibility() over a
+    pair of charts) -- the two branches answer structurally different
+    questions and must never be confused by a reader of this file.
+
+    UNREACHABLE VIA ANY LIVE ROUTER PATH as of this branch landing: same
+    staged-rollout precedent as _format_arudha_lagna()'s Session 59
+    landing above -- build_upapada_profile() is wired into
+    build_domain_profile()'s dispatch (chart_profile.py, Session 62), but
+    orchestrator.py's _VALID_DOMAINS and calc_router.py do not yet admit
+    "upapada_lagna"; this branch is dead code until that separate, later
+    wiring lands.
+
+    sources=("padas.py",) is hardcoded here, NOT read from
+    profile.payload["sources"] -- matches _format_arudha_lagna()'s own
+    convention (formatter-local literal, never copied from the payload).
+
+    Missing payload keys are NOT defended against here (existing module
+    convention, see _format_arudha_lagna above): direct dict indexing
+    raises KeyError with the offending key name, never a partial render.
+    """
+    answer_payload = {
+        "upapada_sign": profile.payload["upapada_sign"],
         "lagna_sign": profile.payload["lagna_sign"],
         "lord": profile.payload["lord"],
         "co_lord_deciding_step": profile.payload["co_lord_deciding_step"],
