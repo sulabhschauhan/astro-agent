@@ -1,3 +1,64 @@
+# S64: upapada_lagna formatter branch (result_formatter.py only)
+
+Added `_format_upapada(profile)` mirroring `_format_arudha_lagna()`
+field-for-field (`upapada_sign` swapped in for `arudha_sign`;
+`answer_payload` keys `upapada_sign`/`lagna_sign`/`lord`/
+`co_lord_deciding_step`, direct dict indexing, no defense; tier
+hardcoded `TIER_1_EXACT`; `sources=("padas.py",)` formatter-local
+literal, not read from `profile.payload["sources"]`;
+`uncertainty_virupa`/`uncertainty_days` passed through/hardcoded 0.0,
+same as arudha's branch). Docstring explicitly distinguishes UL
+(single-chart, house-12 bhava pada) from `_format_marriage()`'s
+Ashtakoot two-chart output. Wired `format_answer()`'s dispatch for
+domain `"upapada_lagna"`. Did NOT touch `_REFUSAL_USER_MESSAGES` /
+`_GENERIC_REFUSAL_MESSAGE` this prompt -- that re-sync carry-forward
+fires at the router prompt, when the domain becomes reachable; adding
+it to user-facing lists while unroutable would advertise a dead
+feature. No test files touched this prompt.
+
+## Full suite
+
+```
+3127 passed, 3 skipped, 1 warning in 89.07s
+```
+
+Unchanged from the prior baseline -- this branch is dead code until
+orchestrator.py/calc_router.py wire `"upapada_lagna"` in a later
+prompt (`format_answer()` is only ever reached via a live route).
+
+## Smoke test: format_answer(build_domain_profile("upapada_lagna", sulabh))
+
+MEASURE-FIRST, not asserted. `calculate_chart("Sulabh", "6 Apr 1988",
+"00:30", "Calcutta, India")` -> `build_domain_profile("upapada_lagna",
+chart_data, evaluated_at_jd=chart_data["meta"]["jd_ut"])` ->
+`format_answer()`, verbatim `DomainAnswer`:
+
+```json
+{
+  "domain": "upapada_lagna",
+  "tier": "AnswerTier.TIER_1_EXACT",
+  "answer_payload": {
+    "upapada_sign": "Aquarius",
+    "lagna_sign": "Sagittarius",
+    "lord": "Ketu",
+    "co_lord_deciding_step": "step_2"
+  },
+  "stub_caveats": [],
+  "uncertainty_virupa": 0.0,
+  "demotion_reason": null,
+  "sources": ["padas.py"],
+  "uncertainty_days": 0.0
+}
+```
+
+No exception raised; payload shape matches `_format_arudha_lagna()`'s
+own contract exactly (mirrored key set). Consistent with the prior
+builder-layer smoke test's own payload below (see the correction
+appended to that entry: house-12 SIGN is Scorpio, UL PADA sign is
+Aquarius -- this formatter smoke test surfaces the pada sign only,
+same as the builder did, so "Aquarius" here is expected and not a new
+discrepancy).
+
 # S62: upapada_lagna domain builder (chart_profile.py only)
 
 Extracted `build_arudha_lagna_profile()`'s body into a private shared
@@ -52,6 +113,11 @@ shape matches build_arudha_lagna_profile()'s own contract exactly
 `grep -n "UL|[Uu]papada" tests/fixtures/jhora_sulabh.md` -> **no
 matches**. No captured UL/upapada oracle value exists in that fixture
 file to cross-check the Aquarius result above against.
+
+**Correction (S64):** the "actual house-12 sign is Aquarius" framing
+above conflated pada sign with house sign -- the house-12 sign is
+Scorpio (whence the co-lord cascade and `lord="Ketu"`); Aquarius is
+the computed UL pada sign. No code implication.
 
 # S61 close: docs + evidentiary scorecard
 
