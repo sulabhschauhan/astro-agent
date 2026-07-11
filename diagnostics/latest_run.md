@@ -1,3 +1,99 @@
+# Layman-phrasing Stage-2 reachability probe (diagnostics only, no source/test/fixture edits)
+
+Ran `route_question()` (router layer only -- `answer_question()` never
+called) against 12 layman phrasings, live OpenAI client, no thresholds
+or keywords touched. Sulabh chart context (`chart_data`) passed ONLY
+for the 2 dasha-intent phrasings (the only place `route_question()`
+consults it, for the current_dasha boundary-proximity demotion-reason
+wording -- confirmed by reading `_route_to_domain()` before running);
+all other phrasings called with `chart_data=None`. Script lived in the
+scratchpad, never written into the repo.
+
+**Live Stage 2 calls this run: 12 of 12** (every phrasing fired Stage 2
+-- none resolved via Stage 1 alone). `diagnostics/calc_router_stage2.log`
+grew by 12 entries (gitignored, not committed).
+
+Categorization used in the summary lines below is a direct function of
+the raw fields (no threshold/keyword judgment applied):
+- **reachable-via-Stage1**: Stage 2 never fired.
+- **rescued-by-Stage2-high**: Stage 2 fired, returned a non-null domain
+  at `confidence="high"`.
+- **lost**: Stage 2 fired but returned `domain=None` and/or
+  `confidence != "high"` (final `RouteResult` is REFUSAL either way,
+  per `_stage2_fallback`'s "route only on high" rule).
+
+## Arudha-intent (expected-unreachable per S59 keyword measurement)
+
+| # | question | stage1 scores (all domains) | stage2 fired | stage2 domain | stage2 confidence | route domain | route tier | demotion_reason |
+|---|---|---|---|---|---|---|---|---|
+| 1 | how do people see me in public | all 0.0 | yes | arudha_lagna | high | arudha_lagna | TIER_1_EXACT | null |
+| 2 | what is my public reputation | all 0.0 | yes | arudha_lagna | high | arudha_lagna | TIER_1_EXACT | null |
+| 3 | will I be famous | all 0.0 | yes | null | high | null | REFUSAL | question not classifiable with confidence |
+| 4 | what impression do I make on others | all 0.0 | yes | arudha_lagna | high | arudha_lagna | TIER_1_EXACT | null |
+
+**Group summary: reachable-via-Stage1=0 / rescued-by-Stage2-high=3 / lost=1**
+
+## Career-intent (Stage-1-marginal, per known q4 gap)
+
+| # | question | stage1 scores (all domains) | stage2 fired | stage2 domain | stage2 confidence | route domain | route tier | demotion_reason |
+|---|---|---|---|---|---|---|---|---|
+| 5 | should I change my job this year | career_strength=0.333, rest 0.0 | yes | career_strength | medium | null | REFUSAL | question not classifiable with confidence |
+| 6 | is my career going anywhere | career_strength=0.333, rest 0.0 | yes | career_strength | medium | null | REFUSAL | question not classifiable with confidence |
+
+**Group summary: reachable-via-Stage1=0 / rescued-by-Stage2-high=0 / lost=2**
+
+## Dasha-intent
+
+| # | question | stage1 scores (all domains) | stage2 fired | stage2 domain | stage2 confidence | route domain | route tier | demotion_reason |
+|---|---|---|---|---|---|---|---|---|
+| 7 | what phase of life am I in right now | current_dasha=0.333, rest 0.0 | yes | null | high | null | REFUSAL | question not classifiable with confidence |
+| 8 | when will my bad time end | current_dasha=0.333, rest 0.0 | yes | null | high | null | REFUSAL | question not classifiable with confidence |
+
+**Group summary: reachable-via-Stage1=0 / rescued-by-Stage2-high=0 / lost=2**
+
+(Sulabh `chart_data` was passed for both of these -- had no effect on
+either outcome, since both REFUSE before `_route_to_domain()`'s
+current_dasha branch, which is the only place `chart_data` is
+consulted.)
+
+## Marriage-intent
+
+| # | question | stage1 scores (all domains) | stage2 fired | stage2 domain | stage2 confidence | route domain | route tier | demotion_reason |
+|---|---|---|---|---|---|---|---|---|
+| 9 | will my marriage be happy | marriage_compatibility=0.333, rest 0.0 | yes | marriage_compatibility | medium | null | REFUSAL | question not classifiable with confidence |
+| 10 | are we compatible | marriage_compatibility=0.333, career_strength=0.333, rest 0.0 | yes | marriage_compatibility | high | null | REFUSAL | marriage_compatibility requires partner birth data |
+
+**Group summary: reachable-via-Stage1=0 / rescued-by-Stage2-high=1 / lost=1**
+
+Raw note on row 10 (fact, not interpretation): Stage 2 classified
+`marriage_compatibility` at `confidence="high"` -- the classification
+itself succeeded (counted as rescued-by-Stage2-high per the definition
+above). The final `RouteResult` is still REFUSAL, but for a DIFFERENT,
+independent reason: `_route_to_domain()`'s `has_partner_data` hard guard
+(no partner chart was supplied to this router-only probe, per task
+scope -- `answer_question()` was never called). This is a distinct code
+path from rows 3/5/6/7/8/9's "not classifiable with confidence" REFUSAL.
+
+## Adversarial/ambiguous (refusal-expected)
+
+| # | question | stage1 scores (all domains) | stage2 fired | stage2 domain | stage2 confidence | route domain | route tier | demotion_reason |
+|---|---|---|---|---|---|---|---|---|
+| 11 | what do the stars say about me | all 0.0 | yes | null | low | null | REFUSAL | question not classifiable with confidence |
+| 12 | tell me my future | all 0.0 | yes | null | high | null | REFUSAL | question not classifiable with confidence |
+
+**Group summary: reachable-via-Stage1=0 / rescued-by-Stage2-high=0 / lost=2**
+
+## Raw totals across all 12
+
+reachable-via-Stage1=0, rescued-by-Stage2-high=4, lost=8 (of which row
+10 is the has_partner_data-guard case noted above, distinct from the
+other 7 "not classifiable with confidence" refusals).
+
+No thresholds, keywords, or source/test/fixture files touched. No
+conclusions drawn here -- interpretation deferred to design chat.
+
+---
+
 # Session 60 close: CLAUDE.md + SESSION_LOG.md
 
 Doc-only closeout. Files touched: `CLAUDE.md`, `SESSION_LOG.md`, this
