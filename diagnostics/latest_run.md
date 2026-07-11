@@ -1,207 +1,175 @@
-# P7 Muhurta wiring, step 2 of 5: result_formatter.py branch
+# P7 Muhurta wiring, step 3 of 6: chart_profile dispatch
 
-Session 64. Adds `_format_muhurta_window(payload)` to
-`agent/infra/result_formatter.py`, registered in `format_answer()`'s
-dispatch, plus a new `_jd_to_utc_str()` helper. ONE FILE, as scoped. NOT
-committed -- design chat ratification pending per the prompt's own
-constraint (same posture as step 1).
+Session 64. Wires `domain="muhurta_window"` into
+`build_domain_profile()`'s dispatch and `_VALID_DOMAINS`, in
+`agent/infra/chart_profile.py`. ONE FILE, as scoped. NOT committed --
+design chat ratification pending (same posture as steps 1-2).
 
-## Registration diff (format_answer dispatch)
+## Step 0: dispatch structure + _VALID_DOMAINS before editing
 
-```python
-     if profile.domain == "upapada_lagna":
-         return _format_upapada(profile)
-+    if profile.domain == "muhurta_window":
-+        return _format_muhurta_window(profile.payload)
-     raise ValueError(f"result_formatter: unknown domain {profile.domain!r}")
-```
+`_VALID_DOMAINS` (7 entries before this change): `marriage_compatibility,
+career_strength, current_dasha, sade_sati, av_transit, arudha_lagna,
+upapada_lagna`.
 
-Note the call passes `profile.payload`, not `profile` -- see the
-signature-deviation section below.
+`build_domain_profile()`'s dispatch was an `if`/`elif` chain:
+`marriage_compatibility -> career_strength -> current_dasha ->
+av_transit -> arudha_lagna -> upapada_lagna -> else: # sade_sati`
+(sade_sati is the fallback branch, not an explicit `elif` -- confirmed by
+reading the source directly rather than assuming). Every branch other
+than sade_sati sets `payload`, `stub_caveats`, `uncertainty_virupa`,
+`uncertainty_days` then falls through to one shared
+`return DomainChartProfile(...)` at the function's end.
 
-## JD -> human-readable string: reuse check, then a new helper
+`upapada_lagna`'s own branch (the direct precedent to mirror) does NOT
+thread `evaluated_at_jd` to `build_upapada_profile(chart_data)` -- purely
+natal, no as-of-instant concept, "accepted uniformly but unused" per the
+function's own Args docstring.
 
-Checked for an existing reusable JD->datetime helper before writing one,
-per the prompt's instruction. Found `_format_jd()` already in this file
-(day-level only, "D Mon YYYY", no time-of-day -- explicitly documented as
-this file's "only human-date format used anywhere in this pipeline's
-payloads so far"). Unsuitable here: a Muhurta window's whole purpose is
-pinpointing an hour-range within a day (Chandrabala ~2.27d/sign,
-Tarabala ~1d/nakshatra -- window boundaries do not align to day
-boundaries), so day-level rendering would silently collapse distinct
-window boundaries onto the same date string.
+## Departure from the prompt's literal call signature -- flagged and resolved by inspection, not guessed
 
-Checked siblings too: `panchanga.py`'s `_julian_day_ut_to_datetime` and
-`kala_bala.py`'s `_jd_to_utc_datetime` implement the identical
-`swe.revjul()` + `timedelta` mechanics, but both are module-private --
-this project's own documented "per-module duplication convention"
-(chart_profile.py comment), not an importable cross-module utility.
-No existing helper anywhere returns a full datetime string with
-time-of-day and an explicit UTC label.
+The prompt describes the call as `build_muhurta_profile(chart_data)`
+(mirroring upapada_lagna's no-evaluated_at_jd shape). Checked this
+against `build_domain_profile()`'s own docstring instead of complying
+literally: *"Reproducibility/testability requirement: this function
+never calls now() internally."* `build_muhurta_profile()` (step 1)
+defaults `evaluated_at_jd=None` -> internal `datetime.now(timezone.utc)`
+when not supplied. Calling it as `build_muhurta_profile(chart_data)`
+(omitting the argument) would make `build_domain_profile()` indirectly
+violate its own stated contract: the DomainChartProfile's own
+`evaluated_at_jd` field (caller-supplied) and the actual muhurta scan
+window's start (a second, independently-sampled, slightly later `now()`
+inside the helper) would silently diverge -- unlike av_transit/
+arudha_lagna/upapada_lagna, where `evaluated_at_jd` is genuinely unused
+by the domain, muhurta's scan window IS anchored to this instant.
 
-Added `_jd_to_utc_str(jd_ut) -> str`: reuses the identical
-`swe.revjul()` + `timedelta` conversion mechanics `_format_jd()` already
-uses (not a second, independently-invented conversion path -- only the
-string-formatting layer is new), returns `"D Mon YYYY HH:MM UTC"`
-(minute-level). Docstring carries the locked line verbatim: *"V1 renders
-UTC with explicit UTC labels -- chart_data carries birth place, not the
-user's current location; local-timezone rendering deferred to V1.1."*
+Resolved by threading it through: `build_muhurta_profile(chart_data,
+evaluated_at_jd)`. Verified empirically in the smoke test below --
+`profile.evaluated_at_jd` and the first rendered window's `start_jd`
+match exactly.
 
-## `_format_muhurta_window(payload)`: two deliberate departures from
-## `_format_arudha_lagna`/`_format_upapada` precedent, both flagged in-code
+Both the `_VALID_DOMAINS` entry and the dispatch branch's own comments
+flag this departure explicitly, per this file's existing convention of
+calling out intentional deviations in-line (matching
+`_format_arudha_lagna`'s "DEVIATION FLAGGED" precedent in the sibling
+file).
 
-1. **Signature: `payload: dict`, not `profile: DomainChartProfile`.**
-   Every DomainAnswer field this branch sets is either a hardcoded
-   literal (`stub_caveats=()`, `uncertainty_virupa=0.0`,
-   `uncertainty_days=0.0` -- step 1's recommended values) or read
-   straight off the payload dict (`sources`) -- nothing in this branch
-   ever needs `profile.domain`/`profile.stub_caveats`/
-   `profile.uncertainty_virupa`/`profile.uncertainty_days`, so there's
-   no reason to thread the full `DomainChartProfile` through. The task
-   prompt's own literal signature (`_format_muhurta_window(payload)`)
-   matches this reasoning exactly, so it was followed as-is rather than
-   forced into the sibling `profile`-argument shape.
-2. **`sources` read from `payload["sources"]`, not hardcoded.** Sibling
-   branches document hardcoding sources locally and explicitly ignoring
-   `profile.payload["sources"]` (arudha/upapada's own docstrings say so
-   verbatim). Muhurta departs on the prompt's own explicit instruction
-   ("sources from payload") -- justified because
-   `chart_profile.build_muhurta_profile()` is the one place that knows
-   which module actually produced the payload
-   (`muhurta_scorer.py`, itself composing chandrabala/tarabala/panchaka
-   internally); duplicating that literal here would just be a second,
-   driftable copy of a fact the builder already computed once. `tier` is
-   NOT read the same way -- always `AnswerTier.TIER_3_MUHURTA` by
-   construction, same payload-property principle as every other
-   single-domain branch.
-
-Both departures are documented in the function's own docstring, matching
-this file's existing convention of flagging intentional deviations
-in-line (see `_format_arudha_lagna`'s own "DEVIATION FLAGGED" precedent).
-
-## Two distinct "tier" fields -- documented, not conflated
-
-Per-window `"tier"` in `answer_payload["windows"][i]` is
-`muhurta_scorer.MuhurtaTier`'s value string (`"TIER_1"`/`"TIER_2"`/
-`"TIER_3"`, per-window Muhurta *quality*). The `DomainAnswer.tier` field
-itself is the pipeline's `AnswerTier.TIER_3_MUHURTA` (always, for this
-domain) -- a structurally distinct enum. Comment placed directly at the
-per-window tier-rendering line, as the prompt asked, plus a
-cross-reference in the function docstring.
-
-## answer_payload shape
+## Diff (dispatch branch, `_VALID_DOMAINS` entries only summarized -- full comments in-file)
 
 ```python
-{
-    "windows": [
-        {
-            "start_jd": float, "end_jd": float,          # raw, machine-readable
-            "start": str, "end": str,                     # "D Mon YYYY HH:MM UTC"
-            "tier": str,                                   # MuhurtaTier value
-            "favorable_count": int,                         # 0-2
-            "warnings": tuple[str, ...],
-        },
-        ...
-    ],
-    "summary": {
-        "tier1_window_count": int,
-        "earliest_tier1_start": str,   # rendered UTC string, or the
-                                        # explicit "none in the 7-day scan"
-                                        # marker -- key never omitted
-    },
+_VALID_DOMAINS = {
+    ...
+    "upapada_lagna",
++   "muhurta_window",
 }
 ```
 
-Design call made here, not specified by the prompt: `summary` is a
-nested sub-dict rather than two flattened top-level keys alongside
-`windows`. Chosen for self-documentation and to avoid any future key
-collision; flagged here as a judgment call in case a later step assumed
-flattened keys instead.
+```python
+     elif domain == "upapada_lagna":
+         ...
+         uncertainty_days = 0.0
 
-## Ordering: asserted, not re-sorted
++    elif domain == "muhurta_window":
++        payload = build_muhurta_profile(chart_data, evaluated_at_jd)
++        stub_caveats = ()
++        uncertainty_virupa = 0.0
++        uncertainty_days = 0.0
++
+     else:  # sade_sati (Session 50/P7.2a) ...
+```
 
-Iterates consecutive window pairs and raises `ValueError` (naming
-`"muhurta_window"` and the offending JD pair) if `end_jd > next start_jd`
--- per chart_profile.build_muhurta_profile()'s (and beneath it,
-`find_muhurta_windows()`'s) own documented ascending/contiguous
-guarantee. No re-sort logic added.
+(Full in-file comments -- reproducibility rationale, PAYLOAD PASSTHROUGH
+flag, uncertainty_days rationale -- are longer than shown here; see the
+actual diff for complete text.)
 
-## Error handling
+## Meta values: matches step 1's ratified recommendation exactly
 
-`payload["windows"]` / `payload["sources"]` / any per-window key access
-wrapped in `try/except KeyError`, re-raised as
-`ValueError(f"result_formatter: muhurta_window payload missing key {exc}")`
--- domain name present in every message, per the prompt's instruction.
-This is a deliberate departure from this file's usual bare-KeyError
-convention (documented explicitly in-code as such), since the prompt
-specifically asked for wrapped, meaningful errors on this branch.
+`stub_caveats=()`, `uncertainty_virupa=0.0`, `uncertainty_days=0.0` --
+byte-identical to the values `diagnostics/latest_run.md` recommended
+after step 1 landed. No invented value was needed for any field; the
+only field with a genuinely new consideration was `evaluated_at_jd`
+(see above), which is not one of the three meta values the prompt asked
+about but a structural argument-threading question.
 
-Verified by direct invocation (not yet covered by any test, per this
-step's constraints):
-- Missing `"windows"` key -> `ValueError: result_formatter: muhurta_window
-  payload missing key 'windows'`.
-- Out-of-order/non-contiguous windows -> `ValueError: ...windows are not
-  ascending/contiguous... (10.0 > 1.0)`.
-- Empty `windows` list -> no error; `summary` renders
-  `{"tier1_window_count": 0, "earliest_tier1_start": "none in the 7-day
-  scan"}`.
-- **Edge case flagged, not fixed**: a per-window `start_jd` far outside
-  any real chart's range (synthetic test value `1.0`, i.e. ~4713 BCE)
-  raises a bare `ValueError` from `_jd_to_utc_str()`'s own
-  `datetime()` construction (Python's `datetime` min year is 1), NOT
-  wrapped with the domain name -- it isn't a missing/malformed *key*, so
-  the `except KeyError` clause doesn't catch it. This can never occur
-  from real `chart_profile.build_muhurta_profile()` output (JDs are
-  always ~2.46 million for any real date, evaluated_at_jd to
-  evaluated_at_jd+7.0) -- not adding speculative handling for a
-  scenario the real pipeline cannot produce.
+## PAYLOAD PASSTHROUGH -- same posture as arudha_lagna/upapada_lagna
 
-## End-to-end smoke test (not part of the automated suite)
+`build_muhurta_profile()`'s return dict (`{"windows": [...], "tier":
+"TIER_3_MUHURTA", "sources": (...)}`) is assigned to `payload`
+unmodified, including its "tier"/"sources" meta keys that
+`DomainChartProfile.payload` doesn't strictly need -- same flagged,
+harmless-but-noted convention as the two sibling domains before it (see
+arudha_lagna's own comment, referenced rather than duplicated).
 
-Ran `build_muhurta_profile()` -> `_format_muhurta_window()` directly
-against Sulabh's real chart (`calculate_chart("Sulabh", "6 Apr 1988",
-"00:30", "Calcutta, India")`):
+## Docstring updates (ride-along, both files' pre-existing staleness noted)
+
+Updated `build_domain_profile()`'s Args (domain list + evaluated_at_jd
+paragraph) and Raises sections to cover muhurta_window. While there,
+found the SAME pre-existing gap already flagged in
+`result_formatter.py`'s module docstring (previous step's report):
+neither this function's own Args `domain:` list nor the module-level
+docstring's "Covers 6 domains as of Session 59" line was ever updated
+for upapada_lagna's Session 62 landing. Flagged in-line at both sites,
+not backfilled beyond adding accurate text for this step's own addition
+-- ride-along candidate, not a standalone prompt.
+
+## End-to-end smoke test: build_domain_profile -> format_answer
 
 ```
-windows found: 11
-domain: muhurta_window   tier: AnswerTier.TIER_3_MUHURTA
-sources: ('muhurta_scorer.py',)
-stub_caveats: ()   uncertainty_virupa: 0.0   uncertainty_days: 0.0
-first window: {"start_jd": 2461233.25, "end_jd": 2461233.62,
-  "start": "11 Jul 2026 18:00 UTC", "end": "12 Jul 2026 02:59 UTC",
+chart_data = calculate_chart("Sulabh", "6 Apr 1988", "00:30", "Calcutta, India")
+evaluated_at_jd = swe.julday(...)   # now-UTC, orchestrator's own pattern
+profile = build_domain_profile("muhurta_window", chart_data, evaluated_at_jd)
+answer = format_answer(profile)
+```
+
+```
+profile.domain: muhurta_window
+profile.evaluated_at_jd: 2461233.2581018517
+profile.stub_caveats: ()
+profile.uncertainty_virupa: 0.0
+profile.uncertainty_days: 0.0
+profile.payload windows count: 11
+
+answer.domain: muhurta_window   tier: AnswerTier.TIER_3_MUHURTA
+answer.sources: ('muhurta_scorer.py',)
+answer.stub_caveats: ()
+answer.uncertainty_virupa: 0.0   uncertainty_days: 0.0
+answer.demotion_reason: None
+answer.route: None
+summary: {'tier1_window_count': 3, 'earliest_tier1_start': '12 Jul 2026 02:59 UTC'}
+first window: {"start_jd": 2461233.2581018517, "end_jd": 2461233.6245698044,
+  "start": "11 Jul 2026 18:11 UTC", "end": "12 Jul 2026 02:59 UTC",
   "tier": "TIER_2", "favorable_count": 1, "warnings": []}
-summary: {'tier1_window_count': 3,
-  'earliest_tier1_start': '12 Jul 2026 02:59 UTC'}
 ```
 
-Confirms the full chain (step 1 builder -> step 2 formatter) actually
-produces a correct, renderable `DomainAnswer` end to end, ahead of any
-router/orchestrator wiring.
+Confirms the full builder -> dispatch -> formatter chain produces a
+correct, renderable `DomainAnswer` end to end, ahead of any router/
+orchestrator wiring. `answer.route` is `None`, correctly un-stamped
+(orchestrator-only field, per `DomainAnswer`'s own contract) --
+verified, not just assumed. First window's `start_jd`
+(`2461233.2581018517`) matches `profile.evaluated_at_jd` exactly,
+confirming the evaluated_at_jd-threading fix above actually closes the
+reproducibility gap it was written to close.
 
 ## Not wired
 
-No edit to `build_domain_profile()`'s dispatch, `_VALID_DOMAINS`,
-`calc_router.py`, or `orchestrator.py` -- `format_answer()`'s new branch
-is reachable only if a caller hand-builds a
-`DomainChartProfile(domain="muhurta_window", ...)` itself (as the smoke
-test did indirectly, by calling `_format_muhurta_window()` on the raw
-payload dict directly rather than through `format_answer()`). Via any
-live/router path it remains dead code.
+No edit to `calc_router.py` or `orchestrator.py`. The router still
+refuses "muhurta" questions via `_UNBUILT_MODULE_KEYWORDS` (unchanged --
+verified by scope, not re-tested here since router edits are out of
+scope this prompt); `orchestrator.py`'s own `_VALID_DOMAINS` does not
+admit `"muhurta_window"` either. A live "muhurta_window" route still
+fails closed, same staged-rollout precedent as every prior new-domain
+landing.
 
 ## Test run
 
 ```
 python -m pytest -q
-3134 passed, 3 skipped, 0 failed  (83.95s)
+3134 passed, 3 skipped, 0 failed  (90.19s)
 ```
 
-Matches the expected 3134/3/0 baseline exactly -- confirms the new
-dispatch branch is unreachable via the existing suite, as expected until
-`build_domain_profile()` wires the domain in a later step.
+Matches the expected 3134/3/0 baseline exactly -- confirms no live path
+reaches the new dispatch branch via the existing suite.
 
 ## Status
 
 Not committed. Awaiting design-chat ratification per the prompt's own
-constraint before any commit. `agent/infra/chart_profile.py` (step 1,
-already reported previously) also remains uncommitted, unchanged since
-the last report.
+constraint before any commit.
