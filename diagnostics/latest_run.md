@@ -1,86 +1,138 @@
-# golden_harness.py switchover: DomainAnswer.route direct read
+# P7 Muhurta wiring, step 1 of 5: chart_profile.py builder
 
-Closes the CLAUDE.md carry-forward's second half ("switch the harness
-to read it directly") once `RouteResult.route` (agent/infra/
-calc_router.py) and its orchestrator-stamped copy `DomainAnswer.route`
-(agent/infra/chart_profile.py, stamped by orchestrator.py's
-answer_question() on both return paths) existed and were pushed.
+Session 64. Adds `build_muhurta_profile(chart_data, evaluated_at_jd=None)`
+to `agent/infra/chart_profile.py`. ONE FILE, as scoped. NOT committed --
+design chat ratification pending per the prompt's own constraint.
 
-## Enumerated changes (agent/eval/golden_harness.py)
+## Step 0 gate: find_muhurta_windows() signature check
 
-1. **Success-path route determination** (`_run_runnable_row()`):
-   replaced the correlation -> sade_sati-fastpath-inference ->
-   stage1-default block with a direct `route = result.route` read.
-   Guarded: `result.route is None` raises `RuntimeError` naming the row
-   id -- an un-stamped DomainAnswer reaching the harness is an upstream
-   orchestrator/formatter bug, never silently defaulted.
-2. **ERROR path**: kept `_used_stage2_since()` log correlation --
-   `answer_question()` raised before returning any `DomainAnswer`, so
-   there is no `route` field to read. Comment added explaining this is
-   the correlation's sole surviving use.
-3. **`_render_report()`'s deterministic-floor split**: `"pre_classification"`
-   (calc_router.py's pre-scoring unbuilt-module/out-of-scope REFUSAL
-   checks -- deterministic keyword matching, no LLM) now counts with
-   `stage1`/`fastpath` in `deterministic_floor_ids`, not the stage2-routed
-   set. `RowResult.route`'s type comment updated to list the 4th value.
-4. **`_used_stage2_since()` docstring**: replaced the stale "if
-   calc_router.py ever adds one (it does not today)" sentence with an
-   UPDATE paragraph stating the marker now exists and this function's
-   role is retired to the ERROR path only.
-5. **Ride-along (`_KNOWN_GAPS` prose refresh, sanctioned CLAUDE.md
-   carry-forward)**: both entries' stale "Session 50 observed mechanism"
-   text updated to match currently-observed behavior --
-   `sulabh_marriage_q10` now describes the actual Session 61+ mechanism
-   (Stage 2 classifies high, routes marriage_compatibility, ratified
-   BENIGN Session 63) instead of the superseded medium/REFUSAL
-   description; `sulabh_dasha_q15` corrects "3 whitelisted domains" to
-   the current 6 (`_DOMAIN_KEYWORDS`), noting the REFUSAL mechanism
-   itself is unchanged.
+Read `agent/calculations/transits/muhurta_scorer.py` before writing any
+code. Confirmed signature matches the assumed shape exactly -- did not
+stop:
 
-## Pre-commit addendum: module docstring sync
+```python
+def find_muhurta_windows(
+    natal_moon_sign: int,   # 0=Aries..11=Pisces
+    janma_nakshatra: int,   # 0=Ashwini..26=Revati
+    start_jd: float,
+    end_jd: float,
+) -> list[MuhurtaWindow]:
+```
 
-Rewrote the module docstring's route paragraph (originally written
-Session 55, describing route as *derived by correlating*
-`calc_router_stage2.log`, and asserting "RouteResult itself... carries
-no route marker of its own" -- both now false). Replaced with an UPDATE
-paragraph: `route` is read directly off `DomainAnswer.route`, a
-first-class orchestrator-emitted signal; the log correlation survives
-only on the ERROR path. No logic changed -- docstring only.
+`MuhurtaWindow` fields: `start_jd, end_jd, tier (MuhurtaTier), chandrabala,
+tarabala, panchaka, is_janma_rashi, is_janma_tara, favorable_count,
+warnings`. Contiguous tiling of `[start_jd, end_jd]`, no gaps, raises
+`ValueError` on out-of-range natal identifiers or `start_jd > end_jd`.
 
-## Verification
+## Blocking conflict surfaced before editing, resolved via AskUserQuestion
 
-**pytest -q** (run twice: after the 5 enumerated changes, and again
-after the docstring addendum):
-- Both runs: **3134 passed, 3 skipped** -- exact match, zero delta both
-  times (docstring-only change produced no test impact, as expected).
+The prompt asked `build_muhurta_profile()` to **return a `DomainAnswer`**.
+`chart_profile.py`'s own module docstring locks that construction to the
+not-yet-built Result Formatter: *"this module intentionally contains no
+Result Formatter (DomainChartProfile -> DomainAnswer rendering)"*; the
+`DomainAnswer` dataclass docstring itself: *"this module does not
+construct DomainAnswer instances itself."* Verified via grep that every
+sibling domain (`_format_arudha_lagna`, `_format_upapada`, and 5 other
+`DomainAnswer(...)` call sites) constructs `DomainAnswer` exclusively in
+`result_formatter.py`, never in `chart_profile.py`. Complying literally
+would have been a first-of-its-kind break of a stated locked boundary, in
+a step explicitly scoped to chart_profile.py only ("no formatter edits
+this prompt").
 
-**Golden harness** (`run_golden_eval()`):
-- **match=9 / match_stage2=8 / known_gap=2 / new_gap=0 / error=0** --
-  exact match to frozen baseline
-  `diagnostics/golden_scorecard_20260711_112836.md`.
-- Row-by-row diff: `grep '^| sulabh' <old> <new>` on both scorecards
-  diffs to **nothing** -- every row's `id`/`domain`/`expected_tier`/
-  `actual`/`route`/`demotion_reason`/`category` is byte-identical,
-  including every `route` value. **No MATCH<->MATCH_STAGE2 category
-  flip occurred on any row**; correlation-derived and direct-read
-  routes agreed on all 19 executed rows this run.
-- New scorecard: `diagnostics/golden_scorecard_20260711_172257.md`.
+Surfaced via `AskUserQuestion` rather than guessing either direction.
+**User selected: return a plain payload dict**, matching
+`build_arudha_lagna_profile()`/`build_upapada_profile()`'s existing
+precedent exactly. `DomainAnswer` assembly for `domain="muhurta_window"`
+is deferred to the formatter step (step 2 of 5).
 
-## Abandoned-squash episode (recorded for the session log)
+## Design decisions made while implementing
 
-A prior prompt in this bundle asked to squash the two preceding
-route-provenance commits (`7e69614` "Add RouteResult.route provenance
-to DomainAnswer + Stage 2 client injection seam", `3683119` "Strengthen
-Layer C full-chain tests for orchestrator route stamping") into one and
-force-push over already-pushed `main` history. Before executing,
-confirmation was sought given the destructive/shared-state nature of a
-force-push on main; the user's next message aborted the rewrite
-outright rather than answering the pending scorecard-file-inclusion
-question.
+- **natal_moon_sign / janma_nakshatra extraction**: prompt said "from
+  chart_data's Moon longitude." Verified against code instead of
+  complying literally (per the standing "verify task prompts against
+  code" convention) -- no sibling builder derives Moon sign/nakshatra via
+  an ephemeris longitude call for this purpose. The sade_sati branch of
+  `build_domain_profile()` and `_koota_natal_info_from_chart()` both read
+  the pre-computed strings directly: `SIGNS.index(chart_data["lagna_chart"]
+  ["rasi"])` / `NAKSHATRAS.index(chart_data["lagna_chart"]["nakshatra"])`.
+  `find_muhurta_windows()` only needs the integer indices, not precise
+  longitude, so this function reuses that exact existing access pattern
+  rather than inventing a new ephemeris-based one.
+- **evaluated_at_jd default**: `datetime.now(timezone.utc)` ->
+  `hour_decimal` -> `swe.julday(...)`, byte-identical to
+  `orchestrator.answer_question()`'s own now-capture (orchestrator.py:213-215).
+- **Scan window**: `[evaluated_at_jd, evaluated_at_jd + 7.0]`, new module
+  constant `_MUHURTA_SCAN_WINDOW_DAYS = 7.0` with the specified
+  threshold-discipline comment (Chandrabala ~2.27d/sign, Tarabala
+  ~1d/nakshatra cadence; S24 scans measured 4 and 8 windows/7d;
+  explicit-date parsing deferred V1.1).
+- **Import**: `from agent.calculations.transits.muhurta_scorer import
+  find_muhurta_windows` -- direct module path, `transits/__init__.py`
+  stays empty (locked convention, matches every other transits import in
+  this file).
+- **Two distinct "tier" fields, documented, not renamed**: each window
+  dict's `"tier"` key is `MuhurtaTier.value` (per-window quality:
+  `TIER_1`/`TIER_2`/`TIER_3`). The payload dict's own top-level `"tier"`
+  key is the pipeline's `AnswerTier` value, always `"TIER_3_MUHURTA"` --
+  same meta-passthrough-key convention `build_arudha_lagna_profile`/
+  `build_upapada_profile` already use. Docstring explicitly flags these
+  as distinct enums so a future reader doesn't conflate them.
+- **sources**: `("muhurta_scorer.py",)` -- the direct call site, matching
+  arudha/upapada's own precedent of naming only the immediate module
+  `chart_profile.py` calls, not its transitive internals (padas.py's
+  precedent: it doesn't list strength.py even though it calls
+  `stronger_co_lord()` internally; muhurta_scorer.py composes
+  chandrabala/tarabala/panchaka internally the same way).
+- **Error handling**: `ValueError` from `find_muhurta_windows()`'s own
+  input validation re-raised unmodified (bare `raise`); anything else
+  (e.g. `EphemerisError` from a sub-limb finder's Moon/Saturn calc)
+  wrapped as `RuntimeError` naming the failing call, matching this file's
+  existing wrap-except-ValueError pattern used elsewhere (e.g.
+  `_build_bhava_pada_profile`'s own documented precedent).
+- **Not wired**: no edit to `build_domain_profile()`'s dispatch or
+  `_VALID_DOMAINS` -- this step adds only the standalone builder function,
+  same staged-rollout precedent as av_transit/arudha_lagna/upapada_lagna
+  landing their builder before their dispatch branch. Nothing calls this
+  function yet.
 
-Recovery: `git reset --hard 3683119` restored working tree to exactly
-its pre-reset state. Verified: `git log --oneline -5` showed both
-commits intact in original order; `git status` clean; `git log
-origin/main..main` empty (local and origin identical). **No
-force-push occurred.** Both commits remain separate, as originally
-committed and pushed.
+## Return shape
+
+```python
+{
+    "windows": [
+        {
+            "start_jd": float,
+            "end_jd": float,
+            "tier": str,              # MuhurtaTier value, e.g. "TIER_1"
+            "favorable_count": int,   # 0-2, Chandrabala + Tarabala only
+            "warnings": tuple[str, ...],
+        },
+        ...
+    ],
+    "tier": "TIER_3_MUHURTA",         # AnswerTier value, meta passthrough
+    "sources": ("muhurta_scorer.py",),
+}
+```
+
+Recommended values for the later `build_domain_profile()` wiring step
+(not applied here, since that branch doesn't exist yet): `stub_caveats =
+()` (no ephemeris stubs in the Chandrabala/Tarabala/Panchaka chain --
+all three sub-limbs are real, oracle-validated calculations, not
+stubbed), `uncertainty_virupa = 0.0` (no virupa-axis concept applies to
+Muhurta scoring), `uncertainty_days = 0.0` (payload carries no dated
+claims beyond the window boundaries it already returns explicitly).
+
+## Test run
+
+```
+python -m pytest -q
+3134 passed, 3 skipped, 0 failed  (84.49s)
+```
+
+Matches the expected 3134/3/0 baseline exactly -- confirms the new
+function is fully inert until wired in a later step.
+
+## Status
+
+Not committed. Awaiting design-chat ratification per the prompt's own
+constraint before any commit.
