@@ -1599,3 +1599,61 @@ unchanged (helper is additive dead code, no existing file touched besides
 the one new import + two new module-level blocks in `result_formatter.py`).
 
 Not committed (per prompt instruction).
+
+## Sade Sati layman gloss reword (single-file prompt, ONE FILE:
+## result_formatter.py, surgical reword only, not committed)
+
+User review of the pasted `_REFUSAL_USER_MESSAGES` values flagged one item
+in the not-classifiable domain list as not layman-phrased: bare "Sade Sati"
+(a Jaimini/Sanskrit term, no gloss) among five otherwise plain-language
+items. Fix: reword to "Sade Sati (Saturn's roughly 7.5-year transit around
+your Moon sign)" -- neutral gloss only, no "difficult"/"challenging"
+valence, per prompt instruction.
+
+**Extraction check (instruction 1):** compared
+`_REFUSAL_USER_MESSAGES["question not classifiable with confidence"]`'s
+topic list against `_GENERIC_REFUSAL_MESSAGE`'s topic list -- NOT a
+verbatim duplicate. Same 6 topics, but independently worded at different
+lengths: "the life period (dasha) you're currently in" vs. "your current
+dasha"; "how a specific planet's transit is playing out right now" vs.
+"transit timing"; "your public image/reputation" vs. "your public image".
+Per instruction, extraction was SKIPPED (would have forced one wording
+onto both messages, which is a restructure beyond the requested surgical
+reword) and the Sade Sati gloss was applied independently to both
+messages' existing "Sade Sati" occurrence instead. The `SENSITIVE_TO`
+re-check comment (result_formatter.py:157-164, adjacent to
+`_REFUSAL_USER_MESSAGES`) was left in place unchanged -- no constant was
+added for it to sit beside.
+
+**Final verbatim constants (agent/infra/result_formatter.py):**
+
+```python
+_REFUSAL_USER_MESSAGES: dict[str, str] = {
+    "marriage_compatibility requires partner birth data": (
+        "To check marriage compatibility, I also need your partner's birth "
+        "details -- their date of birth, time of birth, and place of "
+        "birth. Please share those and I can take a look."
+    ),
+    "question not classifiable with confidence": (
+        "I couldn't confidently tell what you're asking. Could you try "
+        "rephrasing? I can help with questions about: marriage "
+        "compatibility, career strength, the life period (dasha) you're "
+        "currently in, Sade Sati (Saturn's roughly 7.5-year transit around "
+        "your Moon sign), how a specific planet's transit is playing out "
+        "right now, and your public image/reputation."
+    ),
+}
+
+_GENERIC_REFUSAL_MESSAGE = (
+    "I'm not able to answer that confidently. Could you try rephrasing "
+    "your question, or ask about marriage compatibility, career strength, "
+    "your current dasha, Sade Sati (Saturn's roughly 7.5-year transit "
+    "around your Moon sign), transit timing, or your public image?"
+)
+```
+
+**Verification:** full pytest suite re-run: **3127 passed, 3 skipped, 1
+warning in 81.00s** -- exact match to the pre-reword baseline, confirms
+string-only change with no behavioral impact.
+
+Not committed (per prompt instruction).
