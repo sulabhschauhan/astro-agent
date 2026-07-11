@@ -1,3 +1,58 @@
+# S62: upapada_lagna domain builder (chart_profile.py only)
+
+Extracted `build_arudha_lagna_profile()`'s body into a private shared
+helper `_build_bhava_pada_profile(chart_data, house_num, sign_key)` and
+added `build_upapada_profile(chart_data)` (house_num=12,
+sign_key="upapada_sign") on top of it. `_VALID_DOMAINS` gained
+"upapada_lagna"; `build_domain_profile()` gained a matching dispatch
+branch (uncertainty_virupa=0.0, uncertainty_days=0.0, same payload-
+passthrough posture as arudha_lagna's branch, referenced not
+duplicated). orchestrator.py/calc_router.py do NOT yet admit
+"upapada_lagna" -- fails closed via the existing defensive gates,
+same staged-rollout precedent as arudha_lagna (S58/S59). No test files
+touched this prompt.
+
+## Full suite
+
+```
+3127 passed, 3 skipped, 1 warning in 78.22s
+```
+
+Exact match to the expected baseline (arudha_lagna's own tests green,
+confirming the extraction is byte-identical in behavior).
+
+## Smoke test: build_upapada_profile() on the Sulabh chart
+
+MEASURE-FIRST, not asserted. Ran directly against
+`calculate_chart("Sulabh", "6 Apr 1988", "00:30", "Calcutta, India")`:
+
+```json
+{
+  "upapada_sign": "Aquarius",
+  "lagna_sign": "Sagittarius",
+  "lord": "Ketu",
+  "co_lord_deciding_step": "step_2",
+  "tier": "TIER_1_EXACT",
+  "sources": ["padas.py"]
+}
+```
+
+No exception raised. The task prompt's own expectation ("house sign
+should be Scorpio") did not hold -- the actual house-12 pada sign is
+Aquarius, not Scorpio. Aquarius is still a co-lorded sign (Saturn/Rahu
+in the classical scheme), so `stronger_co_lord()`'s cascade fired as
+anticipated in spirit (`co_lord_deciding_step` is non-None, `"step_2"`)
+even though the specific sign named in the prompt was wrong. Not a
+design-chat escalation: no D2/D6 ValueError was raised, and the payload
+shape matches build_arudha_lagna_profile()'s own contract exactly
+(mirrored key set, `upapada_sign` swapped in for `arudha_sign`).
+
+## jhora_sulabh.md UL/upapada grep
+
+`grep -n "UL|[Uu]papada" tests/fixtures/jhora_sulabh.md` -> **no
+matches**. No captured UL/upapada oracle value exists in that fixture
+file to cross-check the Aquarius result above against.
+
 # S61 close: docs + evidentiary scorecard
 
 Doc-only closeout. Files: `CLAUDE.md`, `SESSION_LOG.md`, this
