@@ -58,6 +58,8 @@ short-circuit holds through the orchestrator layer too.
 """
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 import swisseph as swe
 
@@ -338,7 +340,9 @@ class TestLayerCFullChain:
         assert calls == []  # sentinel NEVER invoked
 
         profile = build_domain_profile("upapada_lagna", sulabh_chart, _evaluated_at_jd())
-        expected = format_answer(profile)
+        # route stamped by answer_question() (orchestrator-only concern);
+        # Layer B's direct format_answer() output is legitimately un-stamped.
+        expected = dataclasses.replace(format_answer(profile), route="stage1")
 
         assert result == expected
         assert result.domain == "upapada_lagna"
