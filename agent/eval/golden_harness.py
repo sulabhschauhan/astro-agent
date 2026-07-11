@@ -8,9 +8,9 @@ already-built deterministic pipeline (CLAUDE.md V1 scope: LLM-generated
 interpretive Q&A is OUT; this harness never invokes one).
 
 Runnability: a row is RUNNABLE when it is a single question against the
-sulabh chart in one of the five pipeline-whitelisted domains
-(career/marriage/dasha/arudha_lagna/upapada_lagna). Rows batching
-multiple probes under domain == "refusal_probe" (the R1-R5 /
+sulabh chart in one of the six pipeline-whitelisted domains
+(career/marriage/dasha/arudha_lagna/upapada_lagna/muhurta_window). Rows
+batching multiple probes under domain == "refusal_probe" (the R1-R5 /
 QUEST1-QUEST2 bundles) are
 NON_RUNNABLE_BATCH -- listed in the report, never executed, per the task
 spec for this session.
@@ -113,6 +113,13 @@ _GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN: dict[str, str] = {
     # deliberately deferred) -- flipping that row's domain field is a
     # separate, later prompt.
     "upapada_lagna": "upapada_lagna",
+    # "muhurta_window" added this session (P7 Muhurta step 7 of 7) --
+    # identity mapping, same precedent as arudha_lagna/upapada_lagna above
+    # (calc_router.py's _route_to_domain() muhurta branch returns
+    # RouteResult(domain="muhurta_window", ...) verbatim). Live entry as of
+    # this session: sulabh_muhurta_q1_stage1/q2_stage2 both carry
+    # domain="muhurta_window" in GOLDEN_QA.
+    "muhurta_window": "muhurta_window",
 }
 
 # Canonical, verified chart-construction data (see tests/infra/test_orchestrator_e2e.py
@@ -191,30 +198,23 @@ _KNOWN_GAPS: dict[str, str] = {
         "regardless of routing outcome -- no amount of router/Stage-2 "
         "tuning fixes this row's tier mismatch."
     ),
-    # CLAUDE.md "P2 order" lock: Muhurta engine exists (transits/chandrabala.py,
-    # tarabala.py, panchaka.py per calc_router.py's own
-    # _UNBUILT_MODULE_KEYWORDS["muhurta"] comment) but is "not wired to Q&A
-    # in V1". TIER_3_MUHURTA is never produced by this pipeline regardless
-    # of Stage 1 or Stage 2 routing outcome -- UNLIKE q10 above, a future
-    # Stage 2 route here would NOT be benign (see entry below).
-    "sulabh_dasha_q15": (
-        "STAGE2_VARIABLE: outcome depends on live GPT-4o-mini "
-        "classification; a category flip on this row across runs is "
-        "expected variance, not automatically a regression -- check "
-        "diagnostics/calc_router_stage2.log before treating as NEW_GAP. "
-        "Observed mechanism (Session 50, reconfirmed unchanged as of the "
-        "route-field switchover run): Stage 2 classifies domain=\"none\" "
-        "at confidence=\"high\" -> REFUSAL (Stage 1 scores zero keyword "
-        "hits across today's 6 whitelisted _DOMAIN_KEYWORDS domains -- "
-        "the domain count has grown since Session 50's original 3, the "
-        "REFUSAL mechanism itself has not). Independently unreachable "
-        "regardless: CLAUDE.md P2 order lock means TIER_3_MUHURTA is "
-        "never produced by this pipeline. If a future run's Stage 2 ever "
-        "routes this to current_dasha (high confidence): that IS a SOFT "
-        "MISROUTE (a Muhurta-intent question answered as a dasha "
-        "question) -- flag to design chat, do NOT silently accept it the "
-        "way q10's koota-benign case is accepted above."
-    ),
+    # sulabh_dasha_q15 entry DELETED this session (P7 Muhurta step 7 of 7,
+    # S50 P7.2f precedent -- same deletion discipline as q1/q2/q3/q7/q8
+    # above and q4/q9 in the Session 61 note): muhurta_window is now wired
+    # end-to-end (calc_router.py Stage 1/Stage 2 + orchestrator.py
+    # _VALID_DOMAINS, Sessions 64-66), so this question ("Which month this
+    # year is astrologically best for me to make a major move?") no longer
+    # hits the P2-order "Muhurta engine not wired to Q&A" lock this entry
+    # used to cite. Verified MATCH_STAGE2 in the step 5 run
+    # (diagnostics/latest_run.md, P7 Muhurta step 5/6 report) before this
+    # deletion, reconfirmed in this step's own full harness run. Deletion
+    # is behavior-neutral for the same reason as every prior deletion in
+    # this dict: _run_runnable_row only consults _KNOWN_GAPS when
+    # actual_tier != expected_tier, so a MATCH/MATCH_STAGE2 row never
+    # reaches it. If this row ever mismatches in a future run, it will
+    # surface as NEW_GAP (no longer absorbed here) -- treat that as
+    # SUSPECTED STAGE-2 VARIANCE FIRST (check diagnostics/
+    # calc_router_stage2.log) before triaging it as a regression.
 }
 
 # Mismatches this harness has ACTUALLY reproduced that are genuine, un-locked
@@ -281,7 +281,10 @@ def _default_evaluated_at_jd() -> float:
 
 
 def _classify_runnability(row: dict[str, Any]) -> str:
-    """RUNNABLE: single question, sulabh chart, in the 3-domain whitelist.
+    """RUNNABLE: single question, sulabh chart, in the 6-domain whitelist
+    (career/marriage/dasha/arudha_lagna/upapada_lagna/muhurta_window --
+    was stale at "3-domain" pre-fix, ride-along per this session's
+    golden_harness.py touch, CLAUDE.md carry-forward item).
     NON_RUNNABLE_BATCH: multi-probe rows (domain == "refusal_probe").
     """
     if row["chart"] == "sulabh" and row["domain"] in _GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN:

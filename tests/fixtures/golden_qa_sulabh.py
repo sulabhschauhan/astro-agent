@@ -784,4 +784,100 @@ GOLDEN_QA: list[dict] = [
         "expected_techniques": ["upapada_lagna"],
         "adjudication": "ratified_s67",
     },
+    {
+        "id": "sulabh_muhurta_q1_stage1",
+        "chart": "sulabh",
+        "domain": "muhurta_window",
+        "question": "what is an auspicious muhurta for me this week",
+        "baseline_source": "s64_ratified_oracle",
+        "baseline_answer_summary": (
+            "The ratified Stage 1 phrasing (2 _MUHURTA_WINDOW_KEYWORDS hits, "
+            "\"auspicious\" + \"muhurta\", score 0.667, clears both floor and "
+            "margin): resolves via Stage 1 keyword routing, not a live Stage "
+            "2 LLM call -- measured in the S64 MEASURE-FIRST run that also "
+            "produced tests/infra/test_orchestrator_muhurta.py's own "
+            "_STAGE1_CLEAN_QUESTION sentinel, deliberately reused here "
+            "VERBATIM (not varied to dodge a collision, unlike the arudha "
+            "q1/q2 precedent): muhurta_window is the pipeline's first "
+            "wall-clock-anchored domain, so answer_question() samples its "
+            "own datetime.now(timezone.utc) -- the resulting window VALUES "
+            "differ every run BY DESIGN, and only domain/tier/route/"
+            "structure is golden-assertable here, never a byte-exact "
+            "payload. Confirmed safe to reuse verbatim post-route-field-"
+            "switchover (CLAUDE.md carry-forward item): the "
+            "_used_stage2_since() log-correlation fragility this collision-"
+            "avoidance discipline originally guarded against now only "
+            "matters on answer_question()'s ERROR path, which a clean "
+            "Stage-1 resolution never reaches."
+        ),
+        "claims": [
+            {
+                "claim": "Resolves muhurta_window / TIER_3_MUHURTA via Stage 1",
+                "verdict": "MATCH",
+                "note": "Live run's window VALUES are wall-clock-anchored "
+                        "(evaluated_at_jd = datetime.now()) and vary run to "
+                        "run by design -- only domain/tier/route/structure "
+                        "is golden-assertable, matching test_orchestrator_"
+                        "muhurta.py's own Layer C posture (structural, not "
+                        "byte-equal against its pinned-JD Layer B). Pinned-"
+                        "JD oracle reference, cited as CONTEXT not a live-"
+                        "run assertion: at the S24 canonical anchor "
+                        "(2026-06-20 18:30 UTC), the S64-ratified table "
+                        "(test_orchestrator_muhurta.py's "
+                        "TestLayerBRealChartOracle Sulabh full pin) gives "
+                        "11 windows, tier1_window_count=4.",
+            },
+        ],
+        "v1_answerable": True,
+        "expected_tier": "TIER_3_MUHURTA",
+        "expected_techniques": ["muhurta_scorer"],
+        "adjudication": "ratified_s64",
+    },
+    {
+        "id": "sulabh_muhurta_q2_stage2",
+        "chart": "sulabh",
+        "domain": "muhurta_window",
+        "question": "is this a favorable moment to begin something new in my life",
+        "baseline_source": "s64_ratified_oracle",
+        "baseline_answer_summary": (
+            "Phrased to score ZERO Stage 1 keyword hits across ALL 7 "
+            "_DOMAIN_KEYWORDS lists (verified programmatically before "
+            "shipping this row, not assumed -- see diagnostics/"
+            "latest_run.md's Step 0/CHANGE A report). NOTE: the task's own "
+            "suggested candidate (\"when is a good time for me to start "
+            "something new\") was checked FIRST and REJECTED -- it scores "
+            "1 hit against _DASHA_KEYWORDS via the bare token \"when\", "
+            "which is a listed dasha keyword; not the zero-hit phrasing "
+            "the task called for, so a fresh phrasing was substituted. "
+            "This question resolves via a live GPT-4o-mini Stage 2 call on "
+            "every run -- MATCH_STAGE2 posture: monitored via "
+            "calc_router_stage2.log, not asserted as a stable MATCH, same "
+            "posture as sulabh_arudha_q2_stage2. Live-verified stable "
+            "across 4 consecutive route_question() probes before shipping: "
+            "domain=muhurta_window, tier=TIER_3_MUHURTA, "
+            "confidence=\"high\" (1.0), route=\"stage2\", demotion=None "
+            "every time; also confirmed end-to-end via answer_question() "
+            "against the real Sulabh chart. No verbatim collision with any "
+            "existing test/golden question string (grepped before "
+            "shipping)."
+        ),
+        "claims": [
+            {
+                "claim": "Resolves muhurta_window / TIER_3_MUHURTA via live Stage 2",
+                "verdict": "MATCH",
+                "note": "Same wall-clock-anchored caveat as "
+                        "sulabh_muhurta_q1_stage1 above (window VALUES vary "
+                        "run to run by design) -- only domain/tier/route/"
+                        "structure is golden-assertable. Additionally "
+                        "LLM-dependent: a category flip across runs is "
+                        "expected variance, not automatically a "
+                        "regression -- check diagnostics/"
+                        "calc_router_stage2.log before treating as a gap.",
+            },
+        ],
+        "v1_answerable": True,
+        "expected_tier": "TIER_3_MUHURTA",
+        "expected_techniques": ["muhurta_scorer"],
+        "adjudication": "ratified_s64",
+    },
 ]
