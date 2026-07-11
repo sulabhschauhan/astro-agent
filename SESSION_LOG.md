@@ -2310,3 +2310,157 @@ failed**, confirmed unchanged after both the prompt edit and the
   out of V1 scope entirely" posture), a V1-scope amendment to CLAUDE.md's
   Locked Decisions, and design-chat consensus before ANY wiring. Not
   started this session; recorded as a placeholder only.
+
+## Session 62 -- Refusal UX: formatter-owned user_message on REFUSAL; upapada refusal economics ruled status-quo; diagnostics retention convention resolved (2026-07-11)
+
+### What landed
+1. **`agent/infra/result_formatter.py` -- `format_refusal(route_result:
+   RouteResult) -> DomainAnswer` added.** New public helper, dead code
+   until orchestrator wiring (below) landed in a later prompt within this
+   session. `_REFUSAL_USER_MESSAGES: dict[str, str]` keyed on
+   `calc_router.py`'s two FIXED (non-interpolated) REFUSAL-path
+   `demotion_reason` literals -- `"marriage_compatibility requires partner
+   birth data"` and `"question not classifiable with confidence"` --
+   extracted by reading `calc_router.py` directly, not recalled.
+   `calc_router.py`'s other two REFUSAL paths
+   (`_UNBUILT_MODULE_KEYWORDS`/`_OUT_OF_SCOPE_KEYWORDS`) build their
+   `demotion_reason` via an f-string that interpolates the matched
+   keyword/module name -- no fixed literal exists to key on, so those
+   fall through to `_GENERIC_REFUSAL_MESSAGE` by design. Keys/strings
+   copied verbatim, not imported, matching the file's existing
+   `_DASHA_DEMOTION_REASON`-style encapsulation convention (no dependency
+   on `calc_router.py` internals). `format_refusal()` DOES import
+   `calc_router.RouteResult` itself (the type only) -- verified no
+   circular import (`chart_profile.py`, imported by both modules, imports
+   neither back). Returned `DomainAnswer` mirrors the orchestrator's prior
+   inline REFUSAL construction field-for-field, adding only
+   `answer_payload={"user_message": <mapped str>}`.
+2. **User-review reword pass (design-chat gate before proceeding).** User
+   asked for the two `_REFUSAL_USER_MESSAGES` values pasted verbatim and
+   checked whether the not-classifiable message's domain list was
+   layman-phrased before approving the orchestrator wiring. Verdict: 5/6
+   domains were plain language; bare "Sade Sati" (no gloss) was not.
+   Surgical reword (ONE FILE, `result_formatter.py`): both occurrences
+   (the not-classifiable message and `_GENERIC_REFUSAL_MESSAGE`, confirmed
+   NOT a verbatim duplicate of each other -- independently worded at
+   different lengths, so extraction into a shared constant was correctly
+   skipped rather than restructured) reworded to "Sade Sati (Saturn's
+   roughly 7.5-year transit around your Moon sign)" -- neutral gloss only,
+   no "difficult"/"challenging" valence, per instruction. Suite re-run:
+   3127 passed, 3 skipped, unchanged.
+3. **`agent/infra/orchestrator.py` -- REFUSAL branch delegated.** ONE
+   FILE; `answer_question()`'s inline
+   `if route_result.tier == AnswerTier.REFUSAL: return DomainAnswer(...)`
+   construction replaced with `return format_refusal(route_result)`.
+   Import verified clean (no circular import). Docstring's `Returns:`
+   section updated: REFUSAL is now formatter-owned
+   (`answer_payload["user_message"]`); `demotion_reason` stays
+   `route_result.demotion_reason` copied verbatim, the router's machine
+   contract, unchanged. No other logic touched -- marriage/av_transit
+   pass-through, `_merge_router_demotion()`, and the post-route guards
+   confirmed byte-identical.
+4. **`tests/infra/test_orchestrator_e2e.py` -- shared `_assert_refusal()`
+   helper ratified to the new contract.** ONE FILE;
+   `orchestrator.py`/`result_formatter.py` untouched even though the
+   suite failed after step 3 (5 tests, all through this one helper's
+   `assert result.answer_payload == {}`) -- fixes deferred to this
+   dedicated ratification prompt, not made opportunistically mid-delegation.
+   Replaced with a STRUCTURAL-only contract: `answer_payload` has exactly
+   one key (`"user_message"`), value is a non-empty `str` -- no
+   message-content/wording assertion, since text is formatter-owned
+   presentation and reworadable without a test-contract change. Checked
+   all 5 previously-failing tests for independent `answer_payload`
+   assertions outside the helper -- none found; no edits beyond the
+   helper needed.
+
+### Consensus rulings this session (design-chat gate)
+- **Upapada refusal economics: status quo ratified.** A future
+  upapada-lagna-style question that's deterministically refusable (an
+  unwired construct) may burn one live Stage 2 call before refusing.
+  Two alternatives considered and rejected: (a) adding refusal keywords
+  to short-circuit before Stage 2 -- rejected, would reintroduce the
+  Session 57-removed unbuilt-module-keyword anti-pattern and block the
+  future upapada route entirely; (b) wiring a cost-avoidance mechanism
+  now -- rejected as scope creep with no supporting data. Re-open only
+  with dogfood call-volume cost evidence (Session 44 evidence-gate
+  precedent: tune only with real usage data, not preemptive guesses).
+- **Refusal payload contract locked.** REFUSAL `DomainAnswer`s now always
+  carry `answer_payload={"user_message": str}` (formatter-owned,
+  layman-phrased presentation); `demotion_reason` remains the router's
+  verbatim machine contract (golden-harness substring assertions,
+  `_merge_router_demotion()`'s `" | "` concatenation all still key off
+  it, unaffected). Tests assert structure only, never wording.
+- **Diagnostics scorecard retention convention resolved**, closing the
+  Session 61 open carry-forward: keep-forever = a scorecard carrying a
+  frozen-baseline/supersession header OR cited by a commit message /
+  `latest_run.md` entry; routine verification re-runs become prunable
+  once superseded by a newer frozen baseline; pruning stays manual and
+  logged, never automated.
+
+### Design-chat-side stale-figure corrections (caught by Code, per the
+### baseline-discrepancies-documented rule)
+Two prompts issued mid-session quoted numbers that didn't match the
+live repo state; both were verified against actual files rather than
+taken on faith, and the delta reported instead of silently forced:
+- A prompt's stated golden-harness "frozen baseline expectation"
+  (`match=8 match_stage2=7 known_gap=4 new_gap=0`) did not match
+  CLAUDE.md's own documented current frozen baseline
+  (`golden_scorecard_20260711_045928.md`,
+  `match=8/match_stage2=9/known_gap=2/new_gap=0`, set by Session 61's
+  Stage 2 prompt-expansion work). The actual re-run this session
+  reproduced `8/9/2/0` and was diffed row-for-row against that frozen
+  baseline file -- byte-identical, confirming no regression from the
+  orchestrator delegation change and that the prompt's `7/4` figures were
+  simply stale (pre-Session-61 numbers), not a live discrepancy.
+- A follow-up prompt anticipated "3132 passed equivalent" for the full
+  suite after the `_assert_refusal()` ratification. Observed:
+  **3127 passed, 3 skipped** (5 previously-failing tests now pass,
+  bringing passed-count from 3122 to 3127; skipped unchanged at 3). The
+  "3132" figure did not reconcile against either this run or the
+  immediately preceding one and was reported verbatim as a delta rather
+  than forced to match.
+
+### Test baseline
+Full pytest suite: **3127 passed, 3 skipped, 0 failed** (final state,
+after both the delegation change and the `_assert_refusal()` ratification
+-- the 5-test dip to 3122 passed/5 failed mid-session was transient,
+between the orchestrator-delegation commit's verification and the
+test-file ratification prompt, and was reported in full verbatim in
+`diagnostics/latest_run.md` rather than silently fixed).
+
+### Golden harness
+Re-run once this session (after the `format_refusal()` addition, before
+the orchestrator wiring, per that prompt's own instruction -- not
+re-run again after the orchestrator/test-file changes since neither
+touched routing/scoring behavior): `match=8 match_stage2=9 known_gap=2
+new_gap=0`, diffed row-for-row against
+`diagnostics/golden_scorecard_20260711_045928.md` -- byte-identical, zero
+regression. Still the current frozen baseline; unchanged by this
+session's work.
+
+### Commit hashes
+- `b65c91a` -- "S62: refusal UX — formatter-owned user_message on
+  REFUSAL (format_refusal), orchestrator delegation, e2e refusal contract
+  ratified structural" (`agent/infra/result_formatter.py`,
+  `agent/infra/orchestrator.py`, `tests/infra/test_orchestrator_e2e.py`).
+- Docs-closeout commit ("S62 close: CLAUDE.md + SESSION_LOG.md",
+  `CLAUDE.md`/`SESSION_LOG.md`/`diagnostics/latest_run.md`) -- hash
+  recorded in `diagnostics/latest_run.md` and reported in chat (cannot
+  self-reference its own hash from inside its own diff).
+
+### Carry-forward resolved this session
+- `diagnostics/` scorecard retention convention undecided (Session 61) --
+  RESOLVED, folded into a new Locked Decisions entry (see Consensus
+  rulings above).
+- Marriage layman-phrasing gap, router-only probes (Session 61) --
+  CLOSED: the `has_partner_data` guard REFUSAL this item flagged as a
+  UX dead-end now carries a formatter-owned `user_message` directing the
+  user to supply partner birth details, via this session's Refusal
+  payload contract lock.
+
+### Carry-forward added this session
+- `_GENERIC_REFUSAL_MESSAGE` topic-list drift -- its topic list is
+  independently worded from `_REFUSAL_USER_MESSAGES`'s not-classifiable
+  list; the `SENSITIVE_TO` comment guarding domain-set sync currently
+  covers only the dict. Extend the guard comment to both sites and
+  re-sync wording when the next domain wires (upapada candidate).

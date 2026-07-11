@@ -1657,3 +1657,271 @@ warning in 81.00s** -- exact match to the pre-reword baseline, confirms
 string-only change with no behavioral impact.
 
 Not committed (per prompt instruction).
+
+## orchestrator.py delegates REFUSAL branch to format_refusal() (single-file
+## prompt, ONE FILE: orchestrator.py, no test/fixture/result_formatter.py
+## edits, not committed) -- VERIFICATION ONLY, no fixes applied
+
+`agent/infra/orchestrator.py`'s `answer_question()` REFUSAL branch
+(previously an inline `DomainAnswer(...)` construction with
+`answer_payload={}`) now reads:
+
+```python
+    if route_result.tier == AnswerTier.REFUSAL:
+        return format_refusal(route_result)
+```
+
+`format_refusal` imported from `agent.infra.result_formatter` alongside the
+existing `format_answer` import (same module, single import line). Import
+test: `python -c "from agent.infra.orchestrator import answer_question"` --
+clean, no circular import. Docstring's `Returns:` section updated to note
+the delegation (formatter now owns `answer_payload["user_message"]`;
+`demotion_reason` stays `route_result.demotion_reason` verbatim, the
+router's machine contract, unchanged). No other logic touched --
+marriage/av_transit pass-through branches, `_merge_router_demotion()`, and
+the post-route guards are byte-identical to before.
+
+### 4. Full pytest suite -- 5 failures, reported verbatim (NOT fixed)
+
+`3122 passed, 3 skipped, 5 failed in 70.02s`. All 5 failures are in
+`tests/infra/test_orchestrator_e2e.py`, all through the same shared
+`_assert_refusal()` helper (line 130: `assert result.answer_payload == {}`)
+-- expected fallout of `format_refusal()` now populating
+`answer_payload["user_message"]` where the old inline construction always
+used `answer_payload={}`. No other test file affected.
+
+Failing test ids:
+- `tests/infra/test_orchestrator_e2e.py::test_refusal_health`
+- `tests/infra/test_orchestrator_e2e.py::test_refusal_travel`
+- `tests/infra/test_orchestrator_e2e.py::test_refusal_lottery`
+- `tests/infra/test_orchestrator_e2e.py::test_refusal_gemstone`
+- `tests/infra/test_orchestrator_e2e.py::test_refusal_marriage_no_partner`
+
+Verbatim assertion diff, `test_refusal_travel` (question "Will I travel
+abroad?"; the other 3 domain=None/"question not classifiable with
+confidence" rows -- health/lottery/gemstone -- produce the byte-identical
+diff, only the test id differs):
+
+```
+    def _assert_refusal(result) -> None:
+        assert result.tier == AnswerTier.REFUSAL
+        assert result.domain is None
+>       assert result.answer_payload == {}
+E       assert {'user_message': "I couldn't confidently tell what you're asking. Could you try rephrasing? I can help with questions about: marriage compatibility, career strength, the life period (dasha) you're currently in, Sade Sati (Saturn's roughly 7.5-year transit around your Moon sign), how a specific planet's transit is playing out right now, and your public image/reputation."} == {}
+E
+E         Left contains 1 more item:
+E         {'user_message': "I couldn't confidently tell what you're asking. Could you "
+E                          'try rephrasing? I can help with questions about: marriage '
+E                          'compatibility, career strength, the life period (dasha) '
+E                          "you're currently in, Sade Sati (Saturn's roughly 7.5-year "
+E                          "transit around your Moon sign), how a specific planet's "
+E                          'transit is playing out right now, and your public '
+E                          'image/reputation.'}
+E
+E         Full diff:
+E         - {}
+E         + {
+E         +     'user_message': "I couldn't confidently tell what you're asking. Could you try rephrasing? "
+E         +     'I can help with questions about: marriage compatibility, career strength, '
+E         +     "the life period (dasha) you're currently in, Sade Sati (Saturn's roughly "
+E         +     "7.5-year transit around your Moon sign), how a specific planet's transit "
+E         +     'is playing out right now, and your public image/reputation.',
+E         + }
+
+tests\infra\test_orchestrator_e2e.py:130: AssertionError
+```
+
+Verbatim assertion diff, `test_refusal_marriage_no_partner` (question
+"Check our marriage compatibility" -- distinct demotion_reason/message from
+the 4 above, so its own diff):
+
+```
+    def _assert_refusal(result) -> None:
+        assert result.tier == AnswerTier.REFUSAL
+        assert result.domain is None
+>       assert result.answer_payload == {}
+E       assert {'user_message': "To check marriage compatibility, I also need your partner's birth details -- their date of birth, time of birth, and place of birth. Please share those and I can take a look."} == {}
+E
+E         Left contains 1 more item:
+E         {'user_message': "To check marriage compatibility, I also need your partner's "
+E                          'birth details -- their date of birth, time of birth, and '
+E                          'place of birth. Please share those and I can take a look.'}
+E
+E         Full diff:
+E         - {}
+E         + {
+E         +     'user_message': "To check marriage compatibility, I also need your partner's birth details "
+E         +     '-- their date of birth, time of birth, and place of birth. Please share '
+E         +     'those and I can take a look.',
+E         + }
+
+tests\infra\test_orchestrator_e2e.py:130: AssertionError
+```
+
+Not edited, per prompt instruction -- ratification (update the hardcoded
+`== {}` expectation in `_assert_refusal()`, or some other resolution) is a
+design-chat decision, not made here.
+
+### 5. Golden harness run -- counts differ from the prompt's stated
+### expectation, but row-for-row IDENTICAL to CLAUDE.md's own current
+### frozen baseline (no regression from this change)
+
+Prompt's stated expectation: `match=8 match_stage2=7 known_gap=4 new_gap=0`.
+
+Actual this run (`diagnostics/golden_scorecard_20260711_071912.md`):
+`runnable=19 non_runnable_batch=2 match=8 match_stage2=9 design_debt=0
+known_gap=2 new_gap=0 error=0`.
+
+**Working Style #12 check (baseline files are oracle data, verify before
+diffing):** the prompt's `match_stage2=7 known_gap=4` figures do not match
+this run, but they also do not match CLAUDE.md's OWN documented current
+frozen baseline -- CLAUDE.md's Locked Decisions section states verbatim:
+"Frozen comparison baseline: `diagnostics/golden_scorecard_20260711_045928.md`
+(match=8/match_stage2=9/known_gap=2/new_gap=0)" (set by the Session 61
+Stage 2 layman-intent prompt-expansion work, which retired 2 KNOWN_GAP rows
+to MATCH_STAGE2). This run's counts (`8/9/2/0`) match THAT file exactly.
+Diffed the two reports' per-row tables (`diff` on both files' `| id |
+domain | ... |` sections) -- byte-identical, zero row-level differences.
+Conclusion: the prompt's `match_stage2=7 known_gap=4` expectation is a
+stale, pre-Session-61 baseline number, not a regression introduced by this
+prompt's orchestrator.py change. This run reproduces the current frozen
+baseline exactly, including `sulabh_arudha_q3_refusal_probe`'s
+MATCH_STAGE2 REFUSAL row (CLAUDE.md's monitored-not-asserted Stage 2
+variance row) landing REFUSAL again this run, same as baseline.
+
+### Verification summary
+- Import test: clean, no circular import.
+- Full pytest: 3122 passed, 3 skipped, 5 failed (all pre-existing
+  `answer_payload=={}` assertions in `test_orchestrator_e2e.py`, not fixed,
+  reported verbatim above).
+- Golden harness: byte-identical to current frozen baseline
+  (`golden_scorecard_20260711_045928.md`); prompt's quoted expectation
+  numbers are stale.
+- Not committed (per prompt instruction).
+
+## S62 refusal-payload contract ratified in _assert_refusal() (single-file
+## prompt, ONE FILE: tests/infra/test_orchestrator_e2e.py, orchestrator.py
+## and result_formatter.py untouched, not committed)
+
+`_assert_refusal()` (tests/infra/test_orchestrator_e2e.py) previously
+hardcoded `assert result.answer_payload == {}`, written before
+`format_refusal()` existed. Replaced with a structural-only contract:
+
+```python
+def _assert_refusal(result) -> None:
+    """REFUSAL contract check.
+
+    answer_payload is NOT empty by design as of S62: orchestrator.py's
+    REFUSAL branch delegates to result_formatter.format_refusal(), which
+    always attaches a formatter-owned, layman-phrased "user_message" --
+    the demotion_reason-is-machine-contract / user_message-is-presentation
+    split (demotion_reason stays the router's verbatim reason for
+    golden-harness/merge-logic purposes; user_message is what a real user
+    reads). Only the STRUCTURAL guarantee is asserted here (exactly one
+    key, a non-empty string) -- message wording is formatter-owned
+    presentation and may be reworded without this test contract changing.
+    """
+    assert result.tier == AnswerTier.REFUSAL
+    assert result.domain is None
+    assert set(result.answer_payload.keys()) == {"user_message"}
+    assert isinstance(result.answer_payload["user_message"], str)
+    assert result.answer_payload["user_message"] != ""
+    assert result.demotion_reason is not None
+    assert result.sources == ()
+```
+
+No message-content/wording assertion added, per instruction -- text stays
+formatter-owned and rewordable without a test contract change.
+
+**Item 3 check (independent answer_payload assertions among the 5 failing
+tests):** grepped every `answer_payload` reference in this file --
+`test_refusal_health`/`test_refusal_travel`/`test_refusal_lottery`/
+`test_refusal_gemstone`/`test_refusal_marriage_no_partner` each call
+`_assert_refusal(result)` ONLY, no independent payload assertion. The
+file's other `answer_payload` references (lines ~110-124, ~188-262,
+~329/364/420, ~455) all belong to career/dasha/marriage/error tests, none
+REFUSAL-tier. Conclusion: zero independent sites found -- no additional
+edits made beyond the shared helper.
+
+**Verification:**
+- 5 previously-failing tests run first, stop-on-first-failure
+  (`test_refusal_health`, `test_refusal_travel`, `test_refusal_lottery`,
+  `test_refusal_gemstone`, `test_refusal_marriage_no_partner`):
+  **5 passed in 0.86s**.
+- Full suite: **3127 passed, 3 skipped, 1 warning in 85.96s**.
+- Prompt anticipated "3132 passed equivalent" -- observed count is
+  **3127**, a delta of -5 from the prompt's figure, reported verbatim per
+  instruction (not forced to match). Reconciliation: the immediately
+  prior full-suite run (previous diagnostics entry) was `3122 passed, 3
+  skipped, 5 failed` -- those exact 5 failing tests now pass, so
+  passed-count arithmetic is `3122 + 5 = 3127`, skipped unchanged at 3,
+  total accounted for. The prompt's "3132" does not reconcile against
+  either this run or the immediately preceding one; flagged as a stale/
+  incorrect figure in the prompt, not a test-count regression.
+- Golden harness: not re-run, per instruction (no source-file change).
+- Not committed (per prompt instruction).
+
+## S62 close: commit + doc closeout
+
+**Commit 1 (S62 working set, code/test only):**
+`b65c91a` -- "S62: refusal UX — formatter-owned user_message on REFUSAL
+(format_refusal), orchestrator delegation, e2e refusal contract ratified
+structural". Files: `agent/infra/result_formatter.py`,
+`agent/infra/orchestrator.py`, `tests/infra/test_orchestrator_e2e.py`
+(exactly the 3 named in the closeout prompt; `diagnostics/latest_run.md`
+deliberately excluded from this commit, held for the docs commit below).
+Verified before staging: `diagnostics/calc_router_stage2.log` is
+gitignored (`.gitignore:32`) and was not staged or committed.
+
+**Docs closeout (this commit):** `CLAUDE.md` + `SESSION_LOG.md` +
+`diagnostics/latest_run.md` (this file). CLAUDE.md edits: 3 new Locked
+Decisions bullets (Upapada refusal economics, Refusal payload contract,
+Diagnostics retention convention), Carry-Forward updated (new
+`_GENERIC_REFUSAL_MESSAGE` topic-list-drift item added; Session 61's
+"diagnostics retention convention undecided" item removed, resolved into
+the new Locked Decision; Session 61's "Marriage layman-phrasing gap"
+item annotated CLOSED, pointing at the new Refusal payload contract
+lock), Current Session Focus updated to "Session 62 CLOSED". One
+resolution note: the closeout prompt's item (e) referenced "the marriage
+guard-refusal UX item" in Carry-Forward -- no item was literally titled
+that; verified by grepping CLAUDE.md for "partner"/"marriage" before
+acting, and the only plausible match was Session 61's "Marriage
+layman-phrasing gap, router-only probes" item (about the same
+`has_partner_data` guard REFUSAL this session's `format_refusal()` now
+gives a UX message to) -- annotated that item CLOSED rather than
+inventing a new one. SESSION_LOG.md: appended the "Session 62" entry
+(What landed / Consensus rulings / stale-figure corrections / Test
+baseline / Golden harness / Commit hashes / Carry-forward
+resolved+added), matching the established Session 60/61 format.
+
+**Docs commit hash:** this commit's own hash cannot be recorded inside
+this file (the hash is computed from this file's committed content, so
+it cannot reference itself) -- reported in the chat reply instead, per
+the same constraint noted in SESSION_LOG.md's Commit hashes section
+above.
+
+**Final git status (captured immediately before the docs commit, i.e.
+after commit 1 only):**
+```
+On branch main
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   CLAUDE.md
+	modified:   SESSION_LOG.md
+	modified:   diagnostics/latest_run.md
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	diagnostics/golden_scorecard_20260711_071912.md
+```
+`diagnostics/golden_scorecard_20260711_071912.md` (this session's own
+golden harness re-run, byte-identical to the frozen baseline) is left
+untracked, not committed -- not named in this closeout prompt's file
+list, and CLAUDE.md's new retention convention treats routine
+verification re-runs as prunable/uncommitted once a frozen baseline
+already covers the same result, which this run is.
+
