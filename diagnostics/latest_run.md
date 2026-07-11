@@ -1,3 +1,142 @@
+# S67: sulabh_marriage_q10 probe + fixture re-ratification (golden_qa_sulabh.py only)
+
+ONE FILE: `tests/fixtures/golden_qa_sulabh.py`. `calc_router.py`,
+`orchestrator.py`, and `golden_harness.py` NOT touched.
+
+## Part A: sulabh_marriage_q10 probe, 5 live runs
+
+`route_question("What does our overall compatibility mean for us as a "
+"couple?", has_partner_data=True, chart_data=sulabh_chart)`, live
+OpenAI client, 5 sequential calls, verbatim:
+
+| # | domain | confidence | tier |
+|---|---|---|---|
+| 1 | marriage_compatibility | 1.0 | AnswerTier.TIER_1_EXACT |
+| 2 | marriage_compatibility | 1.0 | AnswerTier.TIER_1_EXACT |
+| 3 | marriage_compatibility | 1.0 | AnswerTier.TIER_1_EXACT |
+| 4 | marriage_compatibility | 1.0 | AnswerTier.TIER_1_EXACT |
+| 5 | marriage_compatibility | 1.0 | AnswerTier.TIER_1_EXACT |
+
+**5/5 ROUTES** (confidence=1.0 == Stage 2 "high" per
+`_STAGE2_CONFIDENCE_MAP`). No thresholds touched, no interpretation
+drawn here beyond the raw tuples -- word choice ("routes" vs.
+"oscillates") for the fixture note is a direct function of this 5/5
+result, not a judgment call.
+
+## Part B: fixture re-ratification
+
+### 1. `sulabh_arudha_q3_refusal_probe`
+
+- `domain` field: **left as `"arudha_lagna"`, NOT changed to
+  `"upapada_lagna"`**. Checked `agent/eval/golden_harness.py`'s
+  `_GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN` by reading (not assumed) --
+  it maps only `"career"`/`"marriage"`/`"dasha"`/`"arudha_lagna"` to a
+  pipeline domain; `"upapada_lagna"` is absent as a key. Changing the
+  row's `domain` field would make `_classify_runnability()` reclassify
+  it `NON_RUNNABLE_BATCH`, silently dropping it from the 19 runnable
+  rows -- confirmed by reading `_classify_runnability()`'s own
+  membership check. Per task instruction: **reporting this rather than
+  editing `golden_harness.py`** (a second file, a second prompt: adding
+  the missing `"upapada_lagna": "upapada_lagna"` mapping entry). Row
+  stays reachable/runnable under its existing `"arudha_lagna"` domain
+  string -- harness-level, this is unaffected by which real pipeline
+  domain the question happens to route to at runtime.
+- `expected_tier`: `"REFUSAL"` -> `"TIER_1_EXACT"`.
+- `baseline_source`/`baseline_answer_summary`: rewritten to record the
+  domain is wired end-to-end (S63/S64/S65/S66) and that this exact
+  question resolves via Stage 1's deterministic "upapada lagna" bigram
+  match (S65 measurement: 2 keyword hits, 0.667 score).
+- `claims`: replaced the router-disposition claim with "Upapada Lagna =
+  Aquarius (Ketu primary via cascade step 2)", verdict MATCH, citing
+  the two independent sources: S57 JHora capture (dual-confirmed render
+  + blind PVR derivation, full §15.5.1 cascade) and the S63
+  `chart_profile.py` smoke test (`upapada_sign="Aquarius"`,
+  `lord="Ketu"`, `co_lord_deciding_step="step_2"`). Noted the pipeline
+  validates the full cascade path, not just the sign endpoint.
+- Monitored-risk note INVERTED: this row now routes via Stage 1
+  (deterministic floor per the S65 measurement cited above) -- asserted,
+  not monitored. A REFUSAL on this row is now a real regression.
+- `v1_answerable`: `False` -> `True`; `expected_techniques`:
+  `["arudha_lagna"]` -> `["upapada_lagna"]` (not harness-consulted,
+  pure documentation -- confirmed via grep, `expected_techniques` has
+  zero references in `golden_harness.py`); `adjudication`:
+  `"pending_jhora"` -> `"ratified_s67"`.
+
+### 2. `sulabh_marriage_q10`
+
+`expected_tier` (`TIER_4_INTERPRETIVE`) and category (`KNOWN_GAP`) left
+UNCHANGED, per task instruction. Edited ONLY the claim's `note`: appended
+an "UPDATE (S67)" paragraph recording the S65 Stage 2 prompt expansion's
+observed effect on this question's live routing (Stage-2-medium/REFUSAL
+-> routed marriage_compatibility, citing the Part A 5/5-ROUTES result),
+that this was ruled a correct-classification improvement in design chat
+(genuine couple-compatibility question, partner data present, wired
+domain -- not a regression), and that KNOWN_GAP/expected_tier are
+unaffected because this row was always going to mismatch
+`TIER_4_INTERPRETIVE` regardless of routing outcome -- the gap tracks
+only the unbuilt Tier 4 interpretive-synthesis depth (V1-scope-OUT),
+never the routing question.
+
+## Verification
+
+Fixture import:
+```
+total rows: 21
+q3 domain: arudha_lagna expected_tier: TIER_1_EXACT adjudication: ratified_s67
+q10 expected_tier: TIER_4_INTERPRETIVE note has ROUTES: True
+IMPORT_OK
+```
+
+Full suite:
+```
+3127 passed, 3 skipped, 1 warning in 97.01s
+```
+Exact match, zero delta.
+
+Golden harness, one run:
+```
+runnable=19 non_runnable_batch=2 match=9 match_stage2=8 design_debt=0 known_gap=2 new_gap=0 error=0
+report: diagnostics/golden_scorecard_20260711_110324.md
+```
+
+**DEVIATES from the task's stated expectation** (`match=9
+match_stage2=9 known_gap=2 new_gap=0`) in one field:
+`match_stage2` observed **8**, not 9. Reporting verbatim, not forcing.
+Reconciling the arithmetic against the task's own "derive check: prior
+8+1" note: the prior (S66) run's count line was `match=8 match_stage2=8
+... new_gap=1` (q3 was the sole `new_gap=1`) -- q3 flipping
+`NEW_GAP -> MATCH` (not `MATCH_STAGE2`, since it resolves via Stage 1,
+confirmed in its own row below) means `match` should go 8 -> 9 and
+`match_stage2` should stay unchanged at 8, which is exactly what was
+observed. The task's own stated `match_stage2=9` appears to be an
+arithmetic slip in the prediction, not a real discrepancy -- both
+`known_gap=2` and `new_gap=0` matched exactly, and the total
+(9+8+0+2+0=19) reconciles with `runnable=19`.
+
+q3's row, verbatim:
+```
+sulabh_arudha_q3_refusal_probe | arudha_lagna | TIER_1_EXACT | TIER_1_EXACT | stage1 |  | MATCH
+```
+
+Diffed every row against the prior (S66) run's report
+(`golden_scorecard_20260711_103119.md`, itself already known to deviate
+from the older frozen baseline on q3/q10 per that session's stop). Only
+q3's row changed; **`sulabh_marriage_q10`'s row is byte-identical**
+between the S66 and this run (`marriage | TIER_4_INTERPRETIVE |
+TIER_1_EXACT | stage2 | | KNOWN_GAP` both times) -- consistent with
+editing only its `note`, never its `expected_tier`/category. No other
+row deviated.
+
+## Not committed
+
+Per task instruction: fixture edits remain in the working tree. The new
+frozen-baseline header + commit bundle is explicitly deferred to the
+next prompt. `agent/infra/calc_router.py`/`orchestrator.py`/
+`chart_profile.py`/`result_formatter.py` (prior prompts) also remain
+uncommitted, unchanged by this prompt.
+
+---
+
 # S66: upapada_lagna admitted through answer_question() -- STOPPED, unexpected golden-harness deviation
 
 ONE FILE: `agent/infra/orchestrator.py`.
