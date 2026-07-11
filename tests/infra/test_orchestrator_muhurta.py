@@ -276,13 +276,47 @@ class TestLayerARouterProvenance:
 
 
 class TestLayerBRealChartOracle:
-    """PINNED JD makes window values deterministic. STRUCTURAL asserts only
-    this prompt (per MEASURE-FIRST): window COUNT and the per-window tier
-    SEQUENCE are chart+JD-specific VALUE-asserts, deferred to the next
-    prompt after design-chat ratifies the observed table (pasted in
-    diagnostics/latest_run.md). The observed Sulabh table at _PINNED_JD was
-    11 windows; that literal is intentionally NOT asserted here yet.
+    """PINNED JD makes window values deterministic. Sulabh (hardest case --
+    both Janma Tara and Janma Rashi warning paths fire) gets a FULL value
+    pin: window count, per-window tier sequence, per-window favorable_count
+    sequence, per-window warnings bands, and the summary block. The other 3
+    charts get light pins (natal ids + tier1_window_count only), per
+    sample-before-scale -- see _assert_chart_structural's own docstring for
+    why their window-level detail stays unasserted.
+
+    Table ratified S64 design chat (diagnostics/latest_run.md's "Sulabh
+    full window table @ _PINNED_JD" MEASURE-FIRST block). The Janma Tara
+    band boundaries (idx 7-8) are independently corroborated by S24's
+    Vishakha occupancy scan (verbatim minute match against that scan's own
+    output) -- not a fresh, unverified observation.
     """
+
+    # Per-window tier SEQUENCE, Sulabh @ _PINNED_JD (11 windows) -- ratified
+    # S64 design chat against diagnostics/latest_run.md's MEASURE-FIRST table.
+    _SULABH_TIER_SEQUENCE = [
+        "TIER_2", "TIER_1", "TIER_1", "TIER_2", "TIER_1", "TIER_2",
+        "TIER_2", "TIER_3", "TIER_2", "TIER_1", "TIER_2",
+    ]
+
+    # Per-window favorable_count SEQUENCE, same table/anchor.
+    _SULABH_FAVORABLE_COUNT_SEQUENCE = [1, 2, 2, 1, 2, 1, 1, 0, 1, 2, 1]
+
+    # Per-window warnings bands, same table/anchor. idx 7 = Janma Tara only
+    # (Vishakha nakshatra occupancy); idx 8 = both bands overlapping (the
+    # only window where Janma Tara and Janma Rashi coincide); idx 9-10 =
+    # Janma Rashi only (Scorpio moon-sign occupancy persists past the
+    # nakshatra band). All other windows clear of both natal warnings.
+    _SULABH_WARNINGS_SEQUENCE = {
+        7: ("Janma Tara",),
+        8: ("Janma Tara", "Janma Rashi"),
+        9: ("Janma Rashi",),
+        10: ("Janma Rashi",),
+    }
+
+    _SULABH_SUMMARY = {
+        "tier1_window_count": 4,
+        "earliest_tier1_start": "21 Jun 2026 04:01 UTC",
+    }
 
     def test_sulabh_structural_and_natal_ids(self, sulabh_chart):
         """Hardest-case-first: Sulabh has BOTH Janma Rashi (Scorpio) and
@@ -306,14 +340,30 @@ class TestLayerBRealChartOracle:
             answer.answer_payload, expected_start_jd=_PINNED_JD, exact_span=True
         )
 
-    def _assert_chart_structural(self, chart: dict):
-        """Shared structural row for the 3 non-Sulabh charts: natal ids
-        derived correctly (valid in-range indices), plus the same pinned-JD
-        window-structure invariants. No chart-specific literal values pinned
-        (deferred value-asserts)."""
-        natal_moon_sign, janma_nakshatra = _natal_ids(chart)
-        assert 0 <= natal_moon_sign <= 11
-        assert 0 <= janma_nakshatra <= 26
+        windows = answer.answer_payload["windows"]
+        assert len(windows) == 11
+        assert [w["tier"] for w in windows] == self._SULABH_TIER_SEQUENCE
+        assert [w["favorable_count"] for w in windows] == self._SULABH_FAVORABLE_COUNT_SEQUENCE
+        for i, w in enumerate(windows):
+            # warnings is a tuple[str, ...] end to end (muhurta_scorer.py's
+            # MuhurtaWindowScore dataclass field -> chart_profile.py's
+            # build_muhurta_profile() passthrough -> result_formatter.py's
+            # passthrough; verified by reading, not assumed) -- compare
+            # against tuple literals, never list literals.
+            assert w["warnings"] == self._SULABH_WARNINGS_SEQUENCE.get(i, ())
+        assert answer.answer_payload["summary"] == self._SULABH_SUMMARY
+
+    def _assert_chart_structural(self, chart: dict, *, expected_natal: tuple[int, int], expected_tier1_count: int):
+        """Shared light-pin row for the 3 non-Sulabh charts: exact natal ids
+        plus tier1_window_count, alongside the same pinned-JD window-
+        structure invariants. Window COUNT==11 is observed at this anchor
+        for all 4 charts (see diagnostics/latest_run.md), but that is a
+        coincidence of this week's transit boundary structure -- NOT an
+        invariant -- so it is deliberately NOT asserted here for the non-
+        Sulabh charts (Sulabh alone gets the full-table pin above). Full
+        per-window tier/favorable_count/warnings sequences stay unasserted
+        for these 3 per sample-before-scale."""
+        assert _natal_ids(chart) == expected_natal
 
         profile = build_domain_profile("muhurta_window", chart, _PINNED_JD)
         answer = format_answer(profile)
@@ -323,18 +373,19 @@ class TestLayerBRealChartOracle:
         _assert_window_structure(
             answer.answer_payload, expected_start_jd=_PINNED_JD, exact_span=True
         )
+        assert answer.answer_payload["summary"]["tier1_window_count"] == expected_tier1_count
 
     def test_david_structural(self, david_chart):
         """David tested first among the 3 partial-assert rows per CLAUDE.md
         Working Style #3 (HARDEST CASE first), mirroring the arudha/upapada
         precedent's own ordering."""
-        self._assert_chart_structural(david_chart)
+        self._assert_chart_structural(david_chart, expected_natal=(4, 9), expected_tier1_count=2)
 
     def test_surbhi_structural(self, surbhi_chart):
-        self._assert_chart_structural(surbhi_chart)
+        self._assert_chart_structural(surbhi_chart, expected_natal=(10, 23), expected_tier1_count=3)
 
     def test_sheridan_structural(self, sheridan_chart):
-        self._assert_chart_structural(sheridan_chart)
+        self._assert_chart_structural(sheridan_chart, expected_natal=(0, 0), expected_tier1_count=2)
 
 
 # ─── Layer C: full answer_question() chain, STRUCTURAL (router incl., no LLM) ─
