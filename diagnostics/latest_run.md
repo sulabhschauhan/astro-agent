@@ -1,3 +1,84 @@
+# S61 ratification commit: golden_harness.py KNOWN_GAPS retirement + baseline supersession
+
+Two code-adjacent files edited (`calc_router.py`'s prompt edit was
+already staged from the prior task, committed as-is with no further
+edits): `agent/eval/golden_harness.py` and a supersession header on
+`diagnostics/golden_scorecard_20260711_045928.md`.
+
+## Edit 1 -- golden_harness.py: retire 2 _KNOWN_GAPS entries
+
+Deleted `"sulabh_career_q4"` and `"sulabh_marriage_q9"` from
+`_KNOWN_GAPS` (same Session 50/P7.1e retirement precedent already
+documented in the dict's own comment block). Both now classify at
+`confidence="high"` (was `"medium"`) post-prompt-expansion, verified
+`MATCH_STAGE2` in `diagnostics/golden_scorecard_20260711_045928.md`
+before deletion.
+
+Extended the existing Session 50/P7.1e comment block with a new Session
+61 paragraph: deletion is behavior-neutral on MATCH (same reasoning as
+S50's -- `_run_runnable_row` only consults this dict when
+`actual_tier != expected_tier`); if either row ever mismatches in a
+future run it will surface as `NEW_GAP` (no longer absorbed here) --
+explicit instruction to treat that as SUSPECTED STAGE-2 VARIANCE FIRST
+(check that run's `calc_router_stage2.log` entry) before regression
+triage, not silently re-add an entry without checking. Also corrected
+the now-stale "4 remaining entries" wording (2 lines above the dict) to
+"the remaining entries" (count-agnostic, since it now describes 2, not
+4 -- avoiding embedding a number that will go stale again on the next
+retirement).
+
+**Remaining `_KNOWN_GAPS` prose check (2 entries)**: both still cite
+LIVE CLAUDE.md locks -- `sulabh_marriage_q10` cites the V1 scope lock
+("LLM-generated interpretive Q&A is OUT"), confirmed still present in
+CLAUDE.md's Locked Decisions; `sulabh_dasha_q15` cites the P2 order lock
+(Muhurta engine "not wired to Q&A in V1"), also confirmed still present.
+**Not stale** -- no edit needed beyond what's already flagged in
+CLAUDE.md's existing Carry-Forward item ("`golden_harness.py` stale
+`_KNOWN_GAPS` prose", Session 55, opportunistic-only, not a standalone
+prompt).
+
+## Edit 2 -- supersession header, golden_scorecard_20260711_045928.md
+
+Prepended a header (mirroring the Session 60 scorecard's own
+convention): declares this file the new frozen baseline, superseding
+`golden_scorecard_20260710_184703.md`; states the expected steady state
+(`match=8/match_stage2=9/known_gap=2/new_gap=0`); includes the q4/q9
+variance-triage note (verbatim guidance: check the log before treating a
+future mismatch as regression); and the layman-reachability metric line:
+"S61 probe: 7/12 layman phrasings rescued post-prompt-expansion
+(pre-edit: 3/12)".
+
+## Verification: harness re-run against the retired-entries state
+
+```
+runnable=19 non_runnable_batch=2 match=8 match_stage2=9 design_debt=0 known_gap=2 new_gap=0 error=0
+report: diagnostics/golden_scorecard_20260711_051020.md
+```
+
+**Exact reproduction of the expected steady state** -- no Stage-2
+variance this run; every count matches
+`match=8/match_stage2=9/known_gap=2/new_gap=0` precisely.
+
+## Full pytest suite
+
+```
+3127 passed, 3 skipped, 1 warning in 90.05s
+```
+
+Exact match to the expected 3127/3/0 -- zero delta.
+
+## Commit
+
+`S61: Stage 2 layman-intent prompt expansion; q4/q9 KNOWN_GAP retired;
+reachability 3/12 -> 7/12; baseline superseded` -- single commit,
+covering `agent/infra/calc_router.py` (prompt edit, staged from the
+prior task, committed as-is), `agent/eval/golden_harness.py` (this
+task's _KNOWN_GAPS retirement), `diagnostics/golden_scorecard_
+20260711_045928.md` (new, with supersession header), and this
+`diagnostics/latest_run.md` entry. Pushed.
+
+---
+
 # Stage 2 prompt expansion: layman intent mapping (agent/infra/calc_router.py)
 
 ONE FILE: `agent/infra/calc_router.py` -- `_STAGE2_SYSTEM_PROMPT` string

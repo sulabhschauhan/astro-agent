@@ -127,38 +127,29 @@ _SURBHI_BIRTH = ("Surbhi", "11 Sep 1992", "10:30", "Patna, India")
 # when actual_tier != expected_tier (see below), so a MATCH row never
 # reaches it whether or not an entry exists here.
 #
-# The 4 remaining entries are all STAGE2_VARIABLE (see each entry): their
+# The remaining entries are all STAGE2_VARIABLE (see each entry): their
 # outcome now depends on a live GPT-4o-mini call, which -- unlike Stage 1's
 # pure keyword arithmetic -- is not perfectly guaranteed identical across
-# runs even at temperature=0. A category flip on one of these 4 rows in a
+# runs even at temperature=0. A category flip on one of these rows in a
 # future run is expected variance, not automatically a regression: check
 # diagnostics/calc_router_stage2.log for that run before treating it as a
 # NEW_GAP.
+#
+# Session 61: sulabh_career_q4/sulabh_marriage_q9 deleted from this dict
+# (same S50/P7.1e precedent above). calc_router.py's Stage 2 system prompt
+# was expanded with layman-intent glosses/examples per domain plus an
+# explicit fortune-telling->domain=none instruction; both rows now
+# classify at confidence="high" (was "medium") and route MATCH_STAGE2 --
+# verified in diagnostics/golden_scorecard_20260711_045928.md before this
+# deletion. Deletion is behavior-neutral on MATCH for the same reason as
+# S50's: _run_runnable_row only consults this dict when
+# actual_tier != expected_tier, so a MATCH/MATCH_STAGE2 row never reaches
+# it. If either row ever mismatches in a future run, it will surface as
+# NEW_GAP (no longer absorbed here) -- treat that as SUSPECTED STAGE-2
+# VARIANCE FIRST (check diagnostics/calc_router_stage2.log for that run's
+# actual classification/confidence) before triaging it as a regression;
+# do not silently re-add an entry here without checking the log.
 _KNOWN_GAPS: dict[str, str] = {
-    "sulabh_career_q4": (
-        "STAGE2_VARIABLE: outcome depends on live GPT-4o-mini "
-        "classification; a category flip on this row across runs is "
-        "expected variance, not automatically a regression -- check "
-        "diagnostics/calc_router_stage2.log before treating as NEW_GAP. "
-        "Session 50 observed mechanism: Stage 2 classified "
-        "career_strength at confidence=\"medium\" -- calc_router routes "
-        "ONLY on \"high\" confidence, so this REFUSES via the same "
-        "generic path Stage 1 alone would have produced (\"job\" is the "
-        "only Stage 1 career-keyword hit, itself below the 2-hit/0.4-floor "
-        "requirement)."
-    ),
-    "sulabh_marriage_q9": (
-        "STAGE2_VARIABLE: outcome depends on live GPT-4o-mini "
-        "classification; a category flip on this row across runs is "
-        "expected variance, not automatically a regression -- check "
-        "diagnostics/calc_router_stage2.log before treating as NEW_GAP. "
-        "Session 50 observed mechanism: Stage 2 classified "
-        "marriage_compatibility at confidence=\"medium\" -- calc_router "
-        "routes ONLY on \"high\" confidence, so this REFUSES via the same "
-        "generic path Stage 1 alone would have produced (\"compatibility\" "
-        "is the only Stage 1 marriage-keyword hit, itself below the "
-        "2-hit/0.4-floor requirement)."
-    ),
     # Two independent reasons this cannot MATCH -- one STAGE2_VARIABLE, one
     # a hard CLAUDE.md lock. Per this session's design-chat instruction: if
     # a future run's Stage 2 ever classifies this "high" and routes it to
