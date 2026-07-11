@@ -246,17 +246,38 @@ class TestLayerBRealChartOracle:
         assert answer.uncertainty_days == 0.0
         assert answer.sources == ("padas.py",)
 
-    def _assert_shape_and_print(self, name: str, chart: dict):
-        """Shared shape-only assertion + RATIFY-line print for the 3
+    def _assert_shape_and_ratified(
+        self,
+        chart: dict,
+        expected_upapada_sign: str,
+        expected_lord: str,
+        expected_step: str | None,
+    ):
+        """Shared shape assertion + RATIFIED literal assertion for the 3
         non-Sulabh charts. Derives house_12_sign from lagna_sign (NOT
         upapada_sign -- see _house_12_sign's own docstring for why these
-        differ): if house_12_sign is Scorpio/Aquarius (co-lorded), the
-        co-lord cascade must fire (step non-None); otherwise "lord" must
-        equal house_12_sign's single classical lord and step must be
-        None. upapada_sign itself is NOT asserted here -- ratification
-        happens in design chat from the printed RATIFY BEFORE COMMIT
-        lines, same posture as test_orchestrator_arudha_lagna.py's own
-        David/Sheridan/Surbhi rows.
+        differ) and keeps the general co-lorded/non-co-lorded shape
+        invariant as a sanity check alongside the exact ratified values
+        (S72): none of David/Sheridan/Surbhi land on a co-lorded
+        (Scorpio/Aquarius) house-12 sign -- only Sulabh does in this
+        4-chart set, so this branch is expected to always take the
+        `not in` path here.
+
+        RATIFIED S72 (design-chat sign-off) -- plain-path output of the
+        dual-oracle-validated padas kernel: PVR Example 29 (12-house
+        book oracle, jaimini/padas.py's own CITATION) + Sulabh's S57
+        JHora cascade capture (dual-confirmed render + blind PVR
+        derivation) validate the underlying kernel these 3 rows also run
+        through; each row's lord additionally cross-checked against
+        design-chat whole-sign derivation for its own house-12 sign.
+        Promotion mirrors test_orchestrator_arudha_lagna.py's own S59
+        promotion diff exactly (commit b4be25a): print-only RATIFY lines
+        removed now that real assertions exist; the shape-helper
+        function (_house_12_sign) is KEPT (still exercised by the shape
+        invariant above), unlike arudha's S59 promotion which removed
+        its OWN now-unused `_print_ratify_line` helper -- the two
+        helpers differ (this one still does real work post-promotion,
+        that one didn't).
         """
         profile = build_domain_profile("upapada_lagna", chart, _evaluated_at_jd())
         answer = format_answer(profile)
@@ -264,34 +285,26 @@ class TestLayerBRealChartOracle:
 
         assert payload["lagna_sign"] in _CANONICAL_SIGNS
         house_12_sign = _house_12_sign(payload["lagna_sign"])
-        if house_12_sign in ("Scorpio", "Aquarius"):
-            assert payload["co_lord_deciding_step"] is not None
-        else:
-            assert payload["lord"] == _CLASSICAL_SIGN_LORDS[house_12_sign]
-            assert payload["co_lord_deciding_step"] is None
+        assert house_12_sign not in ("Scorpio", "Aquarius")
 
-        print(
-            f"RATIFY BEFORE COMMIT ({name}): upapada_sign="
-            f"{payload['upapada_sign']!r} lord={payload['lord']!r} "
-            f"co_lord_deciding_step={payload['co_lord_deciding_step']!r} "
-            f"(lagna_sign={payload['lagna_sign']!r}, "
-            f"house_12_sign={house_12_sign!r})"
-        )
+        assert payload["upapada_sign"] == expected_upapada_sign
+        assert payload["lord"] == expected_lord
+        assert payload["co_lord_deciding_step"] is expected_step
 
-    def test_david_shape_and_ratify(self, david_chart):
+    def test_david_shape_and_ratified(self, david_chart):
         """David tested first among the 3 partial-assert rows per
         CLAUDE.md Working Style #3 (HARDEST CASE first), mirroring
         test_orchestrator_arudha_lagna.py's own ordering precedent
         (Session 57 cross-chart divergence, documented elsewhere in
         CLAUDE.md for this chart specifically).
         """
-        self._assert_shape_and_print("David", david_chart)
+        self._assert_shape_and_ratified(david_chart, "Gemini", "Sun", None)
 
-    def test_sheridan_shape_and_ratify(self, sheridan_chart):
-        self._assert_shape_and_print("Sheridan", sheridan_chart)
+    def test_sheridan_shape_and_ratified(self, sheridan_chart):
+        self._assert_shape_and_ratified(sheridan_chart, "Capricorn", "Mars", None)
 
-    def test_surbhi_shape_and_ratify(self, surbhi_chart):
-        self._assert_shape_and_print("Surbhi", surbhi_chart)
+    def test_surbhi_shape_and_ratified(self, surbhi_chart):
+        self._assert_shape_and_ratified(surbhi_chart, "Cancer", "Mercury", None)
 
 
 # ─── Layer C: full chain (router included, no LLM reached) ─────────────────
