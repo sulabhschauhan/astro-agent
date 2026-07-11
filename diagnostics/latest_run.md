@@ -1,3 +1,58 @@
+# Session 60 closeout verification (no source edits)
+
+Verification-only pass confirming the S60 commit landed correctly and
+its post-pin expectation holds on a fresh live run. No files edited
+other than this entry.
+
+## 1. Last commit contents
+
+```
+commit 712d9cc829b36f370ce905620a34e983c01f8e7f
+S60: golden set arudha_lagna coverage (3 rows), harness whitelist, q3 ratified REFUSAL, baseline superseded
+
+ agent/eval/golden_harness.py                    |  7 +--
+ diagnostics/golden_scorecard_20260710_184703.md | 68 +++++++++++++++++++++++
+ diagnostics/latest_run.md                       | 71 +++++++++++++++++++++++++
+ tests/fixtures/golden_qa_sulabh.py              | 51 +++++++++++++-----
+ 4 files changed, 181 insertions(+), 16 deletions(-)
+```
+
+Matches expectation: `golden_harness.py` whitelist wiring,
+`golden_qa_sulabh.py` q3 pin, the new frozen-baseline scorecard, and the
+prior diagnostics entry -- exactly the 4 files the S60 task committed.
+`diagnostics/calc_router_stage2.log` NOT present -- confirmed not
+committed.
+
+## 2. calc_router_stage2.log ignore rule
+
+```
+$ git check-ignore -v diagnostics/calc_router_stage2.log
+.gitignore:32:diagnostics/calc_router_stage2.log	diagnostics/calc_router_stage2.log
+```
+
+Ignore rule exists, `.gitignore` line 32, exact-path match. Confirms the
+Session 59 carry-forward item ("closed: added to .gitignore and
+un-tracked from git") still holds -- no drift.
+
+## 3. Post-pin golden harness run
+
+```
+runnable=19 non_runnable_batch=2 match=8 match_stage2=7 design_debt=0 known_gap=4 new_gap=0 error=0
+report: diagnostics/golden_scorecard_20260711_043812.md
+```
+
+**Exact match to the S60 task's stated expectation**
+(`match=8/match_stage2=7/known_gap=4/new_gap=0`) -- zero deviation.
+`sulabh_arudha_q3_refusal_probe` now resolves `MATCH_STAGE2` (ratified
+`REFUSAL` == observed `REFUSAL`, routed via Stage 2), no longer
+`NEW_GAP`. No per-row deviation to investigate against
+`calc_router_stage2.log`; skipped that check since there was nothing to
+explain.
+
+No commit made -- verification-only task, per instruction.
+
+---
+
 # Session 60: pin q3 ratified REFUSAL + commit both sessions' staged arudha_lagna work
 
 Scope: `tests/fixtures/golden_qa_sulabh.py` (surgical, row
