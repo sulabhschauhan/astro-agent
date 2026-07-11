@@ -1,3 +1,175 @@
+# S66: upapada_lagna admitted through answer_question() -- STOPPED, unexpected golden-harness deviation
+
+ONE FILE: `agent/infra/orchestrator.py`.
+
+## Edits applied (2, surgical)
+
+1. `_VALID_DOMAINS += "upapada_lagna"`.
+2. Extended the Session 50/P7.2d NOTE docstring comment (verified by
+   reading, not assumed, that `is_marriage`/`is_av_transit` both
+   evaluate `False` for `route_result.domain == "upapada_lagna"` --
+   neither conditional special-cases this domain, so
+   `partner_chart_data`/`primary_role` pass `None` and `transit_planet`
+   stays the unused `"Saturn"` default, same pass-through-unchanged
+   pattern as `arudha_lagna`/`sade_sati`/`career_strength`/
+   `current_dasha`). Also extended the `_VALID_DOMAINS` block's own
+   comment mirroring the S59 arudha_lagna comment's wording (staged
+   rollout, SENSITIVE_TO chart_profile.py's own `_VALID_DOMAINS`, no
+   `_merge_router_demotion()` change needed -- same payload-property
+   no-op-passthrough reasoning).
+
+No other logic touched.
+
+## Verification 4: full pytest suite
+
+```
+3127 passed, 3 skipped, 1 warning in 80.81s
+```
+
+Exact match, zero delta.
+
+## Verification 5: E2E smoke, live
+
+`answer_question(question, sulabh_chart_data)`, no partner data:
+
+**"what is my upapada"** -- routed via **Stage 2** (log entry:
+`stage2_domain=upapada_lagna, stage2_confidence=high,
+outcome=ROUTED:upapada_lagna`; stage1_best_score=0.333, below floor):
+```json
+{
+  "domain": "upapada_lagna",
+  "tier": "AnswerTier.TIER_1_EXACT",
+  "answer_payload": {
+    "upapada_sign": "Aquarius",
+    "lagna_sign": "Sagittarius",
+    "lord": "Ketu",
+    "co_lord_deciding_step": "step_2"
+  },
+  "stub_caveats": [],
+  "uncertainty_virupa": 0.0,
+  "demotion_reason": null,
+  "sources": ["padas.py"],
+  "uncertainty_days": 0.0
+}
+```
+
+**"what does my upapada lagna say about my marriage"** -- routed via
+**Stage 1** (no new stage2 log entry appeared for this question; 2
+keyword hits clear floor+margin directly, per the S65 probe):
+```json
+{
+  "domain": "upapada_lagna",
+  "tier": "AnswerTier.TIER_1_EXACT",
+  "answer_payload": {
+    "upapada_sign": "Aquarius",
+    "lagna_sign": "Sagittarius",
+    "lord": "Ketu",
+    "co_lord_deciding_step": "step_2"
+  },
+  "stub_caveats": [],
+  "uncertainty_virupa": 0.0,
+  "demotion_reason": null,
+  "sources": ["padas.py"],
+  "uncertainty_days": 0.0
+}
+```
+
+Both succeed end-to-end, no exception, identical payload (same
+underlying chart, same house-12 pada).
+
+## Verification 6: golden harness run -- STOP CONDITION HIT
+
+```
+runnable=19 non_runnable_batch=2 match=8 match_stage2=8 design_debt=0 known_gap=2 new_gap=1 error=0
+report: diagnostics/golden_scorecard_20260711_103119.md
+```
+
+Diffed every row against frozen baseline
+`diagnostics/golden_scorecard_20260711_045928.md`. **Two** rows
+deviated, not one:
+
+**Expected deviation (per task instruction):**
+```
+sulabh_arudha_q3_refusal_probe | arudha_lagna | expected=REFUSAL |
+  baseline actual=REFUSAL (stage2, MATCH_STAGE2) ->
+  this run actual=TIER_1_EXACT (stage1, NEW_GAP)
+```
+Exactly as predicted: this row's question text is the "upapada lagna"
+adversarial phrasing; now that upapada_lagna routes end-to-end, it
+resolves to a substantive `TIER_1_EXACT` answer instead of the
+Stage-2-unclassifiable REFUSAL it produced pre-wiring. `expected_tier`
+is still ratified `REFUSAL` (unchanged fixture), so this is `NEW_GAP`
+by construction -- expected, not a regression, per task instruction
+(fixture re-ratification is explicitly deferred to the next prompt).
+
+**UNEXPECTED deviation (not predicted by the task, triggers the
+"any OTHER row deviating is a real stop" instruction):**
+```
+sulabh_marriage_q10 | marriage | expected=TIER_4_INTERPRETIVE |
+  baseline actual=REFUSAL (stage2, KNOWN_GAP) ->
+  this run actual=TIER_1_EXACT (stage2, KNOWN_GAP -- category
+  unchanged only because TIER_4_INTERPRETIVE matches neither actual
+  value)
+```
+Question text: **"What does our overall compatibility mean for us as
+a couple?"** -- has nothing to do with upapada_lagna. Category stayed
+`KNOWN_GAP` both runs (coincidence of the fixed `_KNOWN_GAPS` seed,
+not evidence of no change) -- but the underlying **behavior** changed:
+previously REFUSAL, now a live substantive `TIER_1_EXACT`
+`marriage_compatibility` answer.
+
+Root-caused via `diagnostics/calc_router_stage2.log` (append-only,
+never touched): 4 prior historical runs (04:38, 04:59, 05:10, 07:19,
+all pre-S65) classified this exact question string identically --
+`stage2_domain=marriage_compatibility, stage2_confidence=medium` ->
+REFUSAL (medium never routes). This run's entry (10:31:14, i.e. the
+first golden-harness run since the S65 `calc_router.py` Stage 2 prompt
+edit landed) returned `stage2_confidence=high` for the SAME question
+string -- the only variable that changed between these calls is the
+Stage 2 system prompt text (S65 added the upapada_lagna gloss,
+including the sentence: *"A question about matching TWO people's
+charts, couple compatibility, or 'are we compatible' is
+marriage_compatibility, NEVER upapada_lagna, regardless of any Jaimini
+term present."*). That sentence's own phrase "couple compatibility"
+closely echoes q10's "our overall compatibility... as a couple" --
+plausibly the direct cause of the medium->high confidence shift,
+though GPT-4o-mini's own run-to-run stochasticity at temperature=0
+near a confidence boundary cannot be fully ruled out from one sample
+each side.
+
+Golden harness supplies partner chart data for all `domain="marriage"`
+rows (confirmed in a prior session's own investigation, cited in this
+file's earlier `sulabh_marriage_q9` entry), so `has_partner_data` is
+satisfied and the `marriage_compatibility` branch resolves to a real
+`TIER_1_EXACT` answer rather than the partner-data-guard REFUSAL.
+
+**This is NOT caused by this prompt's own `orchestrator.py` edit** --
+`marriage_compatibility` was already in `orchestrator._VALID_DOMAINS`
+before this session; the behavior change traces entirely to the S65
+`calc_router.py` Stage 2 prompt edit (already sitting uncommitted in
+the working tree from the prior prompt), only now surfacing because
+this is the first golden-harness run since that edit landed. Per this
+task's own instruction ("Any OTHER row deviating is a real stop --
+report and halt"), **stopping here, no fix attempted, nothing
+committed.** This is design-chat/next-prompt material: either the
+upapada_lagna gloss's "couple compatibility" phrase needs rewording to
+avoid bleeding confidence into unrelated marriage-domain questions, or
+this is accepted as a legitimate (if serendipitous) Stage 2
+classification-quality improvement on a `TIER_4_INTERPRETIVE`-scoped
+row that was always going to stay `KNOWN_GAP` regardless -- a call for
+the user/design chat, not made unilaterally here.
+
+## Not committed
+
+Per task instruction. `agent/infra/orchestrator.py` (this prompt) and
+`agent/infra/calc_router.py`/`chart_profile.py`/`result_formatter.py`
+(prior prompts) all remain uncommitted in the working tree. Only this
+`diagnostics/latest_run.md` entry plus the new
+`diagnostics/golden_scorecard_20260711_103119.md` report file are new
+on disk (also uncommitted).
+
+---
+
 # S65: upapada_lagna Stage 1 + Stage 2 router wiring (calc_router.py only)
 
 ONE FILE: `agent/infra/calc_router.py`. No test/formatter edits.
