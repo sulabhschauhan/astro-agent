@@ -1,190 +1,86 @@
-# S72 (prompt 2 of RouteResult.route bundle): STOP -- ambiguous call
-sites found before any edit made
+# golden_harness.py switchover: DomainAnswer.route direct read
 
-FILE IN SCOPE: `agent/infra/calc_router.py` only (per task: orchestrator.py,
-result_formatter.py, golden_harness.py explicitly out of scope this prompt).
+Closes the CLAUDE.md carry-forward's second half ("switch the harness
+to read it directly") once `RouteResult.route` (agent/infra/
+calc_router.py) and its orchestrator-stamped copy `DomainAnswer.route`
+(agent/infra/chart_profile.py, stamped by orchestrator.py's
+answer_question() on both return paths) existed and were pushed.
 
-TASK: add `route: Literal["stage1", "stage2", "fastpath"]` field to
-`RouteResult`, no default, assigned per construction site by ACTUAL
-resolution path (not by domain). Task instruction: "If any site's correct
-route value is ambiguous, STOP and flag it here instead of guessing."
+## Enumerated changes (agent/eval/golden_harness.py)
 
-**Outcome: STOPPED. No file edited. No diff to report. No tests run
-(nothing changed).**
+1. **Success-path route determination** (`_run_runnable_row()`):
+   replaced the correlation -> sade_sati-fastpath-inference ->
+   stage1-default block with a direct `route = result.route` read.
+   Guarded: `result.route is None` raises `RuntimeError` naming the row
+   id -- an un-stamped DomainAnswer reaching the harness is an upstream
+   orchestrator/formatter bug, never silently defaulted.
+2. **ERROR path**: kept `_used_stage2_since()` log correlation --
+   `answer_question()` raised before returning any `DomainAnswer`, so
+   there is no `route` field to read. Comment added explaining this is
+   the correlation's sole surviving use.
+3. **`_render_report()`'s deterministic-floor split**: `"pre_classification"`
+   (calc_router.py's pre-scoring unbuilt-module/out-of-scope REFUSAL
+   checks -- deterministic keyword matching, no LLM) now counts with
+   `stage1`/`fastpath` in `deterministic_floor_ids`, not the stage2-routed
+   set. `RowResult.route`'s type comment updated to list the 4th value.
+4. **`_used_stage2_since()` docstring**: replaced the stale "if
+   calc_router.py ever adds one (it does not today)" sentence with an
+   UPDATE paragraph stating the marker now exists and this function's
+   role is retired to the ERROR path only.
+5. **Ride-along (`_KNOWN_GAPS` prose refresh, sanctioned CLAUDE.md
+   carry-forward)**: both entries' stale "Session 50 observed mechanism"
+   text updated to match currently-observed behavior --
+   `sulabh_marriage_q10` now describes the actual Session 61+ mechanism
+   (Stage 2 classifies high, routes marriage_compatibility, ratified
+   BENIGN Session 63) instead of the superseded medium/REFUSAL
+   description; `sulabh_dasha_q15` corrects "3 whitelisted domains" to
+   the current 6 (`_DOMAIN_KEYWORDS`), noting the REFUSAL mechanism
+   itself is unchanged.
 
-## Step 0: full `RouteResult(` construction-site grep (12 sites)
+## Pre-commit addendum: module docstring sync
 
-```
-608:            return RouteResult(
-615:        return RouteResult(
-624:        return RouteResult(
-640:        return RouteResult(
-658:        return RouteResult(
-684:        return RouteResult(
-709:        return RouteResult(
-733:    return RouteResult(
-775:        return RouteResult(
-813:    return RouteResult(
-853:            return RouteResult(
-867:            return RouteResult(
-```
-
-| Line | Enclosing function | What it represents |
-|---|---|---|
-| 608 | `_route_to_domain()` | `marriage_compatibility`, `not has_partner_data` -> REFUSAL |
-| 615 | `_route_to_domain()` | `marriage_compatibility` -> ROUTE |
-| 624 | `_route_to_domain()` | `career_strength` -> ROUTE |
-| 640 | `_route_to_domain()` | `sade_sati` -> ROUTE |
-| 658 | `_route_to_domain()` | `av_transit` -> ROUTE |
-| 684 | `_route_to_domain()` | `arudha_lagna` -> ROUTE |
-| 709 | `_route_to_domain()` | `upapada_lagna` -> ROUTE |
-| 733 | `_route_to_domain()` | `current_dasha` fallthrough -> ROUTE |
-| 775 | `_stage2_fallback()` | `_stage2_classify` raised -> REFUSAL |
-| 813 | `_stage2_fallback()` | Stage 2 returned non-high confidence -> REFUSAL |
-| 853 | `route_question()` | unbuilt-module-keyword guard -> REFUSAL |
-| 867 | `route_question()` | out-of-scope-keyword guard -> REFUSAL |
-
-## Caller tracing -- the structural problem this surfaced
-
-`_route_to_domain()` (the 8 sites at 608-733) is called from **three**
-different places in `route_question()`/`_stage2_fallback()`, and has no
-parameter telling it which one invoked it:
-
-- `route_question():886` -- sade_sati fast-path (`_BUILT_MODULE_FASTPATH`
-  phrase match; only ever passes `domain="sade_sati"`)
-- `route_question():908` -- Stage 1 keyword-floor+margin path (any of the
-  6 `_DOMAIN_KEYWORDS` domains)
-- `_stage2_fallback():784` -- Stage 2 LLM path (any `_STAGE2_VALID_DOMAINS`
-  member)
-
-Cross-referencing `_DOMAIN_KEYWORDS` (6 keys: marriage_compatibility,
-career_strength, current_dasha, av_transit, arudha_lagna, upapada_lagna --
-**no `sade_sati`**) against `_STAGE2_VALID_DOMAINS` (adds sade_sati +
-none):
-
-- The 7 domain-branches at 608/615/624/658/684/709/733 are each reachable
-  via **either** Stage 1 (908) **or** Stage 2 (784) from the identical
-  source line -- a hardcoded literal at any of these lines would be
-  correct only part of the time, depending on which caller's input
-  actually reached it at runtime.
-- Line 640 (`sade_sati`) is reachable via **either** the fast-path (886)
-  **or** Stage 2 (784), since `sade_sati` is absent from
-  `_DOMAIN_KEYWORDS` and therefore unreachable via Stage 1 scoring at
-  all.
-
-**Non-guessing resolution identified for these 10 sites** (mechanical,
-not a judgment call): thread a `route` parameter into
-`_route_to_domain()`'s signature, sourced from each of its 3 real
-callers, and use that parameter (not a hardcoded per-branch literal) in
-all 8 `RouteResult(...)` calls inside it:
-
-- `route_question():886` -> `_route_to_domain(domain, 1.0, has_partner_data, chart_data, route="fastpath")`
-- `route_question():908` -> `_route_to_domain(best_domain, best_score, has_partner_data, chart_data, route="stage1")`
-- `_stage2_fallback():784` -> `_route_to_domain(stage2_domain, ..., route="stage2")`
-
-Lines 775/813 (inside `_stage2_fallback` directly, not via
-`_route_to_domain`) are unambiguous as-is: `route="stage2"` (Stage 2 was
-attempted, either raised or returned non-high confidence).
-
-## The genuine open ambiguity: lines 853 and 867
-
-These two REFUSALs fire in `route_question()` **before** Stage 1 scoring,
-the fast-path, or Stage 2 ever run -- pre-classification guards
-(unbuilt-module keyword, out-of-scope keyword). No domain was ever
-"resolved by" any of stage1/stage2/fastpath; the question was refused
-before any of the three mechanisms engaged. None of the three given
-values cleanly describes this. Not defaulted to `"stage1"` on the
-grounds of code adjacency alone -- the module's own docstring is
-deliberate that `"Stage 1"` means specifically `_score_domain`'s
-floor/margin scoring, and this same prompt already established (by
-carving out `"fastpath"` as its own value) that adjacency-to-Stage-1 is
-not sufficient grounds to label something `"stage1"`.
-
-Stopped here rather than partially editing: fixing the 10 unambiguous
-sites while leaving 853/867 broken would leave `route_question()` unable
-to construct `RouteResult` for two REFUSAL categories real tests almost
-certainly exercise (yoga/transit/navamsa/etc. keyword REFUSALs,
-out-of-scope REFUSALs) -- worse than not editing at all.
-
-Two resolution options put to the user, unresolved as of this entry:
-
-**A.** Widen the type by one value: `Literal["stage1", "stage2",
-"fastpath", "pre_classification"]` (or similar), giving these guards
-their own honest label.
-
-**B.** Keep the 3-value type and treat these as `"stage1"` under a
-broadened definition ("resolved without an LLM call, before or via the
-deterministic keyword layer") -- accepting this reading is broader than
-the module's own existing "Stage 1 = `_score_domain`" terminology.
+Rewrote the module docstring's route paragraph (originally written
+Session 55, describing route as *derived by correlating*
+`calc_router_stage2.log`, and asserting "RouteResult itself... carries
+no route marker of its own" -- both now false). Replaced with an UPDATE
+paragraph: `route` is read directly off `DomainAnswer.route`, a
+first-class orchestrator-emitted signal; the log correlation survives
+only on the ERROR path. No logic changed -- docstring only.
 
 ## Verification
 
-No source files touched. No test files touched. No test suite run
-(nothing changed to verify). Once the user picks A or B above, the next
-prompt should: (1) add the field, (2) thread `route` through
-`_route_to_domain()`'s 3 call sites per the mapping above, (3) assign
-853/867 per the chosen resolution, (4) paste every changed construction
-site as a verbatim diff, (5) run only the router-specific test file(s)
-and report exact pass/fail counts.
+**pytest -q** (run twice: after the 5 enumerated changes, and again
+after the docstring addendum):
+- Both runs: **3134 passed, 3 skipped** -- exact match, zero delta both
+  times (docstring-only change produced no test impact, as expected).
 
-## Commit
+**Golden harness** (`run_golden_eval()`):
+- **match=9 / match_stage2=8 / known_gap=2 / new_gap=0 / error=0** --
+  exact match to frozen baseline
+  `diagnostics/golden_scorecard_20260711_112836.md`.
+- Row-by-row diff: `grep '^| sulabh' <old> <new>` on both scorecards
+  diffs to **nothing** -- every row's `id`/`domain`/`expected_tier`/
+  `actual`/`route`/`demotion_reason`/`category` is byte-identical,
+  including every `route` value. **No MATCH<->MATCH_STAGE2 category
+  flip occurred on any row**; correlation-derived and direct-read
+  routes agreed on all 19 executed rows this run.
+- New scorecard: `diagnostics/golden_scorecard_20260711_172257.md`.
 
-Not committed -- no source edit made this prompt, diagnostics-only
-write.
+## Abandoned-squash episode (recorded for the session log)
 
----
+A prior prompt in this bundle asked to squash the two preceding
+route-provenance commits (`7e69614` "Add RouteResult.route provenance
+to DomainAnswer + Stage 2 client injection seam", `3683119` "Strengthen
+Layer C full-chain tests for orchestrator route stamping") into one and
+force-push over already-pushed `main` history. Before executing,
+confirmation was sought given the destructive/shared-state nature of a
+force-push on main; the user's next message aborted the rewrite
+outright rather than answering the pending scorecard-file-inclusion
+question.
 
-# RouteResult.route implementation (option A) + full-suite validation
-
-Resolved the S72 STOP above via option A: 4-value
-`Literal["stage1", "stage2", "fastpath", "pre_classification"]`.
-
-## Implementation (agent/infra/calc_router.py only)
-
-- Added `route` field to `RouteResult` (no default).
-- Threaded a `route: Literal["stage1", "stage2", "fastpath"]` parameter
-  into `_route_to_domain()`'s signature (no default) and used it, not a
-  hardcoded literal, in all 8 `RouteResult(...)` calls inside it (the
-  7 domain branches + the marriage_compatibility has_partner_data
-  REFUSAL).
-- 3 real callers of `_route_to_domain()` updated to pass `route`
-  explicitly: `route_question()`'s sade_sati fast-path ->
-  `route="fastpath"`; `route_question()`'s Stage 1 floor+margin path ->
-  `route="stage1"`; `_stage2_fallback()`'s high-confidence path ->
-  `route="stage2"`.
-- `_stage2_fallback()`'s 2 direct `RouteResult(...)` sites (exception
-  handler, non-high-confidence REFUSAL) -> `route="stage2"`.
-- `route_question()`'s 2 pre-classification guard REFUSALs
-  (unbuilt-module-keyword, out-of-scope-keyword) -> `route="pre_classification"`.
-
-Post-edit re-grep of `RouteResult(`/`_route_to_domain(` confirmed exactly
-12 `RouteResult(` sites and exactly 3 `_route_to_domain(` callers --
-matches the plan exactly, no 13th site or unaccounted caller surfaced.
-
-Router-specific test file run at implementation time:
-`pytest tests/infra/test_calc_router_stage2.py -q` -> **16 passed**.
-
-Committed as `8e4d11d` and pushed *before* the full-suite gate below was
-requested -- flagged transparently rather than creating a duplicate or
-amended commit for an already-pushed change.
-
-## Full-suite validation (retroactive, against S63 baseline)
-
-```
-pytest -q
-3134 passed, 3 skipped, 1 warning in 93.64s
-```
-
-S63 baseline: 3134 passed / 3 skipped. **Zero delta.** Confirms no other
-file in the repo constructs `RouteResult(...)` directly without the new
-`route` arg (the Stage 2-only test file run at implementation time could
-not have caught that class of breakage on its own).
-
-`diagnostics/calc_router_stage2.log`'s growth from this run left out of
-any commit -- not shown as untracked by `git status`, already excluded
-(same as `2ca52bc` precedent).
-
-## Commit
-
-`8e4d11d` (already pushed, see above) -- working tree clean after the
-full-suite run; nothing new to commit for this validation pass.
+Recovery: `git reset --hard 3683119` restored working tree to exactly
+its pre-reset state. Verified: `git log --oneline -5` showed both
+commits intact in original order; `git status` clean; `git log
+origin/main..main` empty (local and origin identical). **No
+force-push occurred.** Both commits remain separate, as originally
+committed and pushed.

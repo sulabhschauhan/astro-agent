@@ -39,9 +39,9 @@ rows never reach this classification at all):
   raised -- reported instead of any of the above.)
 
 Session 55 (route-provenance): every executed row also records `route`
-("stage1" | "stage2" | "fastpath") -- which of calc_router.py's paths
-actually resolved it. This makes the harness's own output natively
-reproduce the route-provenance distinction that
+("stage1" | "stage2" | "fastpath" | "pre_classification") -- which of
+calc_router.py's paths actually resolved it. This makes the harness's
+own output natively reproduce the route-provenance distinction that
 diagnostics/golden_scorecard_20260707_091459_post_av_transit.md carried
 as a HAND-annotated overlay (cross-referencing calc_router_stage2.log by
 hand against that run's per-row questions) -- that file's own root-cause
@@ -50,16 +50,18 @@ harness's built-in MATCH/KNOWN_GAP categories don't distinguish Stage 1
 (deterministic keyword scoring) from Stage 2 (live, nondeterministic
 GPT-4o-mini fallback) when both can independently resolve a question to
 the same correct domain (Session 50/P7.1e's own comment on _KNOWN_GAPS
-notes exactly this for q1/q2/q3/q7/q8). `route` is derived by
-correlating diagnostics/calc_router_stage2.log (see
-`_used_stage2_since()`'s own docstring for why this is a fragile,
-best-effort correlation, not a first-class run identifier) -- RouteResult
-itself (agent/infra/calc_router.py) carries no route marker of its own
-(confirmed by reading its dataclass fields: domain, tier, confidence,
-demotion_reason, requires_partner -- nothing else), so there is no
-stronger signal available without modifying calc_router.py, which this
-change deliberately does not do (golden_harness.py is the ONLY file
-Session 55 touches here).
+notes exactly this for q1/q2/q3/q7/q8).
+
+UPDATE (route-field switchover): `route` is now read directly off
+DomainAnswer.route (agent/infra/chart_profile.py), which
+orchestrator.py's answer_question() stamps from RouteResult.route
+(agent/infra/calc_router.py) on both its return paths -- a first-class,
+orchestrator-emitted signal, not a derived one. Session 55's original
+diagnostics/calc_router_stage2.log correlation (`_used_stage2_since()`)
+survives ONLY on _run_runnable_row()'s ERROR path, where answer_question()
+raised before returning any DomainAnswer, so there is no route field to
+read (see that function's own docstring for the full fragility writeup,
+kept for that one remaining use).
 
 evaluated_at_jd is an explicit, caller-suppliable parameter of
 run_golden_eval() recording WHEN this run happened, for the report header.
