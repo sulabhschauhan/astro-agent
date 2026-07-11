@@ -1528,3 +1528,74 @@ instruction (no code path touched).
 Commit: `S59: arudha_lagna wired into build_domain_profile dispatch +
 chart_profile _VALID_DOMAINS (orchestrator sync pending)` -- hash
 `2226691`.
+
+## `result_formatter.format_refusal()` added (single-file prompt, ONE FILE:
+## result_formatter.py, no tests, not committed)
+
+New public helper `format_refusal(route_result: RouteResult) -> DomainAnswer`
+added to `agent/infra/result_formatter.py`, so `orchestrator.py`'s inline
+REFUSAL-branch construction (`orchestrator.py:162-172`) can delegate to it in
+a later, separate prompt. `orchestrator.py` itself was NOT touched this
+prompt (still constructs the REFUSAL DomainAnswer inline) -- this helper is
+dead code until that wiring lands, same staged-rollout precedent as
+`_format_av_transit`/`_format_arudha_lagna`.
+
+**`demotion_reason` literals extracted from `calc_router.py` (read directly,
+not recalled) -- every REFUSAL-path (`tier=AnswerTier.REFUSAL`) emission
+site in that file:**
+
+| site | literal | fixed or interpolated? |
+|---|---|---|
+| `_route_to_domain`, marriage `has_partner_data` hard guard (line 582) | `"marriage_compatibility requires partner birth data"` | fixed |
+| `_stage2_fallback`, Stage 2 exception path (line 724) | `"question not classifiable with confidence"` | fixed |
+| `_stage2_fallback`, Stage 2 low/medium-confidence path (line 762) | `"question not classifiable with confidence"` | fixed (same literal as above -- both Stage 2 REFUSAL exits share one string) |
+| `route_question`, `_UNBUILT_MODULE_KEYWORDS` guard (line 802-806) | `f"question references {module_name}, which is not in the routable whitelist (marriage_compatibility, career_strength, current_dasha, sade_sati)"` | **interpolated** -- `module_name` varies per matched keyword (yoga/transit/gochara/navamsa/divisional/d10/d9/varga/chara/yogini/ashtottari/varshaphal/muhurta) |
+| `route_question`, `_OUT_OF_SCOPE_KEYWORDS` guard (line 816-819) | `f"question is outside Vedic astrology scope (matched out-of-scope term: {keyword!r})"` | **interpolated** -- `keyword` varies per matched out-of-scope term |
+
+Only the two FIXED literals are keyable in `_REFUSAL_USER_MESSAGES` (exact
+dict match on `demotion_reason`). The two interpolated ones have no fixed
+string to key on by construction, so they fall through to
+`_GENERIC_REFUSAL_MESSAGE` by design -- documented inline in
+`result_formatter.py`'s new module comment block, not a coverage gap.
+
+**Design notes:**
+- `_REFUSAL_USER_MESSAGES` keys are copied verbatim from `calc_router.py`
+  (read, not imported) -- same "no dependency on calc_router.py internals"
+  convention this file already uses for `_DASHA_DEMOTION_REASON`/
+  `_AV_TRANSIT_DEMOTION_REASON`/`_SADE_SATI_UNKNOWN_BOUNDARY`.
+- `format_refusal()` DOES import `calc_router.RouteResult` (the dataclass
+  type only, at module top) -- this is a different kind of dependency than
+  the string-constant-avoidance convention (type contract vs. duplicated
+  wording); verified no circular import (`chart_profile.py`, which both
+  `calc_router.py` and `result_formatter.py` import, does not import either
+  of them back).
+- Partner-data message is layman-first: names date/time/place of birth,
+  invites the user to provide them, no jargon beyond "compatibility",
+  promises nothing not already built.
+- Not-classifiable message lists all 6 live domains in layman phrasing
+  (marriage compatibility, career strength, current dasha/life period,
+  Sade Sati, transit timing, public image/reputation) -- domain set read
+  from `calc_router._STAGE2_VALID_DOMAINS` minus the `"none"` sentinel at
+  time of writing; hand-written (not imported), with a `SENSITIVE_TO`
+  comment flagging re-check if that set ever changes (same idiom as
+  `_SADE_SATI_UNKNOWN_BOUNDARY`'s existing `SENSITIVE_TO` note).
+- Generic-message `.get(..., default)` fallback is the ONLY defensive
+  branch in this module; docstring explains the deviation (refusal reasons
+  originate from a different layer -- calc_router's classification logic,
+  including two paths with no fixed literal to key on at all -- not a
+  payload contract this module controls).
+- Returned `DomainAnswer` mirrors `orchestrator.py`'s current inline
+  REFUSAL construction field-for-field (`tier=REFUSAL`,
+  `demotion_reason=route_result.demotion_reason` copied verbatim,
+  `stub_caveats=()`, `uncertainty_virupa=0.0`, `sources=()`,
+  `uncertainty_days=0.0`), with the sole addition of
+  `answer_payload={"user_message": <mapped str>}` (orchestrator's inline
+  version currently uses `answer_payload={}`).
+
+**Verification:** `python -c "from agent.infra.result_formatter import
+format_refusal"` -- imports cleanly, no circular-import error. Full pytest
+suite re-run: **3127 passed, 3 skipped, 1 warning in 79.13s** -- baseline
+unchanged (helper is additive dead code, no existing file touched besides
+the one new import + two new module-level blocks in `result_formatter.py`).
+
+Not committed (per prompt instruction).
