@@ -15,8 +15,21 @@ current_dasha's demotion). Plus av_transit (Session 55): always
 TIER_2_RANGE, Ashtakavarga-based transit quality within the current
 Antardasha envelope. Plus arudha_lagna (Session 59): another TIER_1_EXACT
 sub-path, same payload-property reasoning as sade_sati -- Jaimini Arudha
-Lagna carries no dated claims either.
-Deterministic T1/T2 output only -- NO LLM synthesis anywhere in this
+Lagna carries no dated claims either. Plus upapada_lagna (Session 62):
+same TIER_1_EXACT/payload-property sub-path as arudha_lagna, for the
+Jaimini Upapada Lagna (bhava pada of house 12) instead of house 1 --
+(the "Covers 6 domains as of Session 59" line above never got updated for
+this addition; flagged here rather than silently perpetuated further, not
+otherwise corrected -- ride-along candidate). Plus muhurta_window (Session
+64, P7 Muhurta wiring step 3 of 6): the pipeline's FIRST TIER_3_MUHURTA
+domain -- unlike every domain above, its payload carries genuinely dated
+per-window claims (Chandrabala/Tarabala/Panchaka composite scoring over a
+fixed 7-day scan from build_muhurta_profile()'s own evaluated_at_jd), so
+it does NOT fit the T1/T2 payload-property framing those domains share;
+see chart_profile.build_muhurta_profile()'s own docstring for the scan-
+window/natal-extraction detail and result_formatter._format_muhurta_
+window() for the rendering side.
+Deterministic T1/T2/T3 output only -- NO LLM synthesis anywhere in this
 pipeline (Session 23 V1 lock; any handover text mentioning "Calc Router ->
 GPT-4o-mini synthesis" is stale and superseded).
 
@@ -94,6 +107,17 @@ _VALID_DOMAINS = {
     # orchestrator.answer_question()'s own defensive ValueError, not a
     # silent misroute.
     "upapada_lagna",
+    # muhurta_window (Session 64, P7 Muhurta wiring step 3 of 6): same
+    # staged-rollout precedent as arudha_lagna/upapada_lagna above -- this
+    # entry lands in the SAME change as build_domain_profile()'s own
+    # muhurta_window dispatch branch below. Neither orchestrator.py's own
+    # _VALID_DOMAINS nor calc_router.py admit "muhurta_window" yet (the
+    # router still refuses "muhurta" questions via
+    # _UNBUILT_MODULE_KEYWORDS) -- that sync is a separate, later prompt;
+    # until it lands, a live "muhurta_window" route fails closed via
+    # orchestrator.answer_question()'s own defensive ValueError, not a
+    # silent misroute.
+    "muhurta_window",
 }
 
 # career_strength's compute_bhava_bala_totals() call needs planet_lons
@@ -476,7 +500,13 @@ def build_domain_profile(
 
     Args:
         domain: one of "marriage_compatibility", "career_strength",
-            "current_dasha", "sade_sati", "av_transit", "arudha_lagna".
+            "current_dasha", "sade_sati", "av_transit", "arudha_lagna",
+            "upapada_lagna", "muhurta_window". (NOTE: this Args entry
+            previously fell out of sync with _VALID_DOMAINS when
+            "upapada_lagna" landed at Session 62 without a matching docstring
+            update -- flagged here rather than silently perpetuated further,
+            not otherwise backfilled; ride-along candidate, not a standalone
+            prompt.)
         chart_data: calculate_chart() output for the primary native.
         evaluated_at_jd: JD (UT) instant this profile is evaluated as-of.
             Caller-supplied, not sampled here -- must be the SAME instant the
@@ -491,12 +521,23 @@ def build_domain_profile(
             instant is NOT used directly (the scan window is the current
             Antardasha envelope, read from chart_data["dasha"] -- see below);
             it is accepted uniformly across all domains but genuinely unused
-            by this branch. For domain="arudha_lagna", this instant is ALSO
-            not used -- Arudha Lagna is a purely natal calculation (birth
-            longitudes only, via build_arudha_lagna_profile()) with no
-            "as-of a different moment" concept of its own, same
-            accepted-uniformly-but-unused precedent as av_transit's case
-            just above.
+            by this branch. For domain="arudha_lagna"/"upapada_lagna", this
+            instant is ALSO not used -- both are purely natal calculations
+            (birth longitudes only, via build_arudha_lagna_profile()/
+            build_upapada_profile()) with no "as-of a different moment"
+            concept of their own, same accepted-uniformly-but-unused
+            precedent as av_transit's case just above. For
+            domain="muhurta_window", this instant IS used directly again
+            (same reasoning as sade_sati's transit_jd use, NOT the
+            av_transit/arudha_lagna/upapada_lagna unused case) -- it is
+            passed straight through to build_muhurta_profile() as its own
+            evaluated_at_jd, becoming the scan window's start_jd. Threading
+            it through (rather than letting build_muhurta_profile()'s own
+            now()-default fire) is what this function's own reproducibility
+            contract, stated above, requires: the SAME caller-supplied
+            instant must drive both this DomainChartProfile's own
+            evaluated_at_jd field and the actual muhurta scan window, or the
+            two would silently diverge.
         partner_chart_data: calculate_chart() output for the second native.
             Required (and only accepted) for domain="marriage_compatibility" --
             Ashtakoot (compute_ashtakoot_compatibility) needs two natives.
@@ -523,15 +564,26 @@ def build_domain_profile(
             own validation -- not duplicated here); or, for arudha_lagna,
             a non-canonical lagna_sign or a Scorpio/Aquarius D2 (both
             co-lords resident)/D6 (exact Step-5(b) tie) fail-closed case,
-            propagated UNMODIFIED from build_arudha_lagna_profile() ->
-            compute_bhava_padas() (not caught or reinterpreted here,
-            matching that function's own documented precedent).
+            propagated UNMODIFIED from build_arudha_lagna_profile()/
+            build_upapada_profile() -> compute_bhava_padas() (not caught or
+            reinterpreted here, matching that function's own documented
+            precedent); or, for muhurta_window, natal_moon_sign/
+            janma_nakshatra out of range or start_jd > end_jd, propagated
+            UNMODIFIED from build_muhurta_profile() ->
+            muhurta_scorer.find_muhurta_windows()'s own input validation
+            (should not occur in practice -- see build_muhurta_profile()'s
+            own docstring for why).
         RuntimeError: a wrapped, module-named failure from any underlying
             calculation call (ashtakoot, mangal_dosha, shadbala_totals,
             compute_porphyry_house_cusps, bhava_bala_totals, sade_sati.
             compute_sade_sati, ashtakavarga natal-table assembly, the
-            Moon-longitude ephemeris bridge, or arudha_lagna's own planet-
-            longitude ephemeris bridge inside build_arudha_lagna_profile()).
+            Moon-longitude ephemeris bridge, arudha_lagna's/upapada_lagna's
+            own planet-longitude ephemeris bridge inside
+            build_arudha_lagna_profile()/build_upapada_profile(), or
+            muhurta_window's own EphemerisError-wrapping failure inside
+            build_muhurta_profile() -> muhurta_scorer.find_muhurta_windows()
+            (one of the three sub-limb finders' own Moon/Saturn calc_ut
+            call)).
     """
     if domain not in _VALID_DOMAINS:
         raise ValueError(f"domain must be one of {sorted(_VALID_DOMAINS)}, got {domain!r}")
@@ -844,6 +896,41 @@ def build_domain_profile(
         uncertainty_virupa = 0.0
         # Same rationale as arudha_lagna's uncertainty_days=0.0 above:
         # payload structurally carries no dated claims.
+        uncertainty_days = 0.0
+
+    elif domain == "muhurta_window":
+        # Session 64 (P7 Muhurta wiring, step 3 of 6). Unlike arudha_lagna/
+        # upapada_lagna above, build_muhurta_profile() genuinely NEEDS
+        # evaluated_at_jd -- it is not an "accepted uniformly but unused"
+        # domain. It is threaded through directly here (see this
+        # function's own Args docstring entry for evaluated_at_jd, above,
+        # for the full reproducibility reasoning): letting
+        # build_muhurta_profile()'s own now()-default fire instead would
+        # capture a SECOND, later, non-reproducible instant, diverging from
+        # the evaluated_at_jd already stamped on this DomainChartProfile.
+        #
+        # DEPARTURE FROM THE STEP-3 PROMPT'S LITERAL TEXT, flagged: the
+        # prompt described this call as build_muhurta_profile(chart_data)
+        # (no evaluated_at_jd argument); verified against
+        # build_muhurta_profile()'s own signature and this function's own
+        # documented reproducibility contract instead of complying
+        # literally -- see diagnostics/latest_run.md for the full
+        # reasoning behind this call.
+        #
+        # PAYLOAD PASSTHROUGH (same flagged posture as arudha_lagna/
+        # upapada_lagna above -- see arudha_lagna's own comment for the
+        # full rationale, not repeated here): the returned dict is
+        # assigned to `payload` UNMODIFIED, including its "tier"/"sources"
+        # meta keys.
+        payload = build_muhurta_profile(chart_data, evaluated_at_jd)
+        stub_caveats = ()
+        uncertainty_virupa = 0.0
+        # Step 1's ratified value (diagnostics/latest_run.md): same
+        # "tier = payload property" reasoning as arudha_lagna/upapada_lagna
+        # above, despite this domain's payload containing JD fields (unlike
+        # those two) -- the JDs ARE the answer (window boundaries), not a
+        # drift-prone derived claim about some OTHER dated event, so they
+        # carry no uncertainty_days envelope of their own.
         uncertainty_days = 0.0
 
     else:  # sade_sati (Session 50/P7.2a) -- NO mahadasha/antardasha fields
