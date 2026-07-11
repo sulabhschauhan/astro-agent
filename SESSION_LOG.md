@@ -2117,3 +2117,81 @@ directly after each commit, zero regressions throughout. Golden harness:
 `match=7 match_stage2=5 known_gap=4 new_gap=0 error=0` unchanged across
 every checkpoint this session -- no golden row routes to arudha_lagna yet
 (the gap carried forward above).
+
+## Session 60 -- arudha_lagna golden-set coverage + harness whitelist + q3 ratified REFUSAL (2026-07-10/11)
+
+### What landed
+1. 3 new rows added to `tests/fixtures/golden_qa_sulabh.py` (18 -> 21):
+   `sulabh_arudha_q1_stage1` (Stage-1-clean, 2-keyword phrasing),
+   `sulabh_arudha_q2_stage2` (single-keyword, Stage-2-dependent),
+   `sulabh_arudha_q3_refusal_probe` (upapada lagna -- a calc-level-only,
+   not-wired-to-Q&A construct -- MEASURE-FIRST by design, no expected
+   tier guessed ahead of a live run). (521b430)
+2. Two collision rewords caught on review, both fixture-only: `q2`'s
+   question `"what is my arudha lagna"` collided verbatim with
+   `test_orchestrator_arudha_lagna.py`'s `_STAGE1_MISS_QUESTION` constant
+   (a LIVE test string, a real risk to `golden_harness._used_stage2_
+   since()`'s exact-question-text log correlation) -- reworded to
+   `"tell me my arudha lagna"`, same single-keyword-hit/0.333-score
+   design intent preserved. `q1`'s question collided with
+   `_STAGE1_CLEAN_QUESTION` (inert today -- Stage-1-clean phrasings never
+   log to Stage 2 -- but the literal duplication still violated the
+   harness docstring's uniqueness invariant) -- reworded to `"what is my
+   arudha pada and public perception"`, using the same 2-keyword-hit
+   phrasing already measured and ratified in `test_orchestrator_arudha_
+   lagna.py`'s own module docstring (score 0.667, Stage 1 clean, no
+   re-measurement needed). (2374097, 1908ea1)
+3. `agent/eval/golden_harness.py` -- `_GOLDEN_DOMAIN_TO_PIPELINE_DOMAIN`
+   gains `"arudha_lagna": "arudha_lagna"`, making all 3 new rows
+   RUNNABLE; docstring's "three pipeline-whitelisted domains" -> "four".
+   `_KNOWN_GAPS`/`_DESIGN_DEBT`/route-determination logic untouched --
+   arudha_lagna needs no fastpath branch (routes via Stage 1 keyword
+   scoring like career/marriage/dasha).
+4. Live run confirmed `q1` -> `TIER_1_EXACT`/stage1/MATCH and `q2` ->
+   stage2/MATCH_STAGE2, both as predicted. `q3` observed actual tier:
+   `REFUSAL` (Stage 2 low-confidence fallback -- "question not
+   classifiable with confidence"), `NEW_GAP` by construction (placeholder
+   `expected_tier` can never match). Ratified `q3.expected_tier ->
+   "REFUSAL"`, claim verdict `PENDING -> MATCH`, with a MONITORED RISK
+   note: a future Stage 2 flip to `marriage_compatibility` at high
+   confidence would be expected variance by construction, but only if it
+   still REFUSES/stays inert -- a SUBSTANTIVE answer from that flip would
+   misrepresent an unwired calculation (Upapada Lagna) as a wired one
+   (Ashtakoot marriage compatibility) and must escalate to design chat,
+   not be silently absorbed into `_KNOWN_GAPS`/`_DESIGN_DEBT`.
+5. `diagnostics/golden_scorecard_20260710_184703.md` marked the new
+   frozen comparison baseline (supersedes `..._20260707_091459_post_av_
+   transit.md`), with a header noting `q3`'s `NEW_GAP` categorization in
+   that specific run is a run-time artifact (row executed before
+   ratification) and the post-pin expectation:
+   `match=8/match_stage2=7/known_gap=4/new_gap=0`. A post-pin re-run
+   confirmed that expectation EXACTLY, zero deviation. (712d9cc)
+6. Closeout verification (separate pass, no source edits): confirmed the
+   S60 commit's file list, confirmed `diagnostics/calc_router_stage2.log`
+   remains gitignored (`.gitignore:32`, already committed in `919eb4a`,
+   no drift), and re-ran the harness once more post-pin -- identical
+   `match=8/match_stage2=7/known_gap=4/new_gap=0` result. (97c352b)
+
+### Live Stage 2 call count
+Per-run live Stage 2 calls rose from 9 (pre-S60 baseline) to **11**, not
+10 as initially predicted -- both `q2` AND `q3` require Stage 2 (not
+just `q2`); `q1` remains Stage-1-clean and never reaches it.
+
+### Test baseline
+Full pytest suite unaffected throughout (`golden_harness.py` is not
+pytest-collected): **3127 passed, 3 skipped, 0 failed**, confirmed
+unchanged after the harness-wiring edit.
+
+### Carry-forward closed this session
+- `diagnostics/calc_router_stage2.log` untracked/gitignored (Session 59)
+  -- reconfirmed via `git check-ignore -v` during closeout: rule is
+  committed (`.gitignore:32`, commit `919eb4a`), not a local-only edit.
+  Carry-forward struck from CLAUDE.md.
+
+### Carry-forward held, not struck
+- `arudha_lagna` Stage 1 unreachable for single-mention questions
+  (Session 59) -- scorecard-gated keyword tuning remains HELD per the
+  Session 44 "tune only with Answer Scorecard evidence" lock; the golden
+  set now accrues that evidence directly (`q2`/`q3` rows exercise the
+  exact single-keyword-miss and zero-keyword-miss paths respectively) --
+  revisit with dogfood/scorecard data, not preemptively.

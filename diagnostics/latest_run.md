@@ -1,3 +1,61 @@
+# Session 60 close: CLAUDE.md + SESSION_LOG.md
+
+Doc-only closeout. Files touched: `CLAUDE.md`, `SESSION_LOG.md`, this
+`diagnostics/latest_run.md` entry. No source/test files touched.
+
+## Step 0: .gitignore pre-check
+
+```
+$ git status --short .gitignore
+(empty -- no local edit)
+
+$ git log --oneline -1 -- .gitignore
+919eb4a S59: orchestrator _VALID_DOMAINS admits arudha_lagna — domain live e2e; smoke provenance corrected (both routes were Stage 2)
+```
+
+`.gitignore`'s `diagnostics/calc_router_stage2.log` line (line 32) is
+already committed, landed in `919eb4a` (confirmed via `git show 919eb4a
+-- .gitignore`). No uncommitted local edit existed -- no standalone
+gitignore commit needed. Per task instruction: **struck** the
+carry-forward from CLAUDE.md.
+
+## CLAUDE.md edits (3, surgical)
+
+1. Current Session Focus: `Session 59 CLOSED: arudha_lagna live e2e` ->
+   `Session 60 CLOSED: arudha_lagna golden-set coverage + harness
+   whitelist + q3 ratified REFUSAL. Next: open.`
+2. New Locked Decisions bullet: "Golden set arudha_lagna coverage
+   (Session 60)" -- records the 21-row ledger, the frozen baseline file
+   + its counts, the 11-call (was 9) live Stage-2 count, and the q3
+   REFUSAL lock with its MATCH_STAGE2/monitored posture and
+   substantive-answer escalation clause.
+3. Carry-Forward: `arudha_lagna Stage 1 unreachable for single-mention
+   questions` (Session 59) -- appended a "STILL HELD (Session 60)"
+   clause noting the golden set now accrues the scorecard evidence
+   directly via q2/q3; NOT struck (scorecard-gated tuning still pending
+   real dogfood data, per the existing Session 44 lock). `diagnostics/
+   calc_router_stage2.log untracked` (Session 59) -- STRUCK entirely
+   (confirmed resolved + committed per Step 0 above).
+
+## SESSION_LOG.md edit
+
+Appended a full `## Session 60` entry after the existing Session 59
+entry, following that entry's own format (What landed / Live Stage 2
+call count / Test baseline / Carry-forward closed / Carry-forward held).
+Covers: the 3 golden rows added, the 2 collision rewords caught during
+review (q1 and q2's question strings), the harness whitelist wiring, the
+q3 measure-first-then-ratified REFUSAL lock (with the monitored-risk
+escalation clause), the baseline supersession + post-pin zero-deviation
+confirmation, and the closeout verification pass -- with commit hashes
+521b430, 2374097, 1908ea1, 712d9cc, 97c352b threaded through.
+
+## Commit
+
+`S60 close: CLAUDE.md + SESSION_LOG.md` -- both files together, one
+commit, per task instruction. Pushed.
+
+---
+
 # Session 60 closeout verification (no source edits)
 
 Verification-only pass confirming the S60 commit landed correctly and
