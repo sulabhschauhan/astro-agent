@@ -173,17 +173,21 @@ _KNOWN_GAPS: dict[str, str] = {
         "classification; a category flip on this row across runs is "
         "expected variance, not automatically a regression -- check "
         "diagnostics/calc_router_stage2.log before treating as NEW_GAP. "
-        "Session 50 observed mechanism (reason 1): Stage 2 classified "
-        "marriage_compatibility at confidence=\"medium\" -> REFUSAL "
-        "(\"compatibility\" is the only Stage 1 hit, below floor). If a "
-        "future run's Stage 2 instead classifies \"high\" and routes to "
-        "marriage_compatibility: BENIGN -- the koota data layer still "
-        "matches golden's verified claims. Reason 2, independent of "
-        "Stage 2 entirely: CLAUDE.md V1 scope lock (\"LLM-generated "
-        "interpretive Q&A is OUT; AstroSage paragraph + palm are the "
-        "interpretive surface\") means TIER_4_INTERPRETIVE is never "
-        "produced by this pipeline regardless of routing outcome -- no "
-        "amount of router/Stage-2 tuning fixes this row's tier mismatch."
+        "Session 61+ observed mechanism (reason 1, superseding the "
+        "original Session 50 observation of confidence=\"medium\" -> "
+        "REFUSAL): Stage 2's layman-intent prompt expansion (Session 61) "
+        "now classifies this question marriage_compatibility at "
+        "confidence=\"high\" and routes it there (ratified BENIGN in "
+        "design chat, Session 63: a genuine correct-classification "
+        "improvement, not a bug) -- actual tier is TIER_1_EXACT, still "
+        "mismatching this row's TIER_4_INTERPRETIVE expectation. The "
+        "koota data layer still matches golden's verified claims. Reason "
+        "2, independent of Stage 2 entirely and unaffected by the above: "
+        "CLAUDE.md V1 scope lock (\"LLM-generated interpretive Q&A is "
+        "OUT; AstroSage paragraph + palm are the interpretive surface\") "
+        "means TIER_4_INTERPRETIVE is never produced by this pipeline "
+        "regardless of routing outcome -- no amount of router/Stage-2 "
+        "tuning fixes this row's tier mismatch."
     ),
     # CLAUDE.md "P2 order" lock: Muhurta engine exists (transits/chandrabala.py,
     # tarabala.py, panchaka.py per calc_router.py's own
@@ -196,9 +200,12 @@ _KNOWN_GAPS: dict[str, str] = {
         "classification; a category flip on this row across runs is "
         "expected variance, not automatically a regression -- check "
         "diagnostics/calc_router_stage2.log before treating as NEW_GAP. "
-        "Session 50 observed mechanism: Stage 2 classified domain=\"none\" "
+        "Observed mechanism (Session 50, reconfirmed unchanged as of the "
+        "route-field switchover run): Stage 2 classifies domain=\"none\" "
         "at confidence=\"high\" -> REFUSAL (Stage 1 scores zero keyword "
-        "hits in all 3 whitelisted domains). Independently unreachable "
+        "hits across today's 6 whitelisted _DOMAIN_KEYWORDS domains -- "
+        "the domain count has grown since Session 50's original 3, the "
+        "REFUSAL mechanism itself has not). Independently unreachable "
         "regardless: CLAUDE.md P2 order lock means TIER_3_MUHURTA is "
         "never produced by this pipeline. If a future run's Stage 2 ever "
         "routes this to current_dasha (high confidence): that IS a SOFT "
@@ -243,7 +250,7 @@ class RowResult:
     actual: str                    # AnswerTier value string, or "ERROR", or "N/A (batch)"
     demotion_reason: str | None
     category: str                  # MATCH | MATCH_STAGE2 | DESIGN_DEBT | KNOWN_GAP | NEW_GAP | ERROR | NON_RUNNABLE_BATCH
-    route: str                     # "stage1" | "stage2" | "fastpath" | "n/a" (NON_RUNNABLE_BATCH rows only)
+    route: str                     # "stage1" | "stage2" | "fastpath" | "pre_classification" | "n/a" (NON_RUNNABLE_BATCH rows only)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -311,10 +318,15 @@ def _used_stage2_since(question: str, since: datetime) -> bool:
     window. It would silently misattribute a row if either assumption
     ever broke (a new GOLDEN_QA row reusing existing question text, or a
     second process hitting Stage 2 with an identical question during this
-    run). Prefer a real RouteResult-level route marker over this
-    correlation if calc_router.py ever adds one (it does not today --
-    confirmed by reading RouteResult's fields: domain, tier, confidence,
-    demotion_reason, requires_partner).
+    run).
+
+    UPDATE: the marker now exists -- RouteResult.route (agent/infra/
+    calc_router.py) is stamped onto DomainAnswer.route by orchestrator.py's
+    answer_question() on both its return paths. _run_runnable_row()'s
+    success path reads that field directly and no longer calls this
+    function. This correlation survives ONLY on the ERROR path (answer_
+    question() raised before returning any DomainAnswer, so there is no
+    route field to read) -- every other use of this fragility is retired.
     """
     log_path = calc_router._STAGE2_LOG_PATH
     if not log_path.exists():
@@ -354,6 +366,10 @@ def _run_runnable_row(
         else:
             result = answer_question(question, sulabh_chart)
     except Exception as exc:  # noqa: BLE001 -- one row's crash must not abort the run
+        # ERROR path only: answer_question() raised before returning any
+        # DomainAnswer, so there is no result.route to read -- the log
+        # correlation is kept here as the sole surviving use of
+        # _used_stage2_since() (see its own docstring's UPDATE note).
         route = "stage2" if _used_stage2_since(question, run_start) else "stage1"
         return RowResult(
             id=row["id"],
@@ -365,21 +381,21 @@ def _run_runnable_row(
             route=route,
         )
 
-    # Route determination: Stage 2 log correlation first (authoritative
-    # when present -- see _used_stage2_since()'s own fragility docstring),
-    # then fastpath (sade_sati's _BUILT_MODULE_FASTPATH -- the ONLY domain
-    # that bypasses Stage 1 scoring entirely today, per calc_router.py's
-    # own module docstring; distinguished from a Stage-2-classified
-    # "sade_sati" by the log check already having failed to match above),
-    # else Stage 1 keyword scoring (including the pre-scoring unbuilt-
-    # module/out-of-scope REFUSAL checks, which are still deterministic
-    # keyword matching, not Stage 2).
-    if _used_stage2_since(question, run_start):
-        route = "stage2"
-    elif result.domain == "sade_sati":
-        route = "fastpath"
-    else:
-        route = "stage1"
+    # Route determination: read directly off the orchestrator-stamped
+    # DomainAnswer.route field (agent/infra/chart_profile.py's
+    # DomainAnswer.route, stamped by orchestrator.py's answer_question()
+    # on both its return paths) -- retires the _used_stage2_since() log
+    # correlation on this path; that function survives only on the ERROR
+    # path above, where no DomainAnswer exists to read a route off of.
+    if result.route is None:
+        raise RuntimeError(
+            f"golden_harness: row {row['id']!r} answer_question() returned "
+            "an un-stamped DomainAnswer (route=None) -- every DomainAnswer "
+            "reaching this harness must carry a route; this is an upstream "
+            "orchestrator/formatter bug, never something to silently "
+            "default here."
+        )
+    route = result.route
 
     actual_tier = result.tier.value
     if actual_tier == expected_tier:
@@ -430,7 +446,13 @@ def _render_report(
     # not by a hand-maintained guess of which rows are "expected" to need
     # Stage 2.
     executed = [r for r in rows if r.category != "NON_RUNNABLE_BATCH"]
-    deterministic_floor_ids = [r.id for r in executed if r.route in ("stage1", "fastpath")]
+    # "pre_classification" (calc_router.py's pre-scoring unbuilt-module/
+    # out-of-scope REFUSAL checks) is deterministic keyword matching, no
+    # LLM -- counts with the stage1/fastpath deterministic floor, not the
+    # stage2-routed set.
+    deterministic_floor_ids = [
+        r.id for r in executed if r.route in ("stage1", "fastpath", "pre_classification")
+    ]
     stage2_routed_ids = [r.id for r in executed if r.route == "stage2"]
 
     lines: list[str] = []
