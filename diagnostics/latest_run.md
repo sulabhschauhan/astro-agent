@@ -84,3 +84,52 @@ Green -> single commit:
 `94e87b6` — "S66: fix nested-expander crash — AstroSage report to top
 level, palm review expanders demoted to containers"
 (RATIFIED: commit authorized)
+
+# S66 Task 4 — Ring 3 chunk-text artifact: STOPPED (verification gate mismatch)
+
+Docs channel, token-exempt, no source edits. Goal: replicate
+`agent/interpretive/palm_reading.py`'s RAG query construction in a
+scratch script, run its retrieval call against two given LEFT/RIGHT
+palm descriptions, and check the returned scores against an expected
+set before writing `diagnostics/ring3_chunks_S66.md`.
+
+## Step 1 — Query reconstruction (verified against source)
+
+`agent/interpretive/palm_reading.py:253`:
+```python
+query_text = " ".join(d for d in (palm_left, palm_right) if d)[:_QUERY_TRUNCATE_CHARS]
+```
+LEFT then RIGHT, single-space join, truncated to 500 chars
+(`_QUERY_TRUNCATE_CHARS = 500`). Retrieval call:
+`search(query_text, n_results=_N_RESULTS, book_name=_CHEIRO_BOOK)` with
+`_N_RESULTS = 6`, `_CHEIRO_BOOK = "cheiroslanguageo00chei_1"` (both read
+from the module's own constants, lines 44/54). Replicated verbatim in a
+throwaway scratch script (not committed); constructed query length
+confirmed at exactly 500 chars, truncated mid-word after "mounts,".
+
+## Step 2 — Verification gate: MISMATCH
+
+| # | Page | Expected score | Observed score | Match? |
+|---|---|---|---|---|
+| 1 | 163 | 0.6801 | 0.6801 | Yes |
+| 2 | 123 | 0.6723 | 0.6723 | Yes |
+| 3 | 135 | 0.6472 | 0.6473 | **No** |
+| 4 | 120 | 0.6458 | 0.6458 | Yes |
+| 5 | 134 | 0.6434 | 0.6434 | Yes |
+| 6 | 166 | 0.6367 | 0.6367 | Yes |
+
+Page ordering matches exactly; 5/6 scores match exactly; chunk 3
+(page 135) is off by 0.0001 (observed 0.6473 vs. expected 0.6472).
+Confirmed the discrepancy is in the stored/returned score itself, not a
+display-rounding artifact (`repr(c["score"])` printed the same 0.6473).
+
+Per the task's verification gate ("must be exactly" the six listed
+scores) this is a mismatch -> STOPPED per instruction.
+`diagnostics/ring3_chunks_S66.md` was **not** written; nothing
+committed for Task 4 itself. Scratch script deleted (never committed).
+
+Open question for design-chat / next touch: is the expected score set
+stale (pre-dates a ChromaDB re-ingest or embedding-model change), or is
+0.6473 evidence of retrieval nondeterminism on this single chunk? Not
+investigated further per the STOP instruction — re-open only with an
+explicit re-run or re-baseline instruction.
