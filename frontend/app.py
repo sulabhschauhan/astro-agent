@@ -4,6 +4,7 @@ Streamlit UI — Vedic astrology assistant (Parashara RAG agent).
 """
 
 import hashlib
+import logging
 import re
 import sys
 import os
@@ -24,6 +25,8 @@ from agent.astrosage_parser import parse_astrosage_pdf
 from PIL import Image
 from agent.palm_processor import validate_palm_image, describe_palm_image, describe_hand_detail_image
 from agent.interpretive.palm_reading import generate_palm_reading
+
+logger = logging.getLogger(__name__)
 
 # ─── Page config (must be first Streamlit call) ───────────────────────────────
 
@@ -211,6 +214,59 @@ with st.sidebar:
 
 # ─── Main area ────────────────────────────────────────────────────────────────
 
+# T4 architecture / T4 V1 boundaries lock (CLAUDE.md Session 65): display-
+# layer withholding ONLY -- pdf_context (the full parsed string threaded to
+# ask()) is NOT modified, and astrosage_parser.py is NOT modified; the RAG/
+# LLM path still sees these sections in full. Pratyantar: suppressed per
+# the +/-37-day-drift/wrong-lord posture (same root cause as
+# prompt_builder.py's kundali-slot carry-forward) -- Pratyantar-level date
+# claims aren't reliable enough to show a user as if they were precise.
+# Lal Kitab: post-V1 hard gate (CLAUDE.md "Post-V1 design gate: Lal Kitab
+# remedy tier", Session 61) -- remedies are out of V1 scope entirely,
+# withheld here rather than partially surfaced. Scope guard: this
+# frozenset governs ONLY the "Your AstroSage Report" display expander
+# below -- no other code path reads it. Revisit trigger: Lal Kitab V1.1
+# unlock (gated on that carry-forward's required steps) or a future
+# Pratyantar-precision fix.
+_WITHHELD_SECTIONS = frozenset({"Pratyantar", "Lal Kitab"})
+
+
+def _split_astrosage_sections(pdf_context: str) -> list[tuple[str, str]]:
+    """
+    Split parse_astrosage_pdf()'s combined output into (name, content) pairs
+    for verbatim display.
+
+    SENSITIVE_TO astrosage_parser.py's parse_astrosage_pdf() combined-output
+    format: `"ASTROSAGE PDF DATA:\\n" + "\\n\\n".join(f"[{name}]\\n{content}"
+    for name, content in sections.items())`. This splitter locates each
+    "[Name]" header line and slices the text between headers as that
+    section's body. If astrosage_parser.py's join format ever changes,
+    this splitter breaks with it -- re-verify against the source before
+    trusting this function after any astrosage_parser.py edit.
+
+    Fail-soft: if no "[Name]" headers are found, returns the full string
+    unsplit under a single "AstroSage Report" label and logs a warning --
+    never raises.
+    """
+    parts = re.split(r"^\[([^\]]+)\]$", pdf_context, flags=re.MULTILINE)
+    # parts[0] is whatever precedes the first header (the "ASTROSAGE PDF
+    # DATA:" prefix line, not a real section) -- discarded. Remaining
+    # parts alternate name, content, name, content, ...
+    if len(parts) < 3:
+        logger.warning(
+            "app.py: no '[Name]' section headers found in AstroSage "
+            "pdf_context — displaying unsplit (degraded, not crashing)."
+        )
+        return [("AstroSage Report", pdf_context)]
+
+    pairs: list[tuple[str, str]] = []
+    for i in range(1, len(parts), 2):
+        name = parts[i].strip()
+        content = parts[i + 1].strip() if i + 1 < len(parts) else ""
+        pairs.append((name, content))
+    return pairs
+
+
 st.title("Parashara — Vedic Astrology")
 
 with st.expander("Upload context (PDF + palms)", expanded=False):
@@ -230,6 +286,15 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
     elif st.session_state["_astrosage_pdf_name"] is not None:
         st.session_state.pdf_context = None
         st.session_state["_astrosage_pdf_name"] = None
+
+    if st.session_state.pdf_context:
+        _astrosage_sections = _split_astrosage_sections(st.session_state.pdf_context)
+        with st.expander("Your AstroSage Report"):
+            for _section_name, _section_content in _astrosage_sections:
+                if _section_name in _WITHHELD_SECTIONS:
+                    continue
+                st.subheader(_section_name)
+                st.text(_section_content)
 
     # ── Left palm ─────────────────────────────────────────────────────────────
     uploaded_left = st.file_uploader(
