@@ -1,89 +1,136 @@
-# S66 Task 8 — Land F2+F3 atomically with test updates
+# S66 Task 9 — F4: describe_palm_image hardening
 
-Self-gated. Files: `agent/interpretive/palm_reading.py` (already
-modified/uncommitted from Task 7, not re-edited beyond what's below) +
-`tests/interpretive/test_palm_reading.py`.
+Self-gated. One source file: `agent/palm_processor.py`. `palm_reading.py`
+untouched (its query-cap re-derivation is a separate, measure-gated
+follow-up).
 
-## Step 0 — Tree verification
+## Step 1 — New system prompt
 
-```
-git status --short
- M agent/interpretive/palm_reading.py
-?? scratch_dump.py
+Replaced `describe_palm_image`'s system prompt (the free-text "3-5
+sentences" expert-palm-reader framing) with a structured, observational
+prompt: "trained observer preparing hand notes for a Cheiro-tradition
+palmist... You are NOT the palmist... never write 'indicating',
+'suggesting', or any interpretation." Ten labeled output fields in fixed
+order: HAND SHAPE, FINGERS, THUMB, LIFE LINE, HEAD LINE, HEART LINE,
+FATE LINE, OTHER LINES, MOUNTS, MARKS. Explicit instruction: "For any
+attribute not clearly visible, write 'not clearly visible' — never guess
+or fill in what a typical hand would show."
 
-git diff --stat
- agent/interpretive/palm_reading.py | 65 +++++++++++++++++++++++++++++++++++---
- 1 file changed, 61 insertions(+), 4 deletions(-)
-```
-`scratch_dump.py` is the pre-existing untracked throwaway (not this
-task's concern, not committed). No other file dirty. Confirmed all 4
-Task 7 pieces present in `palm_reading.py` via grep: `_QUERY_TRUNCATE_CHARS
-= 2000` (line 72), `## Voice` (line 126), `_SELF_HELP_PATTERN` (line
-205), `_check_self_help_register` (line 228), lazy `from openai import
-OpenAI` (lines 37 [TYPE_CHECKING] and 332 [function-local]). Nothing
-missing -> proceeded.
+Root cause this closes (Ring 3 pass-1, `diagnostics/ring3_palm_rubric_S66.md`):
+the old prompt's "expert palm reader... describe in detail" framing
+invited interpretive language at the source, upstream of any downstream
+voice/jargon filtering.
 
-## Step 1 — Fixed `test_jargon_injection_case_insensitive_and_word_boundary`
+## Step 2 — Call parameters
 
-`_JARGON_STUB_TEXT`: "a favorable Antardasha this season" -> "a
-promising Antardasha this season" (neutral word, not on the 9-term
-self-help list). Comment added: "Stub neutralized S66 -- 'favorable'
-joined the self-help blacklist (Ring 3 pass 1); swapped for 'promising'
-... so this test isolates the jargon validator alone." Assertion
-strengthened from count-only to content: `failure.startswith("jargon_blacklist")`
-(kept the pre-existing more specific `startswith("jargon_blacklist: found ")`
-too) plus a new explicit negative — `assert not any("self_help_blacklist"
-in f for f in result.validation.failures)` — proving isolation, not just
-inferring it from a count of 1.
+- `temperature`: 0.3 -> 0. Comment: checkpoint reproducibility — the
+  description a user confirms must be the description the run would
+  regenerate.
+- `max_tokens`: 400 -> 600. THRESHOLD DISCIPLINE (CLAUDE.md Working
+  Style #4): derived from ~10 labeled fields x ~1-2 lines. Scope guard:
+  this call site only. Revisit trigger: step-3 probe shows truncation.
 
-## Step 2 — 6 new tests for `_check_self_help_register` (Item 12)
+## Step 3 — Measure-first probe (live vision, both repo fixtures)
 
-- `test_self_help_case_insensitive` — "STABILITY" (uppercase) -> single
-  failure `"self_help_blacklist: found stability"`.
-- `test_self_help_word_boundary_excludes_substrings` — "instability" and
-  "journeyman" (each embeds a blacklisted term as a substring, not a
-  standalone word) -> zero self_help failures, `validation.passed is True`.
-  Comment cites the THRESHOLD DISCIPLINE note in `palm_reading.py` for why
-  the 9-term list is literal, not stem-matched.
-- `test_self_help_unlisted_conjugation_does_not_trip` — "navigated" (not
-  on the list; only "navigate"/"navigating" are) -> zero self_help
-  failures. Comment documents this as a deliberate narrowness, revisit
-  trigger = pass-2 evidence.
-- `test_self_help_multi_term_single_sorted_deduped_failure` — stub with
-  "fulfilling" and "journey" each appearing twice -> single failure
-  `"self_help_blacklist: found fulfilling, journey"` (sorted, deduped),
-  mirroring the jargon validator's item-3 format assertions.
-- `test_self_help_clean_cheiro_register_passes` — declarative,
-  consequence-tied stub ("success won through personal exertion rather
-  than chance") with none of the 9 terms -> `validation.passed is True`,
-  `validation.failures == ()`.
-- `test_self_help_integration_empowerment_fails_and_propagates` — full
-  `generate_palm_reading()` call (both hands), stub content contains
-  "empowerment" -> `validation.passed is False`, failure string present in
-  the returned `PalmReadingResult.validation.failures` (not just checked
-  against a bare validator-function call).
+Ran the new prompt once per fixture via `describe_palm_image`, using the
+`test_palm_endtoend.py` integration-test precedent (real GPT-4o calls,
+no asserts on content).
 
-All 6 follow the existing `_FakeSearch`/`_FakeClient` injection pattern;
-zero live API/ChromaDB calls, consistent with the rest of the file's Ring
-2 posture.
-
-## Step 3 — Full suite
+### LEFT (`data/test_images/palm_left_test.jpg`) — verbatim
 
 ```
-3172 passed, 3 skipped, 1 warning in 84.44s (0:01:24)
+HAND SHAPE: Square palm, overall build is medium.
+
+FINGERS: Fingers are long relative to the palm, appear straight, fingertips are rounded, spacing is moderate.
+
+THUMB: Medium relative size, set moderately low, wide angle from the palm.
+
+LIFE LINE: Present, deep, long, curves around the base of the thumb, no breaks, chains, forks, or islands visible.
+
+HEAD LINE: Present, deep, long, slightly curved, starts joined with the life line, no breaks, chains, forks, or islands visible.
+
+HEART LINE: Present, deep, long, curves slightly upwards, no breaks, chains, forks, or islands visible.
+
+FATE LINE: Barely visible.
+
+OTHER LINES: No other lines clearly visible.
+
+MOUNTS: Mount of Venus appears developed, other mounts are unremarkable.
+
+MARKS: No marks clearly visible.
 ```
-Matches expectation exactly: 3166 baseline + 6 new Item-12 tests, Step-1
-test restored to passing (no net test-count change from the fix itself,
-only content/assertion changes). Zero unexpected delta.
 
-## Step 4 — Commit (atomic, both files)
+### RIGHT (`data/test_images/palm_right_test.jpg`) — verbatim
 
-Green -> single commit:
-`d2d923a` — "S66 F2+F3: Cheiro voice enforcement + query cap + lazy
-import, with Ring 1 self-help validator tests (atomic per S66 ruling)"
-(RATIFIED: commit authorized)
+```
+HAND SHAPE: Square palm, medium build
 
-This closes out Task 7's STOP — `palm_reading.py`'s F2 (voice prompt +
-Ring 1 self-help validator), F3 (query cap 500->2000), and the lazy
-OpenAI import carry-forward all now land together with their test
-coverage, per the S66 atomic-landing ruling.
+FINGERS: Medium length relative to palm, straight, rounded fingertips, moderate spacing
+
+THUMB: Medium size, set moderately low, wide angle from the palm
+
+LIFE LINE: Present, deep, long, curves around the base of the thumb, no clear breaks or forks
+
+HEAD LINE: Present, deep, long, slightly curved, starts joined with the life line
+
+HEART LINE: Present, deep, slightly curved, ends below the middle finger
+
+FATE LINE: Barely visible
+
+OTHER LINES: Not clearly visible
+
+MOUNTS: Mount of Venus appears developed, other mounts unremarkable
+
+MARKS: Not clearly visible
+```
+
+### Length arithmetic
+
+| | chars |
+|---|---|
+| LEFT description | 769 |
+| RIGHT description | 602 |
+| Combined | 1371 |
+| `_QUERY_TRUNCATE_CHARS` (`agent/interpretive/palm_reading.py`, read not hardcoded) | 2000 |
+| Margin | 629 (combined fits, no truncation) |
+
+### Observed deviations (no asserts — observed values only, design chat ratifies)
+
+- **Interpretation leakage**: none observed in either output. No
+  "indicating"/"suggesting" or trait/prediction language in either
+  transcript — all 20 field-lines (10 per hand) stay in physical-
+  observation register.
+- **"not clearly visible" phrasing fidelity**: RIGHT hand used the
+  instructed literal phrase twice (OTHER LINES, MARKS: "Not clearly
+  visible"). LEFT hand used semantically-equivalent but non-literal
+  phrasing instead ("No other lines clearly visible", "No marks clearly
+  visible") — the model paraphrased the required token rather than
+  emitting it verbatim. Not a content problem (both correctly signal
+  absence, no guessing), but the exact-string instruction was not
+  followed exactly in 2/20 fields. Flagging for design-chat ratification
+  per Step 3's charter, not treating as a defect requiring a code fix.
+- **Fields all present, all ten labels emitted in order, both hands.**
+  No truncation (both well under the 600-token budget headroom implied
+  by the 769/602-char outputs).
+
+## Step 4 — Grep for stale test coupling
+
+Grepped `tests/` for the old prompt text and `"3-5 sentences"`: zero
+matches. No atomic-landing test-update step required (unlike the S66
+Task 8 precedent, where `_check_self_help_register` additions tripped an
+existing stub).
+
+## Step 5 — Full suite
+
+```
+3172 passed, 3 skipped, 1 warning in 80.34s
+```
+Zero delta from the expected baseline (integration-marked tests excluded
+by default run). Green -> committed.
+
+Commit: `f81809d` — "S66 F4: observational structured describe prompt,
+temp 0 (Ring 3 pass-1 root-cause fix)"
+
+## Step 6 — This report
+
+Diagnostics overwritten (this file). Pushed to `main`.
