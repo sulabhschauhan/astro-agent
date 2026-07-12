@@ -1,136 +1,103 @@
-# S66 Task 9 — F4: describe_palm_image hardening
+# S66 Task 11 — F5: dogfood capture log
 
-Self-gated. One source file: `agent/palm_processor.py`. `palm_reading.py`
-untouched (its query-cap re-derivation is a separate, measure-gated
-follow-up).
+Self-gated. Source file: `frontend/app.py` (+ `.gitignore` one-line
+ride-along).
 
-## Step 1 — New system prompt
+## Step 1 — `.gitignore`
 
-Replaced `describe_palm_image`'s system prompt (the free-text "3-5
-sentences" expert-palm-reader framing) with a structured, observational
-prompt: "trained observer preparing hand notes for a Cheiro-tradition
-palmist... You are NOT the palmist... never write 'indicating',
-'suggesting', or any interpretation." Ten labeled output fields in fixed
-order: HAND SHAPE, FINGERS, THUMB, LIFE LINE, HEAD LINE, HEART LINE,
-FATE LINE, OTHER LINES, MOUNTS, MARKS. Explicit instruction: "For any
-attribute not clearly visible, write 'not clearly visible' — never guess
-or fill in what a typical hand would show."
-
-Root cause this closes (Ring 3 pass-1, `diagnostics/ring3_palm_rubric_S66.md`):
-the old prompt's "expert palm reader... describe in detail" framing
-invited interpretive language at the source, upstream of any downstream
-voice/jargon filtering.
-
-## Step 2 — Call parameters
-
-- `temperature`: 0.3 -> 0. Comment: checkpoint reproducibility — the
-  description a user confirms must be the description the run would
-  regenerate.
-- `max_tokens`: 400 -> 600. THRESHOLD DISCIPLINE (CLAUDE.md Working
-  Style #4): derived from ~10 labeled fields x ~1-2 lines. Scope guard:
-  this call site only. Revisit trigger: step-3 probe shows truncation.
-
-## Step 3 — Measure-first probe (live vision, both repo fixtures)
-
-Ran the new prompt once per fixture via `describe_palm_image`, using the
-`test_palm_endtoend.py` integration-test precedent (real GPT-4o calls,
-no asserts on content).
-
-### LEFT (`data/test_images/palm_left_test.jpg`) — verbatim
-
+Added:
 ```
-HAND SHAPE: Square palm, overall build is medium.
-
-FINGERS: Fingers are long relative to the palm, appear straight, fingertips are rounded, spacing is moderate.
-
-THUMB: Medium relative size, set moderately low, wide angle from the palm.
-
-LIFE LINE: Present, deep, long, curves around the base of the thumb, no breaks, chains, forks, or islands visible.
-
-HEAD LINE: Present, deep, long, slightly curved, starts joined with the life line, no breaks, chains, forks, or islands visible.
-
-HEART LINE: Present, deep, long, curves slightly upwards, no breaks, chains, forks, or islands visible.
-
-FATE LINE: Barely visible.
-
-OTHER LINES: No other lines clearly visible.
-
-MOUNTS: Mount of Venus appears developed, other mounts are unremarkable.
-
-MARKS: No marks clearly visible.
+# S66 F5: local dogfood capture — derived text only, never committed
+# (no-storage lock ruling 2026-07-12)
+diagnostics/dogfood_capture.md
 ```
 
-### RIGHT (`data/test_images/palm_right_test.jpg`) — verbatim
+## Step 2 — `app.py`: flag + helper
+
+Module-level `_DOGFOOD_CAPTURE = os.environ.get("ASTRO_DOGFOOD_CAPTURE") == "1"`,
+read once (re-evaluated every Streamlit script rerun, same as any other
+module-level statement — no different from the rest of app.py's session-state
+init pattern).
+
+New helper `_capture_dogfood_run(palm_left, palm_right, hand_detail, reading)`
+appends one markdown block to `diagnostics/dogfood_capture.md` per successful
+`generate_palm_reading()` call:
+```
+## RUN <ISO timestamp>
+### Confirmed descriptions
+#### LEFT / RIGHT / HAND_DETAIL   (verbatim; omitted entirely if not confirmed for this run)
+### reading_text
+verbatim
+### sources
+- book, p.page (score: score)    (score is already round(...,4) at ingestion/query_engine.py — same value the UI renders, not reformatted)
+### ring1_validation
+passed: <bool>
+failures: <tuple>
+```
+EXCLUDED by design (per the no-storage lock ruling 2026-07-12, called out
+in the helper's docstring): image bytes, image hashes, `pdf_context`, any
+AstroSage content.
+
+## Step 3 — Wiring
+
+Wired into the Generate-button success path (`frontend/app.py`, inside the
+`try` block right after `generate_palm_reading()` returns), guarded by
+`_DOGFOOD_CAPTURE`. Capture fires on ANY successful (non-raising)
+`generate_palm_reading()` return, regardless of Ring 1 `validation.passed` —
+pass/fail is itself the data the `ring1_validation` section exists to
+capture, so a failed-validation run is still worth logging, not just a
+displayed one.
+
+Fail-soft: the capture call is wrapped in its own inner `try/except
+Exception`, logging a warning (`logger.warning(..., exc_info=True)`) and
+continuing on failure — it can never block or alter generation or display,
+and sits entirely inside the outer `try` so a capture failure cannot
+surface as the outer `except (ValueError, RuntimeError)` error path either.
+
+UI: no change when the flag is off. When on and capture succeeds,
+`st.caption("captured to dogfood log")` after success — no caption if
+capture is skipped (flag off) or if it fails (fail-soft swallow +
+warning only, no user-facing signal on capture failure by design, since
+it must never intrude on the reading the user came for).
+
+## Step 4 — AppTest smoke + full suite
+
+New file `tests/test_app_dogfood_capture.py`, two tests via
+`streamlit.testing.v1.AppTest`:
+- `test_app_loads_with_dogfood_capture_flag_off` — env var unset, `at.run()`,
+  assert `not at.exception`.
+- `test_app_loads_with_dogfood_capture_flag_on_writes_nothing_without_generation` —
+  env var `"1"` (monkeypatched), `at.run()`, assert `not at.exception`, AND
+  assert the log file's (mtime, content) snapshot is unchanged from before
+  the run (handles both the "file doesn't exist locally" and "a real
+  dogfooding session already populated it" cases without depending on
+  which is true in a given dev environment).
+
+Neither test simulates a file upload or button click, so no real OpenAI
+call is reachable in either run (`describe_palm_image` / `generate_palm_reading`
+are only reachable behind file-uploader / button state this harness
+doesn't drive) — confirmed by `[_patch_stage2_openai] stub invocation
+count: 0` in this file's own isolated run.
 
 ```
-HAND SHAPE: Square palm, medium build
-
-FINGERS: Medium length relative to palm, straight, rounded fingertips, moderate spacing
-
-THUMB: Medium size, set moderately low, wide angle from the palm
-
-LIFE LINE: Present, deep, long, curves around the base of the thumb, no clear breaks or forks
-
-HEAD LINE: Present, deep, long, slightly curved, starts joined with the life line
-
-HEART LINE: Present, deep, slightly curved, ends below the middle finger
-
-FATE LINE: Barely visible
-
-OTHER LINES: Not clearly visible
-
-MOUNTS: Mount of Venus appears developed, other mounts unremarkable
-
-MARKS: Not clearly visible
+tests/test_app_dogfood_capture.py::test_app_loads_with_dogfood_capture_flag_off PASSED
+tests/test_app_dogfood_capture.py::test_app_loads_with_dogfood_capture_flag_on_writes_nothing_without_generation PASSED
+2 passed, 1 warning in 1.54s
 ```
+Confirmed post-run: `diagnostics/dogfood_capture.md` does not exist on
+disk (no stray write).
 
-### Length arithmetic
-
-| | chars |
-|---|---|
-| LEFT description | 769 |
-| RIGHT description | 602 |
-| Combined | 1371 |
-| `_QUERY_TRUNCATE_CHARS` (`agent/interpretive/palm_reading.py`, read not hardcoded) | 2000 |
-| Margin | 629 (combined fits, no truncation) |
-
-### Observed deviations (no asserts — observed values only, design chat ratifies)
-
-- **Interpretation leakage**: none observed in either output. No
-  "indicating"/"suggesting" or trait/prediction language in either
-  transcript — all 20 field-lines (10 per hand) stay in physical-
-  observation register.
-- **"not clearly visible" phrasing fidelity**: RIGHT hand used the
-  instructed literal phrase twice (OTHER LINES, MARKS: "Not clearly
-  visible"). LEFT hand used semantically-equivalent but non-literal
-  phrasing instead ("No other lines clearly visible", "No marks clearly
-  visible") — the model paraphrased the required token rather than
-  emitting it verbatim. Not a content problem (both correctly signal
-  absence, no guessing), but the exact-string instruction was not
-  followed exactly in 2/20 fields. Flagging for design-chat ratification
-  per Step 3's charter, not treating as a defect requiring a code fix.
-- **Fields all present, all ten labels emitted in order, both hands.**
-  No truncation (both well under the 600-token budget headroom implied
-  by the 769/602-char outputs).
-
-## Step 4 — Grep for stale test coupling
-
-Grepped `tests/` for the old prompt text and `"3-5 sentences"`: zero
-matches. No atomic-landing test-update step required (unlike the S66
-Task 8 precedent, where `_check_self_help_register` additions tripped an
-existing stub).
-
-## Step 5 — Full suite
+### Full suite
 
 ```
-3172 passed, 3 skipped, 1 warning in 80.34s
+3174 passed, 3 skipped, 1 warning in 109.81s (0:01:49)
 ```
-Zero delta from the expected baseline (integration-marked tests excluded
-by default run). Green -> committed.
+3172 (S66 Task 9 baseline) + 2 new AppTest smoke tests = 3174. Zero
+delta beyond the 2 new tests, as expected. Green -> committed.
 
-Commit: `f81809d` — "S66 F4: observational structured describe prompt,
-temp 0 (Ring 3 pass-1 root-cause fix)"
+Commit: `e1ade65` — "S66 F5: opt-in dogfood capture log (derived text
+only)"
 
-## Step 6 — This report
+## Step 5 — This report
 
 Diagnostics overwritten (this file). Pushed to `main`.
