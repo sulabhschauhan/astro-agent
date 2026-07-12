@@ -184,8 +184,11 @@ def test_both_none_no_hand_detail_raises_value_error(monkeypatch):
 
 # ─── Item 3: jargon injection, case-insensitivity + word boundary ──────
 
+# Stub neutralized S66 -- "favorable" joined the self-help blacklist (Ring
+# 3 pass 1); swapped for "promising" (not on the 9-term list) so this test
+# isolates the jargon validator alone.
 _JARGON_STUB_TEXT = (
-    "Your LAGNA reveals strong ambition, while a favorable Antardasha this "
+    "Your LAGNA reveals strong ambition, while a promising Antardasha this "
     "season brings real opportunity. A gentle yoga forming across your "
     "palm suggests balance and steady growth, and anyone with a bold "
     "yogart mark on their hand should feel encouraged. It is a warm, "
@@ -205,7 +208,9 @@ def test_jargon_injection_case_insensitive_and_word_boundary(monkeypatch):
     assert result.validation.passed is False
     assert len(result.validation.failures) == 1
     failure = result.validation.failures[0]
+    assert failure.startswith("jargon_blacklist")
     assert failure.startswith("jargon_blacklist: found ")
+    assert not any("self_help_blacklist" in f for f in result.validation.failures)
     hits = {h.strip() for h in failure.removeprefix("jargon_blacklist: found ").split(",")}
     # "LAGNA" and "Antardasha" hit despite mixed case; "yoga" hits once from
     # "yoga forming" -- NOT from "yogart" (word-boundary must not trip on a
@@ -392,4 +397,149 @@ def test_sources_propagate_book_page_score(monkeypatch):
     assert result.sources == (
         {"book": "cheiroslanguageo00chei_1", "page": 12, "score": 0.81},
         {"book": "cheiroslanguageo00chei_1", "page": 57, "score": 0.66},
+    )
+
+
+# ─── Item 12: self-help register validator (S66 F2b) ───────────────────
+
+_STABILITY_STUB_TEXT = (
+    "This hand promises STABILITY through disciplined effort, with a firm "
+    "grip on practical matters and a steady, deliberate approach to every "
+    "undertaking that comes before it."
+)
+
+
+def test_self_help_case_insensitive(monkeypatch):
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(content=_STABILITY_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="A long life line with a gentle curve.", palm_right=None, client=client
+    )
+
+    assert result.validation.passed is False
+    assert len(result.validation.failures) == 1
+    failure = result.validation.failures[0]
+    assert failure == "self_help_blacklist: found stability"
+
+
+# Word-boundary positive/negative pair: "instability" and "journeyman" both
+# contain a blacklisted term as a substring but not as a standalone word --
+# the literal 9-term list is deliberate (THRESHOLD DISCIPLINE, see
+# _SELF_HELP_BLACKLIST's comment in palm_reading.py); this test proves the
+# word-boundary regex does not over-match on these substrings.
+_WORD_BOUNDARY_STUB_TEXT = (
+    "A hand marked by inner instability at times still moves toward calm "
+    "judgment, and this journeyman spirit for craft rewards patient hands "
+    "with quiet mastery over many years."
+)
+
+
+def test_self_help_word_boundary_excludes_substrings(monkeypatch):
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(content=_WORD_BOUNDARY_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="A long life line with a gentle curve.", palm_right=None, client=client
+    )
+
+    assert not any("self_help_blacklist" in f for f in result.validation.failures)
+    assert result.validation.passed is True
+
+
+# Non-listed conjugation "navigated" does NOT trip -- documents the
+# narrowness of the 9-term list as a deliberate choice (THRESHOLD
+# DISCIPLINE revisit trigger: pass-2 evidence that a conjugation like this
+# is itself an observed offender, not a preemptive widening here).
+_NAVIGATED_STUB_TEXT = (
+    "The head line, once navigated with hesitation in youth, now runs firm "
+    "and true across the palm, showing settled judgment and clear resolve."
+)
+
+
+def test_self_help_unlisted_conjugation_does_not_trip(monkeypatch):
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(content=_NAVIGATED_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="A long life line with a gentle curve.", palm_right=None, client=client
+    )
+
+    assert not any("self_help_blacklist" in f for f in result.validation.failures)
+    assert result.validation.passed is True
+
+
+_MULTI_TERM_STUB_TEXT = (
+    "The heart line points to fulfilling bonds forged through effort, "
+    "while the head line traces a long journey of independent judgment; a "
+    "second look at the fate line confirms this journey continues on firm "
+    "ground for fulfilling work ahead."
+)
+
+
+def test_self_help_multi_term_single_sorted_deduped_failure(monkeypatch):
+    """Mirrors the jargon validator's format assertions (item 3): two
+    distinct terms, each appearing twice, collapse to one failure string
+    listing both terms once, sorted."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(content=_MULTI_TERM_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="A long life line with a gentle curve.", palm_right=None, client=client
+    )
+
+    assert result.validation.passed is False
+    assert len(result.validation.failures) == 1
+    assert result.validation.failures[0] == "self_help_blacklist: found fulfilling, journey"
+
+
+_CHEIRO_VOICE_STUB_TEXT = (
+    "The life line runs long and unbroken around the base of the thumb, "
+    "marking sound constitution and vigor that will carry through many "
+    "years. A deep, steady heart line shows warmth given freely but never "
+    "wasted, while a firm head line reveals judgment sharpened by direct "
+    "experience rather than idle theory. The fate line, clear and "
+    "undivided, promises success won through personal exertion rather "
+    "than chance."
+)
+
+
+def test_self_help_clean_cheiro_register_passes(monkeypatch):
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(content=_CHEIRO_VOICE_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="A long life line with a gentle curve.", palm_right=None, client=client
+    )
+
+    assert result.validation.passed is True
+    assert result.validation.failures == ()
+
+
+_EMPOWERMENT_STUB_TEXT = (
+    "This hand speaks of quiet empowerment gained through steady effort, "
+    "with practical instincts and calm resolve carrying you through each "
+    "new challenge that life presents along the way."
+)
+
+
+def test_self_help_integration_empowerment_fails_and_propagates(monkeypatch):
+    """Full generate_palm_reading() integration: a stub reading containing
+    a blacklisted term must produce a failed, propagated ValidationReport
+    inside the returned PalmReadingResult -- not just a bare validator
+    function result."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(content=_EMPOWERMENT_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="A long life line with a gentle curve.",
+        palm_right="A curved heart line.",
+        client=client,
+    )
+
+    assert isinstance(result, PalmReadingResult)
+    assert isinstance(result.validation, ValidationReport)
+    assert result.validation.passed is False
+    assert any(
+        f == "self_help_blacklist: found empowerment" for f in result.validation.failures
     )

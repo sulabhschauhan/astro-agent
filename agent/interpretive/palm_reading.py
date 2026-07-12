@@ -28,11 +28,13 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-
-from openai import OpenAI
+from typing import TYPE_CHECKING
 
 from agent.prompt_builder import DISCLAIMER
 from ingestion.query_engine import search
+
+if TYPE_CHECKING:
+    from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +59,17 @@ _N_RESULTS = 6
 # (hand_detail is deliberately excluded from the RAG query -- it is still
 # passed to the LLM in the user message, but is a supplementary photograph
 # analysis, not one of the two canonical "palm descriptions").
-_QUERY_TRUNCATE_CHARS = 500
+#
+# THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
+# Justification: Ring 3 pass 1 (diagnostics/ring3_chunks_S66.md) proved the
+# prior 500-char cap silently truncated the query inside the LEFT
+# description, dropping the RIGHT hand from retrieval entirely -- two
+# observed ~600-char vision descriptions must both survive into the query
+# for two-hand retrieval to work as designed. Scope guard: this call site
+# only. Revisit trigger: a future F4 describe-prompt change that materially
+# alters vision-description length (shorter or longer) should re-derive
+# this cap from the new observed lengths, not assume 2000 still fits.
+_QUERY_TRUNCATE_CHARS = 2000
 
 
 # ─── System prompt ──────────────────────────────────────────────────────
@@ -89,6 +101,14 @@ _STRICT_CONTEXT_RULE = (
     "mention it. Silence on missing context is correct."
 )
 
+# "## How you read"'s specific-teaching-over-generic-gloss instruction and
+# the "## Voice" block below are S66 F2 additions -- Ring 3 pass 1
+# (diagnostics/ring3_palm_rubric_S66.md) found every scorable claim across
+# all 3 runs traced to the confirmed hand descriptions alone, never
+# uniquely to a retrieved chunk (readings ignored all 6 retrieved passages
+# in every run), and found a systematic generic self-help voice failure
+# (P3) in all 3 runs, including a literal S23 R3 blacklist-word hit
+# ("stability") in Run C.
 _READING_SYSTEM_PROMPT = f"""You are a Cheiro-tradition palmist writing a single, one-shot palm reading for a client who has just uploaded photo(s) of their hand(s).
 
 ## Your knowledge
@@ -100,7 +120,12 @@ You have been provided with relevant passages from Cheiro's Language of the Hand
 - When only one hand is present, read that hand alone -- do not speculate about the missing hand.
 - Do not cite book names, page numbers, or passage numbers -- deliver the reading directly.
 - If the retrieved passages do not clearly support a feature in the description, say so honestly -- do not fabricate.
+- Where a retrieved passage speaks directly to a described feature, apply that passage's specific teaching rather than a generic gloss -- do not let a feature you have textual support for get the same vague treatment as one you don't.
 - This is a ONE-SHOT reading: do not ask clarifying questions, do not introduce yourself, and do not reference any prior conversation -- there is none.
+
+## Voice
+Write in Cheiro's declarative register: direct assertions of what the hand indicates, tied to concrete consequences -- health, success won by personal merit, travel, character, fortune. This is a palmist reading a hand, not a therapist offering affirmation.
+FORBIDDEN words and phrasings (never use these, in any form): stability, fulfillment, fulfilling, favorable, journey, navigate, navigating, empower, empowerment, and any "this suggests you are the kind of person who..." self-help framing.
 
 {_LANGUAGE_JARGON_BLOCK}
 
@@ -162,6 +187,26 @@ _JARGON_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
+# Justification: list = S23 R3 blacklist ("stability", "fulfillment") +
+# Ring 3 pass-1 observed offenders ONLY (diagnostics/ring3_palm_rubric_S66.md
+# -- "favorable", "journey", "navigate"/"navigating", "empower"/
+# "empowerment", the "this suggests you are the kind of person who..."
+# self-help framing is prose-shaped, not a single word, so it is not
+# pattern-matchable here and stays a prompt-only instruction) -- no
+# speculative additions beyond what was actually observed failing. Scope
+# guard: this module's Ring 1 validator only. Revisit trigger: if pass 2
+# produces a false positive on one of these terms, remove that term before
+# loosening anything else about this check.
+_SELF_HELP_BLACKLIST: tuple[str, ...] = (
+    "stability", "fulfillment", "fulfilling", "favorable", "journey",
+    "navigate", "navigating", "empower", "empowerment",
+)
+_SELF_HELP_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(term) for term in _SELF_HELP_BLACKLIST) + r")\b",
+    re.IGNORECASE,
+)
+
 _YEAR_PATTERN = re.compile(r"\b(?:19|20)\d{2}\b")
 
 # THRESHOLD DISCIPLINE. Justification: 700 words is a hard rail, not the
@@ -177,6 +222,13 @@ def _check_jargon(text: str) -> list[str]:
     hits = sorted({m.group(0).lower() for m in _JARGON_PATTERN.finditer(text)})
     if hits:
         return [f"jargon_blacklist: found {', '.join(hits)}"]
+    return []
+
+
+def _check_self_help_register(text: str) -> list[str]:
+    hits = sorted({m.group(0).lower() for m in _SELF_HELP_PATTERN.finditer(text)})
+    if hits:
+        return [f"self_help_blacklist: found {', '.join(hits)}"]
     return []
 
 
@@ -274,7 +326,11 @@ def generate_palm_reading(
         lines.append(f"\nHAND DETAIL:\n{hand_detail}")
     user_message = "\n".join(lines)
 
-    effective_client = client if client is not None else OpenAI()
+    if client is not None:
+        effective_client = client
+    else:
+        from openai import OpenAI
+        effective_client = OpenAI()
     try:
         response = effective_client.chat.completions.create(
             model=_READING_MODEL,
@@ -297,6 +353,7 @@ def generate_palm_reading(
 
     failures: list[str] = []
     failures += _check_jargon(reading_text)
+    failures += _check_self_help_register(reading_text)
     failures += _check_unsupported_dates(reading_text, context_corpus)
     failures += _check_length(reading_text)
     validation = ValidationReport(passed=not failures, failures=tuple(failures))
