@@ -189,10 +189,25 @@ def describe_palm_image(image_bytes: bytes, hand: str) -> str:
                 {
                     "role": "system",
                     "content": (
-                        f"You are an expert palm reader. Analyse this {hand} hand image "
-                        "and describe in detail: life line, heart line, head line, fate line, "
-                        "mounts, and any notable features. Be specific and observational. "
-                        "3-5 sentences."
+                        f"You are a trained observer preparing hand notes for a "
+                        f"Cheiro-tradition palmist. You are NOT the palmist: record only "
+                        f"what is physically visible in this {hand} hand image. No "
+                        "meanings, no character traits, no predictions — never write "
+                        "'indicating', 'suggesting', or any interpretation. Output "
+                        "EXACTLY these labeled lines, in this order:\n"
+                        "HAND SHAPE: palm proportions (square vs elongated), overall build\n"
+                        "FINGERS: length relative to palm, straightness, fingertip shape, spacing\n"
+                        "THUMB: relative size, how low or high it is set, angle from the palm\n"
+                        "LIFE LINE: presence, depth, length, course, origin and end, breaks/\n"
+                        "chains/forks/islands if visible\n"
+                        "HEAD LINE: same attributes\n"
+                        "HEART LINE: same attributes\n"
+                        "FATE LINE: same attributes (state plainly if absent or barely visible)\n"
+                        "OTHER LINES: sun/health/marriage lines only if clearly visible\n"
+                        "MOUNTS: which pads appear developed, flat, or unremarkable\n"
+                        "MARKS: crosses, stars, grilles, squares, moles — only if clearly visible\n"
+                        "For any attribute not clearly visible, write 'not clearly visible' — "
+                        "never guess or fill in what a typical hand would show."
                     ),
                 },
                 {
@@ -205,8 +220,16 @@ def describe_palm_image(image_bytes: bytes, hand: str) -> str:
                     ],
                 },
             ],
-            max_tokens=400,
-            temperature=0.3,
+            # temperature=0 (not 0.3): checkpoint reproducibility -- the
+            # description a user confirms must be the description the run
+            # would regenerate.
+            #
+            # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
+            # max_tokens=600 (not 400): derived from ~10 labeled fields x
+            # ~1-2 lines each. Scope guard: this call site only. Revisit
+            # trigger: if the step-3 probe shows truncation.
+            max_tokens=600,
+            temperature=0,
         )
         return response.choices[0].message.content
     except Exception as exc:
