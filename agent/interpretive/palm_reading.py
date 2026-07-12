@@ -125,6 +125,7 @@ You have been provided with relevant passages from Cheiro's Language of the Hand
 
 ## Voice
 Write in Cheiro's declarative register: direct assertions of what the hand indicates, tied to concrete consequences -- health, success won by personal merit, travel, character, fortune. This is a palmist reading a hand, not a therapist offering affirmation.
+Write in Cheiro's declarative register. Model sentences: "A deep, unbroken line of life promises long life, good health, and vitality." / "Such a fate line denotes success won by personal merit." Assert what the hand shows and what the tradition says it denotes -- concrete consequences, never affirmations about the reader's inner journey.
 FORBIDDEN words and phrasings (never use these, in any form): stability, fulfillment, fulfilling, favorable, journey, navigate, navigating, empower, empowerment, and any "this suggests you are the kind of person who..." self-help framing.
 
 {_LANGUAGE_JARGON_BLOCK}
@@ -160,11 +161,13 @@ NOTE: The available passages have a weak match to these hand descriptions. Rely 
 # reaches parity quality for this task.
 _READING_MODEL = "gpt-4o"
 
-# THRESHOLD DISCIPLINE. Justification: 0.4 matches the legacy palm-reading
-# call site's quality-validated temperature (astrologer.py's _call_gpt
-# default). Scope guard: this call site only. Revisit trigger: dogfood
-# evidence of excessive variance or blandness in generated readings.
-_READING_TEMPERATURE = 0.4
+# THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
+# Justification: checkpoint-adjacent output must be reproducible --
+# variance probing moves to Ring 3 Run B (residual API nondeterminism
+# only, not a deliberate temperature knob). Scope guard: this call site
+# only. Revisit trigger: pass-2 evidence that temp-0 readings are
+# degenerate (repetitive, robotic) rather than merely reproducible.
+_READING_TEMPERATURE = 0
 
 # THRESHOLD DISCIPLINE. Justification: this is a single synchronous
 # artifact-generation call with no retry/backoff -- a failure raises
@@ -247,6 +250,18 @@ def _check_length(text: str) -> list[str]:
     return []
 
 
+def _run_ring1_checks(text: str, context_corpus: str) -> list[str]:
+    """All four Ring 1 validators, run in a fixed order. Shared by the
+    first draft and the S66 F2c retry draft -- same checks, same order,
+    both passes."""
+    failures: list[str] = []
+    failures += _check_jargon(text)
+    failures += _check_self_help_register(text)
+    failures += _check_unsupported_dates(text, context_corpus)
+    failures += _check_length(text)
+    return failures
+
+
 @dataclass(frozen=True)
 class ValidationReport:
     passed: bool
@@ -259,6 +274,7 @@ class PalmReadingResult:
     sources: tuple[dict, ...]
     validation: ValidationReport
     model: str
+    retry_used: bool
 
 
 def generate_palm_reading(
@@ -286,14 +302,20 @@ def generate_palm_reading(
     Returns:
         PalmReadingResult -- reading_text always carries the appended
         DISCLAIMER regardless of validation outcome; validation.passed is
-        the caller's signal for whether to display it (this module never
-        retries, regenerates, or suppresses on a validation failure).
+        the caller's signal for whether to display it. S66 F2c: if the
+        first draft trips Ring 1, ONE retry is attempted (validator-fed,
+        deterministic-reviewer-only -- see the HARD CAP comment at the
+        retry call site); retry_used reports whether that happened, and
+        validation reflects whichever draft was actually returned. Still
+        never regenerates or suppresses beyond that single retry -- a
+        failing retry's ValidationReport is final and fail-closed.
 
     Raises:
         ValueError: Both palm_left and palm_right are None (hand_detail
                     alone is insufficient input by design).
         RuntimeError: The GPT-4o reading-generation call fails for any
-                      reason (network, auth, timeout, empty response).
+                      reason (network, auth, timeout, empty response) --
+                      on either the first draft or the retry call.
     """
     if palm_left is None and palm_right is None:
         raise ValueError(
@@ -331,31 +353,64 @@ def generate_palm_reading(
     else:
         from openai import OpenAI
         effective_client = OpenAI()
-    try:
-        response = effective_client.chat.completions.create(
-            model=_READING_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            temperature=_READING_TEMPERATURE,
-            timeout=_READING_TIMEOUT_SECONDS,
-        )
-        reading_text = response.choices[0].message.content
-    except Exception as exc:
-        raise RuntimeError(
-            f"palm_reading.generate_palm_reading: GPT-4o reading-generation call failed: {exc}"
-        ) from exc
+
+    def _call(messages: list[dict]) -> str:
+        try:
+            response = effective_client.chat.completions.create(
+                model=_READING_MODEL,
+                messages=messages,
+                temperature=_READING_TEMPERATURE,
+                timeout=_READING_TIMEOUT_SECONDS,
+            )
+            return response.choices[0].message.content
+        except Exception as exc:
+            raise RuntimeError(
+                f"palm_reading.generate_palm_reading: GPT-4o reading-generation call failed: {exc}"
+            ) from exc
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_message},
+    ]
+    reading_text = _call(messages)
 
     context_corpus = " ".join(
         part for part in (palm_left, palm_right, hand_detail) if part
     ) + " " + " ".join(r["text"] for r in raw_sources)
 
-    failures: list[str] = []
-    failures += _check_jargon(reading_text)
-    failures += _check_self_help_register(reading_text)
-    failures += _check_unsupported_dates(reading_text, context_corpus)
-    failures += _check_length(reading_text)
+    failures = _run_ring1_checks(reading_text, context_corpus)
+    retry_used = False
+
+    # S66 F2c retry: HARD CAP of 2 LLM calls ever, no exceptions.
+    # Justification: S23 + S66 pre-flight (diagnostics/latest_run.md,
+    # commit f906f3e) proved prompt-only voice control fails ~100% of the
+    # time for this task shape (3/3 live pre-flight runs tripped
+    # self_help_blacklist) -- one deterministic-validator-fed retry is
+    # the fix, not a longer prompt or a higher cap. The reviewer here is
+    # a regex (_run_ring1_checks), never an LLM judging its own or
+    # another LLM's output -- this is NOT AI-reviewing-AI (CLAUDE.md
+    # Working Style #5/#9): Python observes the draft's failures
+    # independently and deterministically, then hands that observation
+    # to the model as a correction instruction. Revisit trigger: if
+    # pass-2 shows the retry draft ALSO failing routinely, that is a
+    # signal to redesign the prompt (or the validator), never to raise
+    # this cap to 3.
+    if failures:
+        retry_used = True
+        retry_messages = messages + [
+            {"role": "assistant", "content": reading_text},
+            {
+                "role": "user",
+                "content": (
+                    "Your draft failed these checks: " + "; ".join(failures) + ". "
+                    "Rewrite the reading correcting ONLY these issues. Same "
+                    "facts, same structure."
+                ),
+            },
+        ]
+        reading_text = _call(retry_messages)
+        failures = _run_ring1_checks(reading_text, context_corpus)
+
     validation = ValidationReport(passed=not failures, failures=tuple(failures))
 
     # DISCLAIMER appended AFTER validation runs -- its own wording/any
@@ -372,4 +427,5 @@ def generate_palm_reading(
         sources=sources,
         validation=validation,
         model=_READING_MODEL,
+        retry_used=retry_used,
     )

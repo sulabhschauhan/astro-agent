@@ -89,15 +89,34 @@ class _FakeCompletions:
     """Records every call (`.calls`); returns canned content or raises a
     canned exception, per construction -- mirrors
     tests/infra/test_calc_router_stage2.py's _FakeCompletions shape,
-    adapted for palm_reading.py's plain-content (not tool-call) response."""
+    adapted for palm_reading.py's plain-content (not tool-call) response.
 
-    def __init__(self, content: str | None = None, exception: Exception | None = None):
+    S66 F2c: `responses`, if given, is a list of (content, exception)
+    tuples consumed in call order (one per `.create()` invocation) --
+    lets a single fake client answer the first-draft call and the
+    retry call differently, for the retry-loop tests below. `content`/
+    `exception` (single-shot) stay supported unchanged for every
+    pre-existing test that doesn't care about a second call."""
+
+    def __init__(
+        self,
+        content: str | None = None,
+        exception: Exception | None = None,
+        responses: list[tuple[str | None, Exception | None]] | None = None,
+    ):
         self._content = content
         self._exception = exception
+        self._responses = responses
         self.calls: list[dict] = []
 
     def create(self, **kwargs):
         self.calls.append(kwargs)
+        if self._responses is not None:
+            idx = min(len(self.calls) - 1, len(self._responses) - 1)
+            content, exception = self._responses[idx]
+            if exception is not None:
+                raise exception
+            return _FakeResponse(content)
         if self._exception is not None:
             raise self._exception
         return _FakeResponse(self._content)
@@ -107,8 +126,14 @@ class _FakeClient:
     """Minimal stand-in for openai.OpenAI, injected via
     generate_palm_reading's `client` seam."""
 
-    def __init__(self, *, content: str | None = None, exception: Exception | None = None):
-        self.completions = _FakeCompletions(content=content, exception=exception)
+    def __init__(
+        self,
+        *,
+        content: str | None = None,
+        exception: Exception | None = None,
+        responses: list[tuple[str | None, Exception | None]] | None = None,
+    ):
+        self.completions = _FakeCompletions(content=content, exception=exception, responses=responses)
         self.chat = type("_FakeChat", (), {"completions": self.completions})()
 
 
@@ -346,18 +371,108 @@ def test_client_raises_becomes_runtime_error_no_retry(monkeypatch):
     assert len(client.completions.calls) == 1
 
 
-# ─── Item 9: exactly-one-call invariant on the happy path ─────────────
+# ─── Item 9: exactly-one-call invariant when the first draft passes ────
 
 
-def test_exactly_one_llm_call_on_happy_path(monkeypatch):
+def test_exactly_one_llm_call_when_first_draft_passes(monkeypatch):
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
     client = _FakeClient(content=_CLEAN_STUB_TEXT)
 
-    generate_palm_reading(
+    result = generate_palm_reading(
         palm_left="A long life line.", palm_right="A curved heart line.", client=client
     )
 
     assert len(client.completions.calls) == 1
+    assert result.validation.passed is True
+    assert result.retry_used is False
+
+
+# ─── Item 9b: S66 F2c validator-fed single retry ────────────────────────
+
+_RETRY_FIRST_DRAFT_STUB_TEXT = (
+    "This hand promises stability through disciplined effort, with a firm "
+    "grip on practical matters and steady, deliberate choices in every "
+    "undertaking that comes before it."
+)
+
+_RETRY_SECOND_DRAFT_STILL_FAILS_STUB_TEXT = (
+    "This calm hand still speaks of quiet empowerment gained through "
+    "disciplined practice and patient, steady effort across many years."
+)
+
+
+def test_retry_after_failed_first_draft_then_clean_retry_passes(monkeypatch):
+    """(a) First draft trips the validator; the retry draft is clean ->
+    exactly 2 calls, passed=True, retry_used=True, and the retry's user
+    turn carries the exact failure string back to the model."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(
+        responses=[
+            (_RETRY_FIRST_DRAFT_STUB_TEXT, None),
+            (_CLEAN_STUB_TEXT, None),
+        ]
+    )
+
+    result = generate_palm_reading(
+        palm_left="A long life line with a gentle curve.", palm_right=None, client=client,
+    )
+
+    assert len(client.completions.calls) == 2
+    assert result.validation.passed is True
+    assert result.validation.failures == ()
+    assert result.retry_used is True
+
+    retry_messages = client.completions.calls[1]["messages"]
+    # system, user (original), assistant (failed draft), user (feedback).
+    assert len(retry_messages) == 4
+    assert retry_messages[0]["role"] == "system"
+    assert retry_messages[1]["role"] == "user"
+    assert retry_messages[2] == {"role": "assistant", "content": _RETRY_FIRST_DRAFT_STUB_TEXT}
+    assert retry_messages[3]["role"] == "user"
+    assert "self_help_blacklist: found stability" in retry_messages[3]["content"]
+
+
+def test_retry_after_failed_first_draft_still_fails_stays_failed(monkeypatch):
+    """(b) Both drafts trip the validator -> exactly 2 calls (no third
+    attempt), fail-closed: passed=False, retry_used=True, and the
+    SECOND draft's failure is what's reported (not the first's)."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(
+        responses=[
+            (_RETRY_FIRST_DRAFT_STUB_TEXT, None),
+            (_RETRY_SECOND_DRAFT_STILL_FAILS_STUB_TEXT, None),
+        ]
+    )
+
+    result = generate_palm_reading(
+        palm_left="A long life line with a gentle curve.", palm_right=None, client=client,
+    )
+
+    assert len(client.completions.calls) == 2
+    assert result.validation.passed is False
+    assert result.retry_used is True
+    assert any("empowerment" in f for f in result.validation.failures)
+    assert not any("stability" in f for f in result.validation.failures)
+
+
+def test_retry_call_raises_becomes_runtime_error_no_third_call(monkeypatch):
+    """(c) The first draft trips the validator, but the retry call
+    itself raises -> RuntimeError propagates (same as item 8's
+    single-call case), and no third call is ever attempted."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(
+        responses=[
+            (_RETRY_FIRST_DRAFT_STUB_TEXT, None),
+            (None, ConnectionError("simulated network failure on retry")),
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="GPT-4o reading-generation call failed"):
+        generate_palm_reading(
+            palm_left="A long life line with a gentle curve.", palm_right=None, client=client,
+        )
+
+    assert len(client.completions.calls) == 2
 
 
 # ─── Item 10: Cheiro book filter ────────────────────────────────────────
