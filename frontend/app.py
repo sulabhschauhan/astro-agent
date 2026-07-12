@@ -19,12 +19,13 @@ os.chdir(_ROOT)
 import streamlit as st
 
 from agent.chart_calculator import calculate_chart, format_kundali_context, geocode_place_candidates
-from agent.astrologer import ask
 from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf
 from PIL import Image
 from agent.palm_processor import validate_palm_image, describe_palm_image, describe_hand_detail_image
 from agent.interpretive.palm_reading import generate_palm_reading
+from agent.infra.orchestrator import answer_question
+from agent.interpretive.answer_renderer import render_answer
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +95,6 @@ if "palm_left_regen_warning" not in st.session_state:
     st.session_state.palm_left_regen_warning = None
 if "palm_right_regen_warning" not in st.session_state:
     st.session_state.palm_right_regen_warning = None
-if "pending_question" not in st.session_state:
-    st.session_state.pending_question = None
 if "spouse_pdf_context" not in st.session_state:
     st.session_state.spouse_pdf_context = None
 if "_spouse_pdf_name" not in st.session_state:
@@ -716,44 +715,6 @@ for msg in st.session_state.messages:
             for _nudge in msg.get("nudges", []):
                 st.info(_nudge)
 
-# ─── "Generate My Reading" button ────────────────────────────────────────────
-# Shown when a question was gated and context has since been uploaded.
-_has_new_context = (
-    st.session_state.get("palm_left_str") is not None
-    or st.session_state.get("palm_right_str") is not None
-    or st.session_state.pdf_context is not None
-)
-if st.session_state.pending_question is not None and _has_new_context:
-    if st.button("✋ Generate My Reading"):
-        _pq = st.session_state.pending_question
-        st.session_state.pending_question = None
-        _introduce = len(st.session_state.messages) == 0
-        with st.spinner("Consulting the stars…"):
-            _btn_result = ask(
-                question=_pq,
-                kundali_context=st.session_state.kundali_str or None,
-                pdf_context=st.session_state.pdf_context or None,
-                palm_left=st.session_state.get("palm_left_str"),
-                palm_right=st.session_state.get("palm_right_str"),
-                spouse_pdf=st.session_state.get("spouse_pdf_context"),
-                hand_detail=st.session_state.get("hand_detail_str"),
-                session=st.session_state.session_mgr,
-                introduce=_introduce,
-            )
-        _btn_answer = _btn_result["answer"]
-        _btn_nudges = _btn_result.get("nudges", [])
-        st.session_state.messages.append({"role": "user", "content": _pq})
-        st.session_state.messages.append({
-            "role":    "assistant",
-            "content": _btn_answer,
-            "nudges":  _btn_nudges,
-        })
-        try:
-            st.session_state.session_mgr.save()
-        except RuntimeError:
-            pass
-        st.rerun()
-
 # Chat input — disabled until chart is ready
 prompt = st.chat_input(
     "Enter your birth details in the sidebar first" if not st.session_state.chart_ready else "Ask about your birth chart…",
@@ -764,59 +725,35 @@ if prompt:
     if not st.session_state.chart_ready:
         st.warning("Please calculate your birth chart in the sidebar first.")
     else:
-        # introduce=True only on the very first real answer (no messages yet)
-        introduce = len(st.session_state.messages) == 0
-
         with st.chat_message("user"):
             st.markdown(prompt)
 
+        # Deterministic calc-engine pipeline ONLY (CLAUDE.md "V1 scope" lock):
+        # answer_question() routes -> builds a DomainChartProfile -> formats
+        # a DomainAnswer (REFUSAL included); render_answer() turns that into
+        # display text. No partner chart wiring in V1 -- marriage questions
+        # will REFUSAL via has_partner_data, same as any other domain's
+        # REFUSAL (rendered like any other answer, not specially handled).
+        # Both user+assistant messages are appended together, only after a
+        # full success, so a failure anywhere in this chain leaves
+        # st.session_state.messages completely unchanged (no partial turn).
         try:
             with st.spinner("Consulting the stars…"):
-                result = ask(
-                    question=prompt,
-                    kundali_context=st.session_state.kundali_str or None,
-                    pdf_context=st.session_state.pdf_context or None,
-                    palm_left=st.session_state.get("palm_left_str"),
-                    palm_right=st.session_state.get("palm_right_str"),
-                    spouse_pdf=st.session_state.get("spouse_pdf_context"),
-                    hand_detail=st.session_state.get("hand_detail_str"),
-                    session=st.session_state.session_mgr,
-                    introduce=introduce,
-                )
+                domain_answer = answer_question(prompt, st.session_state.chart)
+                answer_text = render_answer(domain_answer)
 
-            if result["gated"]:
-                st.session_state.pending_question = prompt
-                st.warning(result["answer"])
-            else:
-                st.session_state.messages.append({"role": "user", "content": prompt})
+            st.session_state.messages.append({"role": "user", "content": prompt})
 
-                with st.chat_message("assistant"):
-                    answer = result["answer"]
+            with st.chat_message("assistant"):
+                st.markdown(answer_text)
 
-                    st.markdown(answer)
+            st.session_state.messages.append({"role": "assistant", "content": answer_text})
 
-                    for _nudge in result.get("nudges", []):
-                        st.info(_nudge)
+            # Persist session to disk; non-fatal on failure
+            try:
+                st.session_state.session_mgr.save()
+            except RuntimeError:
+                st.warning("Session could not be saved. Chat history may not persist.")
 
-                    st.session_state.messages.append({
-                        "role":    "assistant",
-                        "content": answer,
-                        "nudges":  result.get("nudges", []),
-                    })
-
-                    # Persist session to disk; non-fatal on failure
-                    try:
-                        st.session_state.session_mgr.save()
-                    except RuntimeError:
-                        st.warning("Session could not be saved. Chat history may not persist.")
-
-        except ValueError as e:
-            st.error(f"Invalid input: {e}")
-        except RuntimeError as e:
-            st.error(f"Database error: {e}")
         except Exception as e:
-            err = str(e).lower()
-            if "api_key" in err or "authentication" in err:
-                st.error("OpenAI API key missing or invalid — check your .env file.")
-            else:
-                st.error(f"{type(e).__name__}: {e}")
+            st.error(f"{type(e).__name__}: {e}")
