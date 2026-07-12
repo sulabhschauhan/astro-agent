@@ -2863,3 +2863,162 @@ Docs closeout: this commit ("S64 close-out: docs").
   `_used_stage2_since()` correlation (accepted residual -- the sole
   surviving use, documented in both `golden_harness.py`'s own
   docstring and CLAUDE.md).
+
+## Session 65 -- T4 interpretive layer live end-to-end: palm one-shot + human checkpoint, AstroSage terminal-bare display, deterministic answer renderer, ask() quarantined from frontend, ratification-token rule (2026-07-12)
+
+### Architecture rulings (a/b/c) + palm human checkpoint
+Locked via design-chat consensus before any code landed (all four now in
+CLAUDE.md's own Locked Decisions, not repeated verbatim here):
+
+(a) **T4 architecture** -- AstroSage paragraph + palm reading are
+UPLOAD-TRIGGERED artifacts, never question-routed; calc_router /
+orchestrator / `_VALID_DOMAINS` / golden baseline untouched by all T4
+work (`sulabh_marriage_q10` `KNOWN_GAP` intentionally NOT closed).
+AstroSage paragraph is terminal-bare (parser output displayed verbatim,
+no RAG, no LLM synthesis); RAG (Cheiro book-filtered) attaches to palm
+generation ONLY.
+
+(b) **T4 golden semantics** -- three-ring model: Ring 1 (deterministic
+envelope -- extraction fixtures, prompt assembly, pure-Python output
+validators), Ring 2 (stubbed-LLM tests + harness rows, Stage 2
+conftest-stub precedent -- CI never asserts live prose), Ring 3
+(human-rubric ratification artifact -- this layer's actual frozen
+baseline; does not exist yet, see carry-forward below).
+
+(c) **T4 V1 boundaries** -- `astrologer.ask()` QUARANTINED: frontend
+must not call it (conversational LLM Q&A stays OUT per Session 23);
+module retained for V1.1 Path (a) research only; `app.py`'s question
+path rewires to `orchestrator.answer_question()`. V1 palm reading =
+palm descriptions + Cheiro RAG only, one-shot, new module
+`agent/interpretive/palm_reading.py`. AstroSage display filter:
+Pratyantar + Lal Kitab sections extracted (parser UNCHANGED) but
+withheld at display layer.
+
+**Palm human checkpoint** -- vision description (`describe_palm_image`
+output) must be displayed and USER-CONFIRMED before reading generation;
+`app.py`'s prior programmatic auto-confirm
+(`palm_*_confirmed = True` on describe success) was an AI-reviewing-AI
+violation, removed in the 4a app.py rewire below.
+
+### Implementation steps
+1. **CLAUDE.md T4 locks + carry-forward pointer compression** (`cef95c1`)
+   -- the four rulings above landed in Locked Decisions; 4 self-marked
+   RESOLVED/CLOSED carry-forward entries deleted in favor of a
+   SESSION_LOG archival pointer.
+2. **`agent/interpretive/palm_reading.py`** (`697a533`) -- one-shot
+   palm reading generator: `generate_palm_reading()` /
+   `PalmReadingResult` / `ValidationReport`. Cheiro-filtered RAG
+   (exact ChromaDB string read from `query_engine.py`, not recalled);
+   DISCLAIMER imported from `prompt_builder.py`, jargon-rules block +
+   strict-context rule duplicated verbatim (prompt_builder.SYSTEM_PROMPT
+   is one flat string, not importable sub-constants) with SENSITIVE_TO
+   comments; Ring 1 validators (jargon blacklist, unsupported-date
+   check, length rail) run BEFORE the DISCLAIMER is appended.
+3. **`tests/interpretive/test_palm_reading.py`** (`fe383b1`) -- Ring 2
+   stubbed-LLM suite, 12 tests: fail-closed ValueError battery, jargon
+   case-insensitivity/word-boundary, fabricated-vs-supported-year
+   boundary pair, length rail, empty-retrieval low-confidence caveat,
+   happy path, client-failure RuntimeError with no retry, exactly-one-
+   call invariant, Cheiro book filter, sources propagation. Zero live
+   API/ChromaDB calls. No source changes needed to `palm_reading.py`.
+4a. **`frontend/app.py`: palm human checkpoint + "Generate Palm
+   Reading" UI** (`d823a93`, diagnostics `989b490`) -- auto-confirm
+   removed on both hands (description shown read-only in an
+   `st.expander`, "Looks right"/"Discard — re-upload" buttons); swap-
+   regen now un-confirms the regenerated hand; new button wires
+   `generate_palm_reading()`, passing `None` for any unconfirmed hand
+   even if its description string still exists; fail-closed display on
+   validation failure; sources in a separate collapsed expander.
+   **Fix-forward** (`f793e46`) -- closed a design-chat wording gap in
+   the original item 5: swap-regen's FAILURE path (fallback string kept
+   after a failed regen) also clears `palm_reading_result`, alongside
+   the SUCCESS path already covered (4 total clear sites: 2 hands x 2
+   outcomes).
+4a-token. **Ratification-token rule introduced** (`5cc437c`, CLAUDE.md
+   Working Style #14) -- origin: `d823a93` had been committed via a
+   broad "commit an dpush all to git" instruction carrying no explicit
+   per-commit ratification language; to close that ambiguity for every
+   future source-code commit, the rule now requires the literal line
+   `RATIFIED: commit authorized` in the instructing prompt before any
+   source-code commit (docs/diagnostics commits stay exempt; every
+   commit made on any channel is reported with its hash).
+4b. **AstroSage terminal-bare display + Pratyantar/Lal-Kitab
+   withholding** (`0863318`, diagnostics `ad5809b`) -- new "Your
+   AstroSage Report" expander splits `parse_astrosage_pdf()`'s combined
+   output on its `[Name]` headers (fail-soft if none found), renders
+   each section verbatim via `st.text()` (not `st.markdown()`, to avoid
+   misinterpreting incidental markdown-special characters), skips
+   `_WITHHELD_SECTIONS = {"Pratyantar", "Lal Kitab"}` silently (no
+   placeholder). `astrosage_parser.py` itself untouched; `pdf_context`
+   (the full parsed string fed to the answer pipeline) unmodified.
+4c. **`agent/interpretive/answer_renderer.py`** (`409dd78`, diagnostics
+   `9be4249`) -- deterministic `DomainAnswer` -> layman display-text
+   renderer, zero LLM. One branch per routed domain (`current_dasha`,
+   `sade_sati`, `career_strength`, `marriage_compatibility`,
+   `arudha_lagna`, `upapada_lagna`, `muhurta_window`), every payload key
+   verified against `result_formatter.py`'s actual `_format_*()` source
+   before use. REFUSAL short-circuits to `answer_payload["user_message"]`
+   verbatim (no demotion_reason re-append). `demotion_reason` appended
+   as a plain-language "Accuracy note:" paragraph elsewhere. Muhurta
+   tier relabeling (`TIER_1`/`TIER_2`/`TIER_3` -> "excellent"/"good"/
+   "favorable for you specifically") **closes the Session 64
+   MuhurtaTier-jargon carry-forward** (see below). 13 Ring 1/2 tests,
+   zero live pipeline/LLM.
+4d. **`frontend/app.py`: question path rewired** (`918236f`,
+   diagnostics `1577ef0`) -- `agent.astrologer.ask()` import and call
+   site removed; question path is now
+   `answer_question(prompt, st.session_state.chart)` ->
+   `render_answer(...)` -> `st.markdown`. Single broad `except Exception`
+   (no partial `st.session_state.messages` mutation on failure). No
+   partner-chart wiring in V1 -- marriage questions REFUSAL via the
+   `has_partner_data` guard exactly like any other REFUSAL, rendered
+   the same way, not specially handled. Dead-code removal (provably
+   unreferenced after the rewire, confirmed by full-file grep before
+   deletion): `pending_question` session key, the "Generate My Reading"
+   button, the `gated`/`nudges` branching, `introduce` flags -- all
+   existed solely to serve `ask()`'s Phase-1 context-classifier gate,
+   which `answer_question()` has no equivalent of.
+   `agent.astrologer.ask()`/`context_classifier.py`/`context_bundle.py`
+   are now genuinely quarantined (unreachable from the frontend) but
+   were not touched, deleted, or marked -- inventory/retirement is a
+   V1.1 decision (carry-forward below).
+
+### Test baseline
+Full pytest suite progression across the session: **3141 -> 3153**
+(`test_palm_reading.py`, +12) **-> 3166** (`test_answer_renderer.py`,
++13), **3 skipped throughout, zero regressions at every step**. Final
+suite (re-verified at session close): **3166 passed, 3 skipped**.
+
+### Commit hashes
+`cef95c1`, `697a533`, `fe383b1`, `d823a93`, `989b490`, `f793e46`,
+`5cc437c`, `0863318`, `ad5809b`, `409dd78`, `9be4249`, `918236f`,
+`1577ef0`.
+
+Docs closeout: this commit ("S65 close: docs").
+
+### Carry-forward resolved this session
+- Per-window `MuhurtaTier` value strings are internal jargon (Session
+  64) -- RESOLVED: `answer_renderer.py`'s `_MUHURTA_TIER_LABELS` fully
+  replaces `TIER_1`/`TIER_2`/`TIER_3` with "excellent"/"good"/
+  "favorable for you specifically" (verified: raw strings absent from
+  rendered output, not just labeled alongside).
+
+### Carry-forward added this session
+- `prompt_builder.py` kundali-slot instruction drift -- violates the
+  ±37-day drift posture + pratyantar suppression lock; audit before any
+  future use of the kundali slot (slot currently unused by the V1 T4
+  path; `ask()` quarantined).
+- DISCLAIMER import edge -- `palm_reading.py` imports `DISCLAIMER` from
+  legacy `prompt_builder.py`; relocate to a neutral constants home,
+  trigger = any `prompt_builder.py` retirement/relocation work.
+- `palm_reading.py`'s module-level `OpenAI` import defeats the
+  conftest autouse Stage-2 stub (explicit `client=` injection covers
+  every current test, so this is latent, not currently broken); move
+  the import inside `generate_palm_reading()`, trigger = next
+  `palm_reading.py` touch.
+- `ask()`/`prompt_builder`/`context_classifier` quarantine residue in
+  `app.py`'s dependency graph -- inventory + retirement decision is a
+  V1.1 call, not decided this session.
+- Ring 3 human-rubric ratification artifact pending -- per the T4
+  golden semantics ruling (b) above, the T4 layer is not considered
+  ratified-live until this artifact exists; S66 head candidate.
