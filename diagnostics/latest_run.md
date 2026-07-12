@@ -1,58 +1,133 @@
-# Session 65 close-out: docs (CLAUDE.md + SESSION_LOG.md)
+# S66 Task 1 — Review-debt settlement: 4b/4d verification + fix-forwards
 
-Docs-only close-out, token-exempt. Three files touched:
-`CLAUDE.md`, `SESSION_LOG.md`, `diagnostics/latest_run.md` (this file).
+Self-gated, run in order, STOP-on-red, commit-on-green per step. Only
+source file edited: `frontend/app.py`.
 
-## CLAUDE.md changes
+## Step 1 — Exhume overwritten S65 4b report
 
-1. **Current Session Focus** updated to CLOSED, per the task's exact text.
-2. **Deleted** the Session 64 "Per-window `MuhurtaTier` value strings are
-   internal jargon" carry-forward — closed by
-   `agent/interpretive/answer_renderer.py`'s `_MUHURTA_TIER_LABELS`
-   relabeling (`409dd78`).
-3. **Added** two new carry-forward entries:
-   - `ask()`/prompt_builder/context_classifier quarantine residue in
-     app.py — inventory + retirement decision, V1.1.
-   - Ring 3 rubric artifact pending — T4 layer not ratified-live until
-     it exists (S65).
+`git show ad5809b:diagnostics/latest_run.md` succeeded on the first try —
+commit `ad5809b` contains the S65 4b report ("frontend/app.py — AstroSage
+terminal-bare display + Pratyantar/Lal-Kitab withholding (Session 65, 4b)").
+No log-walk needed. Archived to
+`diagnostics/archive/s65_4b_report_ad5809b.md`.
 
-CLAUDE.md line count: **114** (was 113 before this task; net effect of
--1 deleted carry-forward + 2 added + the Session Focus line rewrite).
+Commit: `1e0ce5f` — "S66: archive S65 4b diagnostics report (review-debt audit trail)"
 
-## SESSION_LOG.md changes
+## Step 2 — Repo-wide verification greps (full results)
 
-Appended a full "## Session 65" entry (see the file itself for full
-text) covering:
-- The four architecture rulings (T4 architecture / T4 golden semantics
-  / T4 V1 boundaries / Palm human checkpoint), summarized rather than
-  reproduced verbatim (CLAUDE.md's own Locked Decisions are the source
-  of truth for the exact wording).
-- All 5 implementation steps (1, 2, 3, 4a+fix-forward, 4a-token, 4b,
-  4c, 4d) with their commit hashes and a one-paragraph summary each.
-- The ratification-token rule's origin story: `d823a93` was committed
-  via a broad "commit an dpush all to git" instruction with no explicit
-  per-commit ratification language; `5cc437c` formalized Working Style
-  #14 to close that ambiguity for all future source-code commits.
-- Full commit-hash list (13 hashes, chronological).
-- Test baseline progression (3141 -> 3153 -> 3166, 3 skipped
-  throughout, zero regressions).
-- Carry-forward resolved (MuhurtaTier relabeling) and carry-forward
-  added (4 new items) sections.
+### `grep -rn "pending_question" .`
+```
+SESSION_LOG.md:161:[Omitted long matching line]
+SESSION_LOG.md:2977:   deletion): `pending_question` session key, the "Generate My Reading"
+```
+Both hits are in `SESSION_LOG.md` (docs, historical record of the S65 4d
+removal). Zero live code references. **Matches expectation.**
 
-## Final suite count (re-verified at session close)
+### `grep -rn "Generate My Reading" .`
+```
+SESSION_LOG.md:161:[Omitted long matching line]
+SESSION_LOG.md:2977:   deletion): `pending_question` session key, the "Generate My Reading"
+```
+Same two `SESSION_LOG.md` hits (one line contains both search terms).
+Zero live code references. **Matches expectation.**
+
+### `grep -rn "introduce" frontend/ agent/`
+```
+agent\astrologer.py:90:    introduce: bool = False,
+agent\astrologer.py:113:        introduce: If True, Parashara introduces himself — suppressed if session
+agent\astrologer.py:197:    effective_introduce = introduce and not (session and session.get_history())
+agent\astrologer.py:209:        introduce=effective_introduce,
+agent\astrologer.py:248:    result = ask(question, introduce=True)
+agent\prompt_builder.py:104:    introduce: bool = False,
+agent\prompt_builder.py:120:        introduce: If True, Parashara introduces himself.
+agent\prompt_builder.py:134:    if introduce:
+agent\interpretive\palm_reading.py:14:    language/strict-context rules; no CQ/introduce/history).
+agent\interpretive\palm_reading.py:103:- This is a ONE-SHOT reading: do not ask clarifying questions, do not introduce yourself, and do not reference any prior conversation -- there is none.
+agent\infra\orchestrator.py:203:    of the three, confirmed by reading (not assumed): none introduces a
+agent\calculations\transits\muhurta_scorer.py:38:- No new deferrals introduced here. Vedha-sthana, aspect overrides,
+```
+Classification:
+- `agent/astrologer.py` (5 hits), `agent/prompt_builder.py` (3 hits) —
+  **quarantined-module-internal**, expected and fine per task framing
+  (ask()'s own `introduce` kwarg machinery; module retained for V1.1
+  research only, not frontend-reachable).
+- `agent/interpretive/palm_reading.py` (2 hits) — docstring/prompt-text
+  use of the plain English word "introduce" describing the one-shot
+  palm reading's own no-introduction contract; not a call into the
+  quarantined `ask()`/`introduce=` flow. **Fine.**
+- `agent/infra/orchestrator.py:203`, `agent/calculations/transits/muhurta_scorer.py:38`
+  — unrelated plain-English uses ("introduces", "introduced"), not the
+  `introduce` kwarg. **Fine.**
+- **Zero hits in `frontend/`** (grep returned no matches for that path).
+
+**Matches expectation** — zero live frontend references; all `agent/`
+hits fall into the expected quarantined-internal or unrelated-word
+buckets.
+
+### `grep -rn "nudges" frontend/`
+```
+frontend\app.py:715:            for _nudge in msg.get("nudges", []):
+```
+Exactly the one known residue, in the history-render loop, as expected
+(pre-edit line number; removed in Step 3 below).
+**Matches expectation** — sole live reference, and it's the known one.
+
+**Conclusion: no STOP triggered — all greps matched the expected
+pattern exactly.**
+
+## Step 3 — Fix-forward A: nudges residue removal
+
+`frontend/app.py`, history-render loop (was lines 711-716): removed
+
+```python
+        if msg["role"] == "assistant":
+            for _nudge in msg.get("nudges", []):
+                st.info(_nudge)
+```
+
+leaving only `st.markdown(msg["content"])` inside the `with
+st.chat_message(msg["role"]):` block. Nothing else in that loop changed.
+
+## Step 4 — Fix-forward B: name-anchored AstroSage splitter
+
+`frontend/app.py`:
+- Import changed: `from agent.astrosage_parser import parse_astrosage_pdf`
+  → `from agent.astrosage_parser import parse_astrosage_pdf, _PRIORITY_ORDER`.
+- Added module-level `_SECTION_HEADER_RE = re.compile(r"^\[(" +
+  "|".join(re.escape(n) for n in _PRIORITY_ORDER) + r")\]$", re.MULTILINE)`
+  directly after `_WITHHELD_SECTIONS`.
+- `_split_astrosage_sections()` now splits on `_SECTION_HEADER_RE` instead
+  of the generic `re.split(r"^\[([^\]]+)\]$", ...)` — only lines matching
+  a known `_PRIORITY_ORDER` name are treated as section headers, so a
+  spurious bracketed line inside a section's own body (e.g. `[something]`
+  appearing in AstroSage's own text) is no longer misparsed as a new
+  section boundary. `len(parts) < 3` fail-soft behavior preserved
+  unchanged in shape.
+- Docstring updated: names now documented as auto-tracking the parser via
+  `_PRIORITY_ORDER`; only the join format (`"[Name]\n content"`, `"\n\n"`
+  separator) remains a manual coupling.
+- Ride-along: fail-soft branch now returns
+  `pdf_context.removeprefix("ASTROSAGE PDF DATA:\n")` instead of the raw
+  `pdf_context`, stripping the leading parser-prefix line before display
+  (plain `removeprefix`, no regex).
+
+Verified: `ast.parse()` on the edited file passes; `_PRIORITY_ORDER` import
+resolves live (`['Varshaphal', 'Pratyantar', 'Muntha', 'Sade Sati',
+'Favourable Points', 'Transit Today', 'Lal Kitab']`).
+
+## Step 5 — Full suite
 
 ```
-$ python -m pytest -q
-...
-3166 passed, 3 skipped, 1 warning in 83.12s (0:01:23)
+3166 passed, 3 skipped, 1 warning in 83.59s
 ```
 
-Unchanged from the 4c commit's count — 4d's `frontend/app.py` rewire
-touched no test files (`frontend/` is outside `pytest.ini`'s
-`testpaths = tests`), so no delta was expected or observed.
+Expected 3166 passed / 3 skipped — **exact match, zero delta** (frontend/
+is outside testpaths as anticipated). Green → committed.
 
-## Session 65 commit hashes (full list, chronological)
+Commit: `d88d026` — "S66: review-debt fix-forwards — nudges residue
+removal + name-anchored AstroSage splitter"
 
-`cef95c1`, `697a533`, `fe383b1`, `d823a93`, `989b490`, `f793e46`,
-`5cc437c`, `0863318`, `ad5809b`, `409dd78`, `9be4249`, `918236f`,
-`1577ef0`, plus this close-out commit.
+## Commit hashes (this task, in order)
+
+1. `1e0ce5f` — S66: archive S65 4b diagnostics report (review-debt audit trail)
+2. `d88d026` — S66: review-debt fix-forwards — nudges residue removal + name-anchored AstroSage splitter
