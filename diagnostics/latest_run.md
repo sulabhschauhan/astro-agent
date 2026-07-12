@@ -1,133 +1,86 @@
-# S66 Task 1 — Review-debt settlement: 4b/4d verification + fix-forwards
+# S66 Task 3 — Fix-forward: nested-expander crash class in frontend/app.py
 
-Self-gated, run in order, STOP-on-red, commit-on-green per step. Only
-source file edited: `frontend/app.py`.
+Self-gated, one source file edited: `frontend/app.py`. Live crash:
+StreamlitAPIException "Expanders may not be nested inside other
+expanders" at line ~301 (`st.expander("Your AstroSage Report")`) on
+real-PDF upload.
 
-## Step 1 — Exhume overwritten S65 4b report
+## Step 1 — Audit (pre-edit classification)
 
-`git show ad5809b:diagnostics/latest_run.md` succeeded on the first try —
-commit `ad5809b` contains the S65 4b report ("frontend/app.py — AstroSage
-terminal-bare display + Pratyantar/Lal-Kitab withholding (Session 65, 4b)").
-No log-walk needed. Archived to
-`diagnostics/archive/s65_4b_report_ad5809b.md`.
+All `st.expander` calls in `frontend/app.py`, pre-edit line numbers:
 
-Commit: `1e0ce5f` — "S66: archive S65 4b diagnostics report (review-debt audit trail)"
+| Line | Expander | Nested inside "Upload context" (line 281)? |
+|---|---|---|
+| 203 | `Kundali Summary` | No — sidebar, executes before line 281 |
+| 281 | `Upload context (PDF + palms)` | N/A — the containing expander |
+| 301 | `Your AstroSage Report` | **Yes** |
+| 441 | `Review left palm description` | **Yes** |
+| 463 | `Left palm description` (confirmed, collapsed) | **Yes** |
+| 604 | `Review right palm description` | **Yes** |
+| 626 | `Right palm description` (confirmed, collapsed) | **Yes** |
+| 713 | `Classical sources` | **Yes** — additional member found beyond the listed set; it's a display surface (palm-reading-result block), same class as the AstroSage Report |
 
-## Step 2 — Repo-wide verification greps (full results)
+The upload expander's `with`-block (line 281) runs through line 715 —
+it dedents to column 0 at line 717 (`if not st.session_state.chart_ready:`).
+Crash class = 6 nested expanders: 301, 441, 463, 604, 626, 713.
 
-### `grep -rn "pending_question" .`
+## Step 2 — Fix applied
+
+- **Rule (a)** (display surfaces -> top level, guarded): `Your AstroSage
+  Report` (was 301) and `Classical sources` (was 713, part of the
+  palm-reading-result display block) both moved out of the upload
+  expander's `with`-block to top level, immediately after it ends.
+  `Your AstroSage Report` is now guarded by
+  `if st.session_state.get("pdf_context"):`; the palm-reading-result
+  block keeps its existing `if st.session_state.palm_reading_result is
+  not None:` guard. Both `st.expander` calls are unchanged internally
+  and are legal at top level. `_split_astrosage_sections` /
+  `_WITHHELD_SECTIONS` render loop is unchanged.
+- **Rule (b)** (upload-flow elements -> demoted): the four palm review/
+  confirmed-description expanders (441, 463, 604, 626) replaced with
+  `st.container()` + a bold `st.markdown` label line, content always
+  visible (no collapse). No state keys, button keys, confirm/discard
+  logic, or checkpoint flow changed — widget demotion only. Review
+  descriptions becoming always-visible is intentional (collapsed review
+  invites blind confirm).
+- Line 203 (`Kundali Summary`, sidebar) was untouched — not a member of
+  the crash class.
+
+Post-edit `st.expander`/`st.container()` inventory:
 ```
-SESSION_LOG.md:161:[Omitted long matching line]
-SESSION_LOG.md:2977:   deletion): `pending_question` session key, the "Generate My Reading"
+203:        with st.expander("Kundali Summary"):
+281:with st.expander("Upload context (PDF + palms)", expanded=False):
+432:            with st.container():
+455:            with st.container():
+597:            with st.container():
+620:            with st.container():
+701:    with st.expander("Your AstroSage Report"):
+717:        with st.expander("Classical sources"):
 ```
-Both hits are in `SESSION_LOG.md` (docs, historical record of the S65 4d
-removal). Zero live code references. **Matches expectation.**
+No nested expanders remain.
 
-### `grep -rn "Generate My Reading" .`
-```
-SESSION_LOG.md:161:[Omitted long matching line]
-SESSION_LOG.md:2977:   deletion): `pending_question` session key, the "Generate My Reading"
-```
-Same two `SESSION_LOG.md` hits (one line contains both search terms).
-Zero live code references. **Matches expectation.**
-
-### `grep -rn "introduce" frontend/ agent/`
-```
-agent\astrologer.py:90:    introduce: bool = False,
-agent\astrologer.py:113:        introduce: If True, Parashara introduces himself — suppressed if session
-agent\astrologer.py:197:    effective_introduce = introduce and not (session and session.get_history())
-agent\astrologer.py:209:        introduce=effective_introduce,
-agent\astrologer.py:248:    result = ask(question, introduce=True)
-agent\prompt_builder.py:104:    introduce: bool = False,
-agent\prompt_builder.py:120:        introduce: If True, Parashara introduces himself.
-agent\prompt_builder.py:134:    if introduce:
-agent\interpretive\palm_reading.py:14:    language/strict-context rules; no CQ/introduce/history).
-agent\interpretive\palm_reading.py:103:- This is a ONE-SHOT reading: do not ask clarifying questions, do not introduce yourself, and do not reference any prior conversation -- there is none.
-agent\infra\orchestrator.py:203:    of the three, confirmed by reading (not assumed): none introduces a
-agent\calculations\transits\muhurta_scorer.py:38:- No new deferrals introduced here. Vedha-sthana, aspect overrides,
-```
-Classification:
-- `agent/astrologer.py` (5 hits), `agent/prompt_builder.py` (3 hits) —
-  **quarantined-module-internal**, expected and fine per task framing
-  (ask()'s own `introduce` kwarg machinery; module retained for V1.1
-  research only, not frontend-reachable).
-- `agent/interpretive/palm_reading.py` (2 hits) — docstring/prompt-text
-  use of the plain English word "introduce" describing the one-shot
-  palm reading's own no-introduction contract; not a call into the
-  quarantined `ask()`/`introduce=` flow. **Fine.**
-- `agent/infra/orchestrator.py:203`, `agent/calculations/transits/muhurta_scorer.py:38`
-  — unrelated plain-English uses ("introduces", "introduced"), not the
-  `introduce` kwarg. **Fine.**
-- **Zero hits in `frontend/`** (grep returned no matches for that path).
-
-**Matches expectation** — zero live frontend references; all `agent/`
-hits fall into the expected quarantined-internal or unrelated-word
-buckets.
-
-### `grep -rn "nudges" frontend/`
-```
-frontend\app.py:715:            for _nudge in msg.get("nudges", []):
-```
-Exactly the one known residue, in the history-render loop, as expected
-(pre-edit line number; removed in Step 3 below).
-**Matches expectation** — sole live reference, and it's the known one.
-
-**Conclusion: no STOP triggered — all greps matched the expected
-pattern exactly.**
-
-## Step 3 — Fix-forward A: nudges residue removal
-
-`frontend/app.py`, history-render loop (was lines 711-716): removed
-
-```python
-        if msg["role"] == "assistant":
-            for _nudge in msg.get("nudges", []):
-                st.info(_nudge)
-```
-
-leaving only `st.markdown(msg["content"])` inside the `with
-st.chat_message(msg["role"]):` block. Nothing else in that loop changed.
-
-## Step 4 — Fix-forward B: name-anchored AstroSage splitter
-
-`frontend/app.py`:
-- Import changed: `from agent.astrosage_parser import parse_astrosage_pdf`
-  → `from agent.astrosage_parser import parse_astrosage_pdf, _PRIORITY_ORDER`.
-- Added module-level `_SECTION_HEADER_RE = re.compile(r"^\[(" +
-  "|".join(re.escape(n) for n in _PRIORITY_ORDER) + r")\]$", re.MULTILINE)`
-  directly after `_WITHHELD_SECTIONS`.
-- `_split_astrosage_sections()` now splits on `_SECTION_HEADER_RE` instead
-  of the generic `re.split(r"^\[([^\]]+)\]$", ...)` — only lines matching
-  a known `_PRIORITY_ORDER` name are treated as section headers, so a
-  spurious bracketed line inside a section's own body (e.g. `[something]`
-  appearing in AstroSage's own text) is no longer misparsed as a new
-  section boundary. `len(parts) < 3` fail-soft behavior preserved
-  unchanged in shape.
-- Docstring updated: names now documented as auto-tracking the parser via
-  `_PRIORITY_ORDER`; only the join format (`"[Name]\n content"`, `"\n\n"`
-  separator) remains a manual coupling.
-- Ride-along: fail-soft branch now returns
-  `pdf_context.removeprefix("ASTROSAGE PDF DATA:\n")` instead of the raw
-  `pdf_context`, stripping the leading parser-prefix line before display
-  (plain `removeprefix`, no regex).
-
-Verified: `ast.parse()` on the edited file passes; `_PRIORITY_ORDER` import
-resolves live (`['Varshaphal', 'Pratyantar', 'Muntha', 'Sade Sati',
-'Favourable Points', 'Transit Today', 'Lal Kitab']`).
-
-## Step 5 — Full suite
+## Step 3 — Verify (headless AppTest, crash path)
 
 ```
-3166 passed, 3 skipped, 1 warning in 83.59s
+2026-07-12 13:05:12.784 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-07-12 13:05:18.102 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+PASS: no exception after pdf_context injection
 ```
+AppTest ran the app module (no stub-around needed — no module-level
+side-effect blocker hit), then injected `pdf_context` with real
+`[Varshaphal]`/`[Sade Sati]` sections and re-ran. No exception either
+run — the `Your AstroSage Report` expander at top level (post-fix) no
+longer triggers the nested-expander StreamlitAPIException.
 
-Expected 3166 passed / 3 skipped — **exact match, zero delta** (frontend/
-is outside testpaths as anticipated). Green → committed.
+Full suite:
+```
+3166 passed, 3 skipped, 1 warning in 127.16s (0:02:07)
+```
+Matches expected baseline exactly — zero delta.
 
-Commit: `d88d026` — "S66: review-debt fix-forwards — nudges residue
-removal + name-anchored AstroSage splitter"
+## Step 4 — Commit
 
-## Commit hashes (this task, in order)
-
-1. `1e0ce5f` — S66: archive S65 4b diagnostics report (review-debt audit trail)
-2. `d88d026` — S66: review-debt fix-forwards — nudges residue removal + name-anchored AstroSage splitter
+Green -> single commit:
+`94e87b6` — "S66: fix nested-expander crash — AstroSage report to top
+level, palm review expanders demoted to containers"
+(RATIFIED: commit authorized)
