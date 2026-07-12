@@ -30,3 +30,7 @@ PyJHora-main/
 
 # Stage 2 router classification log — local diagnostic output, not source
 diagnostics/calc_router_stage2.log
+
+# S66 F5: local dogfood capture — derived text only, never committed
+# (no-storage lock ruling 2026-07-12)
+diagnostics/dogfood_capture.md

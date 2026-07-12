@@ -29,6 +29,63 @@ from agent.interpretive.answer_renderer import render_answer
 
 logger = logging.getLogger(__name__)
 
+# ─── S66 F5: opt-in local dogfood capture ──────────────────────────────────────
+# Read once at module scope (re-evaluated every Streamlit script rerun, same
+# as any other module-level statement here). Local-only, gitignored (see
+# .gitignore) -- never committed. Derived text ONLY: image bytes, image
+# hashes, pdf_context, and any AstroSage content are deliberately EXCLUDED
+# (no-storage lock ruling 2026-07-12).
+_DOGFOOD_CAPTURE  = os.environ.get("ASTRO_DOGFOOD_CAPTURE") == "1"
+_DOGFOOD_LOG_PATH = _ROOT / "diagnostics" / "dogfood_capture.md"
+
+
+def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
+    """
+    Append one markdown block to diagnostics/dogfood_capture.md for a
+    successful generate_palm_reading() call (regardless of Ring 1
+    validation outcome -- pass/fail is itself captured data).
+
+    Args:
+        palm_left/palm_right/hand_detail: confirmed description strings
+            passed to generate_palm_reading(), or None if that hand/photo
+            was not confirmed for this run.
+        reading: the PalmReadingResult returned by generate_palm_reading().
+    """
+    lines = [f"## RUN {datetime.datetime.now().isoformat()}", ""]
+
+    lines.append("### Confirmed descriptions")
+    if palm_left:
+        lines.append("#### LEFT")
+        lines.append(palm_left)
+    if palm_right:
+        lines.append("#### RIGHT")
+        lines.append(palm_right)
+    if hand_detail:
+        lines.append("#### HAND_DETAIL")
+        lines.append(hand_detail)
+    lines.append("")
+
+    lines.append("### reading_text")
+    lines.append(reading.reading_text)
+    lines.append("")
+
+    lines.append("### sources")
+    # score is already round(..., 4) at the source (ingestion/query_engine.py)
+    # -- same value the UI renders, not reformatted here.
+    for src in reading.sources:
+        lines.append(f"- {src['book']}, p.{src['page']} (score: {src['score']})")
+    lines.append("")
+
+    lines.append("### ring1_validation")
+    lines.append(f"passed: {reading.validation.passed}")
+    lines.append(f"failures: {reading.validation.failures}")
+    lines.append("")
+
+    _DOGFOOD_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(_DOGFOOD_LOG_PATH, "a", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
 # ─── Page config (must be first Streamlit call) ───────────────────────────────
 
 st.set_page_config(
@@ -743,6 +800,20 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                         palm_right=_confirmed_right,
                         hand_detail=_confirmed_hand_detail,
                     )
+                if _DOGFOOD_CAPTURE:
+                    # Fail-soft: a capture error must NEVER block or alter
+                    # generation or display -- already-set session state
+                    # above is untouched regardless of what happens here.
+                    try:
+                        _capture_dogfood_run(
+                            _confirmed_left,
+                            _confirmed_right,
+                            _confirmed_hand_detail,
+                            st.session_state.palm_reading_result,
+                        )
+                        st.caption("captured to dogfood log")
+                    except Exception:
+                        logger.warning("app.py: dogfood capture failed", exc_info=True)
             except (ValueError, RuntimeError) as e:
                 st.error(str(e))
 
