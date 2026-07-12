@@ -20,7 +20,7 @@ import streamlit as st
 
 from agent.chart_calculator import calculate_chart, format_kundali_context, geocode_place_candidates
 from agent.session_manager import SessionManager
-from agent.astrosage_parser import parse_astrosage_pdf
+from agent.astrosage_parser import parse_astrosage_pdf, _PRIORITY_ORDER
 from PIL import Image
 from agent.palm_processor import validate_palm_image, describe_palm_image, describe_hand_detail_image
 from agent.interpretive.palm_reading import generate_palm_reading
@@ -229,6 +229,11 @@ with st.sidebar:
 # Pratyantar-precision fix.
 _WITHHELD_SECTIONS = frozenset({"Pratyantar", "Lal Kitab"})
 
+_SECTION_HEADER_RE = re.compile(
+    r"^\[(" + "|".join(re.escape(n) for n in _PRIORITY_ORDER) + r")\]$",
+    re.MULTILINE,
+)
+
 
 def _split_astrosage_sections(pdf_context: str) -> list[tuple[str, str]]:
     """
@@ -237,17 +242,22 @@ def _split_astrosage_sections(pdf_context: str) -> list[tuple[str, str]]:
 
     SENSITIVE_TO astrosage_parser.py's parse_astrosage_pdf() combined-output
     format: `"ASTROSAGE PDF DATA:\\n" + "\\n\\n".join(f"[{name}]\\n{content}"
-    for name, content in sections.items())`. This splitter locates each
-    "[Name]" header line and slices the text between headers as that
-    section's body. If astrosage_parser.py's join format ever changes,
-    this splitter breaks with it -- re-verify against the source before
-    trusting this function after any astrosage_parser.py edit.
+    for name, content in sections.items())`. Section names auto-track the
+    parser via _PRIORITY_ORDER -- only the join format ("[Name]\\ncontent",
+    "\\n\\n" separator) remains a manual coupling. This splitter locates each
+    known "[Name]" header line and slices the text between headers as that
+    section's body; bracketed lines inside a section's own content that
+    don't match a known name are left alone. If astrosage_parser.py's join
+    format ever changes, this splitter breaks with it -- re-verify against
+    the source before trusting this function after any astrosage_parser.py
+    edit.
 
-    Fail-soft: if no "[Name]" headers are found, returns the full string
-    unsplit under a single "AstroSage Report" label and logs a warning --
-    never raises.
+    Fail-soft: if no known "[Name]" headers are found, returns the full
+    string (with the "ASTROSAGE PDF DATA:\\n" prefix stripped) unsplit
+    under a single "AstroSage Report" label and logs a warning -- never
+    raises.
     """
-    parts = re.split(r"^\[([^\]]+)\]$", pdf_context, flags=re.MULTILINE)
+    parts = _SECTION_HEADER_RE.split(pdf_context)
     # parts[0] is whatever precedes the first header (the "ASTROSAGE PDF
     # DATA:" prefix line, not a real section) -- discarded. Remaining
     # parts alternate name, content, name, content, ...
@@ -256,7 +266,7 @@ def _split_astrosage_sections(pdf_context: str) -> list[tuple[str, str]]:
             "app.py: no '[Name]' section headers found in AstroSage "
             "pdf_context — displaying unsplit (degraded, not crashing)."
         )
-        return [("AstroSage Report", pdf_context)]
+        return [("AstroSage Report", pdf_context.removeprefix("ASTROSAGE PDF DATA:\n"))]
 
     pairs: list[tuple[str, str]] = []
     for i in range(1, len(parts), 2):
@@ -711,9 +721,6 @@ if not st.session_state.chart_ready:
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
-        if msg["role"] == "assistant":
-            for _nudge in msg.get("nudges", []):
-                st.info(_nudge)
 
 # Chat input — disabled until chart is ready
 prompt = st.chat_input(
