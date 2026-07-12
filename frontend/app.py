@@ -103,6 +103,12 @@ if "hand_detail_str" not in st.session_state:
     st.session_state.hand_detail_str = None
 if "_hand_detail_image_name" not in st.session_state:
     st.session_state["_hand_detail_image_name"] = None
+if "hand_detail_hash" not in st.session_state:
+    st.session_state.hand_detail_hash = None
+if "hand_detail_bytes" not in st.session_state:
+    st.session_state.hand_detail_bytes = None
+if "hand_detail_confirmed" not in st.session_state:
+    st.session_state.hand_detail_confirmed = False
 if "palm_reading_result" not in st.session_state:
     st.session_state.palm_reading_result = None
 
@@ -659,20 +665,61 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                     import io as _io
                     _hd_img = Image.open(_io.BytesIO(_hdb))
                     _hd_desc = describe_hand_detail_image(_hd_img)
-                st.session_state.hand_detail_str = _hd_desc
+                st.session_state.hand_detail_str       = _hd_desc
+                st.session_state.hand_detail_hash      = _hdh
+                st.session_state.hand_detail_bytes     = _hdb
+                st.session_state.hand_detail_confirmed = False
                 st.session_state["_hand_detail_image_name"] = uploaded_hand_detail.name
-                st.success("Hand detail analysed ✓")
+                st.session_state.palm_reading_result   = None
+                st.success("Hand detail analysed — review below")
             except ValueError as e:
                 st.error(f"Could not analyse hand detail image: {e}")
-                st.session_state.hand_detail_str = None
+                st.session_state.hand_detail_str       = None
+                st.session_state.hand_detail_hash      = None
+                st.session_state.hand_detail_bytes     = None
+                st.session_state.hand_detail_confirmed = False
+                st.session_state.palm_reading_result   = None
     elif st.session_state["_hand_detail_image_name"] is not None:
-        st.session_state.hand_detail_str = None
+        st.session_state.hand_detail_str       = None
+        st.session_state.hand_detail_hash      = None
+        st.session_state.hand_detail_bytes     = None
+        st.session_state.hand_detail_confirmed = False
         st.session_state["_hand_detail_image_name"] = None
+        st.session_state.palm_reading_result   = None
+
+    # ── Hand detail: review, confirm/discard (mirrors palm checkpoint) ────────
+    if uploaded_hand_detail is not None and st.session_state.hand_detail_bytes is not None:
+        st.image(st.session_state.hand_detail_bytes, caption="Hand detail", width=150)
+        if not st.session_state.hand_detail_confirmed:
+            with st.container():
+                st.markdown("**Review hand detail description**")
+                st.markdown(st.session_state.hand_detail_str)
+            _hdky, _hdkn = st.columns(2)
+            with _hdky:
+                if st.button("Looks right — use this description", key="hand_detail_confirm"):
+                    st.session_state.hand_detail_confirmed = True
+                    st.rerun()
+            with _hdkn:
+                if st.button("Discard — re-upload", key="hand_detail_discard"):
+                    st.session_state.hand_detail_str       = None
+                    st.session_state.hand_detail_hash      = None
+                    st.session_state.hand_detail_bytes     = None
+                    st.session_state.hand_detail_confirmed = False
+                    st.session_state["_hand_detail_image_name"] = None
+                    st.session_state.palm_reading_result   = None
+                    st.rerun()
+        else:
+            st.caption("✓ Description confirmed")
+            with st.container():
+                st.markdown("**Hand detail description**")
+                st.markdown(st.session_state.hand_detail_str)
 
     # ── Palm reading generation (Session 65 T4 upload-triggered artifact) ─────
     # Upload-triggered, never question-routed (CLAUDE.md "T4 architecture"
-    # lock) — only confirmed hand descriptions are ever passed through; an
-    # unconfirmed hand's description string is withheld even if it exists.
+    # lock) — only confirmed vision-derived descriptions are ever passed
+    # through (palm_left, palm_right, hand_detail alike, CLAUDE.md "Palm
+    # human checkpoint" lock); an unconfirmed description is withheld even
+    # if it exists.
     _any_hand_confirmed = (
         st.session_state.palm_left_confirmed and st.session_state.palm_left_str
     ) or (
@@ -686,12 +733,15 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
             _confirmed_right = (
                 st.session_state.palm_right_str if st.session_state.palm_right_confirmed else None
             )
+            _confirmed_hand_detail = (
+                st.session_state.hand_detail_str if st.session_state.hand_detail_confirmed else None
+            )
             try:
                 with st.spinner("Generating your palm reading…"):
                     st.session_state.palm_reading_result = generate_palm_reading(
                         palm_left=_confirmed_left,
                         palm_right=_confirmed_right,
-                        hand_detail=st.session_state.get("hand_detail_str"),
+                        hand_detail=_confirmed_hand_detail,
                     )
             except (ValueError, RuntimeError) as e:
                 st.error(str(e))
