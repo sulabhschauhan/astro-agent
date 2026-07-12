@@ -1,81 +1,89 @@
-# S66 Task 7 (F2+F3) — voice hardening + query fix: RED, STOPPED (test edits out of scope)
+# S66 Task 8 — Land F2+F3 atomically with test updates
 
-Self-gated. ONE source file touched: `agent/interpretive/palm_reading.py`.
-Its test file (`tests/interpretive/test_palm_reading.py`) is Task 8's
-scope — this task ran the suite and reports the failure, but does not
-touch the test file. **No commit made for the source-file change** —
-STEP 5's gate is "green -> commit"; this run is red.
+Self-gated. Files: `agent/interpretive/palm_reading.py` (already
+modified/uncommitted from Task 7, not re-edited beyond what's below) +
+`tests/interpretive/test_palm_reading.py`.
 
-## Step 1 (F3) — Query cap [:500] -> [:2000]
-
-`_QUERY_TRUNCATE_CHARS` raised from 500 to 2000. THRESHOLD DISCIPLINE
-comment added citing `diagnostics/ring3_chunks_S66.md` (Ring 3 pass 1
-proved the 500-char cap silently truncated the query inside the LEFT
-description, dropping the RIGHT hand from retrieval entirely). Scope
-guard: this call site only. Revisit trigger: a future F4 describe-prompt
-change that materially alters vision-description length.
-
-## Step 2 (F2a) — "## Voice" block added to `_READING_SYSTEM_PROMPT`
-
-Cheiro's declarative register instruction (direct assertions tied to
-concrete consequences — health, success won by personal merit, travel,
-character, fortune — not therapeutic affirmation) plus an explicit
-FORBIDDEN list: stability, fulfillment, fulfilling, favorable, journey,
-navigate, navigating, empower, empowerment, and the "this suggests you
-are the kind of person who..." self-help framing. Also added to "## How
-you read": apply a retrieved passage's specific teaching where it speaks
-to a described feature, rather than a generic gloss — cited to Ring 3
-pass 1 (`diagnostics/ring3_palm_rubric_S66.md`: every scorable claim
-across all 3 runs traced to the confirmed descriptions alone, never
-uniquely to a retrieved chunk; readings ignored all 6 retrieved passages
-in every run).
-
-## Step 3 (F2b) — Ring 1 validator: `_check_self_help_register()`
-
-New `_SELF_HELP_BLACKLIST` (9 terms: S23 R3 blacklist ["stability",
-"fulfillment"] + Ring 3 pass-1 observed offenders ["fulfilling",
-"favorable", "journey", "navigate", "navigating", "empower",
-"empowerment"] — no speculative additions). New `_SELF_HELP_PATTERN`
-(word-boundary, case-insensitive) and `_check_self_help_register()`,
-same failure-string format as `_check_jargon`
-(`"self_help_blacklist: found {terms}"`). Wired into `generate_palm_reading()`'s
-failure-accumulation list alongside `_check_jargon`.
-
-## Step 4 (carry-forward) — lazy OpenAI import
-
-Module-level `from openai import OpenAI` replaced with a
-`TYPE_CHECKING`-only import (annotation use only, safe under this
-module's existing `from __future__ import annotations`) plus a
-function-local `from openai import OpenAI` immediately before
-`OpenAI()` construction in the `client is None` branch. Closes the S65-
-logged carry-forward (conftest stub-defeat latency fix) on this file's
-first touch since it was flagged.
-
-## Step 5 — Full suite: RED (expected outcome per instruction)
+## Step 0 — Tree verification
 
 ```
-1 failed, 3165 passed, 3 skipped, 1 warning in 78.67s (0:01:18)
+git status --short
+ M agent/interpretive/palm_reading.py
+?? scratch_dump.py
+
+git diff --stat
+ agent/interpretive/palm_reading.py | 65 +++++++++++++++++++++++++++++++++++---
+ 1 file changed, 61 insertions(+), 4 deletions(-)
 ```
+`scratch_dump.py` is the pre-existing untracked throwaway (not this
+task's concern, not committed). No other file dirty. Confirmed all 4
+Task 7 pieces present in `palm_reading.py` via grep: `_QUERY_TRUNCATE_CHARS
+= 2000` (line 72), `## Voice` (line 126), `_SELF_HELP_PATTERN` (line
+205), `_check_self_help_register` (line 228), lazy `from openai import
+OpenAI` (lines 37 [TYPE_CHECKING] and 332 [function-local]). Nothing
+missing -> proceeded.
 
-**Failing test**: `tests/interpretive/test_palm_reading.py::test_jargon_injection_case_insensitive_and_word_boundary`
+## Step 1 — Fixed `test_jargon_injection_case_insensitive_and_word_boundary`
 
-**Cause**: its `_JARGON_STUB_TEXT` fixture contains the phrase "a
-favorable Antardasha this season" — the word "favorable" is on the new
-`_SELF_HELP_BLACKLIST`, so the stubbed reading now trips both
-`_check_jargon` (antardasha, lagna, yoga) and the new
-`_check_self_help_register` (favorable), producing
-`ValidationReport(failures=('jargon_blacklist: found antardasha, lagna, yoga', 'self_help_blacklist: found favorable'))`
-— 2 failures where the test asserts exactly 1
-(`assert len(result.validation.failures) == 1`).
+`_JARGON_STUB_TEXT`: "a favorable Antardasha this season" -> "a
+promising Antardasha this season" (neutral word, not on the 9-term
+self-help list). Comment added: "Stub neutralized S66 -- 'favorable'
+joined the self-help blacklist (Ring 3 pass 1); swapped for 'promising'
+... so this test isolates the jargon validator alone." Assertion
+strengthened from count-only to content: `failure.startswith("jargon_blacklist")`
+(kept the pre-existing more specific `startswith("jargon_blacklist: found ")`
+too) plus a new explicit negative — `assert not any("self_help_blacklist"
+in f for f in result.validation.failures)` — proving isolation, not just
+inferring it from a count of 1.
 
-This is evidence the new validator functions correctly against real
-stub content; it is not a defect in `palm_reading.py`. Per instruction,
-STOPPED here rather than editing the test — that edit belongs to Task 8.
+## Step 2 — 6 new tests for `_check_self_help_register` (Item 12)
 
-## Step 6 — no commit for palm_reading.py
+- `test_self_help_case_insensitive` — "STABILITY" (uppercase) -> single
+  failure `"self_help_blacklist: found stability"`.
+- `test_self_help_word_boundary_excludes_substrings` — "instability" and
+  "journeyman" (each embeds a blacklisted term as a substring, not a
+  standalone word) -> zero self_help failures, `validation.passed is True`.
+  Comment cites the THRESHOLD DISCIPLINE note in `palm_reading.py` for why
+  the 9-term list is literal, not stem-matched.
+- `test_self_help_unlisted_conjugation_does_not_trip` — "navigated" (not
+  on the list; only "navigate"/"navigating" are) -> zero self_help
+  failures. Comment documents this as a deliberate narrowness, revisit
+  trigger = pass-2 evidence.
+- `test_self_help_multi_term_single_sorted_deduped_failure` — stub with
+  "fulfilling" and "journey" each appearing twice -> single failure
+  `"self_help_blacklist: found fulfilling, journey"` (sorted, deduped),
+  mirroring the jargon validator's item-3 format assertions.
+- `test_self_help_clean_cheiro_register_passes` — declarative,
+  consequence-tied stub ("success won through personal exertion rather
+  than chance") with none of the 9 terms -> `validation.passed is True`,
+  `validation.failures == ()`.
+- `test_self_help_integration_empowerment_fails_and_propagates` — full
+  `generate_palm_reading()` call (both hands), stub content contains
+  "empowerment" -> `validation.passed is False`, failure string present in
+  the returned `PalmReadingResult.validation.failures` (not just checked
+  against a bare validator-function call).
 
-`agent/interpretive/palm_reading.py`'s F2+F3+carry-forward changes
-remain **uncommitted** in the working tree (`git status`: `M
-agent/interpretive/palm_reading.py`). Only this diagnostics file is
-committed/pushed for Task 7. Task 8 (test file) must land before
-`palm_reading.py`'s changes can be committed under STEP 5's green gate.
+All 6 follow the existing `_FakeSearch`/`_FakeClient` injection pattern;
+zero live API/ChromaDB calls, consistent with the rest of the file's Ring
+2 posture.
+
+## Step 3 — Full suite
+
+```
+3172 passed, 3 skipped, 1 warning in 84.44s (0:01:24)
+```
+Matches expectation exactly: 3166 baseline + 6 new Item-12 tests, Step-1
+test restored to passing (no net test-count change from the fix itself,
+only content/assertion changes). Zero unexpected delta.
+
+## Step 4 — Commit (atomic, both files)
+
+Green -> single commit:
+`d2d923a` — "S66 F2+F3: Cheiro voice enforcement + query cap + lazy
+import, with Ring 1 self-help validator tests (atomic per S66 ruling)"
+(RATIFIED: commit authorized)
+
+This closes out Task 7's STOP — `palm_reading.py`'s F2 (voice prompt +
+Ring 1 self-help validator), F3 (query cap 500->2000), and the lazy
+OpenAI import carry-forward all now land together with their test
+coverage, per the S66 atomic-landing ruling.
