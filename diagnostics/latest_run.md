@@ -1,232 +1,191 @@
-# S66 Task 12 — Pass-2 pre-flight smoke probe
+# S66 Task 13 — F2c: voice retry loop + exemplar anchoring + temp 0
 
-Live vision + generation, measure-first, NO source edits, NO content
-asserts. Scratch script run then deleted; results captured here only.
+Self-gated. Files: `agent/interpretive/palm_reading.py` +
+`tests/interpretive/test_palm_reading.py` (atomic, per the S66 Task 8
+precedent — the retry changes call-count semantics the tests pin).
 
-## Step 0 — Fixture selection
+## Diff summary
+
+### Step 1 — Exemplar anchoring (additive, PREPEND)
+`_READING_SYSTEM_PROMPT`'s `## Voice` block gained a new sentence
+between the existing declarative-register instruction and the
+(unchanged) FORBIDDEN list:
+> Write in Cheiro's declarative register. Model sentences: "A deep,
+> unbroken line of life promises long life, good health, and
+> vitality." / "Such a fate line denotes success won by personal
+> merit." Assert what the hand shows and what the tradition says it
+> denotes — concrete consequences, never affirmations about the
+> reader's inner journey.
+
+Read literally as additive ("PREPEND ... above the forbidden list",
+not "replace") — the original declarative-register sentence is kept,
+not removed, so the block now carries both the original framing and
+the new exemplar-anchored one. Flagging this interpretation explicitly
+in case the intent was a replacement instead.
+
+### Step 2 — Temperature 0.4 -> 0
+`_READING_TEMPERATURE = 0`, comment updated: checkpoint-adjacent output
+must be reproducible; variance probing moves to Ring 3 Run B (residual
+API nondeterminism only); revisit trigger = pass-2 evidence that
+temp-0 readings are degenerate.
+
+### Step 3 — Validator-fed single retry
+- New `_run_ring1_checks(text, context_corpus)` helper (DRY factor of
+  the 4 validator calls, now invoked twice: first draft + retry).
+- `PalmReadingResult` gains `retry_used: bool` (additive field).
+- `generate_palm_reading()`: first draft always generated and
+  validated as before. If `failures` is non-empty, ONE retry fires:
+  same `messages` + an assistant turn (the failed draft, verbatim) +
+  a user turn ("Your draft failed these checks: `<failures joined with
+  "; ">`. Rewrite the reading correcting ONLY these issues. Same facts,
+  same structure."). The retry draft's validation result is final —
+  fail-closed, no further retries. HARD CAP: max 2 LLM calls ever,
+  documented inline citing S23 + the S66 pre-flight probe
+  (`f906f3e` — 3/3 live runs tripped `self_help_blacklist` pre-F2c) and
+  CLAUDE.md Working Style #5/#9 (the reviewer is a regex, not an LLM —
+  not AI-reviewing-AI). Revisit trigger: pass-2 shows the retry ALSO
+  failing routinely -> prompt/validator redesign signal, never a cap
+  increase.
+- **app.py NOT touched.** Step 3's conditional ("capture log in app.py
+  picks it up ONLY if trivially additive there") was evaluated: adding
+  a `retry_used` line to `_capture_dogfood_run`'s markdown block would
+  in fact be a one-line, non-breaking addition. Left undone anyway
+  because this task's own top-line scope declaration ("Self-gated.
+  Files: `agent/interpretive/palm_reading.py` +
+  `tests/interpretive/test_palm_reading.py`") and the STEP 5 commit
+  message ("atomic with tests") both name exactly two files — treated
+  that explicit scope as authoritative over Step 3's conditional, to
+  keep the ratified commit strictly atomic to the stated pair. Noted
+  here as the required "otherwise ... note it" follow-up: a trivial
+  one-line pickup in `frontend/app.py`'s `_capture_dogfood_run`
+  (`### ring1_validation` section) is available whenever app.py is
+  next in scope.
+
+## Step 4 — Test updates
+
+`tests/interpretive/test_palm_reading.py`:
+- `_FakeCompletions`/`_FakeClient` gained an optional `responses: list[
+  (content, exception)]` param — consumed one tuple per `.create()`
+  call in order (clamped to the last entry past the list length,
+  though no test relies on that clamp firing). `content`/`exception`
+  single-shot construction stays supported unchanged for every
+  pre-existing test.
+- Item 9 renamed `test_exactly_one_llm_call_when_first_draft_passes`,
+  now also asserts `validation.passed is True` and `retry_used is
+  False`.
+- Item 9b (3 new tests):
+  - (a) `test_retry_after_failed_first_draft_then_clean_retry_passes`
+    — first draft trips (`stability`), retry is clean -> 2 calls,
+    `passed=True`, `retry_used=True`; also asserts the retry message
+    structure directly (`[system, user, assistant(draft), user
+    (feedback)]`, 4 messages) and that the feedback turn contains the
+    literal failure string `"self_help_blacklist: found stability"`.
+  - (b) `test_retry_after_failed_first_draft_still_fails_stays_failed`
+    — both drafts trip (`stability` then `empowerment`) -> exactly 2
+    calls, `passed=False`, `retry_used=True`, and the SECOND draft's
+    failure (`empowerment`) is what's reported, not the first's
+    (`stability`) — proves the retry result is what's final, not a
+    merge of both attempts.
+  - (c) `test_retry_call_raises_becomes_runtime_error_no_third_call` —
+    first draft trips, retry call itself raises `ConnectionError` ->
+    `RuntimeError` propagates (same message pattern as item 8), exactly
+    2 calls recorded (proves no third call was attempted).
+
+Isolated file run: **21 passed** (18 pre-existing + 3 new), 0 failed.
+
+## Step 5 — Full suite
 
 ```
-data/test_images/
-  Back Hand.jpeg
-  Body.jpeg
-  Face.jpeg
-  palm_left_test.jpg
-  palm_right_test.jpg
+3177 passed, 3 skipped, 1 warning in 79.81s (0:01:19)
 ```
-Used: `palm_left_test.jpg`, `palm_right_test.jpg`, `Back Hand.jpeg` (as
-`hand_detail` input via `describe_hand_detail_image`). `Body.jpeg` /
-`Face.jpeg` ignored — no consuming surface exists for them.
+3174 (S66 Task 11 baseline) + 3 new retry tests = 3177. Zero delta
+beyond the 3 new tests. Green -> committed.
 
-## Step 1 — Vision descriptions (3 live calls) — verbatim
+Commit: `165484c` — "S66 F2c: Cheiro exemplar anchoring + temp 0 +
+validator-fed single retry (atomic with tests)"
 
-### LEFT (`describe_palm_image(left_bytes, "left")`)
+## Step 6 — Pass-2 pre-flight probe RE-RUN (live, post-F2c)
+
+Same 3 fixture images as Task 12
+(`palm_left_test.jpg`/`palm_right_test.jpg`/`Back Hand.jpeg`), same 3
+run shapes (A: left+right, B: identical repeat, C: +hand_detail). No
+asserts — measure only.
+
+### RUN A
 ```
-HAND SHAPE: Square palm, overall build is robust.
+Your hands reveal a robust and grounded nature, with a strong potential for health and vitality. The square shape of your palms, combined with the long, straight fingers and rounded fingertips, suggests a practical and methodical approach to life. This is further emphasized by the deep and unbroken lines of life, head, and heart on both hands, indicating a stable and consistent character.
 
-FINGERS: Fingers are long relative to the palm, appear straight, with rounded fingertips, moderate spacing.
+The deep and long life line on both hands, curving around the base of the thumb without any breaks or irregularities, promises a long life filled with good health and vitality. This is a strong indicator of your innate potential for resilience and physical well-being. The developed Mount of Venus on both hands supports this, suggesting a robust constitution and a passionate nature. This mount also indicates a strong capacity for affection and a love for beauty and harmony in life.
 
-THUMB: Medium size, set moderately low, wide angle from the palm.
+Your head line, deep and slightly curved, reflects a clear and logical mind, capable of making sound decisions. The consistency of this line across both hands suggests that your mental faculties are both a natural strength and a current asset. The heart line, also deep and slightly curved, indicates a warm and sincere emotional nature. Its slight upward curve in the right hand suggests that your current trajectory involves a focus on emotional connections and relationships.
 
-LIFE LINE: Present, deep, long, curves around the base of the thumb, no clear breaks or forks.
+The barely visible fate line on both hands suggests that your life path is not heavily influenced by external forces or destiny. Instead, your life is shaped by your own choices and actions. This aligns with the practical and self-reliant nature indicated by your hand shape and lines.
 
-HEAD LINE: Present, deep, long, slightly curved, runs across the palm, no clear breaks or forks.
-
-HEART LINE: Present, deep, slightly curved, ends below the index finger, no clear breaks or forks.
-
-FATE LINE: Barely visible.
-
-OTHER LINES: No other lines clearly visible.
-
-MOUNTS: Mount of Venus appears developed, other mounts are unremarkable.
-
-MARKS: No marks clearly visible.
-```
-`left_len = 701`
-
-### RIGHT (`describe_palm_image(right_bytes, "right")`)
-```
-HAND SHAPE: Square palm, medium build
-
-FINGERS: Medium length relative to palm, straight, rounded fingertips, moderate spacing
-
-THUMB: Medium size, low set, wide angle from the palm
-
-LIFE LINE: Present, deep, long, curves around the base of the thumb, no clear breaks or forks
-
-HEAD LINE: Present, deep, long, slightly curved, no clear breaks or forks
-
-HEART LINE: Present, deep, long, curves slightly upward, no clear breaks or forks
-
-FATE LINE: Barely visible
-
-OTHER LINES: Not clearly visible
-
-MOUNTS: Mount of Venus appears developed, others unremarkable
-
-MARKS: Not clearly visible
-```
-`right_len = 586`
-
-### HAND_DETAIL (`describe_hand_detail_image`, `Back Hand.jpeg`)
-```
-The image shows a hand with the following observable features:
-
-- **Hand Shape**: The hand appears broad with a relatively square palm.
-- **Finger Lengths**: The fingers are of moderate length. The index finger is slightly shorter than the middle finger, and the ring finger is slightly longer than the index finger. The little finger is noticeably shorter.
-- **Thumb**: The thumb is of average length with a moderate angle of flexibility, indicating it is not tightly held against the palm.
-- **Visible Lines**:
-  - **Life Line**: A prominent line curves around the base of the thumb.
-  - **Head Line**: This line runs horizontally across the palm, starting near the life line.
-  - **Heart Line**: The heart line is visible, curving across the top of the palm.
-  - **Fate Line**: There is no clearly visible fate line in the image.
-- **Mounts**: The mounts of Venus (base of the thumb) and Jupiter (below the index finger) appear slightly raised.
-- **Markings**: There are no unusual markings or features visible on the palm.
-- **Other Features**: The hand has visible hair on the back, particularly on the fingers.
-
-These are the physical observations based on the image provided.
-```
-`hand_detail_len = 1182`
-
-### Length arithmetic
-| | chars |
-|---|---|
-| LEFT | 701 |
-| RIGHT | 586 |
-| Combined (left+right) | 1287 |
-| `_QUERY_TRUNCATE_CHARS` | 2000 |
-| Margin | 713 (fits) |
-
-### F4 drift check (observe, don't fix)
-- LEFT/RIGHT (post-F4 structured prompt): clean — no
-  "indicating"/"suggesting" or interpretive language in either
-  transcript, consistent with the Task 9 probe.
-- HAND_DETAIL (`describe_hand_detail_image`, a DIFFERENT prompt not
-  touched by F4 — still the older "Cheiro-tradition palmist... Describe
-  only what you can physically observe" free-text framing): one
-  borderline instance — "The thumb is... a moderate angle of
-  flexibility, **indicating** it is not tightly held against the
-  palm." Uses the literal word "indicating," but the claim itself
-  stays physical/observational (thumb angle -> not tightly held is a
-  geometric inference, not a trait/prediction claim) — flagged as a
-  near-miss on the "never write 'indicating'" instruction, not a
-  content violation. This prompt is out of Task 9/12's scope (F4 only
-  touched `describe_palm_image`); noting for whoever scopes a future
-  F-item against `describe_hand_detail_image`.
-
-## Step 2 — Generation runs (3 live calls) — verbatim
-
-### RUN A: `generate_palm_reading(left, right)`
-```
-Your hands reveal a strong foundation of health and vitality, both in your innate potential and your current life path. The deep, long Life Line on both hands, curving smoothly around the base of the thumb without breaks, indicates robust health and a long life. This is reinforced by the developed Mount of Venus, which suggests a passion for life, affection, and a strong constitution.
-
-The Head Line, deep and slightly curved in both hands, shows a clear and balanced mind. This line's continuity and depth suggest a strong mental capacity and a practical approach to life's challenges. The slight curve indicates a degree of creativity and flexibility in thinking, allowing you to adapt and thrive in various situations.
-
-Your Heart Line, deep and slightly curved, ending below the index finger, points to a sincere and straightforward approach to relationships. It suggests you value honesty and directness in emotional matters. The upward curve in your right hand indicates that your current emotional life is fulfilling and that you are open to love and affection.
-
-The barely visible Fate Line in both hands suggests that your life path is more influenced by your own decisions and actions rather than external forces or destiny. This indicates a life where personal choices and efforts play a significant role in shaping your future.
-
-The square shape of your palm, combined with the robust build, points to a practical, grounded nature. You are likely someone who values stability and reliability, with a strong sense of responsibility.
-
-The medium-length fingers with rounded tips suggest a balance between practicality and sensitivity. You can approach tasks with both efficiency and empathy, making you well-suited to roles that require both skill and understanding.
-
-Overall, your hands depict a life of health, mental acuity, and emotional sincerity, with a strong emphasis on personal agency and choice in crafting your life's journey.
+Overall, your hands reveal a person who is grounded, practical, and capable of achieving a balanced and rewarding life through personal effort and clear decision-making. Your strong health and emotional warmth are key assets in your current life path.
 
 For major life decisions, I recommend consulting a qualified astrologer or palm reader for a personal reading.
 ```
-- `validation.passed = False`
-- `validation.failures = ('self_help_blacklist: found fulfilling, journey, stability',)`
-- sources:
-  - cheiroslanguageo00chei_1, p.120 (score: 0.5983)
-  - cheiroslanguageo00chei_1, p.123 (score: 0.5965)
-  - cheiroslanguageo00chei_1, p.135 (score: 0.5947)
-  - cheiroslanguageo00chei_1, p.120 (score: 0.5888)
-  - cheiroslanguageo00chei_1, p.112 (score: 0.5846)
-  - cheiroslanguageo00chei_1, p.134 (score: 0.5771)
-- word_count = 328 (cap=700, fits)
+`validation.passed = True` / `validation.failures = ()` / **`retry_used = True`**
 
-### RUN B: identical repeat (variance probe)
+### RUN B (identical repeat)
 ```
-Your hands reveal a strong and consistent character, with a robust potential and a steady current life trajectory. The square shape of your palms, combined with the long, straight fingers, suggests a practical and methodical nature. You are likely someone who values structure and order, and this is reflected in both your innate potential and your current path.
+Your hands reveal a robust and grounded nature, with a strong potential for health and vitality. The square shape of your palms, combined with the long, straight fingers, suggests a practical and methodical approach to life. This is further supported by the deep and unbroken lines of life, head, and heart on both hands, indicating a stable and consistent character.
 
-The deep, long life line on both hands, curving around the base of the thumb without breaks or forks, indicates a life of good health and vitality. This is further supported by the developed Mount of Venus, which suggests strong health and a passionate nature. Your capacity for affection and sympathy towards others is notable, and you likely have a strong appreciation for beauty and harmony.
+The deep and long life line, curving around the base of the thumb, promises a life of good health and vitality. This line, free from breaks or forks, suggests a life path that is steady and free from major disruptions. The developed Mount of Venus on both hands indicates a strong capacity for affection, sympathy, and a love for beauty and harmony. This mount also suggests robust health, as it is associated with the vitality of the blood vessels in the hand.
 
-Your head line, which is deep and slightly curved, shows a clear and focused mind. This line's consistency across both hands indicates that your intellectual potential is being realized in your current life. You have a strong sense of logic and reasoning, which helps you navigate challenges with clarity and determination.
+Your head line, deep and slightly curved, points to a clear and logical mind, capable of making sound decisions. The lack of breaks or forks in this line suggests a focused and unwavering mental approach. The heart line, also deep and slightly curved, indicates a warm and sincere nature in matters of the heart, with a capacity for deep emotional connections.
 
-The heart line, ending below the index finger on the left hand and curving slightly upward on the right, suggests a balance between idealism and practicality in matters of the heart. While you have a capacity for deep emotions, you approach relationships with a sense of realism and understanding.
+The barely visible fate line suggests that your life path may not be strongly influenced by external forces or destiny. Instead, your direction is likely shaped by your own actions and decisions. This aligns with the practical and self-reliant nature indicated by your hand shape and lines.
 
-The barely visible fate line suggests that destiny plays a lesser role in your life compared to your own actions and decisions. You are likely someone who believes in shaping your own path rather than relying on fate.
-
-Overall, your hands indicate a life driven by personal effort and a strong, consistent character. You possess the potential for a rich and fulfilling life, marked by health, passion, and a keen intellect.
+Overall, your hands reveal a person who is grounded, practical, and capable of maintaining a steady course in life. Your innate potential for health and vitality is mirrored in your current life trajectory, suggesting that you are on a path that aligns well with your natural strengths and inclinations.
 
 For major life decisions, I recommend consulting a qualified astrologer or palm reader for a personal reading.
 ```
-- `validation.passed = False`
-- `validation.failures = ('self_help_blacklist: found fulfilling, navigate',)`
-- sources:
-  - cheiroslanguageo00chei_1, p.120 (score: 0.598)
-  - cheiroslanguageo00chei_1, p.123 (score: 0.596)
-  - cheiroslanguageo00chei_1, p.135 (score: 0.5945)
-  - cheiroslanguageo00chei_1, p.120 (score: 0.5887)
-  - cheiroslanguageo00chei_1, p.112 (score: 0.5854)
-  - cheiroslanguageo00chei_1, p.134 (score: 0.5768)
-- word_count = 312 (cap=700, fits)
+`validation.passed = True` / `validation.failures = ()` / **`retry_used = True`**
 
-### RUN C: `generate_palm_reading(left, right, hand_detail=detail)`
+### RUN C (+ hand_detail)
 ```
-Your hands reveal a robust and grounded nature, both in potential and in your current life path. The square palm and long fingers suggest a practical and methodical approach to life, with a strong foundation in logic and reason. The deep, long lines of life, head, and heart in both hands indicate a life path characterized by vitality, mental clarity, and emotional depth.
+Your hands reveal a robust and grounded nature, with a strong potential for vitality and health. The square shape of your palms, combined with the long, straight fingers, suggests a practical and methodical approach to life. This is further supported by the deep, unbroken lines of life, head, and heart on both hands, indicating a stable and consistent character.
 
-The life line, which is deep and curves around the base of the thumb without breaks, promises good health and a strong life force. This is consistent across both hands, suggesting that your innate potential for vitality is being realized in your current life. The deep head line, slightly curved and unbroken, indicates a clear and focused mind, capable of both analytical thought and creativity. This mental strength is a constant in your life, guiding you through challenges with clarity and insight.
+The deep and long life line on both hands promises good health and vitality. Its unbroken nature suggests a life free from major health crises, allowing you to pursue your ambitions with vigor. The developed Mount of Venus on both hands indicates a strong capacity for affection and a love for beauty and harmony. This mount also suggests a robust physical constitution, which aligns with the promise of good health seen in your life line.
 
-The heart line, ending below the index finger and slightly curved, speaks to a capacity for deep emotional connections and a strong sense of empathy. This emotional depth is a core aspect of your character and continues to influence your relationships positively.
+Your head line, deep and slightly curved, points to a clear and logical mind, capable of both practical reasoning and creative thought. This line's consistency across both hands suggests that your innate intellectual potential is being realized in your current life path. The heart line, also deep and slightly curved, indicates a warm and sincere nature in matters of the heart, with a capacity for deep emotional connections.
 
-The Mount of Venus, being well-developed, suggests a passionate nature with a strong appreciation for beauty and affection. This mount indicates a life rich in personal connections and a desire to engage deeply with those around you. Your thumb's moderate size and flexibility reflect a balanced willpower and adaptability, allowing you to pursue your goals with determination while remaining open to change.
+The barely visible fate line suggests that your life path may not be strongly influenced by external forces or destiny. Instead, your direction is likely shaped by your own decisions and efforts. This aligns with the practical and self-reliant nature indicated by your hand shape and lines.
 
-The barely visible fate line suggests that your life path is not heavily influenced by destiny or external forces; rather, it is shaped by your own choices and actions. This lack of a strong fate line emphasizes the importance of personal agency in your life journey.
+The Mount of Jupiter, slightly raised, suggests ambition and a desire for achievement, though it is not overly pronounced, indicating a balanced approach to power and leadership. The moderate spacing of your fingers and the medium-sized thumb set at a wide angle suggest a balance between flexibility and determination, allowing you to adapt to circumstances while maintaining your goals.
 
-Overall, your hands reveal a life that is grounded in personal strength, mental clarity, and emotional richness. Your path is one of self-determined progress, supported by a robust constitution and a deep connection to those around you.
+Overall, your hands reveal a person of strong health, practical intelligence, and emotional depth, with a life path shaped largely by personal effort and decisions rather than fate.
 
 For major life decisions, I recommend consulting a qualified astrologer or palm reader for a personal reading.
 ```
-- `validation.passed = False`
-- `validation.failures = ('self_help_blacklist: found journey',)`
-- sources:
-  - cheiroslanguageo00chei_1, p.120 (score: 0.5983)
-  - cheiroslanguageo00chei_1, p.123 (score: 0.5965)
-  - cheiroslanguageo00chei_1, p.135 (score: 0.5947)
-  - cheiroslanguageo00chei_1, p.120 (score: 0.5888)
-  - cheiroslanguageo00chei_1, p.112 (score: 0.5846)
-  - cheiroslanguageo00chei_1, p.134 (score: 0.5771)
-- word_count = 349 (cap=700, fits)
+`validation.passed = True` / `validation.failures = ()` / **`retry_used = True`**
 
-Note: Run C's sources are byte-identical to Run A's (same scores) —
-consistent with the pass-1 finding that `hand_detail` is excluded from
-the RAG query by design (`palm_reading.py`'s query is built from
-`palm_left`/`palm_right` only); no new evidence needed here, this is
-expected mechanical behavior, not a bug.
+### Reading of the result
 
-## Step 3 — Result
+Zero exceptions across all 6 generation calls (2 per run x 3 runs) plus
+the 3 vision calls. **All 3 final readings now pass Ring 1 validation**
+— a reversal of the Task 12 pre-flight result (3/3 failed there). BUT
+**all 3 runs required the retry** (`retry_used=True` in every case):
+the FIRST draft still tripped the self-help blacklist in every run,
+same as pre-F2c behavior — the exemplar anchoring + temp 0 change did
+NOT measurably reduce the first-draft failure rate in this 3-run
+sample. What changed the observed outcome is the retry mechanism
+itself: the validator-fed correction turn successfully produced a
+passing second draft in 3/3 attempts. This matches the HARD CAP
+comment's own stated premise ("prompt-only voice control fails ~100%
+for this task shape") rather than contradicting it — the retry is
+carrying the fix, as designed, not the prompt change. Whether the
+first-draft failure rate itself should be a future target (vs.
+accepting "always needs one retry" as the steady state) is a call for
+whoever scores pass-2, not decided here (measure-first, no asserts,
+per this task's charter).
 
-Zero exceptions across all 6 live calls. **All 3 generation runs failed
-Ring 1 validation** on `self_help_blacklist`:
-- Run A: `fulfilling, journey, stability`
-- Run B: `fulfilling, navigate`
-- Run C: `journey`
+No source files edited in this step (probe only, scratch script +
+output file deleted after capture).
 
-This means that under the current app.py display path
-(`if not _reading.validation.passed: st.error(...)`), a live user
-running any of these 3 shapes today would see a validation-failure
-error, not a reading — Ring 1's self-help blacklist (S66 F2+F3) is
-firing reliably on gpt-4o's generation output at the current
-temperature/prompt, independent of the F4 vision-description change.
-This is measure-first data for whoever scores pass-2's P3 (voice) rows
-next — it's stronger signal than pass-1 had (pass-1's Ring 1 spot-check
-showed no jargon-blacklist trips; this probe shows self-help-blacklist
-trips on 3/3 runs), and is a fact to reconcile before pass-2 scoring,
-not an action taken here (no source edits, no asserts, per this task's
-charter).
-
-No source files edited. Scratch script + stray output file deleted
-after capture.
-
-## Commit
-Diagnostics-only commit, pushed to `main`.
+## Commits
+- `165484c` — source: F2c (exemplar anchoring + temp 0 + retry loop),
+  atomic with tests
+- diagnostics (this file) — pushed separately, hash reported after
+  commit below
