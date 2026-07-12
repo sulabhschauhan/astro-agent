@@ -1,81 +1,81 @@
-# S66 Task 6 (F1) — hand_detail human checkpoint
+# S66 Task 7 (F2+F3) — voice hardening + query fix: RED, STOPPED (test edits out of scope)
 
-Self-gated. Source: `frontend/app.py` (+ CLAUDE.md lock-wording
-ride-along, docs). Closes the Ring 3 pass-1 finding
-(`diagnostics/ring3_palm_rubric_S66.md`, Verdict failure #2): the
-`hand_detail` vision output entered `generate_palm_reading()` with no
-display or user confirmation, unlike palm_left/palm_right.
+Self-gated. ONE source file touched: `agent/interpretive/palm_reading.py`.
+Its test file (`tests/interpretive/test_palm_reading.py`) is Task 8's
+scope — this task ran the suite and reports the failure, but does not
+touch the test file. **No commit made for the source-file change** —
+STEP 5's gate is "green -> commit"; this run is red.
 
-## Step 1 — Audit (pre-edit)
+## Step 1 (F3) — Query cap [:500] -> [:2000]
 
-- **Describe call timing**: already fired at upload-time (pre-edit
-  line 653-667, guarded by the `_hand_detail_image_name` name-change
-  check) — same trigger pattern as the palms. No move-to-upload-time
-  needed.
-- **Session keys held (pre-edit)**: `hand_detail_str` (description
-  text), `_hand_detail_image_name` (image-name guard). Missing,
-  relative to the palms' discipline: `hand_detail_hash`,
-  `hand_detail_bytes`, `hand_detail_confirmed`.
-- **Path to generation (pre-edit)**: `hand_detail=st.session_state.get("hand_detail_str")`
-  passed unconditionally at the "Generate Palm Reading" button — no
-  display, no confirm/discard gate. Confirmed zero checkpoint existed.
+`_QUERY_TRUNCATE_CHARS` raised from 500 to 2000. THRESHOLD DISCIPLINE
+comment added citing `diagnostics/ring3_chunks_S66.md` (Ring 3 pass 1
+proved the 500-char cap silently truncated the query inside the LEFT
+description, dropping the RIGHT hand from retrieval entirely). Scope
+guard: this call site only. Revisit trigger: a future F4 describe-prompt
+change that materially alters vision-description length.
 
-## Step 2 — Fix applied
+## Step 2 (F2a) — "## Voice" block added to `_READING_SYSTEM_PROMPT`
 
-Mirrors the palms' review/confirm/discard checkpoint pattern (NOT the
-palms' hand-identity/swap logic — that's left/right-ambiguity-specific
-and doesn't apply to the single hand_detail slot):
+Cheiro's declarative register instruction (direct assertions tied to
+concrete consequences — health, success won by personal merit, travel,
+character, fortune — not therapeutic affirmation) plus an explicit
+FORBIDDEN list: stability, fulfillment, fulfilling, favorable, journey,
+navigate, navigating, empower, empowerment, and the "this suggests you
+are the kind of person who..." self-help framing. Also added to "## How
+you read": apply a retrieved passage's specific teaching where it speaks
+to a described feature, rather than a generic gloss — cited to Ring 3
+pass 1 (`diagnostics/ring3_palm_rubric_S66.md`: every scorable claim
+across all 3 runs traced to the confirmed descriptions alone, never
+uniquely to a retrieved chunk; readings ignored all 6 retrieved passages
+in every run).
 
-- New session-state keys: `hand_detail_hash`, `hand_detail_bytes`,
-  `hand_detail_confirmed` (default `False`), added alongside the
-  existing `hand_detail_str`/`_hand_detail_image_name` defaults.
-- Upload block now stores bytes + hash (mirrors `palm_left_hash`/
-  `palm_left_bytes`), sets `hand_detail_confirmed = False` on every
-  new upload, and clears `palm_reading_result` on upload, describe
-  failure, and file removal — same as the palm blocks.
-- New review block (`st.container()` + bold `st.markdown` label, per
-  the S66 Task 3 nested-expander lesson — never `st.expander` inside
-  the upload expander): unconfirmed state shows "Review hand detail
-  description" + "Looks right — use this description" /
-  "Discard — re-upload" buttons; confirmed state shows a caption +
-  "Hand detail description" read-only.
-- Discard clears `hand_detail_str`/`hash`/`bytes`/`confirmed`/
-  `_hand_detail_image_name`/`palm_reading_result` — same clear-set as
-  the palms' discard buttons.
-- Generate button now computes `_confirmed_hand_detail =
-  st.session_state.hand_detail_str if st.session_state.hand_detail_confirmed
-  else None` and passes that (not the raw `hand_detail_str`) to
-  `generate_palm_reading()`.
-- Comment above the generation block updated: "only confirmed
-  vision-derived descriptions are ever passed through (palm_left,
-  palm_right, hand_detail alike, CLAUDE.md 'Palm human checkpoint'
-  lock)".
+## Step 3 (F2b) — Ring 1 validator: `_check_self_help_register()`
 
-## Step 3 — CLAUDE.md lock extended
+New `_SELF_HELP_BLACKLIST` (9 terms: S23 R3 blacklist ["stability",
+"fulfillment"] + Ring 3 pass-1 observed offenders ["fulfilling",
+"favorable", "journey", "navigate", "navigating", "empower",
+"empowerment"] — no speculative additions). New `_SELF_HELP_PATTERN`
+(word-boundary, case-insensitive) and `_check_self_help_register()`,
+same failure-string format as `_check_jargon`
+(`"self_help_blacklist: found {terms}"`). Wired into `generate_palm_reading()`'s
+failure-accumulation list alongside `_check_jargon`.
 
-"Palm human checkpoint" (Session 65) reworded to: "ALL vision-derived
-descriptions entering reading generation (palm_left, palm_right,
-hand_detail) must be displayed and USER-CONFIRMED first", with an S66
-Ring 3 pass-1 provenance note citing
-`diagnostics/ring3_palm_rubric_S66.md` as the source of this finding.
+## Step 4 (carry-forward) — lazy OpenAI import
 
-## Step 4 — Verify
+Module-level `from openai import OpenAI` replaced with a
+`TYPE_CHECKING`-only import (annotation use only, safe under this
+module's existing `from __future__ import annotations`) plus a
+function-local `from openai import OpenAI` immediately before
+`OpenAI()` construction in the `client is None` branch. Closes the S65-
+logged carry-forward (conftest stub-defeat latency fix) on this file's
+first touch since it was flagged.
 
-AppTest smoke (Task 3 pattern — fresh run, then inject real
-`pdf_context` with `[Varshaphal]`/`[Sade Sati]` sections, rerun):
+## Step 5 — Full suite: RED (expected outcome per instruction)
+
 ```
-PASS: no exception (hand_detail checkpoint edits, pdf_context path)
+1 failed, 3165 passed, 3 skipped, 1 warning in 78.67s (0:01:18)
 ```
 
-Full suite:
-```
-3166 passed, 3 skipped, 1 warning in 87.48s (0:01:27)
-```
-Matches expected baseline exactly — zero delta.
+**Failing test**: `tests/interpretive/test_palm_reading.py::test_jargon_injection_case_insensitive_and_word_boundary`
 
-## Step 5 — Commit
+**Cause**: its `_JARGON_STUB_TEXT` fixture contains the phrase "a
+favorable Antardasha this season" — the word "favorable" is on the new
+`_SELF_HELP_BLACKLIST`, so the stubbed reading now trips both
+`_check_jargon` (antardasha, lagna, yoga) and the new
+`_check_self_help_register` (favorable), producing
+`ValidationReport(failures=('jargon_blacklist: found antardasha, lagna, yoga', 'self_help_blacklist: found favorable'))`
+— 2 failures where the test asserts exactly 1
+(`assert len(result.validation.failures) == 1`).
 
-Green -> single commit:
-`2d4a42f` — "S66 F1: hand_detail human checkpoint — Ring 3 pass-1 gap
-closed"
-(RATIFIED: commit authorized)
+This is evidence the new validator functions correctly against real
+stub content; it is not a defect in `palm_reading.py`. Per instruction,
+STOPPED here rather than editing the test — that edit belongs to Task 8.
+
+## Step 6 — no commit for palm_reading.py
+
+`agent/interpretive/palm_reading.py`'s F2+F3+carry-forward changes
+remain **uncommitted** in the working tree (`git status`: `M
+agent/interpretive/palm_reading.py`). Only this diagnostics file is
+committed/pushed for Task 7. Task 8 (test file) must land before
+`palm_reading.py`'s changes can be committed under STEP 5's green gate.
