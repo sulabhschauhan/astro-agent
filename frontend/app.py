@@ -296,15 +296,6 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
         st.session_state.pdf_context = None
         st.session_state["_astrosage_pdf_name"] = None
 
-    if st.session_state.pdf_context:
-        _astrosage_sections = _split_astrosage_sections(st.session_state.pdf_context)
-        with st.expander("Your AstroSage Report"):
-            for _section_name, _section_content in _astrosage_sections:
-                if _section_name in _WITHHELD_SECTIONS:
-                    continue
-                st.subheader(_section_name)
-                st.text(_section_content)
-
     # ── Left palm ─────────────────────────────────────────────────────────────
     uploaded_left = st.file_uploader(
         "Left hand (innate potential)", type=["jpg", "jpeg", "png"], key="palm_left_uploader",
@@ -438,7 +429,8 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                         st.error(f"Could not update palm state: {e}")
                     st.rerun()
         elif not st.session_state.palm_left_confirmed:
-            with st.expander("Review left palm description", expanded=True):
+            with st.container():
+                st.markdown("**Review left palm description**")
                 st.markdown(st.session_state.palm_left_str)
             _lky, _lkn = st.columns(2)
             with _lky:
@@ -460,7 +452,8 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                     st.rerun()
         else:
             st.caption("✓ Description confirmed")
-            with st.expander("Left palm description", expanded=False):
+            with st.container():
+                st.markdown("**Left palm description**")
                 st.markdown(st.session_state.palm_left_str)
     elif st.session_state.palm_left_needs_reupload and uploaded_left is not None:
         st.warning(
@@ -601,7 +594,8 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                         st.error(f"Could not update palm state: {e}")
                     st.rerun()
         elif not st.session_state.palm_right_confirmed:
-            with st.expander("Review right palm description", expanded=True):
+            with st.container():
+                st.markdown("**Review right palm description**")
                 st.markdown(st.session_state.palm_right_str)
             _rky, _rkn = st.columns(2)
             with _rky:
@@ -623,7 +617,8 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                     st.rerun()
         else:
             st.caption("✓ Description confirmed")
-            with st.expander("Right palm description", expanded=False):
+            with st.container():
+                st.markdown("**Right palm description**")
                 st.markdown(st.session_state.palm_right_str)
     elif st.session_state.palm_right_needs_reupload and uploaded_right is not None:
         st.warning(
@@ -701,18 +696,27 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
             except (ValueError, RuntimeError) as e:
                 st.error(str(e))
 
-    if st.session_state.palm_reading_result is not None:
-        _reading = st.session_state.palm_reading_result
-        if not _reading.validation.passed:
-            st.error(
-                "Palm reading failed validation and cannot be shown: "
-                + "; ".join(_reading.validation.failures)
-            )
-        else:
-            st.markdown(_reading.reading_text)
-            with st.expander("Classical sources"):
-                for _src in _reading.sources:
-                    st.caption(f"{_src['book']}, p.{_src['page']} (score: {_src['score']})")
+if st.session_state.get("pdf_context"):
+    _astrosage_sections = _split_astrosage_sections(st.session_state.pdf_context)
+    with st.expander("Your AstroSage Report"):
+        for _section_name, _section_content in _astrosage_sections:
+            if _section_name in _WITHHELD_SECTIONS:
+                continue
+            st.subheader(_section_name)
+            st.text(_section_content)
+
+if st.session_state.palm_reading_result is not None:
+    _reading = st.session_state.palm_reading_result
+    if not _reading.validation.passed:
+        st.error(
+            "Palm reading failed validation and cannot be shown: "
+            + "; ".join(_reading.validation.failures)
+        )
+    else:
+        st.markdown(_reading.reading_text)
+        with st.expander("Classical sources"):
+            for _src in _reading.sources:
+                st.caption(f"{_src['book']}, p.{_src['page']} (score: {_src['score']})")
 
 if not st.session_state.chart_ready:
     st.info("Enter your birth details in the sidebar to begin.")
