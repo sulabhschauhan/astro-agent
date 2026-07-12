@@ -1,237 +1,130 @@
-# frontend/app.py — AstroSage terminal-bare display + Pratyantar/Lal-Kitab withholding (Session 65, 4b)
+# agent/interpretive/answer_renderer.py — deterministic DomainAnswer -> layman renderer (Session 65, 4c)
 
-Docs/code task: ONE file edited (`frontend/app.py`), user's-own AstroSage
-PDF block only. `astrosage_parser.py` untouched — verified by not opening
-it for edit, only reading it to confirm the combined-output format before
-writing the splitter (per CLAUDE.md's "verify task prompts against code"
-discipline). `ast.parse()` passes. Splitter functionally verified against
-a simulated real `parse_astrosage_pdf()` output shape (see below) — no
-live Streamlit run, no live API/PDF-parsing call.
+New Ring 1/2 files: `agent/interpretive/answer_renderer.py` (module) and
+`tests/interpretive/test_answer_renderer.py` (13 tests). Zero LLM (S23
+lock) — pure Python template-fill over `DomainAnswer`. Self-gate: new
+tests green (13/13), full suite green with an exact +13 delta and zero
+regressions. Committed per the ratification token provided at the top of
+the task, as the LAST action after tests passed.
 
-## Confirmation: palm / spouse-PDF / chat / ask() blocks show zero diff lines
+## Self-gate results
 
+**New file in isolation:**
 ```
-$ git diff frontend/app.py | grep -E "^\+|^-" | grep -iE "palm_left|palm_right|spouse_pdf|chat_input|chat_message|palm_reading_result|st\.session_state\.messages|def ask|ask\(|orchestrator"
-
-+# ask()) is NOT modified, and astrosage_parser.py is NOT modified; the RAG/
-```
-
-The single match is a **code comment** (part of the new `_WITHHELD_SECTIONS`
-justification block) that mentions `ask()` by name to explain that
-`pdf_context` still flows there unmodified — not a change to any excluded
-block's logic. Zero functional diff lines touch palm, spouse-PDF, chat, or
-`ask()`/orchestrator wiring.
-
-## Two minimal top-of-file additions, outside the literal "AstroSage PDF block" location
-
-The task's "log a warning" requirement for the fail-soft path needed
-Python logging, which `app.py` didn't previously import. Added:
-- `import logging` to the existing stdlib import block.
-- `logger = logging.getLogger(__name__)` right after the import block
-  (matching this codebase's convention elsewhere, e.g. `astrosage_parser.py`
-  itself, `palm_processor.py`).
-
-These don't touch or alter any excluded block's behavior — they're a
-necessary shared prerequisite for the new helper's fail-soft logging, not
-functional changes to palm/spouse/chat/ask() code.
-
-## The helper's split logic
-
-```python
-def _split_astrosage_sections(pdf_context: str) -> list[tuple[str, str]]:
-    parts = re.split(r"^\[([^\]]+)\]$", pdf_context, flags=re.MULTILINE)
-    # parts[0] is whatever precedes the first header (the "ASTROSAGE PDF
-    # DATA:" prefix line, not a real section) -- discarded. Remaining
-    # parts alternate name, content, name, content, ...
-    if len(parts) < 3:
-        logger.warning(...)
-        return [("AstroSage Report", pdf_context)]
-
-    pairs: list[tuple[str, str]] = []
-    for i in range(1, len(parts), 2):
-        name = parts[i].strip()
-        content = parts[i + 1].strip() if i + 1 < len(parts) else ""
-        pairs.append((name, content))
-    return pairs
+$ python -m pytest tests/interpretive/test_answer_renderer.py -v
+...
+13 passed, 1 warning in 1.73s
 ```
 
-**Why this works against the real format**, verified by reading
-`agent/astrosage_parser.py` line-by-line before writing this (not assumed
-from the task prompt): `parse_astrosage_pdf()` returns exactly
-`"ASTROSAGE PDF DATA:\n" + "\n\n".join(f"[{name}]\n{content}" for name,
-content in sections.items())`. `re.split` with a `^\[([^\]]+)\]$`
-capturing group, `re.MULTILINE`, splits the string at every line that is
-*exactly* `[SomeName]` and keeps the captured names in the result list —
-so the result alternates `[pre-text, name1, content1, name2, content2,
-...]`. `parts[0]` is always just the `"ASTROSAGE PDF DATA:"` prefix line
-(not a section), discarded; the rest are paired up two at a time.
-
-**SENSITIVE_TO** comment placed directly above the function, quoting the
-exact join expression — if `astrosage_parser.py`'s combined-output format
-(join separator, header bracket syntax, or the leading prefix) ever
-changes, this splitter must be re-verified and updated with it.
-
-**Fail-soft path**: if `len(parts) < 3` (i.e., no `[Name]` header line was
-found anywhere — `re.split` returned the original string as a single
-unsplit element, `parts == [pdf_context]`), the function logs a warning
-via `logger.warning(...)` and returns `[("AstroSage Report", pdf_context)]`
-— the full string is still displayed, degraded (unsectioned) but never
-crashing, per the task's explicit "fail-soft" requirement.
-
-**Verified functionally** (not just read) against a simulated real
-`parse_astrosage_pdf()` output:
-
+**Full suite:**
 ```
-$ python -c "<simulated combined-output test>"
-WARNING:test:no headers found -- displaying unsplit
-Parsed sections: [('Varshaphal', 'Varshaphal body text'), ('Pratyantar', 'Pratyantar body text'), ('Muntha', 'Muntha body text'), ('Lal Kitab', 'Lal Kitab body text')]
-
-After withholding filter: ['Varshaphal', 'Muntha']
-
-Fail-soft test: [('AstroSage Report', 'just some plain text, no headers here')]
+$ python -m pytest -q
+...
+3166 passed, 3 skipped, 1 warning in 137.14s (0:02:17)
 ```
 
-Confirms: (1) all 4 simulated sections split correctly; (2) the withholding
-filter correctly drops exactly `Pratyantar` and `Lal Kitab`, leaving
-`Varshaphal` and `Muntha`; (3) the fail-soft path degrades to a single
-unsplit section and logs a warning, without raising.
+**Delta**: prior baseline 3153 passed / 3 skipped + 13 new = **3166
+passed / 3 skipped**. Exact match, zero regressions, skip count
+unchanged. Self-gate GREEN — proceeded to commit.
 
-## Widget choice: st.text(), not st.markdown(), for section bodies
+## Every payload key verified against source before use (rule 1)
 
-The task said "render... VERBATIM — no LLM, no rephrasing, no truncation,"
-without specifying a widget (unlike the earlier palm-description task,
-which explicitly asked for a widget-choice call). For true verbatim
-fidelity, `st.markdown()` risks reinterpreting any incidental
-markdown-special characters in the PDF-extracted text (`*`, `_`, `#`,
-etc. — plausible in astrological tabular text) as formatting instead of
-literal content. `st.text()` renders the string with zero markup
-interpretation and preserves whitespace/line breaks exactly — the safer
-choice for a "VERBATIM" contract. `st.subheader()` labels the section
-name (a UI structural element, not part of the extracted content itself,
-so styling it is fine).
+All 7 domains' `answer_payload` shapes were read directly from
+`agent/infra/result_formatter.py`'s actual `_format_*()` branch code
+(quoted/cited in each `_render_*()` helper's own docstring), not guessed:
 
-## Spouse PDF — explicitly out of scope, confirmed
+| Domain (`answer.domain` value) | Source function | Key fields used |
+|---|---|---|
+| `current_dasha` | `_format_dasha()` | `mahadasha`/`antardasha` (`lord`/`start`/`end`), `near_boundary`, optional `timing_enrichment` |
+| `sade_sati` | `_format_sade_sati()` | `active`, `phase`, `next_cycle_start`, conditionally `current_cycle_start`/`end` or `previous_cycle_end` |
+| `career_strength` | `_format_career()` | `career_significators` (`tenth_lord`/`sun`/`saturn`, each `planet`/`ratio`/`rank`/`label`), `strongest_planet`, `weakest_planet`, `bhava_10_rupa` |
+| `marriage_compatibility` | `_format_marriage()` | `total_score`, `max_score`, `koota_scores` (8 keys), `mangal_dosha` (`boy`/`girl`/`both_have`), `verdict` |
+| `arudha_lagna` | `_format_arudha_lagna()` | `arudha_sign`, `lagna_sign`, `lord`, `co_lord_deciding_step` |
+| `upapada_lagna` | `_format_upapada()` | `upapada_sign`, `lagna_sign`, `lord`, `co_lord_deciding_step` |
+| `muhurta_window` | `_format_muhurta_window()` | `windows` (`start`/`end`/`tier`/`favorable_count`/`warnings`), `summary` (`tier1_window_count`/`earliest_tier1_start`) |
 
-No code was added for the spouse AstroSage PDF. It remains context-only
-in V1, per the task's explicit instruction; the diff-grep check above
-independently confirms zero lines touch `spouse_pdf`.
+Two field semantics not already documented in `result_formatter.py`/
+`chart_profile.py` were verified by reading the underlying calculation
+module directly rather than guessed:
+- `sade_sati`'s `phase` field: confirmed `Literal["RISING", "PEAK",
+  "SETTING", "NONE"]` by reading `agent/calculations/transits/sade_sati.py`.
+- `career_strength`'s rank ceiling ("rank N of **7**", not guessed at
+  9 or some other number): confirmed by `_format_career()`'s own
+  `weakest_planet = next(p for p, row in shadbala.items() if row["rank"]
+  == 7)` — 7 classical grahas, no Rahu/Ketu in shadbala.
+- `muhurta_window`'s `warnings` tuple contents ("Janma Tara", "Janma
+  Rashi", "Panchaka") confirmed by reading `muhurta_scorer.py` directly —
+  relevant because "Rashi" (with an "h") does NOT match
+  `palm_reading._JARGON_BLACKLIST`'s `"rasi"` (without an "h"), a
+  spelling distinction that matters for the jargon-compliance test.
 
-## Rendering placement and persistence
+## Design decisions surfaced (rules 2, 3, 4, 5)
 
-The new expander is rendered via `if st.session_state.pdf_context:`,
-placed immediately after the existing upload/parse `if`/`elif` block and
-gated independently of the upload event itself — so it persists across
-Streamlit reruns (e.g., after a chat turn triggers a rerun) rather than
-only appearing in the same run as a fresh parse. This matches the
-existing pattern already used elsewhere in this file for other
-persistent context displays (the palm confirmed-description expanders,
-the sidebar's Kundali Summary expander).
+- **REFUSAL (rule 2)** short-circuits `render_answer()` entirely —
+  `answer_payload["user_message"]` returned verbatim, domain dispatch
+  skipped (a REFUSAL's `domain` can be `None`, per
+  `result_formatter.format_refusal()`), and **`demotion_reason` is
+  deliberately NOT appended** for REFUSAL: `format_refusal()` already
+  used `demotion_reason` to select which `user_message` to show, so
+  appending it again would just restate the same refusal reason a
+  second time, not add a genuine additional accuracy caveat. Verified
+  by `test_refusal_returns_user_message_verbatim_no_demotion_append`.
+- **`demotion_reason` (rule 3)** is appended as `"\n\nAccuracy note: " +
+  demotion_reason`, verbatim, whenever truthy, for every non-REFUSAL
+  domain. Verified by `test_demotion_reason_appended_as_accuracy_note_verbatim`.
+- **`current_dasha`'s `boundary_note` field is deliberately NOT
+  rendered** inside `_render_current_dasha()`, even though it's always
+  present in the payload dict (possibly `None`) — reading
+  `_format_dasha()`'s source shows `boundary_note` and `demotion_reason`
+  are set together from the same `if near_boundary:` branch and carry
+  the same ±37-day-drift message; rendering both would duplicate the
+  identical caveat once via the domain body and once via the top-level
+  "Accuracy note" append. This is safe (not an assumption) because the
+  two fields are never decoupled by `_format_dasha()`'s own code —
+  verified against the source before relying on it.
+- **Muhurta tier relabeling (rule 4)**: `TIER_1`->"excellent",
+  `TIER_2`->"good", `TIER_3`->"favorable for you specifically", fully
+  replacing the raw jargon strings (not appending labels alongside them
+  — verified by `test_muhurta_tier_relabeling_replaces_raw_jargon`
+  asserting `"TIER_1"`/`"TIER_2"`/`"TIER_3"` are absent from the
+  rendered text). **This appears to close the CLAUDE.md Session 64
+  carry-forward** ("Per-window `MuhurtaTier` value strings are internal
+  jargon") — flagged here per the task's explicit instruction, **NOT**
+  acted on: CLAUDE.md is not in this task's file list (`agent/interpretive/
+  answer_renderer.py` + `tests/interpretive/test_answer_renderer.py`
+  only), so the carry-forward entry itself is untouched.
+- **Jargon rule (rule 5)** interpreted as: a blacklisted term may appear
+  as a domain topic name (rule 5's own examples: "Sade Sati", "Arudha
+  Lagna") provided it is glossed — either at that exact occurrence or
+  earlier in the same rendered text (natural language legitimately
+  refers back to an already-explained term without re-explaining every
+  single time; see `_render_current_dasha()`'s second, backward-
+  referencing use of "Mahadasha" inside its Antardasha sentence). No
+  runtime jargon-check exists inside `answer_renderer.py` itself (see
+  the module's own docstring for why: this output is fully self-
+  authored/deterministic, unlike `palm_reading.py`'s LLM-output
+  validation, so there's nothing untrusted to check at runtime — the
+  compliance burden lives in the test suite instead).
 
-## pdf_context / parse-failure / clearing-on-removal paths: confirmed unchanged
+## Full test list (13 tests)
 
-The existing `if uploaded_pdf is not None: ... elif
-st.session_state["_astrosage_pdf_name"] is not None: ...` block (lines
-219–232 pre-edit) is untouched byte-for-byte in the diff — the new
-expander block was inserted immediately after it, not interleaved into it.
+1. `test_refusal_returns_user_message_verbatim_no_demotion_append`
+2. `test_unknown_domain_raises_value_error`
+3. `test_missing_payload_key_raises_keyerror_fail_loud` (extra rigor
+   beyond the task's explicit list, directly proving rule 6's "fail-
+   loud" contract)
+4. `test_demotion_reason_appended_as_accuracy_note_verbatim`
+5–11. Seven per-domain happy-path tests (one per
+   `current_dasha`/`sade_sati`/`career_strength`/
+   `marriage_compatibility`/`arudha_lagna`/`upapada_lagna`/
+   `muhurta_window`)
+12. `test_muhurta_tier_relabeling_replaces_raw_jargon`
+13. `test_no_unglossed_jargon_across_all_domain_outputs` (loops over all
+    7 happy-path outputs, reuses `palm_reading._JARGON_BLACKLIST`
+    directly rather than duplicating it — single source of truth)
 
-## Full diff
+## Commit
 
-```diff
-diff --git a/frontend/app.py b/frontend/app.py
-index 3b620ae..7d3b15d 100644
---- a/frontend/app.py
-+++ b/frontend/app.py
-@@ -4,6 +4,7 @@ Streamlit UI — Vedic astrology assistant (Parashara RAG agent).
- """
- 
- import hashlib
-+import logging
- import re
- import sys
- import os
-@@ -25,6 +26,8 @@ from PIL import Image
- from agent.palm_processor import validate_palm_image, describe_palm_image, describe_hand_detail_image
- from agent.interpretive.palm_reading import generate_palm_reading
- 
-+logger = logging.getLogger(__name__)
-+
- # ─── Page config (must be first Streamlit call) ───────────────────────────────
- 
- st.set_page_config(
-@@ -211,6 +214,59 @@ with st.sidebar:
- 
- # ─── Main area ────────────────────────────────────────────────────────────────
- 
-+# T4 architecture / T4 V1 boundaries lock (CLAUDE.md Session 65): display-
-+# layer withholding ONLY -- pdf_context (the full parsed string threaded to
-+# ask()) is NOT modified, and astrosage_parser.py is NOT modified; the RAG/
-+# LLM path still sees these sections in full. Pratyantar: suppressed per
-+# the +/-37-day-drift/wrong-lord posture (same root cause as
-+# prompt_builder.py's kundali-slot carry-forward) -- Pratyantar-level date
-+# claims aren't reliable enough to show a user as if they were precise.
-+# Lal Kitab: post-V1 hard gate (CLAUDE.md "Post-V1 design gate: Lal Kitab
-+# remedy tier", Session 61) -- remedies are out of V1 scope entirely,
-+# withheld here rather than partially surfaced. Scope guard: this
-+# frozenset governs ONLY the "Your AstroSage Report" display expander
-+# below -- no other code path reads it. Revisit trigger: Lal Kitab V1.1
-+# unlock (gated on that carry-forward's required steps) or a future
-+# Pratyantar-precision fix.
-+_WITHHELD_SECTIONS = frozenset({"Pratyantar", "Lal Kitab"})
-+
-+
-+def _split_astrosage_sections(pdf_context: str) -> list[tuple[str, str]]:
-+    """
-+    Split parse_astrosage_pdf()'s combined output into (name, content) pairs
-+    for verbatim display.
-+
-+    SENSITIVE_TO astrosage_parser.py's parse_astrosage_pdf() combined-output
-+    format: `"ASTROSAGE PDF DATA:\\n" + "\\n\\n".join(f"[{name}]\\n{content}"
-+    for name, content in sections.items())`. This splitter locates each
-+    "[Name]" header line and slices the text between headers as that
-+    section's body. If astrosage_parser.py's join format ever changes,
-+    this splitter breaks with it -- re-verify against the source before
-+    trusting this function after any astrosage_parser.py edit.
-+
-+    Fail-soft: if no "[Name]" headers are found, returns the full string
-+    unsplit under a single "AstroSage Report" label and logs a warning --
-+    never raises.
-+    """
-+    parts = re.split(r"^\[([^\]]+)\]$", pdf_context, flags=re.MULTILINE)
-+    # parts[0] is whatever precedes the first header (the "ASTROSAGE PDF
-+    # DATA:" prefix line, not a real section) -- discarded. Remaining
-+    # parts alternate name, content, name, content, ...
-+    if len(parts) < 3:
-+        logger.warning(
-+            "app.py: no '[Name]' section headers found in AstroSage "
-+            "pdf_context — displaying unsplit (degraded, not crashing)."
-+        )
-+        return [("AstroSage Report", pdf_context)]
-+
-+    pairs: list[tuple[str, str]] = []
-+    for i in range(1, len(parts), 2):
-+        name = parts[i].strip()
-+        content = parts[i + 1].strip() if i + 1 < len(parts) else ""
-+        pairs.append((name, content))
-+    return pairs
-+
-+
- st.title("Parashara — Vedic Astrology")
- 
- with st.expander("Upload context (PDF + palms)", expanded=False):
-@@ -231,6 +287,15 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
-         st.session_state.pdf_context = None
-         st.session_state["_astrosage_pdf_name"] = None
- 
-+    if st.session_state.pdf_context:
-+        _astrosage_sections = _split_astrosage_sections(st.session_state.pdf_context)
-+        with st.expander("Your AstroSage Report"):
-+            for _section_name, _section_content in _astrosage_sections:
-+                if _section_name in _WITHHELD_SECTIONS:
-+                    continue
-+                st.subheader(_section_name)
-+                st.text(_section_content)
-+
-     # ── Left palm ─────────────────────────────────────────────────────────────
-     uploaded_left = st.file_uploader(
-         "Left hand (innate potential)", type=["jpg", "jpeg", "png"], key="palm_left_uploader",
-```
+Committed after this report was written and the self-gate confirmed
+GREEN, per the task's explicit "commit is the LAST action" instruction
+and the ratification token provided at the top of the prompt.
