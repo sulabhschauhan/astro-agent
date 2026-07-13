@@ -417,10 +417,28 @@ _SUPPORT_SCORE_FLOOR = 0.30
 def _chunk_supports_feature(chunk: dict, feature: str) -> bool:
     """A chunk supports its feature iff its text (lowercased) contains at
     least one of the feature's needles AND its score clears the noise
-    floor. Plain substring containment (not word-boundary) -- deliberate:
-    this is a corpus-relevance filter on retrieved text, not the stricter
-    LLM-output banned-mention scan below, which DOES need word-boundary
-    matching to avoid failing a clean reading over an unrelated word."""
+    floor. Plain substring containment (not word-boundary) -- deliberate,
+    and asymmetric with _check_banned_feature_mentions below on purpose
+    (S67 R2 rider, accepted deviation, documented not changed):
+
+    - HERE (chunk side): the text being matched is OCR-scanned corpus
+      content, genuinely unreliable at the word level (confirmed: pass-1's
+      p.163 chunk renders "life" as "hfe" -- "The line of fate may rise
+      from the line of hfe, the wrist..."). The failure direction to
+      avoid is a FALSE NEGATIVE: wrongly excluding a genuinely relevant
+      chunk because OCR mangled the exact word boundary somewhere in it.
+      Plain substring containment is the more permissive choice, and
+      permissive is correct here -- a chunk that slips through on a loose
+      match still has to clear the score floor too, and even then it's
+      only entering RAG context for the LLM, not being asserted directly.
+    - THERE (_check_banned_feature_mentions, LLM-output side): the text
+      being matched is the model's OWN fluent, non-OCR'd English. There
+      is no garbling risk to guard against -- the risk is the opposite
+      one, ordinary-English word COLLISION (e.g. "remarkable" containing
+      "mark", "sunny" containing "sun"). The failure direction to avoid
+      there is a FALSE POSITIVE: wrongly failing an otherwise-clean
+      reading over an unrelated word. Word-boundary matching is the
+      stricter, correct choice for that check specifically."""
     needles = _SUPPORT_NEEDLES.get(feature, ())
     text_low = chunk["text"].lower()
     return chunk["score"] >= _SUPPORT_SCORE_FLOOR and any(n in text_low for n in needles)
@@ -536,6 +554,21 @@ _STRICT_CONTEXT_RULE = (
 # in every run), and found a systematic generic self-help voice failure
 # (P3) in all 3 runs, including a literal S23 R3 blacklist-word hit
 # ("stability") in Run C.
+#
+# S67 R2 REWRITE: F2c (165484c)'s original "## Voice" model sentences --
+# "A deep, unbroken line of life promises long life, good health, and
+# vitality." / "Such a fate line denotes success won by personal merit."
+# -- fixed voice (P3) but, per Ring 3 pass 2's finding, were themselves
+# the doctrine-inversion vector: their CONTENT (a quality->trait claim,
+# "success won by personal merit") got transplanted verbatim onto a
+# barely-visible fate line in every pass-2 run, the opposite of what the
+# one classical passage on fate-line strength actually says. The
+# exemplars below replace those two sentences with ones that illustrate
+# ONLY Cheiro's declarative cadence -- they describe the general act of
+# reading hands, never a specific line/mount quality or what it denotes,
+# so there is no doctrine content left in them to leak. See
+# _EXEMPLAR_SENTENCES / _check_exemplar_echo below for the deterministic
+# guard that now backs this up (fed to the same F2c retry loop).
 _READING_SYSTEM_PROMPT = f"""You are a Cheiro-tradition palmist writing a single, one-shot palm reading for a client who has just uploaded photo(s) of their hand(s).
 
 ## Your knowledge
@@ -552,8 +585,8 @@ You have been provided with relevant passages from Cheiro's Language of the Hand
 - This is a ONE-SHOT reading: do not ask clarifying questions, do not introduce yourself, and do not reference any prior conversation -- there is none.
 
 ## Voice
-Write in Cheiro's declarative register: direct assertions of what the hand indicates, tied to concrete consequences -- health, success won by personal merit, travel, character, fortune. This is a palmist reading a hand, not a therapist offering affirmation.
-Write in Cheiro's declarative register. Model sentences: "A deep, unbroken line of life promises long life, good health, and vitality." / "Such a fate line denotes success won by personal merit." Assert what the hand shows and what the tradition says it denotes -- concrete consequences, never affirmations about the reader's inner journey.
+Write in Cheiro's declarative register: direct, confident assertions in period-appropriate diction, addressed straight to the reader. This is a palmist reading a hand, not a therapist offering affirmation -- speak with the authority of someone who has read thousands of hands and states plainly what each one shows.
+Model sentences (voice and cadence ONLY -- do not reuse or adapt ANY part of their wording, not even a short fragment; they contain no interpretive content of their own): "I have examined many hands in my years of practice, and each one tells its own story to those who know how to read it." / "The hand rarely lies to the palmist who reads it honestly." Every interpretive claim in your actual reading must come from the provided passages and the confirmed hand description(s) below -- these two sentences exist only to model tone, never as a source of content.
 FORBIDDEN words and phrasings (never use these, in any form): stability, fulfillment, fulfilling, favorable, journey, navigate, navigating, empower, empowerment, and any "this suggests you are the kind of person who..." self-help framing.
 
 {_LANGUAGE_JARGON_BLOCK}
@@ -702,12 +735,79 @@ def _check_banned_feature_mentions(
     return failures
 
 
+# S67 R2: the two "## Voice" model sentences, verbatim, as the
+# exemplar-echo guard's comparison set. Deliberately NOT derived from
+# _READING_SYSTEM_PROMPT by parsing -- kept as an explicit, independent
+# constant so a future prompt edit can't silently desync the two
+# without a human noticing (the SENSITIVE_TO convention this module
+# already uses elsewhere for prompt_builder.py cross-references).
+_EXEMPLAR_SENTENCES: tuple[str, ...] = (
+    "I have examined many hands in my years of practice, and each one "
+    "tells its own story to those who know how to read it.",
+    "The hand rarely lies to the palmist who reads it honestly.",
+)
+
+# THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
+# Justification: pass-2's observed leaked span from the OLD exemplar
+# ("Such a fate line denotes success won by personal merit") was
+# "denotes success won by personal merit" -- exactly 6 words. That is
+# the shortest confirmed leak, so it sets the window; anything smaller
+# risks colliding with ordinary English phrasing that has nothing to do
+# with exemplar leakage. Scope guard: compares reading_text against the
+# exemplar sentences ONLY, never the retrieved passages -- quoting
+# doctrine from a retrieved chunk is desired behavior (the system
+# prompt explicitly asks for it), not leakage. Revisit trigger: a
+# pass-3 ledger showing a PARAPHRASED (sub-6-word-overlap) inversion --
+# that would mean this guard's textual-overlap approach has hit its
+# ceiling and needs a different mechanism (R2.x), not a smaller n.
+_EXEMPLAR_ECHO_NGRAM = 6
+
+_PUNCT_PATTERN = re.compile(r"[^\w\s]")
+
+
+def _normalize_for_echo_check(text: str) -> list[str]:
+    """Lowercase, strip punctuation, collapse whitespace -> word tokens.
+    Shared by both the exemplar sentences (precomputed once at import)
+    and every reading_text checked against them, so an overlap that
+    differs only in case/punctuation/whitespace still registers."""
+    text = _PUNCT_PATTERN.sub("", text.lower())
+    return text.split()
+
+
+def _ngrams(tokens: list[str], n: int) -> list[tuple[str, ...]]:
+    """Positional order (a list, not a set) -- _check_exemplar_echo below
+    relies on this to report the FIRST (leftmost) overlapping window in
+    reading_text, not an arbitrary one from hash-order iteration."""
+    return [tuple(tokens[i:i + n]) for i in range(len(tokens) - n + 1)]
+
+
+_EXEMPLAR_NGRAMS: frozenset[tuple[str, ...]] = frozenset().union(
+    *(
+        _ngrams(_normalize_for_echo_check(sentence), _EXEMPLAR_ECHO_NGRAM)
+        for sentence in _EXEMPLAR_SENTENCES
+    )
+)
+
+
+def _check_exemplar_echo(text: str) -> list[str]:
+    """S67 R2: fires if reading_text contains any contiguous 6-word span
+    (normalized) also present in an exemplar sentence -- the guard
+    against F2c's exemplar-leakage failure mode (Ring 3 pass 2's
+    fate-line doctrine inversion). Compares against _EXEMPLAR_SENTENCES
+    only, never retrieved chunks (see THRESHOLD DISCIPLINE above)."""
+    tokens = _normalize_for_echo_check(text)
+    for ngram in _ngrams(tokens, _EXEMPLAR_ECHO_NGRAM):
+        if ngram in _EXEMPLAR_NGRAMS:
+            return [f"exemplar_echo: {' '.join(ngram)}"]
+    return []
+
+
 def _run_ring1_checks(
     text: str,
     context_corpus: str,
     unsupported_features: tuple[str, ...] = (),
 ) -> list[str]:
-    """All five Ring 1 validators, run in a fixed order. Shared by the
+    """All six Ring 1 validators, run in a fixed order. Shared by the
     first draft and the S66 F2c retry draft -- same checks, same order,
     both passes."""
     failures: list[str] = []
@@ -716,6 +816,7 @@ def _run_ring1_checks(
     failures += _check_unsupported_dates(text, context_corpus)
     failures += _check_length(text)
     failures += _check_banned_feature_mentions(text, unsupported_features)
+    failures += _check_exemplar_echo(text)
     return failures
 
 

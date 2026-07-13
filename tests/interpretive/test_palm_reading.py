@@ -1267,3 +1267,130 @@ def test_f2c_cap_unchanged_banned_mention_fails_both_drafts_stays_failed(monkeyp
     assert any(
         "unsupported feature mentioned: sun line" in f for f in result.validation.failures
     )
+
+
+# ─── Item 15: S67 R2 exemplar-echo guard -- hardest first ──────────────
+
+_EXEMPLAR_ECHO_FIRST_DRAFT = (
+    "Your life line shows steady vitality. Each one tells its own story "
+    "to those who understand the craft."
+)
+_EXEMPLAR_ECHO_CLEAN_RETRY = (
+    "Your life line shows steady vitality, promising sound health and "
+    "quiet endurance through the years ahead."
+)
+
+
+def test_exemplar_echo_guard_fires_first_draft_retried_clean(monkeypatch):
+    """(15a) Hardest new case: the first draft reuses a verbatim 6-word
+    span from exemplar 1 ("each one tells its own story") -- exactly
+    the doctrine-inversion vector R2 exists to close (Ring 3 pass 2's
+    fate-line finding traced to F2c's OLD exemplar's content being
+    transplanted, not just its voice). The validator fires, naming the
+    exact n-gram in the retry feedback; the F2c retry produces a clean
+    draft -> passes on the retry (2 calls)."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(
+        responses=[
+            (_EXEMPLAR_ECHO_FIRST_DRAFT, None),
+            (_EXEMPLAR_ECHO_CLEAN_RETRY, None),
+        ]
+    )
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    # 1 observed feature (life line) -> 1 search call; 2 LLM calls
+    # (first draft trips exemplar_echo, retry is clean).
+    assert len(client.completions.calls) == 2
+    assert result.retry_used is True
+    assert result.validation.passed is True
+    retry_messages = client.completions.calls[1]["messages"]
+    assert "exemplar_echo: each one tells its own story" in retry_messages[-1]["content"]
+
+
+def test_exemplar_echo_boundary_5word_no_fire_6word_fires(monkeypatch):
+    """(15b) Measure-first boundary pair: a 5-word overlap with the
+    exemplar ("each one tells its own", one word short of the 6-word
+    window -- embedded so neither adjacent 6-gram in the exemplar
+    matches either) does NOT fire; the same passage extended by one
+    word to complete the genuine 6-gram ("each one tells its own
+    story") DOES fire."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+
+    five_word_draft = (
+        "Your life line shows lasting vitality. Each one tells its own "
+        "tale in every hand I read."
+    )
+    client5 = _FakeClient(content=five_word_draft)
+    result5 = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client5
+    )
+    assert not any("exemplar_echo" in f for f in result5.validation.failures)
+
+    six_word_draft = (
+        "Your life line shows lasting vitality. Each one tells its own "
+        "story in every hand I read."
+    )
+    client6 = _FakeClient(content=six_word_draft)
+    result6 = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client6
+    )
+    assert any(
+        f == "exemplar_echo: each one tells its own story"
+        for f in result6.validation.failures
+    )
+
+
+def test_exemplar_echo_normalization_case_punctuation_whitespace(monkeypatch):
+    """(15c) An overlap differing only in case, punctuation, and
+    whitespace-run-length still fires -- proves normalized-token
+    matching, not exact-string matching."""
+    weird_draft = (
+        "Your life line shows vitality.   EACH,   one   tells; ITS   own "
+        "STORY!!! in every hand."
+    )
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(content=weird_draft)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    assert any(
+        f == "exemplar_echo: each one tells its own story"
+        for f in result.validation.failures
+    )
+
+
+def test_exemplar_echo_does_not_fire_on_retrieved_chunk_quote(monkeypatch):
+    """(15d) Doctrine-quoting immunity: a draft sharing a 6-word span
+    with a RETRIEVED CHUNK (not an exemplar) must NOT fire -- quoting or
+    closely paraphrasing the provided passages is desired behavior (the
+    system prompt explicitly asks for it); the guard compares against
+    the 2 exemplar sentences ONLY, never retrieved chunks."""
+    doctrine_chunk = _chunk(
+        text="The line of life should be long narrow and deep without irregularities",
+        score=0.6,
+    )
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([doctrine_chunk]))
+    draft_quoting_chunk = (
+        "Your life line should be long narrow and deep without "
+        "irregularities, promising a strong constitution."
+    )
+    client = _FakeClient(content=draft_quoting_chunk)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    assert not any("exemplar_echo" in f for f in result.validation.failures)
+    assert result.validation.passed is True
+
+# (15e) existing-stub-rewording check: N/A this pass -- verified by
+# running the full pre-existing 27+9=36-test suite (items 1-14) against
+# the rewritten exemplars BEFORE writing any of the tests above; all 36
+# passed unchanged, so no stub text in this file happened to echo either
+# new exemplar sentence. Nothing to reword; the R3 convention ("fix the
+# stub, don't weaken the guard") simply had nothing to fix this time.

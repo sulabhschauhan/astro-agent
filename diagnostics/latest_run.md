@@ -1,135 +1,119 @@
-# S67: F5 capture schema — retry_used + per-source feature tags + support verdicts
+# S67 R2: exemplar rewrite + deterministic exemplar-echo validator
 
-Implementation report for closing the S66/S67 carry-forward register's
-two F5 capture schema gaps. Additive-only changes to
-`frontend/app.py`'s `_capture_dogfood_run()` + matching new tests in
-`tests/test_app_dogfood_capture.py`.
+Implementation report for R2, closing the S67 R1→R3→R2 sequence before
+Ring 3 pass 3. Two files, one commit (R1/R3 precedent).
 
 ## Files touched
 
-- `frontend/app.py` — `_capture_dogfood_run()` only. Nothing else in
-  the file touched.
-- `tests/test_app_dogfood_capture.py` — matching new tests.
+- `agent/interpretive/palm_reading.py` — exemplar rewrite, new Ring 1
+  validator, OCR-rationale rider comment (documentation only).
+- `tests/interpretive/test_palm_reading.py` — matching Ring 2 tests.
 
-`agent/interpretive/palm_reading.py` NOT touched, per the prompt's
-explicit constraint. No UI added for supported/unsupported features —
-display design remains an explicitly deferred decision.
+Nothing else touched. R1 retrieval, R3 gate/ban/decline,
+`generate_palm_reading`'s signature, and DISCLAIMER handling are
+unchanged.
 
-## Premise correction (verified against the actual committed code, not assumed)
+## Old vs. new exemplar block (verbatim)
 
-The task described the capture target as ".claude/read_prompt.md's
-DOGFOOD::: section." The ACTUAL code
-(`frontend/app.py`'s `_DOGFOOD_CAPTURE`/`_DOGFOOD_LOG_PATH`, confirmed
-by reading the file before editing) writes to
-**`diagnostics/dogfood_capture.md`** (gitignored, local-only) — never to
-`.claude/read_prompt.md`. The DOGFOOD::: content that has appeared in
-`.claude/read_prompt.md` in past sessions was manually pasted there by
-the user from `dogfood_capture.md`'s output, not written by this
-function. This doesn't change anything about the task's actual
-requirements (schema additions to the capture function, append-only
-behavior) — both are verified against the real target file below — but
-is noted here since it's a factual correction, not a silent
-assumption.
+**OLD** (F2c, `165484c` lineage — the doctrine-inversion vector):
+```
+## Voice
+Write in Cheiro's declarative register: direct assertions of what the hand indicates, tied to concrete consequences -- health, success won by personal merit, travel, character, fortune. This is a palmist reading a hand, not a therapist offering affirmation.
+Write in Cheiro's declarative register. Model sentences: "A deep, unbroken line of life promises long life, good health, and vitality." / "Such a fate line denotes success won by personal merit." Assert what the hand shows and what the tradition says it denotes -- concrete consequences, never affirmations about the reader's inner journey.
+FORBIDDEN words and phrasings (never use these, in any form): stability, fulfillment, fulfilling, favorable, journey, navigate, navigating, empower, empowerment, and any "this suggests you are the kind of person who..." self-help framing.
+```
 
-## Consumer/behavior checks
+**NEW** (S67 R2):
+```
+## Voice
+Write in Cheiro's declarative register: direct, confident assertions in period-appropriate diction, addressed straight to the reader. This is a palmist reading a hand, not a therapist offering affirmation -- speak with the authority of someone who has read thousands of hands and states plainly what each one shows.
+Model sentences (voice and cadence ONLY -- do not reuse or adapt ANY part of their wording, not even a short fragment; they contain no interpretive content of their own): "I have examined many hands in my years of practice, and each one tells its own story to those who know how to read it." / "The hand rarely lies to the palmist who reads it honestly." Every interpretive claim in your actual reading must come from the provided passages and the confirmed hand description(s) below -- these two sentences exist only to model tone, never as a source of content.
+FORBIDDEN words and phrasings (never use these, in any form): stability, fulfillment, fulfilling, favorable, journey, navigate, navigating, empower, empowerment, and any "this suggests you are the kind of person who..." self-help framing.
+```
 
-- **Append-only, never overwrite**: confirmed unchanged --
-  `_capture_dogfood_run()` still opens `_DOGFOOD_LOG_PATH` with
-  `open(..., "a", encoding="utf-8")` (line untouched by this edit).
-  Verified with a new dedicated test
-  (`test_capture_dogfood_run_still_appends_never_overwrites`) that two
-  successive captures both survive in the log.
-- **Existing captured fields keep their exact format**: `Confirmed
-  descriptions`, `reading_text`, and the `sources` line's
-  `book`/`page`/`score` portion are byte-identical to before — only a
-  `, feature: {feature}` suffix was appended to each source line, and
-  two wholly new lines/sections were added elsewhere. Nothing in the
-  pre-existing format was reordered, removed, or reformatted, so
-  cross-pass comparability (pass-2 artifact parsing) is preserved.
-- **`src["feature"]` availability**: confirmed present on every source
-  dict (R1's `sources = tuple({"book":..., "page":..., "score":...,
-  "feature": feature} for ...)` construction) — no contradiction found,
-  nothing to STOP and report.
+Note: the OLD block's opening sentence ("...tied to concrete
+consequences -- health, **success won by personal merit**, travel...")
+carried the SAME risky phrase as the quoted model sentence below it,
+outside of quotes — both instances are gone in the rewrite, not just
+the quoted one, since either could have served as a leak source.
+
+## Consumer/citation checks (verified, not assumed)
+
+- **"hfe" OCR garble**: confirmed present verbatim in
+  `diagnostics/ring3_chunks_S66.md` line 34 ("The line of fate may rise
+  from the line of hfe, the wrist...") — cited accurately in the new
+  rider comment.
+- **"palimistry" OCR garble**: the task prompt asked for this as a
+  second cited example. Grepped `diagnostics/` for "palimistry"
+  (case-insensitive) — **zero matches**, only correctly-spelled
+  "Palmistry" appears anywhere in the diagnostics corpus. This citation
+  could not be verified, so it was NOT included in the rider comment —
+  only the confirmed "hfe" example is cited. Flagging this rather than
+  fabricating a supporting citation.
 
 ## Design-to-code mapping
 
-| Change | Code |
+| Design decision | Code |
 |---|---|
-| `retry_used` line | New line in the `### ring1_validation` block: `lines.append(f"retry_used: {reading.retry_used}")`, after `passed`/`failures`, same `key: value` convention |
-| Per-source feature tag | Extended the existing source-line f-string: `f"- {src['book']}, p.{src['page']} (score: {src['score']}, feature: {src['feature']})"` (was: no feature clause) |
-| `supported_features`/`unsupported_features` | New `### feature_support` section, two lines, tuple `repr()` verbatim (registry order, since `PalmReadingResult`'s tuples are already registry-order per R3) |
+| Exemplar rewrite (zero transplantable doctrine) | `_READING_SYSTEM_PROMPT`'s `## Voice` block |
+| Exemplar sentences as an independent, explicit constant | `_EXEMPLAR_SENTENCES` (deliberately not parsed out of the prompt string — an editing-drift guard, same spirit as the SENSITIVE_TO convention) |
+| 6-gram window, justified by the exact pass-2 leaked span length | `_EXEMPLAR_ECHO_NGRAM = 6` |
+| Normalization (lowercase, strip punctuation, collapse whitespace) | `_normalize_for_echo_check` |
+| Precomputed exemplar n-gram set (O(1) lookup) | `_EXEMPLAR_NGRAMS` |
+| Positional (leftmost-first) n-gram scan of reading_text | `_ngrams` returns a list (not a set) — see bug note below |
+| The validator itself | `_check_exemplar_echo`, folded into `_run_ring1_checks` (now "six" validators) |
+| OCR-rationale asymmetry comment (chunk-side substring vs. LLM-output-side word-boundary) | `_chunk_supports_feature`'s docstring — comment only, zero logic change |
 
-## Example captured RUN block (synthetic, generated via the same code path)
+### Bug caught and fixed during implementation (not in the original design)
 
-```
-## RUN 2026-07-13T14:09:54.197832
-
-### Confirmed descriptions
-#### LEFT
-LIFE LINE: A long, deep life line.
-
-### reading_text
-Your life line shows steady vitality, promising sound health through the years ahead.
-
-A note on what I have not interpreted: the classical texts I work from do not clearly address the following as they appear in your hands: fate line, sun line. Rather than guess, I have left these out of your reading.
-
-For major life decisions, I recommend consulting a qualified astrologer or palm reader for a personal reading.
-
-### sources
-- cheiroslanguageo00chei_1, p.134 (score: 0.61, feature: life line)
-- cheiroslanguageo00chei_1, p.135 (score: 0.58, feature: life line)
-
-### feature_support
-supported_features: ('life line',)
-unsupported_features: ('fate line', 'sun line')
-
-### ring1_validation
-passed: True
-failures: ()
-retry_used: True
-```
-
-Generated by importing `frontend.app` directly, monkeypatching
-`_DOGFOOD_LOG_PATH` to a scratch file, and calling
-`_capture_dogfood_run()` with a synthetic `PalmReadingResult` (same
-technique the new tests use) — not hand-typed.
+First draft of `_ngrams()` returned a `set`. `_check_exemplar_echo`
+iterated that set looking for the first exemplar match — but set
+iteration order isn't the text's left-to-right order, so the reported
+`exemplar_echo: {n-gram}` string could be an ARBITRARY overlapping
+window, not necessarily the first one a human reading the draft top-to-
+bottom would notice. Caught by test 15a's own assertion (expected
+`"each one tells its own story"`, got `"its own story to those who"` —
+both genuinely overlap the exemplar, since "each one tells its own
+story to those who..." has multiple valid overlapping windows).
+Fixed: `_ngrams()` now returns a `list` (positional order preserved);
+the precomputed exemplar side (`_EXEMPLAR_NGRAMS`) stays a `frozenset`
+for O(1) membership testing, but the reading-text side is scanned
+in-order and returns on the first (leftmost) match.
 
 ## Test delta
 
-`tests/test_app_dogfood_capture.py`'s original 2 tests are AppTest
-load-time smoke tests only (flag off; flag on with no generation) —
-neither exercises `_capture_dogfood_run()`'s content at all, since
-AppTest drives simulated widget interactions and has no way to call an
-internal helper directly with a synthetic result. Both kept unchanged.
+Verified BEFORE writing any new tests: all 36 pre-existing tests
+(items 1–14, spanning R1/R3) pass unchanged against the rewritten
+exemplars — confirms item (e) ("existing stub texts... must be
+reworded") required no action this pass; nothing in the existing stub
+corpus happened to echo either new exemplar sentence.
 
-4 new tests added, using a bare `import frontend.app` + monkeypatched
-`_DOGFOOD_LOG_PATH` (a `tmp_path`, never the real gitignored log) to
-call `_capture_dogfood_run()` directly:
+4 new tests, hardest first:
 
-- `test_capture_dogfood_run_writes_retry_used_line` — `"retry_used:
-  True"` present (synthetic reading has `retry_used=True`).
-- `test_capture_dogfood_run_source_lines_carry_feature_tag` — derivation
-  comment: *"2 sources in the synthetic reading -> 2 source lines, each
-  carrying the 'feature' tag"* — exact line-format assertions for both.
-- `test_capture_dogfood_run_writes_feature_support_verdicts` — exact
-  `supported_features`/`unsupported_features` tuple-repr lines.
-- `test_capture_dogfood_run_still_appends_never_overwrites` — two
-  successive captures, first capture's full text still present as a
-  substring after the second (append, not truncate), `"###
-  feature_support"` count == 2.
-
-A bare `import frontend.app` prints noisy "missing ScriptRunContext...
-bare mode" Streamlit warnings to stderr but does not raise -- confirmed
-via a standalone check before writing these tests, not assumed; the
-module's top-level code (including `st.set_page_config`) executes once
-and is safe to import directly for this narrow purpose. This is a
-deliberate second test style alongside the file's existing AppTest
-tests, documented in the file's own docstring.
+- **(15a)** `test_exemplar_echo_guard_fires_first_draft_retried_clean` —
+  first draft reuses the verbatim 6-word span "each one tells its own
+  story"; validator fires, retry feedback names the exact n-gram; clean
+  retry passes. Derivation: *"1 observed feature (life line) -> 1
+  search call; 2 LLM calls (first draft trips exemplar_echo, retry is
+  clean)."*
+- **(15b)** `test_exemplar_echo_boundary_5word_no_fire_6word_fires` —
+  measure-first boundary pair: a 5-word overlap ("each one tells its
+  own", embedded so neither adjacent real 6-gram in the exemplar
+  matches) does not fire; extending by one word to complete the
+  genuine 6-gram does.
+- **(15c)** `test_exemplar_echo_normalization_case_punctuation_whitespace`
+  — same 6-gram in mixed case, with commas/semicolons/exclamation
+  marks and irregular whitespace runs, still fires.
+- **(15d)** `test_exemplar_echo_does_not_fire_on_retrieved_chunk_quote`
+  — a draft sharing a 6-word span with a RETRIEVED CHUNK (real
+  life-line doctrine text, not an exemplar) does NOT fire — the guard's
+  scope is the 2 exemplar sentences only, never the passages the
+  system prompt explicitly asks the model to draw from.
 
 ## Suite count
 
-`tests/test_app_dogfood_capture.py` alone: **6 passed** (2 original + 4
-new), 0 failures.
+`tests/interpretive/test_palm_reading.py` alone: **40 passed** (36
+R1/R3-era + 4 new), 0 failures on final run.
 
-Full suite: **3196 passed, 3 skipped** (was 3192/3 before this task —
+Full suite: **3200 passed, 3 skipped** (was 3196/3 before this task —
 net +4). Zero regressions elsewhere.
