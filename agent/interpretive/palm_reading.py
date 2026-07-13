@@ -17,6 +17,14 @@ CITATION (CLAUDE.md Session 65 Locked Decisions -- all four govern this module):
     (palm_processor.describe_palm_image output) before calling
     generate_palm_reading() -- this module does not re-verify that gate.
 
+LOCK LIFTED (S67 R1, design chat Conflict A ruling (b)): the S65/S66
+"hand_detail excluded from the RAG query" rule is REPEALED. That
+rationale (hand_detail was a supplementary photo analysis, not one of
+the two canonical palm descriptions) died when F1 (S66) gave
+hand_detail the same human-confirmation checkpoint as palm_left/
+palm_right -- it is now RAG-extraction-eligible on the same footing.
+See the per-feature retrieval section below.
+
 SCOPE LOCK: this module must NEVER import agent.infra.calc_router,
 agent.infra.orchestrator, or agent.infra.chart_profile. This is an
 upload-triggered artifact generator, not a routed Q&A domain -- pulling
@@ -38,38 +46,324 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# ─── RAG: Cheiro-filtered retrieval ────────────────────────────────────────
+# ─── RAG: Cheiro-filtered PER-FEATURE retrieval (S67 R1) ───────────────────
+#
+# Replaces the single whole-description query (pre-S67: one search() call
+# on the concatenated palm_left + palm_right text) with one query per
+# OBSERVED canonical hand feature. Ratified in design chat from the S67
+# measure-first probe (scripts/probe_r1_retrieval.py,
+# diagnostics/latest_run.md as committed by that script, commit 0a738c3):
+# the whole-description query mostly returned nomenclature/procedural
+# Cheiro text, not per-feature doctrine; per-feature queries using the
+# probe's variant (iii) template reliably surfaced the two known-doctrine
+# pages (p.134 life-line, p.163 fate-line) where they exist in the corpus.
+#
+# Field parsing + quality extraction below are PORTED from
+# scripts/probe_r1_retrieval.py's _parse_fields/_extract_quality/
+# _clean_quality_prefix/_build_feature_map -- same logic, cited not
+# reinvented. Two deliberate extensions beyond the probe (which only ever
+# read palm_left/palm_right):
+#   1. hand_detail is now a THIRD feature-extraction source, parsed with a
+#      second regex for its markdown "- **Label**: text" bullet format
+#      (describe_hand_detail_image's format differs from F4's flat
+#      "LABEL: text" fields -- see the S67 carry-forward flagging this for
+#      palm_processor.py's next touch). This is what the LOCK LIFTED note
+#      in the module docstring above is about.
+#   2. Both field parsers reset the "current field" on a blank line -- the
+#      probe's LEFT/RIGHT-only data never had a trailing non-field
+#      sentence after the last labeled field, but hand_detail's closing
+#      "These are the physical observations..." line does, and would
+#      otherwise silently glue onto the last bullet's text.
 
-# Exact ChromaDB book_name string (S12 fixed exact-string convention -- read
-# from ingestion/query_engine.py's multi_source_search() canonical 14-book
-# list, not typed from memory).
 _CHEIRO_BOOK = "cheiroslanguageo00chei_1"
 
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
-# Justification: legacy astrologer.py's DEFAULT_N_RESULTS=5 was validated at
-# S12 for palm-only queries at ~0.63 relevance; +1 here accounts for
-# two-hand synthesis needing coverage across both hands' descriptions from
-# a single retrieval call. Scope guard: governs ONLY this module's single
-# RAG call site -- does not alter query_engine.DEFAULT_N_RESULTS or any
-# other caller. Revisit trigger: if a Ring 3 human-rubric ratification pass
-# cites retrieved chunks as irrelevant, tune down before tuning up.
-_N_RESULTS = 6
+# Justification: S67 probe (diagnostics/latest_run.md, commit 0a738c3)
+# measured the worst doctrine-first-hit rank at 2 across all 8 provable
+# features under the ratified variant (iii) template -- +1 margin. Scope
+# guard: this module's per-feature call sites only -- does not alter
+# query_engine.DEFAULT_N_RESULTS or any other caller. Revisit trigger:
+# pass-3 claim ledgers showing support routinely landing at rank 3 -- go
+# to 4 before blaming the template.
+_N_RESULTS_PER_FEATURE = 3
 
-# Query text is the concatenation of the available hand descriptions
-# (hand_detail is deliberately excluded from the RAG query -- it is still
-# passed to the LLM in the user message, but is a supplementary photograph
-# analysis, not one of the two canonical "palm descriptions").
-#
+_FEATURE_REGISTRY: tuple[str, ...] = (
+    "life line", "head line", "heart line", "fate line", "sun line",
+    "thumb", "fingers", "mount of venus", "mount of jupiter",
+    "markings/other features",
+)
+
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
-# Justification: Ring 3 pass 1 (diagnostics/ring3_chunks_S66.md) proved the
-# prior 500-char cap silently truncated the query inside the LEFT
-# description, dropping the RIGHT hand from retrieval entirely -- two
-# observed ~600-char vision descriptions must both survive into the query
-# for two-hand retrieval to work as designed. Scope guard: this call site
-# only. Revisit trigger: a future F4 describe-prompt change that materially
-# alters vision-description length (shorter or longer) should re-derive
-# this cap from the new observed lengths, not assume 2000 still fits.
-_QUERY_TRUNCATE_CHARS = 2000
+# Justification: S67 probe-proven -- querying an absence-phrased field
+# (e.g. "No clear marks visible") returns junk (markings tables, scores
+# 0.33-0.47), not doctrine. A feature is skipped (no query) only when
+# EVERY source that mentions it uses one of these phrases; a single
+# non-absent mentioning source is enough to proceed to a real query.
+# Scope guard: this module's per-feature gate only. Revisit trigger: a
+# future pass-3 finding that one of these phrases is itself informative
+# for some feature (none observed yet).
+_ABSENCE_PHRASES: tuple[str, ...] = (
+    "not clearly visible", "no clear marks", "unremarkable",
+    "not observed", "not visible", "none",
+)
+
+_FIELD_LINE = re.compile(r"^([A-Z][A-Z ]{2,}):\s*(.*)$")
+_BULLET_FIELD = re.compile(r"^-\s*\*\*([^*]+)\*\*:\s*(.*)$")
+
+
+def _parse_fields(block: str) -> dict[str, str]:
+    """palm_left/palm_right's flat 'LABEL: text' fields (F4 format).
+    Ported from scripts/probe_r1_retrieval.py's _parse_fields (blank-line
+    reset added, see module-level comment above)."""
+    fields: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in block.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            current = None
+            continue
+        m = _FIELD_LINE.match(stripped)
+        if m:
+            current = m.group(1).strip()
+            fields[current] = [m.group(2).strip()]
+        elif current:
+            fields[current].append(stripped)
+    return {k: " ".join(v).strip() for k, v in fields.items()}
+
+
+def _parse_bullet_fields(block: str) -> dict[str, str]:
+    """hand_detail's markdown '- **Label**: text' fields, including
+    nested bullets under 'Visible Lines' (indentation is irrelevant to
+    the regex, since every line is .strip()'d before matching)."""
+    fields: dict[str, list[str]] = {}
+    current: str | None = None
+    for line in block.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            current = None
+            continue
+        m = _BULLET_FIELD.match(stripped)
+        if m:
+            current = m.group(1).strip()
+            fields[current] = [m.group(2).strip()]
+        elif current:
+            fields[current].append(stripped)
+    return {k: " ".join(v).strip() for k, v in fields.items()}
+
+
+def _extract_quality(text: str) -> str:
+    """First non-generic descriptive clause: a bare leading 'Present' is
+    uninformative on its own, so skip it and take the next clause;
+    otherwise use the first clause as-is. Ported from
+    scripts/probe_r1_retrieval.py's _extract_quality."""
+    clauses = [c.strip() for c in text.rstrip(".").split(",")]
+    if clauses[0].lower() == "present" and len(clauses) > 1:
+        return clauses[1].lower()
+    return clauses[0].lower()
+
+
+def _clean_quality_prefix(quality: str, feature: str) -> str:
+    """Strips a leading self-referential mention of the feature name plus
+    a linking verb (e.g. 'sun line is faintly visible' -> 'faintly
+    visible') so the query template's '{quality} {feature}' doesn't
+    duplicate the feature name. Ported from
+    scripts/probe_r1_retrieval.py's _clean_quality_prefix."""
+    q = quality.strip()
+    fl = feature.lower()
+    if q.lower().startswith(fl):
+        q = q[len(fl):].strip()
+    for verb in ("is ", "appears ", "are "):
+        if q.lower().startswith(verb):
+            q = q[len(verb):].strip()
+            break
+    return q or quality
+
+
+def _is_absence(text: str) -> bool:
+    low = text.lower()
+    return any(phrase in low for phrase in _ABSENCE_PHRASES)
+
+
+def _extract_needle_clause(text: str, needle: str) -> str:
+    """For a multi-clause MOUNTS-style field that may only PARTLY concern
+    the sub-feature (e.g. 'Mount of Venus appears developed, other
+    mounts are unremarkable' only concerns Venus in its first clause),
+    return just the clause(s) naming the needle. Without this, an
+    unrelated clause's absence phrase (here, 'unremarkable' about a
+    DIFFERENT mount) would wrongly flag the whole field absent and drop
+    a genuinely observed quality ('developed')."""
+    clauses = [c.strip() for c in text.split(",")]
+    matching = [c for c in clauses if needle in c.lower()]
+    return ", ".join(matching) if matching else text
+
+
+# feature -> (palm_left/palm_right flat field label, hand_detail bullet
+# label) for features that ARE a field, not a sub-mention within one.
+_PLAIN_FEATURE_FIELDS: dict[str, tuple[str, str]] = {
+    "life line": ("LIFE LINE", "Life Line"),
+    "head line": ("HEAD LINE", "Head Line"),
+    "heart line": ("HEART LINE", "Heart Line"),
+    "fate line": ("FATE LINE", "Fate Line"),
+    "thumb": ("THUMB", "Thumb"),
+    "fingers": ("FINGERS", "Finger Lengths"),
+}
+
+# feature -> (flat field label, hand_detail bullet label or "" if none,
+# needle) for sub-features named within a generic multi-purpose field
+# (OTHER LINES may or may not name the sun line; MOUNTS may or may not
+# name Venus/Jupiter specifically).
+_SUB_FEATURES: tuple[tuple[str, str, str, str], ...] = (
+    ("sun line", "OTHER LINES", "", "sun"),
+    ("mount of venus", "MOUNTS", "Mounts", "venus"),
+    ("mount of jupiter", "MOUNTS", "Mounts", "jupiter"),
+)
+
+
+def _gather_feature_texts(
+    left_fields: dict[str, str],
+    right_fields: dict[str, str],
+    hd_fields: dict[str, str],
+) -> dict[str, list[str]]:
+    """{feature: [raw_text, ...]} -- every text from any source (LEFT,
+    RIGHT, hand_detail) that represents or names that feature, before
+    absence filtering."""
+    texts: dict[str, list[str]] = {f: [] for f in _FEATURE_REGISTRY}
+
+    for feature, (flat_label, bullet_label) in _PLAIN_FEATURE_FIELDS.items():
+        for fields in (left_fields, right_fields):
+            v = fields.get(flat_label)
+            if v:
+                texts[feature].append(v)
+        v = hd_fields.get(bullet_label)
+        if v:
+            texts[feature].append(v)
+
+    for fields in (left_fields, right_fields):
+        v = fields.get("MARKS")
+        if v:
+            texts["markings/other features"].append(v)
+    for bullet_label in ("Markings", "Other Features"):
+        v = hd_fields.get(bullet_label)
+        if v:
+            texts["markings/other features"].append(v)
+
+    for feature, flat_label, bullet_label, needle in _SUB_FEATURES:
+        for fields in (left_fields, right_fields):
+            v = fields.get(flat_label)
+            if v and needle in v.lower():
+                texts[feature].append(_extract_needle_clause(v, needle))
+        if bullet_label:
+            v = hd_fields.get(bullet_label)
+            if v and needle in v.lower():
+                texts[feature].append(_extract_needle_clause(v, needle))
+
+    return texts
+
+
+def _resolve_feature_quality(feature: str, raw_texts: list[str]) -> str | None:
+    """None = no query -- either not observed by any source, or every
+    mentioning source is absence-phrased. Otherwise the merged
+    '{quality}' string for the variant-iii template (distinct per-source
+    qualities joined with ' / ', per the probe-ratified merge rule).
+
+    FAIL OPEN: a non-absent text that yields a degenerate quality (empty,
+    or the bare word 'present') is queried with its own raw field text
+    instead of being silently dropped -- junk retrieval is recoverable,
+    silently dropped features are the S23 failure mode."""
+    if not raw_texts:
+        return None
+
+    non_absent = [t for t in raw_texts if not _is_absence(t)]
+    if not non_absent:
+        return None
+
+    qualities: list[str] = []
+    for t in non_absent:
+        q = _clean_quality_prefix(_extract_quality(t), feature)
+        if not q or q.strip().lower() == "present":
+            logger.warning(
+                "palm_reading._resolve_feature_quality: fail-open for "
+                "feature=%r -- quality extraction degenerate on %r, "
+                "querying with raw field text instead.",
+                feature, t,
+            )
+            q = t.rstrip(".")
+        qualities.append(q.lower())
+
+    seen: list[str] = []
+    for q in qualities:
+        if q not in seen:
+            seen.append(q)
+    return " / ".join(seen)
+
+
+def _build_feature_query(feature: str, quality: str) -> str:
+    """Ratified variant (iii), verbatim shape from the S67 probe."""
+    noun = feature.split("/")[0]
+    return (
+        f"what does a {quality} {noun} signify — meaning and indications "
+        f"of a {quality} {noun}"
+    )
+
+
+def _retrieve_per_feature(
+    left_fields: dict[str, str],
+    right_fields: dict[str, str],
+    hd_fields: dict[str, str],
+) -> tuple[dict[str, list[dict]], list[str]]:
+    """Returns (per_feature_results, failed_features).
+    per_feature_results is in _FEATURE_REGISTRY order, every feature
+    present as a key (empty list if skipped or the search call failed) --
+    this map, not just what's displayed, is the future R3 evidence
+    structure, so every assignment is kept even when a chunk_id repeats
+    across features."""
+    texts_by_feature = _gather_feature_texts(left_fields, right_fields, hd_fields)
+    results: dict[str, list[dict]] = {}
+    failed: list[str] = []
+    for feature in _FEATURE_REGISTRY:
+        quality = _resolve_feature_quality(feature, texts_by_feature[feature])
+        if quality is None:
+            results[feature] = []
+            continue
+        query = _build_feature_query(feature, quality)
+        try:
+            results[feature] = search(
+                query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK
+            )
+        except Exception as exc:  # noqa: BLE001 -- one bad query must not kill the reading
+            logger.warning(
+                "palm_reading._retrieve_per_feature: search failed for "
+                "feature=%r: %s", feature, exc,
+            )
+            failed.append(feature)
+            results[feature] = []
+    return results, failed
+
+
+def _assemble_retrieved_passages(
+    per_feature_results: dict[str, list[dict]],
+) -> tuple[str, int]:
+    """Groups passages under '### {feature}' headings, registry order. A
+    chunk_id already displayed under an earlier feature is skipped for
+    DISPLAY only (token economy) -- per_feature_results itself keeps
+    every feature's full assignment untouched. Returns (assembled_text,
+    total chunk assignments across all features, pre-dedupe -- used to
+    decide the empty-retrieval low-confidence path)."""
+    lines: list[str] = []
+    seen_chunk_ids: set[str] = set()
+    total = 0
+    for feature, chunks in per_feature_results.items():
+        total += len(chunks)
+        display_chunks = [c for c in chunks if c["chunk_id"] not in seen_chunk_ids]
+        if not display_chunks:
+            continue
+        lines.append(f"### {feature}")
+        for c in display_chunks:
+            lines.append(f"p.{c['page_ref']} (score: {c['score']})")
+            lines.append(c["text"])
+            lines.append("")
+            seen_chunk_ids.add(c["chunk_id"])
+    return "\n".join(lines).rstrip(), total
 
 
 # ─── System prompt ──────────────────────────────────────────────────────
@@ -294,7 +588,11 @@ def generate_palm_reading(
     Args:
         palm_left: Left-hand description (already user-confirmed), or None.
         palm_right: Right-hand description (already user-confirmed), or None.
-        hand_detail: Optional supplementary hand-photograph analysis.
+        hand_detail: Optional supplementary hand-photograph analysis --
+                     appears verbatim in the user message as before, AND
+                     (S67 R1) is now also parsed for per-feature RAG
+                     retrieval, on the same footing as palm_left/
+                     palm_right (see the LOCK LIFTED docstring note above).
         client: Test-only injection seam (Stage 2 precedent, calc_router.py's
                 `_stage2_classify`) -- production callers omit this; a real
                 OpenAI client is constructed lazily when None.
@@ -324,22 +622,33 @@ def generate_palm_reading(
             "is insufficient input by design."
         )
 
-    query_text = " ".join(d for d in (palm_left, palm_right) if d)[:_QUERY_TRUNCATE_CHARS]
-    raw_sources = search(query_text, n_results=_N_RESULTS, book_name=_CHEIRO_BOOK)
+    left_fields = _parse_fields(palm_left) if palm_left else {}
+    right_fields = _parse_fields(palm_right) if palm_right else {}
+    hd_fields = _parse_bullet_fields(hand_detail) if hand_detail else {}
+    per_feature_results, failed_features = _retrieve_per_feature(
+        left_fields, right_fields, hd_fields
+    )
+    if failed_features:
+        logger.warning(
+            "palm_reading.generate_palm_reading: retrieval failed for "
+            "features: %s -- reading proceeds without them.",
+            ", ".join(failed_features),
+        )
+    assembled_passages, total_chunks = _assemble_retrieved_passages(per_feature_results)
 
     system_prompt = _READING_SYSTEM_PROMPT
-    if not raw_sources:
+    if total_chunks == 0:
         logger.info("palm_reading.generate_palm_reading: empty RAG results -- proceeding with low-confidence caveat, not refusing.")
         system_prompt += _LOW_CONFIDENCE_ADDENDUM
 
     lines: list[str] = []
-    if raw_sources:
-        lines += ["Retrieved passages (Cheiro's Language of the Hand):", "---"]
-        for i, r in enumerate(raw_sources, 1):
-            lines.append(f"[{i}] p.{r['page_ref']} (score: {r['score']})")
-            lines.append(r["text"])
-            lines.append("")
-        lines.append("---")
+    if assembled_passages:
+        lines += [
+            "Retrieved passages (Cheiro's Language of the Hand):",
+            "---",
+            assembled_passages,
+            "---",
+        ]
     if palm_left:
         lines.append(f"\nLEFT HAND (innate potential):\n{palm_left}")
     if palm_right:
@@ -376,7 +685,9 @@ def generate_palm_reading(
 
     context_corpus = " ".join(
         part for part in (palm_left, palm_right, hand_detail) if part
-    ) + " " + " ".join(r["text"] for r in raw_sources)
+    ) + " " + " ".join(
+        c["text"] for chunks in per_feature_results.values() for c in chunks
+    )
 
     failures = _run_ring1_checks(reading_text, context_corpus)
     retry_used = False
@@ -418,8 +729,14 @@ def generate_palm_reading(
     final_text = reading_text.rstrip() + "\n\n" + DISCLAIMER
 
     sources = tuple(
-        {"book": r["book_name"], "page": r["page_ref"], "score": r["score"]}
-        for r in raw_sources
+        {
+            "book": c["book_name"],
+            "page": c["page_ref"],
+            "score": c["score"],
+            "feature": feature,
+        }
+        for feature, chunks in per_feature_results.items()
+        for c in chunks
     )
 
     return PalmReadingResult(
