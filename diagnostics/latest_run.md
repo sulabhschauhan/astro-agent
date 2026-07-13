@@ -1,156 +1,135 @@
-# S67 R3: deterministic per-feature support gate + decline mechanism
+# S67: F5 capture schema — retry_used + per-source feature tags + support verdicts
 
-Implementation report for the R3 support gate (`agent/interpretive/palm_reading.py`)
-+ matching Ring 2 update (`tests/interpretive/test_palm_reading.py`).
-Builds on R1 (commit `8c1b8ab`) as committed — R1's structure
-(`_retrieve_per_feature`, `_gather_feature_texts`, `_assemble_retrieved_passages`,
-registry-order per-feature map) was read first and left untouched; R3
-inserts a gating layer between R1's retrieval and prompt assembly.
+Implementation report for closing the S66/S67 carry-forward register's
+two F5 capture schema gaps. Additive-only changes to
+`frontend/app.py`'s `_capture_dogfood_run()` + matching new tests in
+`tests/test_app_dogfood_capture.py`.
 
 ## Files touched
 
-- `agent/interpretive/palm_reading.py` — production gate + decline mechanism.
-- `tests/interpretive/test_palm_reading.py` — matching Ring 2 update (same commit).
+- `frontend/app.py` — `_capture_dogfood_run()` only. Nothing else in
+  the file touched.
+- `tests/test_app_dogfood_capture.py` — matching new tests.
 
-Nothing else touched.
+`agent/interpretive/palm_reading.py` NOT touched, per the prompt's
+explicit constraint. No UI added for supported/unsupported features —
+display design remains an explicitly deferred decision.
 
-## Consumer-compatibility check (before coding)
+## Premise correction (verified against the actual committed code, not assumed)
 
-`PalmReadingResult` gains two NEW fields (`supported_features`,
-`unsupported_features`). Grepped `PalmReadingResult(` across the whole
-repo before touching the dataclass: the only construction site is
-`generate_palm_reading` itself (`agent/interpretive/palm_reading.py`) —
-no other module constructs it directly, so adding required fields
-(rather than defaulted ones) is safe; the single call site was updated
-in the same edit. No consumer contradicted the instructions; nothing to
-STOP and report.
+The task described the capture target as ".claude/read_prompt.md's
+DOGFOOD::: section." The ACTUAL code
+(`frontend/app.py`'s `_DOGFOOD_CAPTURE`/`_DOGFOOD_LOG_PATH`, confirmed
+by reading the file before editing) writes to
+**`diagnostics/dogfood_capture.md`** (gitignored, local-only) — never to
+`.claude/read_prompt.md`. The DOGFOOD::: content that has appeared in
+`.claude/read_prompt.md` in past sessions was manually pasted there by
+the user from `dogfood_capture.md`'s output, not written by this
+function. This doesn't change anything about the task's actual
+requirements (schema additions to the capture function, append-only
+behavior) — both are verified against the real target file below — but
+is noted here since it's a factual correction, not a silent
+assumption.
 
-## Design-decision → code mapping
+## Consumer/behavior checks
 
-| Design decision | Code |
+- **Append-only, never overwrite**: confirmed unchanged --
+  `_capture_dogfood_run()` still opens `_DOGFOOD_LOG_PATH` with
+  `open(..., "a", encoding="utf-8")` (line untouched by this edit).
+  Verified with a new dedicated test
+  (`test_capture_dogfood_run_still_appends_never_overwrites`) that two
+  successive captures both survive in the log.
+- **Existing captured fields keep their exact format**: `Confirmed
+  descriptions`, `reading_text`, and the `sources` line's
+  `book`/`page`/`score` portion are byte-identical to before — only a
+  `, feature: {feature}` suffix was appended to each source line, and
+  two wholly new lines/sections were added elsewhere. Nothing in the
+  pre-existing format was reordered, removed, or reformatted, so
+  cross-pass comparability (pass-2 artifact parsing) is preserved.
+- **`src["feature"]` availability**: confirmed present on every source
+  dict (R1's `sources = tuple({"book":..., "page":..., "score":...,
+  "feature": feature} for ...)` construction) — no contradiction found,
+  nothing to STOP and report.
+
+## Design-to-code mapping
+
+| Change | Code |
 |---|---|
-| Needle registry (10 features, OCR-robust short forms) | `palm_reading._SUPPORT_NEEDLES` |
-| Support gate: needle-contains AND score >= 0.30 | `_chunk_supports_feature`, `_SUPPORT_SCORE_FLOOR` |
-| Gate applied to R1's map, registry order, both output tuples | `_apply_support_gate` |
-| Genuine-negative-absence exemption ("no clear marks visible"-style) | `_is_genuine_negative_absence` |
-| LLM-side ban (system prompt rule, no LLM-authored decline text) | New "STRICT SCOPE (S67 R3)" bullet in `_READING_SYSTEM_PROMPT`'s "## How you read" |
-| Ring 1 banned-mention check (word-boundary) | `_check_banned_feature_mentions`, folded into `_run_ring1_checks` (now takes `unsupported_features`) |
-| Decline block (Python-owned, fixed template) | `_DECLINE_BLOCK_TEMPLATE`, `_build_decline_block`, `_FEATURE_DISPLAY_NAMES` |
-| Decline block ordering (before DISCLAIMER) | `generate_palm_reading`'s `final_text` assembly |
-| Zero-support path reuses low-confidence trigger | `total_chunks` now computed from `gated_results`, not R1's raw `per_feature_results` — the SAME `if total_chunks == 0:` check now fires whenever every chunk is gated out, not just when retrieval itself was empty |
-| `sources`/`context_corpus`/assembled prompt all reflect GATED chunks only | `generate_palm_reading` now threads `gated_results` (not `per_feature_results`) through all three downstream uses |
-| Result surface: `supported_features`/`unsupported_features` | `PalmReadingResult` dataclass + `generate_palm_reading`'s return |
-| Ring 1 / F2c retry cap / DISCLAIMER / system prompt structure | UNCHANGED except the one new STRICT SCOPE bullet |
-| `generate_palm_reading` signature | UNCHANGED |
+| `retry_used` line | New line in the `### ring1_validation` block: `lines.append(f"retry_used: {reading.retry_used}")`, after `passed`/`failures`, same `key: value` convention |
+| Per-source feature tag | Extended the existing source-line f-string: `f"- {src['book']}, p.{src['page']} (score: {src['score']}, feature: {src['feature']})"` (was: no feature clause) |
+| `supported_features`/`unsupported_features` | New `### feature_support` section, two lines, tuple `repr()` verbatim (registry order, since `PalmReadingResult`'s tuples are already registry-order per R3) |
 
-## Gate decision table — pass-2 LEFT/RIGHT/HAND_DETAIL fixture (live retrieval, R1's actual chunks)
+## Example captured RUN block (synthetic, generated via the same code path)
 
-Ran R1's real per-feature retrieval (live ChromaDB, same as the R1
-rider) then applied R3's gate on top — not stubbed, since a live check
-was already cheap and available; "stubbed is fine" per the prompt, this
-is the stronger real-data version of the same check.
-
-| Feature | Raw chunks | Surviving | Excluded (page, reason) |
-|---|---|---|---|
-| life line | 3 | 3 | — |
-| head line | 3 | 3 | — |
-| heart line | 3 | 3 | — |
-| fate line | 3 | 3 | — |
-| sun line | 3 | 3 | — |
-| thumb | 3 | 3 | — |
-| fingers | 3 | 3 | — |
-| mount of venus | 3 | 3 | — |
-| mount of jupiter | 3 | 2 | p.111 (no "jupiter" needle — it's the Mount-of-Venus chapter's opening, correctly excluded) |
-| markings/other features | 3 | 2 | p.221 (no markings/hair needle — an unrelated crime-physiognomy passage, correctly excluded) |
-
-**Result for this fixture: `supported_features` = all 10 registry
-features (registry order); `unsupported_features` = () (empty);
-decline block omitted entirely.** This is a real, credible example of
-the gate doing its job (2 chunks excluded for lacking any real
-connection to their retrieved feature) without any feature ending up
-fully unsupported, since this particular fixture's per-feature queries
-happened to surface at least one genuinely on-topic chunk everywhere.
-The doctrine-inversion scenario the gate exists to catch (ALL 3 chunks
-for a feature failing the needle check) is exercised by test 14a
-instead, with synthetic non-doctrine chunks modeled directly on the
-real nomenclature/procedural chunks from R1's pass-2 evidence
-(`diagnostics/ring3_chunks_S66_pass2.md` — Chapter II line-listing,
-"lines of head and heart", modus-operandi passages).
-
-## Test delta (derivation comments quoted verbatim)
-
-21 R1-era tests required fixture edits — NOT because the gate itself
-was wrong, but because several shared stub texts (used across many
-now-single-feature tests) named OTHER features for narrative flavor,
-which the new banned-mention validator correctly flags once those
-other features are unsupported. Per the "fix the stub, don't weaken the
-gate" instruction, every fix is a text edit with a comment, not a gate
-change:
-
-```python
-# S67 R3: rewritten LIFE-LINE-ONLY (was: life+heart+head+fate) -- most
-# consuming tests' synthetic palm_left now observes exactly ONE feature
-# (life line), so a stub draft naming heart/head/fate lines would trip
-# the new banned-mention validator on those unsupported features.
-_CLEAN_STUB_TEXT = (...)
 ```
-Same pattern applied to `_JARGON_STUB_TEXT` ("mark" -> "sign"),
-`_NAVIGATED_STUB_TEXT` ("head line" -> "life line"),
-`_MULTI_TERM_STUB_TEXT` (heart/head/fate -> life line, self-help words
-`fulfilling`/`journey` preserved unchanged), `_CHEIRO_VOICE_STUB_TEXT`
-(thumb/heart/head/fate -> life line only), `test_sources_propagate_book_page_score`'s
-two chunk texts (needed a "life" needle to survive the gate at all),
-and item 13e's dedupe test chunk (needed BOTH "life" and "head" needles
-since the same chunk is checked against 2 different features' needle
-sets).
+## RUN 2026-07-13T14:09:54.197832
 
-`test_empty_retrieval_proceeds_with_low_confidence_caveat` needed a
-NEW genuinely feature-neutral stub (`_GENERIC_NO_FEATURE_STUB_TEXT`,
-contains none of the 10 features' needles) — in this test, life line
-itself ends up unsupported (search returns nothing), so EVERY registry
-feature is unsupported, and the old `_CLEAN_STUB_TEXT` (which names the
-life line) would have forced a retry, confounding the test's original
-"exactly 1 LLM call" point.
+### Confirmed descriptions
+#### LEFT
+LIFE LINE: A long, deep life line.
 
-New tests (9 functions — 14b and 14d each pair a main scenario with one
-companion boundary case), hardest first:
+### reading_text
+Your life line shows steady vitality, promising sound health through the years ahead.
 
-- **(14a)** `test_doctrine_inversion_guard_fate_unsupported_first_draft_retried_clean`
-  — fate line observed, all 3 chunks fail the needle check (synthetic
-  nomenclature/procedural chunks) -> first draft names "the fate line"
-  -> banned-mention fires -> clean retry passes (2 calls), decline
-  block names it.
-- **(14b)** `test_needle_collision_battery_sunday_sunny_remarkable_marked_do_not_trip`
-  + companion `test_needle_collision_battery_genuine_sun_line_mention_fires`
-  — "sunny"/"Sunday"/"remarkable"/"marked" never trip (word-boundary
-  verified with a standalone regex check before writing the tests: all
-  4 confirmed non-matching against `\b(sun|mark|...)\b`); a genuine
-  standalone "sun line" mention does fire and retries clean.
-- **(14c)** `test_score_floor_boundary_029_excluded_031_included` — same
-  needle-passing text at 0.29 (excluded) vs. 0.31 (survives), boundary
-  pair, measure-first style (mirrors R1's fabricated-year boundary
-  pair convention).
-- **(14d)** `test_decline_block_exact_text_two_feature_list` (exactly 2
-  unsupported features via explicit-by-name absence-phrasing on every
-  other field, so the exempted genuine-negative-absence features don't
-  pollute the list) + companion
-  `test_decline_block_absent_when_all_observed_features_supported`
-  (block omitted ENTIRELY, not an empty note).
-- **(14e)** `test_zero_support_path_routes_to_low_confidence_with_full_decline`
-  — search returns a real (non-empty) but off-topic chunk; zero
-  features survive the gate; routes to the same low-confidence path as
-  a genuinely empty retrieval, full 10-feature decline block.
-- **(14f)** `test_supported_unsupported_tuples_propagate_in_registry_order`
-  — 3 features given in non-registry input order (fate, heart, life);
-  output tuples reflect `_FEATURE_REGISTRY` order regardless.
-- **(14g)** `test_f2c_cap_unchanged_banned_mention_fails_both_drafts_stays_failed`
-  — banned mention on both drafts -> exactly 2 LLM calls (HARD CAP
-  unchanged), fail-closed, second draft's failure reported.
+A note on what I have not interpreted: the classical texts I work from do not clearly address the following as they appear in your hands: fate line, sun line. Rather than guess, I have left these out of your reading.
+
+For major life decisions, I recommend consulting a qualified astrologer or palm reader for a personal reading.
+
+### sources
+- cheiroslanguageo00chei_1, p.134 (score: 0.61, feature: life line)
+- cheiroslanguageo00chei_1, p.135 (score: 0.58, feature: life line)
+
+### feature_support
+supported_features: ('life line',)
+unsupported_features: ('fate line', 'sun line')
+
+### ring1_validation
+passed: True
+failures: ()
+retry_used: True
+```
+
+Generated by importing `frontend.app` directly, monkeypatching
+`_DOGFOOD_LOG_PATH` to a scratch file, and calling
+`_capture_dogfood_run()` with a synthetic `PalmReadingResult` (same
+technique the new tests use) — not hand-typed.
+
+## Test delta
+
+`tests/test_app_dogfood_capture.py`'s original 2 tests are AppTest
+load-time smoke tests only (flag off; flag on with no generation) —
+neither exercises `_capture_dogfood_run()`'s content at all, since
+AppTest drives simulated widget interactions and has no way to call an
+internal helper directly with a synthetic result. Both kept unchanged.
+
+4 new tests added, using a bare `import frontend.app` + monkeypatched
+`_DOGFOOD_LOG_PATH` (a `tmp_path`, never the real gitignored log) to
+call `_capture_dogfood_run()` directly:
+
+- `test_capture_dogfood_run_writes_retry_used_line` — `"retry_used:
+  True"` present (synthetic reading has `retry_used=True`).
+- `test_capture_dogfood_run_source_lines_carry_feature_tag` — derivation
+  comment: *"2 sources in the synthetic reading -> 2 source lines, each
+  carrying the 'feature' tag"* — exact line-format assertions for both.
+- `test_capture_dogfood_run_writes_feature_support_verdicts` — exact
+  `supported_features`/`unsupported_features` tuple-repr lines.
+- `test_capture_dogfood_run_still_appends_never_overwrites` — two
+  successive captures, first capture's full text still present as a
+  substring after the second (append, not truncate), `"###
+  feature_support"` count == 2.
+
+A bare `import frontend.app` prints noisy "missing ScriptRunContext...
+bare mode" Streamlit warnings to stderr but does not raise -- confirmed
+via a standalone check before writing these tests, not assumed; the
+module's top-level code (including `st.set_page_config`) executes once
+and is safe to import directly for this narrow purpose. This is a
+deliberate second test style alongside the file's existing AppTest
+tests, documented in the file's own docstring.
 
 ## Suite count
 
-`tests/interpretive/test_palm_reading.py` alone: **36 passed** (27
-R1-era + 9 new), 0 failures on final run.
+`tests/test_app_dogfood_capture.py` alone: **6 passed** (2 original + 4
+new), 0 failures.
 
-Full suite: **3192 passed, 3 skipped** (was 3183/3 before this task —
-net +9). Zero regressions elsewhere.
+Full suite: **3196 passed, 3 skipped** (was 3192/3 before this task —
+net +4). Zero regressions elsewhere.

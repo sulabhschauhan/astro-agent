@@ -71,14 +71,30 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
 
     lines.append("### sources")
     # score is already round(..., 4) at the source (ingestion/query_engine.py)
-    # -- same value the UI renders, not reformatted here.
+    # -- same value the UI renders, not reformatted here. S67 R1 added a
+    # "feature" tag to every source dict; captured here so Ring 3 pass 3's
+    # P1 claim ledger can score per-feature support directly from this
+    # capture instead of forensically re-deriving it (pass-2's gap).
     for src in reading.sources:
-        lines.append(f"- {src['book']}, p.{src['page']} (score: {src['score']})")
+        lines.append(f"- {src['book']}, p.{src['page']} (score: {src['score']}, feature: {src['feature']})")
+    lines.append("")
+
+    # S67 R3: registry-order supported/unsupported feature verdicts,
+    # captured verbatim (tuple repr) -- the other half of the P1
+    # claim-ledger evidence the source lines' feature tags feed into.
+    lines.append("### feature_support")
+    lines.append(f"supported_features: {reading.supported_features}")
+    lines.append(f"unsupported_features: {reading.unsupported_features}")
     lines.append("")
 
     lines.append("### ring1_validation")
     lines.append(f"passed: {reading.validation.passed}")
     lines.append(f"failures: {reading.validation.failures}")
+    # S67 F2c added retry_used to PalmReadingResult but F5's original
+    # capture never recorded it -- Ring 3 pass 2 could not tell whether
+    # any of its 3 captured runs needed the validator-fed retry. Captured
+    # here, alongside the other Ring 1 outcome fields.
+    lines.append(f"retry_used: {reading.retry_used}")
     lines.append("")
 
     _DOGFOOD_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
