@@ -3022,3 +3022,142 @@ Docs closeout: this commit ("S65 close: docs").
 - Ring 3 human-rubric ratification artifact pending -- per the T4
   golden semantics ruling (b) above, the T4 layer is not considered
   ratified-live until this artifact exists; S66 head candidate.
+
+## Session 66 -- Ring 3 human-rubric dogfood: review-debt settled, nested-expander crash fixed, pass 1 SCORED NOT RATIFIED -> F1-F5 fix-forwards -> pass 2 SCORED NOT RATIFIED (P1 grounding gap surfaced, voice fixed) (2026-07-12)
+
+### Review-debt settlement (4b/4d CONDITIONAL -> RATIFIED)
+S65's 4b (AstroSage terminal-bare display) and 4d (app.py question-path
+rewire) had landed CONDITIONAL pending a verification pass. `1a123dd`
+verified both against the live wiring and surfaced two fix-forwards,
+landed atomically in `d88d026`: dead `nudges`-branching residue removed
+from `app.py` (provably unreferenced post-4d), and `astrosage_parser.py`'s
+section splitter changed from a positional heuristic to a name-anchored
+regex against the real AstroSage PDF's section headers (first real-data
+exercise of the splitter). Both 4b and 4d re-verified RATIFIED after the
+fix-forwards; `1e0ce5f` archives the original 4b diagnostics report as
+part of the audit trail.
+
+### Nested-expander crash fix (`94e87b6`, diagnostics `d3588f7`)
+Streamlit hard-crashes on nested `st.expander` calls -- the AstroSage
+report expander (4b) and the palm review expanders (4a) were both
+mounting inside an outer page-level expander in some layouts. Fix:
+AstroSage report promoted to page top level; palm review expanders
+demoted to plain `st.container()` blocks (visually near-identical,
+structurally flat). UI-only, no test-count impact.
+
+### Ring 3 pass 1: SCORED NOT RATIFIED (`9bfadc6`, chunk evidence `45aad3f`, gate-stop diagnostics `cd9585b`)
+Live 3-run dogfood (Run A/B/C) against the palm-reading generator as it
+stood post-S65. Verdict: **P3 voice FAIL x3** -- every run reproduced
+generic self-help register (Run C additionally tripped the literal S23
+R3 blacklist word "stability"); **Run C UNSCORABLE on P1 and P4** --
+`hand_detail`'s vision output entered reading generation with no
+display/confirmation checkpoint at all (an AI-reviewing-AI gap, CLAUDE.md
+Working Style #5). Findings routed to a five-item fix-forward queue
+(F1-F5).
+
+### Fix-forwards F1-F5
+- **F1** (`2d4a42f`, diagnostics `83d2472`) -- `hand_detail` given the
+  same human review/confirm/discard checkpoint as `palm_left`/
+  `palm_right`, closing Ring 3 pass 1's Run C gap. CLAUDE.md's "Palm
+  human checkpoint" lock extended to cover all three descriptions.
+- **F2+F3** (`d2d923a`, RED step `847f003`, diagnostics `8ab0735`) --
+  Cheiro-voice system-prompt enforcement + RAG query truncation cap
+  raised (500 -> 2000 chars, was silently dropping the RIGHT hand from
+  retrieval) + lazy `OpenAI` import, landed atomically with a new Ring 1
+  self-help-register validator and its tests per the S66 atomic-landing
+  ruling.
+- **F4** (`f81809d`, diagnostics `d37012a`) -- `describe_palm_image`
+  rewritten to emit observational structured fields (HAND SHAPE /
+  FINGERS / THUMB / LIFE LINE / ... / MARKS) at temperature 0, replacing
+  free-text prose that had been doing interpretive work at the vision
+  layer (pass 1's "RAG-inert readings" root-cause finding).
+- **F5** (`e1ade65`, diagnostics `1224474`) -- opt-in dogfood capture
+  log in `app.py`: derived text only (`reading_text`/`sources`/
+  `ring1_validation`), appended to `.claude/read_prompt.md` on each live
+  generation, closing the manual-transcription bottleneck for Ring 3
+  scoring passes.
+- **F2c** (`165484c`, diagnostics via `latest_run.md` Task 13) --
+  Cheiro exemplar anchoring (model sentences in the system prompt) +
+  temperature 0 + a validator-fed single retry (HARD CAP of 2 LLM calls
+  ever; the reviewer is the Ring 1 regex, never an LLM judging its own
+  or another LLM's output -- not AI-reviewing-AI). Pre-flight smoke probe
+  (`f906f3e`, re-probe `e89fc17`) found the retry fired in 3/3 sampled
+  runs and the retry draft passed Ring 1 in 3/3 -- "prompt-only voice
+  control fails ~100% for this task shape" confirmed, retry is the fix.
+
+### Ring 3 pass 2: SCORED NOT RATIFIED (chunk evidence `a5ee335`, scoring artifact `4c3261b`)
+Fresh 3-run dogfood (Runs A/B/C mapped from `.claude/read_prompt.md`'s
+F5-captured `## RUN` timestamps) against the post-F1-F5 generator.
+- **P3 (voice) FIXED**: N x3 -> Y x3 -- the single largest pass-1
+  failure category is resolved; F2c's retry mechanism is the confirmed
+  carrier of the fix, not the prompt change alone.
+- **Run C fully scorable**: pass 1's UNSCORABLE P1/P4 verdict resolved
+  to a real, checkable FAIL profile thanks to F1's checkpoint.
+- **P1 (grounding) FAIL x3, new headline finding**: every run asserts
+  6 interpretive/trait claims (fingers->logic-creativity, head->clarity,
+  heart->warmth/affection, fate->personal choice, sun->recognition,
+  Venus->love/beauty) with zero supporting chunk in the actual retrieved
+  set (Task 14's literal presence checks on the n=6/n=7 chunks: fate,
+  sun, thumb, and heart doctrine are all **ABSENT** -- the six retrieved
+  Cheiro passages are nomenclature/positional/procedural text, not
+  per-feature interpretive doctrine, for this chart's structured query).
+  Only the life line (all 3 runs) is genuinely content-verified against
+  p.134's doctrine and load-bearing. The fate-line claim is the most
+  serious instance: a **doctrine inversion** against the one classical
+  passage that does address fate-line strength (p.163, pass-1 evidence
+  -- strong/rising fate line = personal merit, low/faint = life
+  sacrificed to others' wishes, the opposite valence), compounded by
+  **exemplar leakage** -- the reading's "personal merit/self-determined"
+  phrasing pattern-matches F2c's own model sentence ("Such a fate line
+  denotes success won by personal merit") applied to a barely-visible
+  line rather than a strong one.
+- **Run C additionally fails P4**: `hand_detail`'s confirmed Jupiter
+  mount, Markings, and Other Features (hair) fields are silently
+  dropped -- not "not clearly visible" (permitted), affirmatively
+  observed and then never addressed or declined.
+- Root causes for the S67 fix-forward queue: **R1** (retrieval returns
+  nomenclature not doctrine for structured per-hand queries -- headline,
+  needs a per-feature retrieval redesign), **R2** (the system-prompt
+  exemplar is a style-only guard, freely reusable as a content template
+  regardless of retrieval support), **R3** (no deterministic
+  decline-when-unsupported enforcement exists yet, despite the prompt
+  already asking for it in prose).
+
+### Test baseline
+Full pytest suite progression across the session: **3166** (S65 close,
+held constant through review-debt settlement, the crash fix, and Ring 3
+pass 1 -- all docs/UI/scoring work, no test-count impact) **-> 3166**
+(F1) **-> 3172** (F2+F3, +6 self-help validator tests) **-> 3172** (F4,
+net 0) **-> 3174** (F5, +2 capture tests) **-> 3177** (F2c, +3 retry
+tests). **3 skipped throughout, zero regressions at every step.** Final
+suite (re-verified at session close, Task 15): **3177 passed, 3
+skipped.**
+
+### Commit hashes
+Substantive: `1a123dd`, `d88d026`, `1e0ce5f`, `94e87b6`, `d3588f7`,
+`9f7463f` (pass-2 template), `45aad3f`, `cd9585b`, `9bfadc6`, `2d4a42f`,
+`83d2472`, `847f003`, `d2d923a`, `8ab0735`, `f81809d`, `d37012a`,
+`8f30521` (pass-2 template regen), `e1ade65`, `1224474`, `165484c`,
+`f906f3e`, `e89fc17`, `a5ee335`, `4c3261b`. Plus housekeeping/dogfood-
+capture commits not individually narrated above: `78d423b`, `d6438b3`,
+`29c8a10`, `f0a24d4`, `bfa0d03`, `fb836f2` (`.claude/read_prompt.md`
+capture-log updates and a test-fixture image swap).
+
+Docs closeout: this commit ("S66 close-out: session log + carry-forward
+register").
+
+### Carry-forward resolved this session
+- Ring 3 human-rubric ratification artifact pending (Session 65) --
+  RESOLVED in the narrow sense: the artifact now exists and has been
+  SCORED twice (pass 1, pass 2). T4 remains NOT ratified-live -- this is
+  an open verdict, not an open artifact-existence gap; see the new T4
+  status line in CLAUDE.md's carry-forward register.
+
+### Carry-forward added this session
+See CLAUDE.md's Carry-Forward register for the live, actionable list
+(S67 opening block: R1 per-feature retrieval design -> R3 decline rule
+-> Ring 3 pass 3; same-file riders for `astrosage_parser.py`/`app.py`/
+`palm_processor.py`; V1.1 register additions: contrast preprocessing,
+checkpoint plain-language field glosses, layman progressive disclosure,
+AppTest-in-CI proposal). Not duplicated here per the Session 62
+diagnostics-retention convention -- CLAUDE.md is the single live copy.
