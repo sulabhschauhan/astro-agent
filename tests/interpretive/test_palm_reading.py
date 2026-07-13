@@ -48,6 +48,17 @@ palm_left/palm_right/hand_detail text actually observes, not a fixed
 prose, since that is what feature-extraction parses -- a description
 with zero recognizable "LABEL:" fields observes zero features and
 never calls search() at all (see the absence-rule test).
+
+S67 R3 UPDATE: retrieved chunks now pass through a support gate (needle
++ score floor, palm_reading._SUPPORT_NEEDLES/_SUPPORT_SCORE_FLOOR)
+before entering the prompt/sources/context_corpus -- a chunk returned
+by a stubbed search() no longer automatically "counts" unless its text
+actually names the feature it was retrieved for. Several R1-era stub
+texts (_CLEAN_STUB_TEXT and others) originally discussed multiple
+features (life/heart/head/fate) for flavor; since most tests here only
+observe ONE feature, those incidental extra mentions now trip the new
+banned-mention Ring 1 check and were trimmed to reference only the
+observed feature (see the S67 R3 comments at each changed constant).
 """
 from __future__ import annotations
 
@@ -191,14 +202,19 @@ def _chunk(
     }
 
 
+# S67 R3: rewritten LIFE-LINE-ONLY (was: life+heart+head+fate) -- most
+# consuming tests' synthetic palm_left now observes exactly ONE feature
+# (life line), so a stub draft naming heart/head/fate lines would trip
+# the new banned-mention validator on those unsupported features. Tests
+# that genuinely need a multi-feature scenario use their own dedicated
+# stub text (see items 13c/13e/13f below), not this shared constant.
 _CLEAN_STUB_TEXT = (
     "Your hand shows a long, unbroken life line, suggesting steady vitality "
-    "and resilience. The heart line curves gently upward, pointing to warmth "
-    "and openness in close relationships. A well-defined head line reflects "
-    "clear, practical thinking, while a faint fate line hints at a path you "
-    "are still shaping through your own choices rather than one laid out for "
-    "you. Overall, this is a hand that reflects balance -- steady energy, "
-    "genuine warmth, and a thoughtful approach to the years ahead."
+    "and resilience that will carry you through many years. This depth and "
+    "continuity in the line points to a strong constitution and an "
+    "enduring capacity to meet life's demands without being easily worn "
+    "down. Overall, this is a hand that reflects genuine physical staying "
+    "power, carried forward with quiet, steady confidence."
 )
 
 
@@ -238,11 +254,18 @@ def test_both_none_no_hand_detail_raises_value_error(monkeypatch):
 # Stub neutralized S66 -- "favorable" joined the self-help blacklist (Ring
 # 3 pass 1); swapped for "promising" (not on the 9-term list) so this test
 # isolates the jargon validator alone.
+# S67 R3: "mark" -> "sign" -- the original text's "yogart mark" is a
+# standalone word-boundary match for the markings/other-features needle
+# "mark"; since only life line is observed/supported in the test using
+# this stub, "markings/other features" is unsupported and would trip
+# the new banned-mention validator, confounding this test's actual
+# purpose (isolating the jargon validator). "sign" preserves the
+# sentence's meaning without touching any needle.
 _JARGON_STUB_TEXT = (
     "Your LAGNA reveals strong ambition, while a promising Antardasha this "
     "season brings real opportunity. A gentle yoga forming across your "
     "palm suggests balance and steady growth, and anyone with a bold "
-    "yogart mark on their hand should feel encouraged. It is a warm, "
+    "yogart sign on their hand should feel encouraged. It is a warm, "
     "positive outlook for the months ahead, with room to deepen important "
     "relationships and explore new creative directions along the way."
 )
@@ -343,11 +366,27 @@ def test_length_over_700_words_fails(monkeypatch):
 
 # ─── Item 6: empty retrieval proceeds with low-confidence caveat ───────
 
+# S67 R3: with search() returning [] on its only call, life line -- the
+# ONLY observed feature -- ends up with zero surviving chunks too, so
+# EVERY registry feature is unsupported here. _CLEAN_STUB_TEXT (which
+# names the life line) would trip the new banned-mention validator in
+# this specific all-unsupported scenario, forcing a retry -- this stub
+# is deliberately feature-NEUTRAL (contains none of the 10 features'
+# needles) so the test keeps proving its original point (search
+# proceeds, exactly 1 LLM call, no refusal) rather than exercising the
+# retry loop, which is a different test's job (see item 13a).
+_GENERIC_NO_FEATURE_STUB_TEXT = (
+    "Your hands speak of steady effort and quiet resolve, promising a "
+    "path shaped more by personal merit than mere chance. This is a "
+    "grounded nature built for endurance and calm judgment through the "
+    "years ahead."
+)
+
 
 def test_empty_retrieval_proceeds_with_low_confidence_caveat(monkeypatch):
     fake_search = _FakeSearch([])
     monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+    client = _FakeClient(content=_GENERIC_NO_FEATURE_STUB_TEXT)
 
     result = generate_palm_reading(
         palm_left="LIFE LINE: A long, deep life line.", palm_right=None, client=client
@@ -361,6 +400,10 @@ def test_empty_retrieval_proceeds_with_low_confidence_caveat(monkeypatch):
     assert "weak match" in system_prompt_sent.lower()
     assert result.validation.passed is True
     assert result.sources == ()
+    # All 10 registry features are unsupported (life line's own query
+    # returned nothing; the other 9 were never observed at all) -> the
+    # decline block names every one of them.
+    assert "A note on what I have not interpreted" in result.reading_text
 
 
 # ─── Item 7: happy path, left-only ──────────────────────────────────────
@@ -550,8 +593,10 @@ def test_search_filters_to_canonical_cheiro_book(monkeypatch):
 
 def test_sources_propagate_book_page_score(monkeypatch):
     # 1 observed feature (life line) -> 1 search call, returning 2 chunks.
-    chunk1 = _chunk(text="Chunk one text.", page_ref=12, score=0.81, chunk_id="c1")
-    chunk2 = _chunk(text="Chunk two text.", page_ref=57, score=0.66, chunk_id="c2")
+    # S67 R3: both chunk texts must be needle-valid ("life") to survive
+    # the support gate, or sources would come back empty.
+    chunk1 = _chunk(text="Chunk one text about the life line.", page_ref=12, score=0.81, chunk_id="c1")
+    chunk2 = _chunk(text="Chunk two text about the life line.", page_ref=57, score=0.66, chunk_id="c2")
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk1, chunk2]))
     client = _FakeClient(content=_CLEAN_STUB_TEXT)
 
@@ -616,8 +661,11 @@ def test_self_help_word_boundary_excludes_substrings(monkeypatch):
 # narrowness of the 9-term list as a deliberate choice (THRESHOLD
 # DISCIPLINE revisit trigger: pass-2 evidence that a conjugation like this
 # is itself an observed offender, not a preemptive widening here).
+# S67 R3: "head line" -> "life line" -- only life line is observed/
+# supported in the test using this stub; "head line" would trip the new
+# banned-mention validator, confounding this test's actual purpose.
 _NAVIGATED_STUB_TEXT = (
-    "The head line, once navigated with hesitation in youth, now runs firm "
+    "The life line, once navigated with hesitation in youth, now runs firm "
     "and true across the palm, showing settled judgment and clear resolve."
 )
 
@@ -634,11 +682,16 @@ def test_self_help_unlisted_conjugation_does_not_trip(monkeypatch):
     assert result.validation.passed is True
 
 
+# S67 R3: reworded to reference only "the life line" (was: heart/head/
+# fate lines) -- only life line is observed/supported in the test using
+# this stub; the original heart/head/fate mentions would trip the new
+# banned-mention validator. "fulfilling" (x2) / "journey" (x2) preserved
+# unchanged -- those are this test's actual subject.
 _MULTI_TERM_STUB_TEXT = (
-    "The heart line points to fulfilling bonds forged through effort, "
-    "while the head line traces a long journey of independent judgment; a "
-    "second look at the fate line confirms this journey continues on firm "
-    "ground for fulfilling work ahead."
+    "The life line points to fulfilling achievements forged through effort, "
+    "while its steady course traces a long journey of independent "
+    "judgment; a second look at this same line confirms the journey "
+    "continues on firm ground for fulfilling work ahead."
 )
 
 
@@ -658,14 +711,17 @@ def test_self_help_multi_term_single_sorted_deduped_failure(monkeypatch):
     assert result.validation.failures[0] == "self_help_blacklist: found fulfilling, journey"
 
 
+# S67 R3: reworded LIFE-LINE-ONLY (was: also thumb/heart/head/fate) --
+# only life line is observed/supported in the test using this stub; the
+# original "base of the thumb"/heart/head/fate mentions would trip the
+# new banned-mention validator. Cheiro declarative register preserved.
 _CHEIRO_VOICE_STUB_TEXT = (
-    "The life line runs long and unbroken around the base of the thumb, "
-    "marking sound constitution and vigor that will carry through many "
-    "years. A deep, steady heart line shows warmth given freely but never "
-    "wasted, while a firm head line reveals judgment sharpened by direct "
-    "experience rather than idle theory. The fate line, clear and "
-    "undivided, promises success won through personal exertion rather "
-    "than chance."
+    "The life line runs long and unbroken around the base of the palm, "
+    "promising sound constitution and vigor that will carry through many "
+    "years. Its depth and continuity reveal a nature built for endurance, "
+    "sharpened by direct experience rather than idle theory. Such a life "
+    "line, clear and undivided, promises success won through personal "
+    "exertion rather than chance."
 )
 
 
@@ -840,7 +896,13 @@ def test_per_feature_map_ordering_and_dedupe_for_display(monkeypatch):
     (first-feature-wins for display, registry order); sources still
     carries BOTH assignments (the per-feature map keeps every
     assignment -- the future R3 evidence structure)."""
-    dupe_chunk = _chunk(text="Shared passage.", page_ref=99, score=0.5, chunk_id="dupe1")
+    # S67 R3: chunk text must contain BOTH needles ("life", "head") --
+    # the same chunk is checked against a DIFFERENT feature's needle set
+    # each time it's associated with that feature, so it must pass the
+    # gate for both to prove the dedupe (not the gate) is what's being
+    # tested here.
+    shared_text = "Shared passage about the life line and the head line."
+    dupe_chunk = _chunk(text=shared_text, page_ref=99, score=0.5, chunk_id="dupe1")
     # Same chunk returned for every call, regardless of query.
     fake_search = _FakeSearch([dupe_chunk])
     monkeypatch.setattr(palm_reading, "search", fake_search)
@@ -856,7 +918,7 @@ def test_per_feature_map_ordering_and_dedupe_for_display(monkeypatch):
     # chunk_id both times.
     assert len(fake_search.calls) == 2
     user_message = client.completions.calls[0]["messages"][1]["content"]
-    assert user_message.count("Shared passage.") == 1
+    assert user_message.count(shared_text) == 1
     assert "### life line" in user_message
     assert "### head line" not in user_message  # suppressed: chunk already shown
 
@@ -899,4 +961,309 @@ def test_sources_carry_distinct_feature_tags(monkeypatch):
     assert result.sources == (
         {"book": "cheiroslanguageo00chei_1", "page": 134, "score": 0.6, "feature": "life line"},
         {"book": "cheiroslanguageo00chei_1", "page": 88, "score": 0.55, "feature": "heart line"},
+    )
+
+
+# ─── Item 14: S67 R3 support gate + decline mechanism -- hardest first ─
+
+_FATE_MENTIONING_DRAFT = (
+    "Your life line shows steady vitality, and the fate line reveals a "
+    "path shaped by personal choice rather than external circumstance."
+)
+_FATE_CLEAN_RETRY_DRAFT = (
+    "Your life line shows steady vitality, promising a path shaped by "
+    "personal choice and quiet determination through the years ahead."
+)
+
+
+def test_doctrine_inversion_guard_fate_unsupported_first_draft_retried_clean(monkeypatch):
+    """(14a) Hardest new case: fate line is OBSERVED (a real quality,
+    "Barely visible", not one of R1's absence phrases) but all 3
+    retrieved chunks fail the needle check (no "fate" anywhere in their
+    text -- generic nomenclature/procedural passages, the exact
+    pass-2/S67-probe failure mode) -> fate line is unsupported. The
+    first draft names "the fate line" anyway -> Ring 1's new
+    banned-mention check fires -> the F2c retry produces a clean draft
+    that avoids it -> passes on the retry (2 calls), and the decline
+    block names the fate line."""
+    life_chunk = _chunk(text="A long life line promises vitality.", page_ref=134, score=0.6, chunk_id="life1")
+    non_doctrine_chunks = [
+        _chunk(text="Chapter II lists the seven principal lines of the hand.", page_ref=120, score=0.62, chunk_id="nd1"),
+        _chunk(text="The lines of the head and heart run parallel across the palm.", page_ref=121, score=0.55, chunk_id="nd2"),
+        _chunk(text="Modus operandi: examine the mounts before the lines.", page_ref=226, score=0.5, chunk_id="nd3"),
+    ]
+
+    class _PerFeatureSearch:
+        def __init__(self):
+            self.calls: list[dict] = []
+
+        def __call__(self, question, n_results=None, **filters):
+            self.calls.append({"question": question, "n_results": n_results, **filters})
+            if "life line" in question:
+                return [life_chunk]
+            if "fate line" in question:
+                return non_doctrine_chunks
+            return []
+
+    fake_search = _PerFeatureSearch()
+    monkeypatch.setattr(palm_reading, "search", fake_search)
+    client = _FakeClient(
+        responses=[
+            (_FATE_MENTIONING_DRAFT, None),
+            (_FATE_CLEAN_RETRY_DRAFT, None),
+        ]
+    )
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.\nFATE LINE: Barely visible.",
+        palm_right=None,
+        client=client,
+    )
+
+    # 2 observed features (life line, fate line) -> 2 search calls.
+    assert len(fake_search.calls) == 2
+    assert len(client.completions.calls) == 2
+    assert result.retry_used is True
+    assert result.validation.passed is True
+    assert result.supported_features == ("life line",)
+    assert "fate line" in result.unsupported_features
+    # the retry draft (what's actually in reading_text) never mentions fate.
+    assert "fate" not in result.reading_text.split("A note on")[0].lower()
+    # the decline block names it.
+    assert "fate line" in result.reading_text.split("A note on")[1]
+
+
+_COLLISION_SAFE_DRAFT = (
+    "Your life line shows steady vitality; this reading reflects on a "
+    "sunny disposition and a remarkable, marked sense of purpose that "
+    "carries through every Sunday and every ordinary day alike."
+)
+
+
+def test_needle_collision_battery_sunday_sunny_remarkable_marked_do_not_trip(monkeypatch):
+    """(14b) sun line and markings/other features are BOTH unsupported
+    here (never mentioned at all -- only LIFE LINE is given). A draft
+    containing "sunny", "Sunday", "remarkable", and "marked" -- none of
+    them the STANDALONE words "sun"/"mark" -- must NOT trip the
+    banned-mention validator (word-boundary matching is mandatory, not
+    plain substring, unlike the support gate's chunk-side check)."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(content=_COLLISION_SAFE_DRAFT)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    assert result.validation.passed is True
+    assert not any("unsupported feature mentioned" in f for f in result.validation.failures)
+
+
+_COLLISION_TRIPPED_DRAFT = (
+    "Your life line shows steady vitality, and a faint sun line "
+    "suggests hidden creative promise."
+)
+
+
+def test_needle_collision_battery_genuine_sun_line_mention_fires(monkeypatch):
+    """(14b, companion boundary case) A GENUINE standalone "sun line"
+    mention, with sun line unsupported, DOES fire -- proving the
+    word-boundary matcher isn't so loose it never fires at all. The
+    F2c retry then produces a clean, feature-neutral draft that
+    passes."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(
+        responses=[
+            (_COLLISION_TRIPPED_DRAFT, None),
+            (_GENERIC_NO_FEATURE_STUB_TEXT, None),
+        ]
+    )
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    assert len(client.completions.calls) == 2
+    assert result.retry_used is True
+    assert result.validation.passed is True
+
+
+def test_score_floor_boundary_029_excluded_031_included(monkeypatch):
+    """(14c) Needle-passing chunks at the score-floor boundary -- 0.29
+    (just under _SUPPORT_SCORE_FLOOR) is gated OUT; 0.31 (just over)
+    SURVIVES. Both chunks mention "life" (pass the needle check) --
+    score alone is what's being tested, measure-first boundary-pair
+    style (same convention as R1's fabricated-year boundary pair)."""
+    below_floor = _chunk(text="A note on the life line's course.", page_ref=1, score=0.29, chunk_id="below")
+    above_floor = _chunk(text="A note on the life line's course.", page_ref=2, score=0.31, chunk_id="above")
+
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([below_floor, above_floor]))
+    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    assert result.supported_features == ("life line",)
+    assert result.sources == (
+        {"book": "cheiroslanguageo00chei_1", "page": 2, "score": 0.31, "feature": "life line"},
+    )
+
+
+def test_decline_block_exact_text_two_feature_list(monkeypatch):
+    """(14d) Exact decline-block wording with exactly 2 unsupported
+    features (fate line, sun line -- both observed with a real,
+    non-absent quality, but zero chunks retrieved for either). Every
+    OTHER registry feature is deliberately absence-phrased BY NAME
+    (genuine negative absence, exempted per
+    palm_reading._is_genuine_negative_absence) so the list is exactly
+    these 2, in registry order, proving the exact constant wording."""
+    fixture = (
+        "HAND SHAPE: Square palm.\n"
+        "FINGERS: Not clearly visible.\n"
+        "THUMB: Not visible.\n"
+        "LIFE LINE: Not clearly visible.\n"
+        "HEAD LINE: Not clearly visible.\n"
+        "HEART LINE: Not clearly visible.\n"
+        "FATE LINE: Barely visible.\n"
+        "OTHER LINES: Sun line is faintly visible.\n"
+        "MOUNTS: Mount of Venus is unremarkable, Mount of Jupiter is unremarkable.\n"
+        "MARKS: No clear marks visible."
+    )
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
+    client = _FakeClient(content=_GENERIC_NO_FEATURE_STUB_TEXT)
+
+    result = generate_palm_reading(palm_left=fixture, palm_right=None, client=client)
+
+    assert result.unsupported_features == ("fate line", "sun line")
+    assert result.supported_features == ()
+    assert (
+        "A note on what I have not interpreted: the classical texts I "
+        "work from do not clearly address the following as they appear "
+        "in your hands: fate line, sun line. Rather than guess, I have "
+        "left these out of your reading."
+    ) in result.reading_text
+
+
+def test_decline_block_absent_when_all_observed_features_supported(monkeypatch):
+    """(14d, companion) When every registry feature is either supported
+    or a genuine negative-absence finding, the decline block is omitted
+    ENTIRELY -- not an empty note, no note at all."""
+    fixture = (
+        "HAND SHAPE: Square palm.\n"
+        "FINGERS: Not clearly visible.\n"
+        "THUMB: Not visible.\n"
+        "LIFE LINE: A long life line.\n"
+        "HEAD LINE: Not clearly visible.\n"
+        "HEART LINE: Not clearly visible.\n"
+        "FATE LINE: Not clearly visible.\n"
+        "OTHER LINES: Sun line not clearly visible.\n"
+        "MOUNTS: Mount of Venus is unremarkable, Mount of Jupiter is unremarkable.\n"
+        "MARKS: No clear marks visible."
+    )
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+
+    result = generate_palm_reading(palm_left=fixture, palm_right=None, client=client)
+
+    assert result.unsupported_features == ()
+    assert result.supported_features == ("life line",)
+    assert "A note on what I have not interpreted" not in result.reading_text
+
+
+def test_zero_support_path_routes_to_low_confidence_with_full_decline(monkeypatch):
+    """(14e) Search DOES return a chunk (not empty), but it fails the
+    needle check -- this must route to the SAME low-confidence path as
+    a genuinely empty retrieval, with the full decline block (every
+    registry feature, since none survived and none were
+    absence-phrased)."""
+    off_topic_chunk = _chunk(
+        text="Chapter II lists the seven principal lines of the hand.",
+        page_ref=120, score=0.65, chunk_id="offtopic",
+    )
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([off_topic_chunk]))
+    client = _FakeClient(content=_GENERIC_NO_FEATURE_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    system_prompt_sent = client.completions.calls[0]["messages"][0]["content"]
+    assert "weak match" in system_prompt_sent.lower()
+    assert result.supported_features == ()
+    assert result.unsupported_features == palm_reading._FEATURE_REGISTRY
+    assert "A note on what I have not interpreted" in result.reading_text
+    assert result.validation.passed is True
+
+
+def test_supported_unsupported_tuples_propagate_in_registry_order(monkeypatch):
+    """(14f) 3 observed features given in NON-registry input order
+    (fate, heart, life) -- life line and heart line supported, fate
+    line unsupported. Output tuples must reflect _FEATURE_REGISTRY
+    order (life, heart, fate skipped from supported since unsupported),
+    not input order."""
+
+    class _Search:
+        def __init__(self):
+            self.calls: list[dict] = []
+
+        def __call__(self, question, n_results=None, **filters):
+            self.calls.append({"question": question, "n_results": n_results, **filters})
+            if "life line" in question:
+                return [_chunk(text="A long life line passage.", score=0.6, chunk_id="l1")]
+            if "heart line" in question:
+                return [_chunk(text="A curved heart line passage.", score=0.6, chunk_id="h1")]
+            if "fate line" in question:
+                return [_chunk(text="Unrelated nomenclature passage.", score=0.6, chunk_id="f1")]
+            return []
+
+    fake_search = _Search()
+    monkeypatch.setattr(palm_reading, "search", fake_search)
+    client = _FakeClient(content=_GENERIC_NO_FEATURE_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left=(
+            "FATE LINE: Present, moderately deep, runs from the base of "
+            "the palm towards the middle finger.\n"
+            "HEART LINE: A curved heart line.\n"
+            "LIFE LINE: A long life line."
+        ),
+        palm_right=None,
+        client=client,
+    )
+
+    assert len(fake_search.calls) == 3
+    assert result.supported_features == ("life line", "heart line")
+    # fate line (unsupported, observed) plus every never-mentioned
+    # feature (head/sun/thumb/fingers/both mounts/markings -- pathway
+    # (A), also unsupported per _is_genuine_negative_absence's False
+    # case), all in _FEATURE_REGISTRY order.
+    assert result.unsupported_features == (
+        "head line", "fate line", "sun line", "thumb", "fingers",
+        "mount of venus", "mount of jupiter", "markings/other features",
+    )
+
+
+def test_f2c_cap_unchanged_banned_mention_fails_both_drafts_stays_failed(monkeypatch):
+    """(14g) Both the first draft AND the retry draft mention an
+    unsupported feature ("sun line") -- exactly 2 LLM calls (HARD CAP
+    unchanged, no third attempt), fail-closed: passed=False,
+    retry_used=True, and the failure that's reported is the SECOND
+    draft's (same as R1-era retry tests' pattern)."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(
+        responses=[
+            (_COLLISION_TRIPPED_DRAFT, None),
+            (_COLLISION_TRIPPED_DRAFT, None),
+        ]
+    )
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    assert len(client.completions.calls) == 2
+    assert result.retry_used is True
+    assert result.validation.passed is False
+    assert any(
+        "unsupported feature mentioned: sun line" in f for f in result.validation.failures
     )

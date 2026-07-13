@@ -1,230 +1,156 @@
-# S67 R1: per-feature doctrine-interrogative retrieval in palm_reading
+# S67 R3: deterministic per-feature support gate + decline mechanism
 
-Implementation report for the R1 per-feature retrieval redesign
-(`agent/interpretive/palm_reading.py`) + matching Ring 2 update
-(`tests/interpretive/test_palm_reading.py`). Design ratified in design
-chat from `diagnostics/latest_run.md` as committed by
-`scripts/probe_r1_retrieval.py` (commit `0a738c3`) — this report
-overwrites that probe report per the standing diagnostic-output
-convention (probe evidence stays available via git history at that
-commit).
+Implementation report for the R3 support gate (`agent/interpretive/palm_reading.py`)
++ matching Ring 2 update (`tests/interpretive/test_palm_reading.py`).
+Builds on R1 (commit `8c1b8ab`) as committed — R1's structure
+(`_retrieve_per_feature`, `_gather_feature_texts`, `_assemble_retrieved_passages`,
+registry-order per-feature map) was read first and left untouched; R3
+inserts a gating layer between R1's retrieval and prompt assembly.
 
 ## Files touched
 
-- `agent/interpretive/palm_reading.py` — production redesign.
-- `tests/interpretive/test_palm_reading.py` — matching Ring 2 update
-  (same commit, per the F2+F3 precedent for atomic module+suite
-  landings).
+- `agent/interpretive/palm_reading.py` — production gate + decline mechanism.
+- `tests/interpretive/test_palm_reading.py` — matching Ring 2 update (same commit).
 
-Nothing else touched (scope discipline per the prompt).
+Nothing else touched.
 
-## Consumer-compatibility check (before coding, not after)
+## Consumer-compatibility check (before coding)
 
-`PalmReadingResult.sources` gains a new `"feature"` key per source
-dict. Grepped every consumer:
-- `frontend/app.py` lines 75/839 — both access `src['book']`/
-  `src['page']`/`src['score']` by name only, never iterate/assert the
-  full key set. Additive-safe, no change needed, no STOP triggered.
-- `tests/test_app_dogfood_capture.py` — no reference to `.sources` at
-  all.
-- `tests/test_palm_endtoend.py` — exercises `prompt_builder.build_prompts`
-  (the quarantined `ask()` path), never calls `generate_palm_reading`.
-
-No consumer contradicted the instructions; nothing to STOP and report.
+`PalmReadingResult` gains two NEW fields (`supported_features`,
+`unsupported_features`). Grepped `PalmReadingResult(` across the whole
+repo before touching the dataclass: the only construction site is
+`generate_palm_reading` itself (`agent/interpretive/palm_reading.py`) —
+no other module constructs it directly, so adding required fields
+(rather than defaulted ones) is safe; the single call site was updated
+in the same edit. No consumer contradicted the instructions; nothing to
+STOP and report.
 
 ## Design-decision → code mapping
 
 | Design decision | Code |
 |---|---|
-| Canonical feature registry (10 features) | `palm_reading._FEATURE_REGISTRY` |
-| Feature extraction over palm_left/palm_right (F4 flat fields) | `palm_reading._parse_fields` (ported from `scripts/probe_r1_retrieval.py`, blank-line-reset added) |
-| Feature extraction over hand_detail (LOCK LIFTED, S67 Conflict A (b)) | `palm_reading._parse_bullet_fields` (new — hand_detail's markdown bullet format, not in the probe) |
-| Plain-feature field map + MOUNTS/OTHER LINES sub-feature needles | `_PLAIN_FEATURE_FIELDS`, `_SUB_FEATURES`, `_gather_feature_texts` |
-| Absence rule (6 phrases, all-mentioning-sources gate) | `_ABSENCE_PHRASES`, `_is_absence`, `_resolve_feature_quality` |
-| Fail-open (degenerate quality -> raw text + warning) | `_resolve_feature_quality`'s `if not q or q == "present":` branch |
-| Quality merge (" / ", per-hand) | `_resolve_feature_quality`'s dedupe-preserving-order join |
-| Variant-iii query template | `_build_feature_query` |
-| n=3/feature retrieval, try/except per feature | `_retrieve_per_feature` |
-| Ordered per-feature map + display dedupe | `_assemble_retrieved_passages` |
-| Sources gain `feature` tag | `generate_palm_reading`'s `sources = tuple(...)` construction |
-| All-queries-fail -> low-confidence path preserved | `total_chunks == 0` gate (was `not raw_sources`) |
-| Ring 1 / F2c retry / DISCLAIMER / system prompt | UNCHANGED |
+| Needle registry (10 features, OCR-robust short forms) | `palm_reading._SUPPORT_NEEDLES` |
+| Support gate: needle-contains AND score >= 0.30 | `_chunk_supports_feature`, `_SUPPORT_SCORE_FLOOR` |
+| Gate applied to R1's map, registry order, both output tuples | `_apply_support_gate` |
+| Genuine-negative-absence exemption ("no clear marks visible"-style) | `_is_genuine_negative_absence` |
+| LLM-side ban (system prompt rule, no LLM-authored decline text) | New "STRICT SCOPE (S67 R3)" bullet in `_READING_SYSTEM_PROMPT`'s "## How you read" |
+| Ring 1 banned-mention check (word-boundary) | `_check_banned_feature_mentions`, folded into `_run_ring1_checks` (now takes `unsupported_features`) |
+| Decline block (Python-owned, fixed template) | `_DECLINE_BLOCK_TEMPLATE`, `_build_decline_block`, `_FEATURE_DISPLAY_NAMES` |
+| Decline block ordering (before DISCLAIMER) | `generate_palm_reading`'s `final_text` assembly |
+| Zero-support path reuses low-confidence trigger | `total_chunks` now computed from `gated_results`, not R1's raw `per_feature_results` — the SAME `if total_chunks == 0:` check now fires whenever every chunk is gated out, not just when retrieval itself was empty |
+| `sources`/`context_corpus`/assembled prompt all reflect GATED chunks only | `generate_palm_reading` now threads `gated_results` (not `per_feature_results`) through all three downstream uses |
+| Result surface: `supported_features`/`unsupported_features` | `PalmReadingResult` dataclass + `generate_palm_reading`'s return |
+| Ring 1 / F2c retry cap / DISCLAIMER / system prompt structure | UNCHANGED except the one new STRICT SCOPE bullet |
 | `generate_palm_reading` signature | UNCHANGED |
 
-### Bug caught and fixed during implementation (not in the original design)
+## Gate decision table — pass-2 LEFT/RIGHT/HAND_DETAIL fixture (live retrieval, R1's actual chunks)
 
-`_is_absence` is a whole-string substring check. LEFT/RIGHT's MOUNTS
-field reads "Mount of Venus appears developed, **other mounts are
-unremarkable**." — the word "unremarkable" (an absence phrase) is about
-the OTHER mounts, not Venus, but a naive whole-text check flagged the
-entire field absent and silently dropped "developed" for `mount of
-venus`. Fixed with `_extract_needle_clause`: for MOUNTS/OTHER LINES
-sub-features, only the comma-separated clause(s) actually naming the
-needle ("venus"/"jupiter"/"sun") are used for the absence check and
-quality extraction. Verified via a dry run against the real pass-2
-fixture before writing tests (see rider below) — `mount of venus`
-correctly resolves to `developed / ...` after the fix, not just the
-hand_detail sentence.
+Ran R1's real per-feature retrieval (live ChromaDB, same as the R1
+rider) then applied R3's gate on top — not stubbed, since a live check
+was already cheap and available; "stubbed is fine" per the prompt, this
+is the stronger real-data version of the same check.
 
-## Test delta (derivation comments quoted verbatim from the file)
+| Feature | Raw chunks | Surviving | Excluded (page, reason) |
+|---|---|---|---|
+| life line | 3 | 3 | — |
+| head line | 3 | 3 | — |
+| heart line | 3 | 3 | — |
+| fate line | 3 | 3 | — |
+| sun line | 3 | 3 | — |
+| thumb | 3 | 3 | — |
+| fingers | 3 | 3 | — |
+| mount of venus | 3 | 3 | — |
+| mount of jupiter | 3 | 2 | p.111 (no "jupiter" needle — it's the Mount-of-Venus chapter's opening, correctly excluded) |
+| markings/other features | 3 | 2 | p.221 (no markings/hair needle — an unrelated crime-physiognomy passage, correctly excluded) |
 
-Kept all 21 original tests (scenarios unchanged: fail-closed ValueError
-battery, jargon, year, length, empty retrieval, happy path, client
-failure, F2c retry a/b/c, book filter, sources propagation, 6 self-help
-register tests). Every synthetic `palm_left`/`palm_right` fixture that
-was free prose (e.g. `"A long life line with a gentle curve."`) is now
-F4-structured field text (e.g. `"LIFE LINE: A long life line with a
-gentle curve."`) since that is what feature-extraction actually parses
-— free prose observes zero features and would call `search()` zero
-times, which is not what those tests are testing.
+**Result for this fixture: `supported_features` = all 10 registry
+features (registry order); `unsupported_features` = () (empty);
+decline block omitted entirely.** This is a real, credible example of
+the gate doing its job (2 chunks excluded for lacking any real
+connection to their retrieved feature) without any feature ending up
+fully unsupported, since this particular fixture's per-feature queries
+happened to surface at least one genuinely on-topic chunk everywhere.
+The doctrine-inversion scenario the gate exists to catch (ALL 3 chunks
+for a feature failing the needle check) is exercised by test 14a
+instead, with synthetic non-doctrine chunks modeled directly on the
+real nomenclature/procedural chunks from R1's pass-2 evidence
+(`diagnostics/ring3_chunks_S66_pass2.md` — Chapter II line-listing,
+"lines of head and heart", modus-operandi passages).
 
-No "truncation" test existed to delete — grepped both
-`tests/interpretive/test_palm_reading.py` and
-`tests/test_palm_endtoend.py` for `truncat` (case-insensitive) before
-touching anything; zero matches. The old `_QUERY_TRUNCATE_CHARS`
-constant it would have covered is deleted from production with no
-orphaned test.
+## Test delta (derivation comments quoted verbatim)
 
-The "exactly-one-call invariant" (item 9,
-`test_exactly_one_llm_call_when_first_draft_passes`) is about the LLM
-call count (F2c retry mechanism), which R1 does not touch — NOT the old
-implicit "exactly one `search()` call" assumption baked into items 6,
-10, and 11's fixtures, which R1 makes false by design. Rather than
-delete item 9, its fixture was changed to deliberately observe 2
-features (life line + heart line) to prove the LLM-call invariant holds
-even when 2 `search()` calls now happen:
-
-```python
-# 2 observed features (life line from palm_left, heart line from
-# palm_right) -> 2 search calls; this test asserts the SEPARATE LLM
-# call count only (unaffected by how many search() calls occurred).
-fake_search = _FakeSearch([_chunk()])
-...
-assert len(fake_search.calls) == 2
-assert len(client.completions.calls) == 1
-```
-
-Derivation comments on every updated expected-call-count assertion:
+21 R1-era tests required fixture edits — NOT because the gate itself
+was wrong, but because several shared stub texts (used across many
+now-single-feature tests) named OTHER features for narrative flavor,
+which the new banned-mention validator correctly flags once those
+other features are unsupported. Per the "fix the stub, don't weaken the
+gate" instruction, every fix is a text edit with a comment, not a gate
+change:
 
 ```python
-# test_empty_retrieval_proceeds_with_low_confidence_caveat
-# search WAS called (not refused) and returned an empty list.
-# 1 observed feature (life line) -> 1 search call.
-assert len(fake_search.calls) == 1
+# S67 R3: rewritten LIFE-LINE-ONLY (was: life+heart+head+fate) -- most
+# consuming tests' synthetic palm_left now observes exactly ONE feature
+# (life line), so a stub draft naming heart/head/fate lines would trip
+# the new banned-mention validator on those unsupported features.
+_CLEAN_STUB_TEXT = (...)
 ```
-```python
-# test_search_filters_to_canonical_cheiro_book
-# 1 observed feature (life line) -> 1 search call.
-assert len(fake_search.calls) == 1
-assert fake_search.calls[0]["book_name"] == palm_reading._CHEIRO_BOOK
-# S67 R1 threshold: n_results is now per-feature (3), not the old
-# whole-description 6.
-assert fake_search.calls[0]["n_results"] == palm_reading._N_RESULTS_PER_FEATURE == 3
-```
-```python
-# test_sources_propagate_book_page_score
-# 1 observed feature (life line) -> 1 search call, returning 2 chunks.
-```
+Same pattern applied to `_JARGON_STUB_TEXT` ("mark" -> "sign"),
+`_NAVIGATED_STUB_TEXT` ("head line" -> "life line"),
+`_MULTI_TERM_STUB_TEXT` (heart/head/fate -> life line, self-help words
+`fulfilling`/`journey` preserved unchanged), `_CHEIRO_VOICE_STUB_TEXT`
+(thumb/heart/head/fate -> life line only), `test_sources_propagate_book_page_score`'s
+two chunk texts (needed a "life" needle to survive the gate at all),
+and item 13e's dedupe test chunk (needed BOTH "life" and "head" needles
+since the same chunk is checked against 2 different features' needle
+sets).
 
-New tests (6), hardest first, `_FakeSearch` extended with an optional
-`raise_for` predicate for (c):
+`test_empty_retrieval_proceeds_with_low_confidence_caveat` needed a
+NEW genuinely feature-neutral stub (`_GENERIC_NO_FEATURE_STUB_TEXT`,
+contains none of the 10 features' needles) — in this test, life line
+itself ends up unsupported (search returns nothing), so EVERY registry
+feature is unsupported, and the old `_CLEAN_STUB_TEXT` (which names the
+life line) would have forced a retry, confounding the test's original
+"exactly 1 LLM call" point.
 
-- **(13a)** `test_absence_rule_all_features_absent_yields_zero_search_calls_and_low_confidence`
-  — all 10 registry features resolve to "no query" (7 plain fields
-  absence-phrased, sun/venus/jupiter never named) -> 0 search calls,
-  low-confidence path fires.
-- **(13b)** `test_fail_open_degenerate_quality_still_queries_and_logs` —
-  `"LIFE LINE: Present."` degenerates to quality `"present"` -> fail
-  open, queries with raw text, logs a warning containing "fail-open".
-- **(13c)** `test_one_feature_search_failure_does_not_kill_reading_other_feature_succeeds`
-  — life-line query raises, heart-line query succeeds -> reading
-  proceeds, sources contain only the heart-line chunk, failure logged.
-- **(13d)** `test_query_template_two_hand_merged_quality_literal_shape` —
-  exact query string assertion for the real pass-2 fate-line pair
-  (`"barely visible"` / `"moderately deep"`), plus `n_results == 3`.
-- **(13e)** `test_per_feature_map_ordering_and_dedupe_for_display` — same
-  chunk_id returned for 2 features -> shown once in the assembled
-  prompt (registry order, first-feature-wins), but `sources` carries
-  both assignments.
-- **(13f)** `test_sources_carry_distinct_feature_tags` — 2 features, 2
-  distinct chunks -> each source dict tagged with the feature that
-  actually produced it.
+New tests (9 functions — 14b and 14d each pair a main scenario with one
+companion boundary case), hardest first:
+
+- **(14a)** `test_doctrine_inversion_guard_fate_unsupported_first_draft_retried_clean`
+  — fate line observed, all 3 chunks fail the needle check (synthetic
+  nomenclature/procedural chunks) -> first draft names "the fate line"
+  -> banned-mention fires -> clean retry passes (2 calls), decline
+  block names it.
+- **(14b)** `test_needle_collision_battery_sunday_sunny_remarkable_marked_do_not_trip`
+  + companion `test_needle_collision_battery_genuine_sun_line_mention_fires`
+  — "sunny"/"Sunday"/"remarkable"/"marked" never trip (word-boundary
+  verified with a standalone regex check before writing the tests: all
+  4 confirmed non-matching against `\b(sun|mark|...)\b`); a genuine
+  standalone "sun line" mention does fire and retries clean.
+- **(14c)** `test_score_floor_boundary_029_excluded_031_included` — same
+  needle-passing text at 0.29 (excluded) vs. 0.31 (survives), boundary
+  pair, measure-first style (mirrors R1's fabricated-year boundary
+  pair convention).
+- **(14d)** `test_decline_block_exact_text_two_feature_list` (exactly 2
+  unsupported features via explicit-by-name absence-phrasing on every
+  other field, so the exempted genuine-negative-absence features don't
+  pollute the list) + companion
+  `test_decline_block_absent_when_all_observed_features_supported`
+  (block omitted ENTIRELY, not an empty note).
+- **(14e)** `test_zero_support_path_routes_to_low_confidence_with_full_decline`
+  — search returns a real (non-empty) but off-topic chunk; zero
+  features survive the gate; routes to the same low-confidence path as
+  a genuinely empty retrieval, full 10-feature decline block.
+- **(14f)** `test_supported_unsupported_tuples_propagate_in_registry_order`
+  — 3 features given in non-registry input order (fate, heart, life);
+  output tuples reflect `_FEATURE_REGISTRY` order regardless.
+- **(14g)** `test_f2c_cap_unchanged_banned_mention_fails_both_drafts_stays_failed`
+  — banned mention on both drafts -> exactly 2 LLM calls (HARD CAP
+  unchanged), fail-closed, second draft's failure reported.
 
 ## Suite count
 
-`tests/interpretive/test_palm_reading.py` alone: **27 passed** (21
-original + 6 new), 0 failures on first run.
+`tests/interpretive/test_palm_reading.py` alone: **36 passed** (27
+R1-era + 9 new), 0 failures on final run.
 
-Full suite: **3183 passed, 3 skipped** (was 3177/3 before this task —
-net +6, all in this file). Zero regressions elsewhere.
-
-## Rider tables (throwaway script, not committed — production functions exercised directly)
-
-### Part A — mount of jupiter / markings+hair, real HAND_DETAIL qualities, n=3
-
-**mount of jupiter**
-Quality: `the mounts of venus (base of the thumb) and jupiter (below the index finger) appear slightly raised`
-
-| rank | page_ref | score | chunk_id | first 120 chars |
-|---|---|---|---|---|
-| 1 | 112 | 0.6630 | cheiroslanguageo00chei_1_p112_c0 | 64 Cheiro's Language of the Hand. Venus be well developed, it indicates strong and robust health. A small Mount of Venus |
-| 2 | 111 | 0.6456 | cheiroslanguageo00chei_1_p111_c1 | THE MOUNT OF VENUS. The Mount of Venus is the develoyeout found at the base of the thu ~b (Plate XII.). Wher not abnorin |
-| 3 | 113 | 0.5893 | cheiroslanguageo00chei_1_p113_c0 | Lhe Mounts, their Position and their Meanings. 69 THE MOUNT OF MARS. There are two mounts of this name; the first beneat |
-
-**markings/other features**
-Quality: `there are no unusual markings or features visible / there is a moderate amount of hair on the back of the hand and fingers`
-
-| rank | page_ref | score | chunk_id | first 120 chars |
-|---|---|---|---|---|
-| 1 | 221 | 0.4729 | cheiroslanguageo00chei_1_p221_c1 | It is the hand of the subtlest nature in regard to crime. There will be nothing abnormal in connection with the hand its |
-| 2 | 107 | 0.4371 | cheiroslanguageo00chei_1_p107_c0 | CHAPTER XIV. THE HAIR ON THE HANDS, A Suggestive Theory. Ir the exponent of palmistry has to read hands through a curtai |
-| 3 | 172 | 0.4345 | cheiroslanguageo00chei_1_p172_c1 | When formed in httle straight pieces, bad digestion (i-7, Plate XIX.). In little islands, with long, filbert nails, dang |
-
-Notable: rank-2 for `markings/other features` (p.107, "THE HAIR ON THE
-HANDS") is genuinely on-topic — the "hair" clause of hand_detail's
-"Other Features" bullet is doing real retrieval work here, not just
-decorative junk. Same pattern for `mount of jupiter`'s rank-1/2 hits
-(p.111/p.112, the actual Mount of Venus chapter) — a real, if imperfect
-(mount of jupiter's own quality string is actually the Venus+Jupiter
-sentence undivided, see the Verified-open item below), doctrine hit.
-
-### Part B — full pipeline over the pass-2 LEFT+RIGHT+HAND_DETAIL fixture
-
-**Observed features (10 of 10 — every registry feature had at least one non-absent source):**
-life line, head line, heart line, fate line, sun line, thumb, fingers,
-mount of venus, mount of jupiter, markings/other features.
-
-**Every query string:**
-
-| Feature | Query |
-|---|---|
-| life line | `what does a deep / a prominent line curves around the base of the thumb life line signify — meaning and indications of a deep / a prominent line curves around the base of the thumb life line` |
-| head line | `what does a deep / to be separate from the life line head line signify — meaning and indications of a deep / to be separate from the life line head line` |
-| heart line | `what does a deep / curves across the top of the palm heart line signify — meaning and indications of a deep / curves across the top of the palm heart line` |
-| fate line | `what does a barely visible / moderately deep fate line signify — meaning and indications of a barely visible / moderately deep fate line` |
-| sun line | `what does a faintly visible sun line signify — meaning and indications of a faintly visible sun line` |
-| thumb | `what does a medium relative size / medium size / the thumb is of average length with a moderate angle of separation from the hand thumb signify — meaning and indications of a medium relative size / medium size / the thumb is of average length with a moderate angle of separation from the hand thumb` |
-| fingers | `what does a long relative to the palm / slightly longer than the palm / the fingers are of moderate length. the index finger is slightly shorter than the middle finger fingers signify — meaning and indications of a long relative to the palm / slightly longer than the palm / the fingers are of moderate length. the index finger is slightly shorter than the middle finger fingers` |
-| mount of venus | `what does a developed / the mounts of venus (base of the thumb) and jupiter (below the index finger) appear slightly raised mount of venus signify — meaning and indications of a developed / the mounts of venus (base of the thumb) and jupiter (below the index finger) appear slightly raised mount of venus` |
-| mount of jupiter | `what does a the mounts of venus (base of the thumb) and jupiter (below the index finger) appear slightly raised mount of jupiter signify — meaning and indications of a the mounts of venus (base of the thumb) and jupiter (below the index finger) appear slightly raised mount of jupiter` |
-| markings/other features | `what does a there are no unusual markings or features visible / there is a moderate amount of hair on the back of the hand and fingers markings signify — meaning and indications of a there are no unusual markings or features visible / there is a moderate amount of hair on the back of the hand and fingers markings` |
-
-**Totals:** 10 queries fired, 0 failed. 30 total chunk assignments (3 x 10),
-**28 unique chunk_ids** (2 cross-feature repeats). Assembled context
-(the `### {feature}` grouped, display-deduped passages block that goes
-into the user message): **23,655 chars**.
-
-**Verified-open item (not fixed here, out of scope — R1 only)**: `thumb`,
-`fingers`, `mount of jupiter`, and `markings/other features`'s merged
-qualities are long/awkward run-on sentences (visible in the table
-above) because their source text has no comma to split on (HAND_DETAIL's
-prose-style bullets) or the needle-clause split still leaves a long
-single clause (MOUNTS' Venus+Jupiter sentence is one clause, so `mount
-of venus` and `mount of jupiter` currently get an IDENTICAL long
-fallback quality from hand_detail — only the LEFT/RIGHT-sourced
-`developed` half is genuinely Venus-specific). This is a real, known
-quality-of-query limitation, not a defect against this prompt's
-ratified design (which specifies the extraction/merge rule verbatim,
-not a requirement to further split same-clause multi-entity sentences)
-— flagged here as a candidate refinement for R2/R3 or a future R1.x,
-not fixed in this commit.
+Full suite: **3192 passed, 3 skipped** (was 3183/3 before this task —
+net +9). Zero regressions elsewhere.
