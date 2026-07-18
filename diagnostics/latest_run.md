@@ -113,3 +113,86 @@ before this can land:
 2. V-2's escalated section-attribution gap (see above) -- union-only
    membership is what's implemented; whether/how to recover per-feature
    attribution is open.
+
+---
+
+# S68 F-C A1: test-suite alignment + V-1/V-2 coverage -- close-out
+
+Follow-up to the STOP-condition report above. Scope: `tests/interpretive/
+test_palm_reading.py` ONLY -- no production code touched (confirmed via
+`git diff` before commit: only the test file changed).
+Ruling applied: validators are correct as-is; tests conform to the
+contract, never vice versa.
+
+## Part 1 -- retagged legacy stubs
+All ~19 `_FakeClient` stub constants/inline literals predating A1
+(`_CLEAN_STUB_TEXT`, `_JARGON_STUB_TEXT`, `_YEAR_STUB_TEXT`,
+`_GENERIC_NO_FEATURE_STUB_TEXT`, `_RETRY_FIRST_DRAFT_STUB_TEXT`,
+`_RETRY_SECOND_DRAFT_STILL_FAILS_STUB_TEXT`, `_STABILITY_STUB_TEXT`,
+`_WORD_BOUNDARY_STUB_TEXT`, `_NAVIGATED_STUB_TEXT`,
+`_MULTI_TERM_STUB_TEXT`, `_CHEIRO_VOICE_STUB_TEXT`,
+`_EMPOWERMENT_STUB_TEXT`, `_FATE_MENTIONING_DRAFT`/
+`_FATE_CLEAN_RETRY_DRAFT`, `_COLLISION_SAFE_DRAFT`,
+`_COLLISION_TRIPPED_DRAFT`, `_EXEMPLAR_ECHO_FIRST_DRAFT`/
+`_EXEMPLAR_ECHO_CLEAN_RETRY`, plus the inline `five_word_draft`/
+`six_word_draft`/`weird_draft`/`draft_quoting_chunk` literals) got a
+trailing `" [OBS]"` appended as their final-sentence tag -- sufficient
+per V-1's documented sandwich-gap boundary (only whole-text-untagged and
+trailing-residue-after-last-tag are position-decidable; mid-text
+sentences stay untagged, unchanged from the stub's original prose).
+**One deliberate exception**: `long_text` (the 701-word length-rail
+stub in `test_length_over_700_words_fails`) was left untagged --
+appending a token would make it 702 words and break the test's own
+`"701" in f` assertion; that test wasn't failing anyway (it only checks
+`any(f.startswith("length_guard:")...)`, indifferent to the coexisting
+anchor_completeness failure).
+No assertion was weakened, skipped, or xfailed. No stub required
+STRIPPED-form updates to an exact-`reading_text` comparison -- verified
+by grep: every existing assertion touching `reading_text` checks a
+substring (DISCLAIMER, decline-block text, "fate") never the raw stub
+text verbatim, so `strip_generation_tags()` removing the appended tag
+changes nothing any assertion depends on.
+Result: all 17 previously-failing tests pass; 0 regressions in the
+other 23.
+
+## Part 2 -- new V-1/V-2 coverage (13 new tests, synthetic text, no
+live LLM/ChromaDB)
+1. `test_tag_completeness_empty_string_reports_anchor_contract_not_exercised`
+2. `test_tag_completeness_whitespace_only_reports_anchor_contract_not_exercised`
+3. `test_tag_completeness_wholly_untagged_prose_reports_residue`
+4. `test_tag_completeness_trailing_residue_after_last_tag_quoted_in_message`
+5. `test_tag_completeness_clean_pass_mixed_obs_and_anchor_tags`
+6. `test_tag_completeness_multi_anchor_sentence_pass`
+7. `test_anchor_legality_fabricated_chunk_id_hard_fail_listed_verbatim`
+8. `test_anchor_legality_stale_id_valid_shape_not_in_gated_set_fails`
+9. `test_anchor_legality_cited_id_present_in_gated_set_passes`
+10. `test_anchor_legality_obs_only_text_passes_nothing_cited`
+11. `test_anchor_legality_empty_valid_chunk_ids_any_citation_fails`
+12. `test_v1_before_v2_untagged_text_reports_completeness_without_legality_failure`
+13. `test_end_to_end_tagged_draft_with_cited_chunk_validates_clean_and_strips_tags`
+
+Items 1-11 call `palm_reading._check_tag_completeness()` /
+`palm_reading._check_anchor_legality()` directly (same convention as the
+pre-existing `_JARGON_PATTERN` direct-proof test) -- deterministic,
+no-LLM-judgment functions, so a direct call is the more exact proof than
+routing through the full `generate_palm_reading()` stack. Item 12 also
+exercises `_run_ring1_checks()` end-to-end on an untagged, otherwise-
+clean sentence to prove V-1 fires alone while V-2 contributes nothing.
+Item 13 is the one full `generate_palm_reading()` integration test in
+this batch: a tagged stub (`[OBS]` + a cited chunk_id present in the
+stubbed retrieval's gated results) validates clean, and
+`CHUNK_ANCHOR_TAG_PATTERN.search(result.reading_text) is None` proves no
+tag token survives display (regex-negative, not hand-derived).
+An informational comment block precedes item 1, documenting the
+accepted sandwich-gap boundary as "place 2 of 3" in a 3-place taxonomy
+(before-first-tag / between-tags / after-last-tag) -- formalizing that
+taxonomy in CLAUDE.md and the module's own docstring is deferred to the
+S68 F-C close-out prompt, not resolved here.
+
+## Full pytest result
+`python -m pytest -q`: **3213 passed, 3 skipped** (vs. the 3200
+passed / 3 skipped baseline) -- +13, exactly the new Part 2 tests, 0
+regressions.
+`tests/interpretive/test_palm_reading.py` alone: 53 passed (was 23
+passed / 17 failed before this close-out; +13 net new vs. the pre-A1
+40-test file).

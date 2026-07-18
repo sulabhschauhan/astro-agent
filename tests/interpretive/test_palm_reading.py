@@ -214,7 +214,7 @@ _CLEAN_STUB_TEXT = (
     "continuity in the line points to a strong constitution and an "
     "enduring capacity to meet life's demands without being easily worn "
     "down. Overall, this is a hand that reflects genuine physical staying "
-    "power, carried forward with quiet, steady confidence."
+    "power, carried forward with quiet, steady confidence. [OBS]"
 )
 
 
@@ -267,7 +267,7 @@ _JARGON_STUB_TEXT = (
     "palm suggests balance and steady growth, and anyone with a bold "
     "yogart sign on their hand should feel encouraged. It is a warm, "
     "positive outlook for the months ahead, with room to deepen important "
-    "relationships and explore new creative directions along the way."
+    "relationships and explore new creative directions along the way. [OBS]"
 )
 
 
@@ -306,7 +306,7 @@ _YEAR_STUB_TEXT = (
     "for growth and travel. Your hand shows steady resilience through "
     "life's changes, with a natural warmth that draws others close. Trust "
     "your instincts during this stretch and lean into new connections -- "
-    "they carry real long-term value."
+    "they carry real long-term value. [OBS]"
 )
 
 
@@ -379,7 +379,7 @@ _GENERIC_NO_FEATURE_STUB_TEXT = (
     "Your hands speak of steady effort and quiet resolve, promising a "
     "path shaped more by personal merit than mere chance. This is a "
     "grounded nature built for endurance and calm judgment through the "
-    "years ahead."
+    "years ahead. [OBS]"
 )
 
 
@@ -478,12 +478,12 @@ def test_exactly_one_llm_call_when_first_draft_passes(monkeypatch):
 _RETRY_FIRST_DRAFT_STUB_TEXT = (
     "This hand promises stability through disciplined effort, with a firm "
     "grip on practical matters and steady, deliberate choices in every "
-    "undertaking that comes before it."
+    "undertaking that comes before it. [OBS]"
 )
 
 _RETRY_SECOND_DRAFT_STILL_FAILS_STUB_TEXT = (
     "This calm hand still speaks of quiet empowerment gained through "
-    "disciplined practice and patient, steady effort across many years."
+    "disciplined practice and patient, steady effort across many years. [OBS]"
 )
 
 
@@ -615,7 +615,7 @@ def test_sources_propagate_book_page_score(monkeypatch):
 _STABILITY_STUB_TEXT = (
     "This hand promises STABILITY through disciplined effort, with a firm "
     "grip on practical matters and a steady, deliberate approach to every "
-    "undertaking that comes before it."
+    "undertaking that comes before it. [OBS]"
 )
 
 
@@ -641,7 +641,7 @@ def test_self_help_case_insensitive(monkeypatch):
 _WORD_BOUNDARY_STUB_TEXT = (
     "A hand marked by inner instability at times still moves toward calm "
     "judgment, and this journeyman spirit for craft rewards patient hands "
-    "with quiet mastery over many years."
+    "with quiet mastery over many years. [OBS]"
 )
 
 
@@ -666,7 +666,7 @@ def test_self_help_word_boundary_excludes_substrings(monkeypatch):
 # banned-mention validator, confounding this test's actual purpose.
 _NAVIGATED_STUB_TEXT = (
     "The life line, once navigated with hesitation in youth, now runs firm "
-    "and true across the palm, showing settled judgment and clear resolve."
+    "and true across the palm, showing settled judgment and clear resolve. [OBS]"
 )
 
 
@@ -691,7 +691,7 @@ _MULTI_TERM_STUB_TEXT = (
     "The life line points to fulfilling achievements forged through effort, "
     "while its steady course traces a long journey of independent "
     "judgment; a second look at this same line confirms the journey "
-    "continues on firm ground for fulfilling work ahead."
+    "continues on firm ground for fulfilling work ahead. [OBS]"
 )
 
 
@@ -721,7 +721,7 @@ _CHEIRO_VOICE_STUB_TEXT = (
     "years. Its depth and continuity reveal a nature built for endurance, "
     "sharpened by direct experience rather than idle theory. Such a life "
     "line, clear and undivided, promises success won through personal "
-    "exertion rather than chance."
+    "exertion rather than chance. [OBS]"
 )
 
 
@@ -740,7 +740,7 @@ def test_self_help_clean_cheiro_register_passes(monkeypatch):
 _EMPOWERMENT_STUB_TEXT = (
     "This hand speaks of quiet empowerment gained through steady effort, "
     "with practical instincts and calm resolve carrying you through each "
-    "new challenge that life presents along the way."
+    "new challenge that life presents along the way. [OBS]"
 )
 
 
@@ -968,11 +968,11 @@ def test_sources_carry_distinct_feature_tags(monkeypatch):
 
 _FATE_MENTIONING_DRAFT = (
     "Your life line shows steady vitality, and the fate line reveals a "
-    "path shaped by personal choice rather than external circumstance."
+    "path shaped by personal choice rather than external circumstance. [OBS]"
 )
 _FATE_CLEAN_RETRY_DRAFT = (
     "Your life line shows steady vitality, promising a path shaped by "
-    "personal choice and quiet determination through the years ahead."
+    "personal choice and quiet determination through the years ahead. [OBS]"
 )
 
 
@@ -1036,7 +1036,7 @@ def test_doctrine_inversion_guard_fate_unsupported_first_draft_retried_clean(mon
 _COLLISION_SAFE_DRAFT = (
     "Your life line shows steady vitality; this reading reflects on a "
     "sunny disposition and a remarkable, marked sense of purpose that "
-    "carries through every Sunday and every ordinary day alike."
+    "carries through every Sunday and every ordinary day alike. [OBS]"
 )
 
 
@@ -1060,7 +1060,7 @@ def test_needle_collision_battery_sunday_sunny_remarkable_marked_do_not_trip(mon
 
 _COLLISION_TRIPPED_DRAFT = (
     "Your life line shows steady vitality, and a faint sun line "
-    "suggests hidden creative promise."
+    "suggests hidden creative promise. [OBS]"
 )
 
 
@@ -1273,11 +1273,11 @@ def test_f2c_cap_unchanged_banned_mention_fails_both_drafts_stays_failed(monkeyp
 
 _EXEMPLAR_ECHO_FIRST_DRAFT = (
     "Your life line shows steady vitality. Each one tells its own story "
-    "to those who understand the craft."
+    "to those who understand the craft. [OBS]"
 )
 _EXEMPLAR_ECHO_CLEAN_RETRY = (
     "Your life line shows steady vitality, promising sound health and "
-    "quiet endurance through the years ahead."
+    "quiet endurance through the years ahead. [OBS]"
 )
 
 
@@ -1321,7 +1321,7 @@ def test_exemplar_echo_boundary_5word_no_fire_6word_fires(monkeypatch):
 
     five_word_draft = (
         "Your life line shows lasting vitality. Each one tells its own "
-        "tale in every hand I read."
+        "tale in every hand I read. [OBS]"
     )
     client5 = _FakeClient(content=five_word_draft)
     result5 = generate_palm_reading(
@@ -1331,7 +1331,7 @@ def test_exemplar_echo_boundary_5word_no_fire_6word_fires(monkeypatch):
 
     six_word_draft = (
         "Your life line shows lasting vitality. Each one tells its own "
-        "story in every hand I read."
+        "story in every hand I read. [OBS]"
     )
     client6 = _FakeClient(content=six_word_draft)
     result6 = generate_palm_reading(
@@ -1349,7 +1349,7 @@ def test_exemplar_echo_normalization_case_punctuation_whitespace(monkeypatch):
     matching, not exact-string matching."""
     weird_draft = (
         "Your life line shows vitality.   EACH,   one   tells; ITS   own "
-        "STORY!!! in every hand."
+        "STORY!!! in every hand. [OBS]"
     )
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
     client = _FakeClient(content=weird_draft)
@@ -1377,7 +1377,7 @@ def test_exemplar_echo_does_not_fire_on_retrieved_chunk_quote(monkeypatch):
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([doctrine_chunk]))
     draft_quoting_chunk = (
         "Your life line should be long narrow and deep without "
-        "irregularities, promising a strong constitution."
+        "irregularities, promising a strong constitution. [OBS]"
     )
     client = _FakeClient(content=draft_quoting_chunk)
 
@@ -1394,3 +1394,212 @@ def test_exemplar_echo_does_not_fire_on_retrieved_chunk_quote(monkeypatch):
 # passed unchanged, so no stub text in this file happened to echo either
 # new exemplar sentence. Nothing to reword; the R3 convention ("fix the
 # stub, don't weaken the guard") simply had nothing to fix this time.
+
+
+# ─── Item 16: A1 V-1/V-2 chunk-anchor Ring 1 validators (S68 F-C) ───────
+#
+# palm_reading._check_tag_completeness (V-1) and palm_reading._check_
+# anchor_legality (V-2) are tested here as plain functions, not only
+# through the full generate_palm_reading() integration -- same convention
+# as item 3's direct _JARGON_PATTERN proof above: both are deterministic,
+# no-LLM-judgment validators, so a direct call is the more exact proof.
+#
+# ACCEPTED BOUNDARY (documented, not fixed here): V-1 is position-only and
+# can only decide two of the three places an untagged sentence could sit
+# relative to a tag -- (1) the whole text is empty/untagged, and (3)
+# residue trailing the LAST tag. Place (2), a sentence sandwiched BETWEEN
+# two valid tags, is the accepted sandwich gap (see palm_reading._check_
+# tag_completeness's own KNOWN GAP docstring). Formalizing this 3-place
+# taxonomy in CLAUDE.md and this module's own docstring rides the S68 F-C
+# close-out prompt, not this test-alignment pass.
+
+
+def test_tag_completeness_empty_string_reports_anchor_contract_not_exercised():
+    """Guards against PalmReadingResult.reading_text_tagged's dataclass
+    default of "" ever being fed back through Ring 1 -- generate_palm_
+    reading() itself never does this (it always supplies the real draft),
+    but the check must hold regardless of caller."""
+    failures = palm_reading._check_tag_completeness("")
+
+    assert failures == [
+        "anchor_completeness: anchor contract not exercised "
+        "(reading_text_tagged is empty or whitespace-only)"
+    ]
+
+
+def test_tag_completeness_whitespace_only_reports_anchor_contract_not_exercised():
+    failures = palm_reading._check_tag_completeness("   \n\t  ")
+
+    assert failures == [
+        "anchor_completeness: anchor contract not exercised "
+        "(reading_text_tagged is empty or whitespace-only)"
+    ]
+
+
+def test_tag_completeness_wholly_untagged_prose_reports_residue():
+    """No recognized tag anywhere in the text -- the whole stripped text
+    is reported as the untagged residue."""
+    text = "Your life line shows steady vitality."
+
+    failures = palm_reading._check_tag_completeness(text)
+
+    assert failures == [
+        "anchor_completeness: sentence-final residue with no tag: "
+        "'Your life line shows steady vitality.'"
+    ]
+
+
+def test_tag_completeness_trailing_residue_after_last_tag_quoted_in_message():
+    """A valid tag exists, but untagged text follows it -- the residue
+    AFTER the last recognized tag is the one position decidable from tag
+    positions alone with no sentence-splitter, and it is quoted verbatim
+    (repr, not the raw string) in the failure message."""
+    text = "First sentence.[OBS] Second sentence needs a tag but has none"
+
+    failures = palm_reading._check_tag_completeness(text)
+
+    assert failures == [
+        "anchor_completeness: sentence-final residue with no tag: "
+        "'Second sentence needs a tag but has none'"
+    ]
+
+
+def test_tag_completeness_clean_pass_mixed_obs_and_anchor_tags():
+    """One [OBS] observation sentence followed by one doctrine-citing
+    sentence -- both terminate in a recognized tag, nothing trails the
+    last one -> clean pass."""
+    text = (
+        "Your life line runs long and clear.[OBS] "
+        "Classical doctrine holds this promises vitality."
+        "[cheiroslanguageo00chei_1_p134_c2]"
+    )
+
+    assert palm_reading._check_tag_completeness(text) == []
+
+
+def test_tag_completeness_multi_anchor_sentence_pass():
+    """A single sentence citing two adjacent chunk_id anchors back to
+    back (per the output-format contract's "one or more, written back to
+    back with no space between them") -- still a clean pass since nothing
+    trails the last tag."""
+    text = (
+        "This claim draws on two passages at once."
+        "[cheiroslanguageo00chei_1_p134_c1][cheiroslanguageo00chei_1_p163_c3]"
+    )
+
+    assert palm_reading._check_tag_completeness(text) == []
+
+
+def test_anchor_legality_fabricated_chunk_id_hard_fail_listed_verbatim():
+    """A chunk_id that was never retrieved for any feature, any run --
+    the failure message must list it verbatim, not a generic message."""
+    text = "A claim citing a chunk that was never retrieved.[cheiroslanguageo00chei_1_p999_c9]"
+    valid_chunk_ids = frozenset({"cheiroslanguageo00chei_1_p134_c2"})
+
+    failures = palm_reading._check_anchor_legality(text, valid_chunk_ids)
+
+    assert failures == [
+        "anchor_legality: unknown/malformed chunk_id(s): "
+        "cheiroslanguageo00chei_1_p999_c9"
+    ]
+
+
+def test_anchor_legality_stale_id_valid_shape_not_in_gated_set_fails():
+    """A chunk_id that is a genuine, valid-shaped corpus id (it could have
+    been gated in a PRIOR run or a different retrieval) but is not a
+    member of THIS run's valid_chunk_ids -- membership, not shape, is the
+    only thing V-2 checks, so a stale id fails exactly like a fabricated
+    one."""
+    text = "A claim citing a stale, previously-valid chunk.[cheiroslanguageo00chei_1_p134_c2]"
+    valid_chunk_ids = frozenset({"cheiroslanguageo00chei_1_p163_c1"})
+
+    failures = palm_reading._check_anchor_legality(text, valid_chunk_ids)
+
+    assert failures == [
+        "anchor_legality: unknown/malformed chunk_id(s): "
+        "cheiroslanguageo00chei_1_p134_c2"
+    ]
+
+
+def test_anchor_legality_cited_id_present_in_gated_set_passes():
+    text = "A claim citing a genuinely gated chunk.[cheiroslanguageo00chei_1_p134_c2]"
+    valid_chunk_ids = frozenset({"cheiroslanguageo00chei_1_p134_c2"})
+
+    assert palm_reading._check_anchor_legality(text, valid_chunk_ids) == []
+
+
+def test_anchor_legality_obs_only_text_passes_nothing_cited():
+    """[OBS] is explicitly excluded from the cited set -- an all-[OBS]
+    text cites nothing, so it passes regardless of valid_chunk_ids."""
+    text = "First observation.[OBS] Second observation.[OBS]"
+
+    assert palm_reading._check_anchor_legality(text, frozenset()) == []
+
+
+def test_anchor_legality_empty_valid_chunk_ids_any_citation_fails():
+    """The degenerate case where gated_results produced no surviving
+    chunks at all (valid_chunk_ids is the empty set) -- any citation at
+    all is necessarily unknown."""
+    text = "A claim citing a chunk despite nothing being gated.[cheiroslanguageo00chei_1_p134_c2]"
+
+    failures = palm_reading._check_anchor_legality(text, frozenset())
+
+    assert failures == [
+        "anchor_legality: unknown/malformed chunk_id(s): "
+        "cheiroslanguageo00chei_1_p134_c2"
+    ]
+
+
+def test_v1_before_v2_untagged_text_reports_completeness_without_legality_failure():
+    """Ordering proof: text with no tags at all trips V-1 (completeness)
+    but cites nothing, so V-2 (legality) contributes no failure of its
+    own -- "legality is meaningless to check on incomplete tagging" (see
+    _run_ring1_checks's docstring) holds concretely, not just as prose."""
+    text = "This is a wholly untagged sentence with no citation at all."
+
+    completeness_failures = palm_reading._check_tag_completeness(text)
+    legality_failures = palm_reading._check_anchor_legality(text, frozenset())
+
+    assert any("anchor_completeness" in f for f in completeness_failures)
+    assert legality_failures == []
+
+    # Same proof through the full ordered runner: a text with nothing
+    # else wrong (no jargon/self-help/dates/length/banned-mention/
+    # exemplar-echo hits) produces EXACTLY the completeness failure --
+    # V-2 runs after V-1 in the fixed order but adds nothing here.
+    assert palm_reading._run_ring1_checks(text, "", (), frozenset()) == [
+        "anchor_completeness: sentence-final residue with no tag: "
+        "'This is a wholly untagged sentence with no citation at all.'"
+    ]
+
+
+def test_end_to_end_tagged_draft_with_cited_chunk_validates_clean_and_strips_tags(monkeypatch):
+    """A1 end-to-end: a fully-tagged draft (one [OBS] sentence, one
+    sentence citing a chunk_id that IS in this run's gated_results) must
+    validate clean through the real generate_palm_reading() path, and the
+    DISPLAYED reading_text must carry NO tag tokens at all -- proven with
+    a regex-negative assertion against CHUNK_ANCHOR_TAG_PATTERN itself
+    (the same pattern strip_generation_tags() and both A1 validators
+    share), not a hand-derived string comparison."""
+    cited_chunk = _chunk(
+        text="The classical texts describe a long life line as promising vitality.",
+        score=0.6,
+        chunk_id="cheiroslanguageo00chei_1_p134_c2",
+    )
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([cited_chunk]))
+    tagged_draft = (
+        "Your life line runs long and clear across the palm.[OBS] "
+        "Classical doctrine holds that such a line promises vitality and "
+        "long life.[cheiroslanguageo00chei_1_p134_c2]"
+    )
+    client = _FakeClient(content=tagged_draft)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long, deep life line.", palm_right=None, client=client
+    )
+
+    assert result.validation.passed is True
+    assert result.validation.failures == ()
+    assert result.retry_used is False
+    assert result.reading_text_tagged == tagged_draft
+    assert palm_reading.CHUNK_ANCHOR_TAG_PATTERN.search(result.reading_text) is None
