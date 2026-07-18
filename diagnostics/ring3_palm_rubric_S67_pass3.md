@@ -1,8 +1,7 @@
 # Ring 3 — T4 Human-Rubric Ratification Artifact (Session 67) — Pass 3
 
-**STATUS: DRAFT (2026-07-18). Verdict checkbox left UNCHECKED — ratification
-happens in design chat, not here.** This artifact is scoring evidence
-prepared for user review; it is not itself the ratification decision.
+**STATUS: SCORED — pass 3, verdict NOT RATIFIED (2026-07-18).
+Frozen record; keep forever.**
 
 Preconditions: S67 R1 (per-feature retrieval, `0a738c3`), R3 (support gate +
 Python-owned decline, `b6dee9b`), R2 (exemplar rewrite + echo guard,
@@ -418,17 +417,33 @@ supported features with confirmed observations, both silently dropped).**
 
 ## P7 — Vision fidelity
 
-**PENDING USER RATIFICATION.** This pass's descriptions were captured
-live during an actual 2026-07-18 app session (not a headless probe) —
-the S65/S66 F1 human-checkpoint UI was exercised procedurally (palm_left,
-palm_right, and hand_detail were each displayed and confirmed before
-generation, per the app's wiring). That procedural confirmation is NOT
-the same as this artifact's own P7 sign-off, which requires the user to
-visually re-verify the confirmed field text against the actual uploaded
-images (as was done for pass 2's annotated fate-line corridor check).
-**No P7 score is asserted here** — final P7 sign-off, and by extension
-this artifact's overall ratification, happens when the user reviews this
-draft in design chat.
+**RATIFIED (2026-07-18, design chat).** User reviewed all three confirmed
+descriptions (LEFT, RIGHT, HAND_DETAIL) against the actual uploaded
+photos and verified each field's accuracy. **P7: OK.** This supersedes
+the earlier "pending user ratification" placeholder in the drafted
+version of this artifact — the S65/S66 F1 human-checkpoint UI was
+exercised procedurally during the live 2026-07-18 app session (palm_left,
+palm_right, and hand_detail each displayed and confirmed before
+generation), and the user's design-chat review is the P7-proper visual
+re-verification this rubric requires (same standard as pass 2's annotated
+fate-line corridor check).
+
+### Design-chat review notes (recorded during ratification, 2026-07-18)
+- **(i) Run A thumb claim, "well-formed" vs. confirmed "medium size"** —
+  the confirmed THUMB field says "Medium relative size... wide angle from
+  the palm"; Run A's reading upgrades this to "well-formed thumb" (see
+  ledger row 3 / adjudication item (b)). This is a **D-amplification**,
+  same class as pass 1's precedent (mild descriptive upgrade beyond the
+  literal confirmed wording, not a fabrication or contradiction) —
+  **noted, not failed.**
+- **(ii) Run B's `retry_used: False` is a single data point, not a trend.**
+  This is the first clean first draft captured across pass 2 and pass 3
+  (see Run B's Ring 1 spot-check). Recorded as **data only** — one
+  regenerate passing Ring 1 on its first attempt does not establish that
+  the F2c retry mechanism's fire rate is dropping; the S66 pre-flight
+  probe's 3/3 retry-fired sample remains the only rate-level evidence.
+  Do not cite this run as evidence of generation-quality improvement
+  without a larger sample.
 
 ## Verdict
 
@@ -441,16 +456,14 @@ draft in design chat.
 | B | N | Y | Y | N | 2/4 |
 | C | N | Y | Y | N | 2/4 |
 
-- [ ] NOT RATIFIED
+- [x] NOT RATIFIED
 - [ ] RATIFIED-LIVE
 
-**Pending design-chat review + user ratification.** Neither box is
-checked in this draft — the itemized table above is the evidence; the
-decision is the user's to make. As scored, no run currently reaches 4/4
-(P1 fails on all three via the fingers/hand-shape/heart-line U-pattern;
-P4 additionally fails on B and C via the thumb/Jupiter omission pattern
-in Findings #2) — presented here as data for that review, not as a
-pre-committed verdict.
+**Scored in design chat, 2026-07-18.** No run reaches 4/4 (P1 fails on
+all three via the fingers/hand-shape/heart-line U-pattern; P4
+additionally fails on B and C via the thumb/Jupiter omission pattern in
+Findings #2). P7 is RATIFIED (OK) — the P1/P4 gaps are the sole blockers
+on the ratification bar.
 
 **Progress vs. pass 2** (for context, not a scoring input): P3 (voice)
 remains fully fixed, consistent with pass 2. Life line and Mount of Venus

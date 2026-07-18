@@ -3316,3 +3316,147 @@ ride-along -- R1 shipped a bullet-format parser tied to
 "align to F4 flat-field format" instruction would silently break R1's
 hand_detail extraction if executed standalone. V1.1 register unchanged
 from Session 66 -- no new items this session.
+
+## Session 68 -- Ring 3 pass 3 pre-flight probe + live 3-run dogfood, SCORED NOT RATIFIED (P7 ratified OK; P1/P4 remain the blockers), S68 fix-forward queue opened (2026-07-18)
+
+### Pre-flight smoke probe (`2da2819`)
+`scripts/probe_pass3_preflight.py` (throwaway) ran the full pipeline once
+in the Run-C shape (both palms + `Back Hand.jpeg` hand_detail fixture,
+live vision + generation) against `data/test_images/`'s sanctioned probe
+fixtures -- NOT a Ring 3 scoring run, a wiring smoke check ahead of
+spending a live pass on it. All 3 sanity asserts passed: 10/10 registry
+features supported, Ring 1 `passed=True` on the final draft, no exemplar
+echo. Notable early signal: the p.163 fate-line doctrine chunk (pass 2's
+missed-entirely case) surfaced and gated in on this fixture, and every
+supported feature carried at least one doctrine-marker hit -- first
+concrete evidence the R1/R3 landed work was doing its job before any
+real dogfood data existed.
+
+### Pass 3 live dogfood: Runs A/B/C (2026-07-18, `.claude/read_prompt.md`
+F5 capture)
+Fresh 3-run dogfood, mapped from the F5-captured `## RUN` timestamps:
+Run A (`11:34:32`, LEFT+RIGHT only, `retry_used: True`), Run B
+(`11:35:40`, identical inputs/regenerate, `retry_used: False` -- the
+first clean first draft captured across pass 2 and pass 3), Run C
+(`11:38:22`, +HAND_DETAIL, `retry_used: True`).
+
+### Chunk-text evidence dump (`scripts/probe_pass3_chunks.py`, `94ffbe0`)
+Read-only reconstruction of the production per-feature retrieval +
+support gate against the captured confirmed descriptions, for both input
+shapes (LEFT+RIGHT-only and +HAND_DETAIL). Measure-first reconstruction
+gate PASSED both shapes (pages/order exact, scores within +/-0.0002 of
+captured) before any chunk text was trusted as evidence. Full P1
+claim-ledger evidence surface written to
+`diagnostics/ring3_chunks_S67_pass3.md`, grouped by feature/registry
+order with Run A/B vs. Run C delta separated, plus a deterministic
+doctrine-marker lookup (not a judgment) per chunk.
+
+### Scoring: `diagnostics/ring3_palm_rubric_S67_pass3.md` -- **SCORED NOT
+RATIFIED**
+Four pre-registered adjudication items scored explicitly, all with
+verbatim chunk quotes:
+- **(a) Run C Jupiter omission** -- CONFIRMED P4 silent-clause-drop
+  (supported feature, real doctrine available, confirmed HAND_DETAIL
+  observation, never addressed, no decline block since it's not in
+  `unsupported_features`). Extended beyond the pre-registered scope: the
+  SAME defect independently found on `thumb` in BOTH Run B and Run C
+  (verified by full re-read of each `reading_text`) -- only Run A (1 of
+  3 runs) actually addresses thumb despite it being `supported` with
+  rich doctrine (p.87) in all three. **New failure mode**:
+  "supported-but-unaddressed" -- the Python-owned decline mechanism (S67
+  R3) only guarantees coverage for features that fail the support gate;
+  it cannot and does not guarantee a `supported` feature with real
+  evidence actually gets used by the LLM.
+- **(b) Thumb wide-angle vs. p.87 doctrine** -- scored C but
+  attribution-ambiguous: Run A's claim literally matches p.88's
+  formation/size doctrine (the reading's own stated anchor, "well-formed"
+  -- design-chat review confirmed this as a D-amplification over the
+  confirmed "medium size" wording, same class as pass 1's precedent,
+  noted not failed), but if attributed to the confirmed "wide angle"
+  observation specifically, p.87's doctrine predicts extremity/
+  unmanageability, not "balance" -- an open flag, not silently resolved.
+- **(c) Right fate line vs. p.163 wrist->Saturn** -- split verdict: the
+  "success" outcome is C (wrist-clause, load-bearing, all 3 runs); the
+  "personal ambition/merit" self-determination framing is U (borrows a
+  different clause's register without its "rises from the line of life"
+  precondition being confirmed) -- a milder recurrence of pass 2's
+  doctrine-inversion pattern, now on the correct (visible) line instead
+  of the faint one.
+- **(d) Fate-line "clearer over time" synthesis** -- scored D-frame, not
+  a doctrine claim -- correctly reflects the system prompt's own
+  left=innate/right=current convention; flagged as an open question for
+  future rubric passes.
+
+**P7 ratified OK** (2026-07-18, design chat) -- user reviewed all three
+confirmed descriptions against the actual uploaded photos.
+
+**Scores**:
+
+| Run | P1 | P2 | P3 | P4 |
+|---|---|---|---|---|
+| A | N | Y | Y | Y |
+| B | N | Y | Y | N |
+| C | N | Y | Y | N |
+
+No run reaches the 4/4 ratification bar. P1 fails on all three (fingers/
+hand-shape/heart-line unsupported-claim pattern -- the fingers claim is
+now actively CONTRADICTED by a retrieved chunk, p.98_c1's "erroneous and
+misleading," rather than merely unsupported, a sharper finding than pass
+2's plain absence). P4 fails on B and C via the thumb/Jupiter
+supported-but-unaddressed pattern above.
+
+**Progress vs. pass 2**: P3 (voice) continues to hold clean across all
+three runs -- F2c's retry mechanism remains the confirmed carrier of that
+fix. Life line and Mount of Venus grounding went from
+unsupported/absent-doctrine (pass 2, U on all 3 runs for Venus) to
+consistently load-bearing C rows in all three pass-3 runs -- concrete
+evidence the R1 per-feature retrieval redesign is doing real work, not
+just restructuring the failure. The remaining P1 gap has narrowed in
+scope but sharpened in character (contradiction, not mere absence), and
+a genuinely new failure mode (P4 supported-but-unaddressed) emerged that
+neither pass 1 nor pass 2 surfaced.
+
+Also recorded during scoring (design-chat review notes, not scoring
+inputs): Run B's `retry_used: False` is a single data point, not a
+trend -- do not cite it as evidence of generation-quality improvement
+without a larger sample; the S66 pre-flight probe's 3/3 retry-fired
+sample remains the only rate-level evidence that exists.
+
+### Test baseline
+No production code touched this session -- pre-flight probe, chunk-
+evidence dump, and scoring artifact are all diagnostics-only (throwaway
+scripts + committed `.md` reports). Suite unchanged from Session 67's
+close: **3200 passed, 3 skipped.**
+
+### Commit hashes
+Substantive: `2da2819` (pre-flight probe), `94ffbe0` (chunk-text evidence
+dump + `probe_pass3_chunks.py`), `e6ff977` (pass-3 scoring artifact,
+initial DRAFT). Dogfood-capture commits (`.claude/read_prompt.md` F5
+capture-log updates, not individually narrated): `d8d2f5a`, `3d390cd`,
+`b2fa408`.
+
+Docs closeout: this commit ("S68 close-out: Ring 3 pass 3 NOT RATIFIED +
+S68 queue").
+
+### Carry-forward resolved this session
+- **Ring 3 pass 3** (Session 67 register) -- RESOLVED in the narrow
+  sense: the pass ran (N=3, fresh uploads) and has been SCORED. T4
+  remains NOT ratified-live -- an open verdict, not an open
+  pass-existence gap; see CLAUDE.md's updated T4 status line.
+- **F5 `retry_used` capture gap** (pass 2's Known Gap) -- RESOLVED.
+  `retry_used` is now per-run hard data (captured directly in each RUN
+  block), no longer inferred from a separate pre-flight sample.
+
+### Carry-forward added this session
+See CLAUDE.md's Carry-Forward register for the live, actionable list:
+the S68 fix-forward queue (F-C claim-level grounding design + heart-
+line/fingers retrieval gap probe, design chat first -- gates F-A, a Ring
+1 supported-feature coverage validator with a landmark-exclusion rule;
+F-B, a small `_ABSENCE_PHRASES` regex broadening, can land anytime; F-D,
+a design debate on per-feature source scoping vs. `p134_c2`-class query
+drift), and a new V1.1 register item (golden fixture rows with
+`baseline_source: "astrosage_kp_2026-07"` carrying two uncorrected
+capture errors -- Ketu-Sun antardasha mislabeled as Venus Mahadasha,
+10th lord stated as Moon vs. computed Mercury). Not duplicated here per
+the Session 62 diagnostics-retention convention -- CLAUDE.md is the
+single live copy.
