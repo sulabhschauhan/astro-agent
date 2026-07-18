@@ -3460,3 +3460,67 @@ capture errors -- Ketu-Sun antardasha mislabeled as Venus Mahadasha,
 10th lord stated as Moon vs. computed Mercury). Not duplicated here per
 the Session 62 diagnostics-retention convention -- CLAUDE.md is the
 single live copy.
+
+### S68 addendum -- AstroSage-PDF coverage audit, V2 decision gate, CLAUDE.md slim (2026-07-18)
+
+**Coverage audit** (`diagnostics/astrosage_coverage_audit_S68.md`, via
+throwaway `scripts/probe_astrosage_coverage.py`): the live 7-keyword
+`astrosage_parser.py` splitter matches 6/7 of its own targets (misses
+`Transit Today` on the audited PDF); a full raw-text pass surfaced the
+PDF's actual taxonomy at 31 sections across 56 pages. Classified against
+V1's 8 routed domains: 3 COVERED-CALC (Vimshottari Dasha, Sade Sati
+table, ShadBala/BhavBala Table -- each cross-checked directly against
+`chart_profile.py`, not assumed), 10 COVERED-PARTIAL, 13 NOT-COVERED, 3
+OUT-OF-SCOPE-LOCKED, 2 N/A (cover pages). One correction against the
+audit brief's own example categorization: Lal Kitab reclassified
+OUT-OF-SCOPE-LOCKED (not NOT-COVERED as the brief's example suggested),
+since CLAUDE.md's T4 lock states it is actively withheld at display
+(same mechanism as Pratyantar), not merely unbuilt.
+
+**Design-chat ruling**: AstroSage PDF stays V1 (no replacement scoped
+this session). New CLAUDE.md Locked Decision, "V2 decision gate": a
+future V2 interpretive template layer is scoped to the audit's
+COVERED-PARTIAL sections first (calculable-but-uninterpreted content),
+classical-corpus-sourced, deterministic placement-keyed, no serve-time
+LLM -- design work on it pends F-C's claim-level grounding discipline
+landing first (same gating logic as F-A, see the S68 fix-forward queue).
+
+**CLAUDE.md slim**: 126 -> 117 lines (task brief cited 132 as the
+pre-slim count; verified against the actual file before editing, not
+transcribed). Rule followed: compress, never relocate -- Locked
+Decisions, Known Source Divergences, and Working Style left untouched
+(dense, precisely-worded, high risk of meaning drift if reworded; the
+task's own "when in doubt, keep the original sentence" clause applied).
+All reduction came from the Carry-Forward register: dropped 2
+fully-resolved items with SESSION_LOG-documented resolutions (`answer_
+question()` Stage 2 client injection seam, resolved Session 64 Part A;
+the "S67 sequence CLOSED" bullet, redundant with the T4 status line
+above it), removed one stray mid-list blank line, and merged 5 pairs/
+groups of thematically-related still-open items into single bullets
+(misc small ride-alongs; arudha_lagna internals; stale-prose refreshes;
+router-tuning backlog; palm_reading.py S65 flags) with no fact dropped
+-- every file/session/trigger citation survives, just restructured as
+sub-clauses. 80 lines was not honestly reachable without rewording
+protected content; reported transparently rather than forced.
+
+**Register additions**: 3 new items folded into the consolidated V1.1
+register bullet (splitter coverage broadening, naming the missed
+`Transit Today` keyword; a dogfood `## RUN`-block copy-by-timestamp
+script to remove Ring-3 scoring's manual paste-from-`read_prompt.md`
+friction, low priority) -- both net-new this addendum, plus the
+already-standing `astrosage_kp_2026-07` fixture item, all still open.
+
+### Carry-forward resolved this session (addendum)
+- `answer_question()` Stage 2 client injection seam (Session 59) --
+  verified RESOLVED at Session 64 Part A ("Stage 2 client injection
+  seam added"); the CLAUDE.md bullet had gone stale (never removed at
+  the time) and is dropped as part of this slim.
+- S67 sequence CLOSED bullet -- dropped as redundant with the T4 status
+  Locked-Decision-adjacent carry-forward line, which already carries
+  the current state.
+
+### Carry-forward added this session (addendum)
+See CLAUDE.md's Carry-Forward register (post-slim) for the live list --
+not duplicated here per the Session 62 retention convention. Headline
+new items: V2 decision gate (Locked Decisions), splitter coverage
+broadening + dogfood RUN-block script (V1.1 register).
