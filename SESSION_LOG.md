@@ -3524,3 +3524,52 @@ See CLAUDE.md's Carry-Forward register (post-slim) for the live list --
 not duplicated here per the Session 62 retention convention. Headline
 new items: V2 decision gate (Locked Decisions), splitter coverage
 broadening + dogfood RUN-block script (V1.1 register).
+
+### S68 addendum -- F-C close-out: A1 chunk-anchored generation lands (2026-07-19)
+
+**F-C arc in brief.** Two diagnostics-only probes first: a retrieval
+matrix (`scripts/probe_fc_retrieval.py`, `diagnostics/fc_retrieval_probe_S68.md`,
+`f25c67d`) and a heart-line corpus lookup (`scripts/probe_fc_heartline_corpus.py`,
+`diagnostics/fc_heartline_corpus_S68.md`, `bfdf62f`). Findings: a
+candidate variant-iv query template (pure-Python clause assembly, vs.
+the production variant-iii `_build_feature_query`) REJECTED -- it
+degraded both probed features' target-chunk ranks (fingers: rank 1 ->
+3; life line: ranked 2/5 -> not in top 10), so the baseline template +
+n=3 were retained unchanged; and a genuine corpus gap on the heart-line
+chapter (p.157-158 have zero chunks; positive-configuration doctrine at
+p159_c2/p160_c1 never ranks in retrieval for this feature). Both probes
+are read-only, no production code touched.
+
+With the design question answered (claim-level grounding = the tagging
+contract itself, not a stricter prompt or a claim-type drop list), A1
+landed across four source commits + one test-alignment commit:
+`73dc0a5` (chunk-anchored generation contract + strip layer),
+`30b19ed` (Ring 1 V-1/V-2 anchor validators), `7934233` (test-suite
+alignment + V-1/V-2 coverage), `61088c4` (Ring 1 input-surface split --
+display checks on stripped text), `91b2b25` (F5 capture extension:
+tagged reading + `ring1_failures` + anchor denominator).
+
+**One incident, logged not hidden**: `30b19ed` was pushed to main
+mid-sequence with a red suite (17 tests failing -- every pre-A1
+`_FakeClient` test stub predated the new tagging contract). Per
+CLAUDE.md's "NEVER REWRITE PUSHED HISTORY ON MAIN" lock (Working Style
+#13), this was resolved fix-forward with a NEW commit (`7934233`)
+rather than amended -- the suite was red on main for the span between
+those two commits, not silently rewritten away. Suite: **3200/3 ->
+3213/3** (net +13, all new V-1/V-2 coverage; zero regressions once
+`7934233` landed).
+
+Close-out itself (this addendum's own commit, "S68 F-C close-out:
+3-place registrations + register updates", docs/docstrings/comments
+only, zero logic changes): registered 5 accepted gaps at all 3 places
+(CLAUDE.md, code-site comment, module docstring) -- V-2 union-only
+citation scoping (ratified final, covered by a new Ring 3 pass-4
+anchor-fidelity spot-check rubric row), V-1's sandwich boundary,
+the heart-line corpus gap, `CHUNK_ANCHOR_TAG_PATTERN`'s id-schema
+coupling, and the F5 capture's `valid_chunk_ids_count: unavailable`
+gap (pass-4's real denominator comes from a reconstruction probe
+instead). F-A (Ring 1 supported-feature coverage validator,
+landmark-exclusion rule) is now UNBLOCKED. Two new V1.1 register
+items: corpus re-ingestion/chunk-repair (with a rider to revisit the
+id-schema coupling in the same change), and promoting `valid_chunk_ids`
+onto `PalmReadingResult`.

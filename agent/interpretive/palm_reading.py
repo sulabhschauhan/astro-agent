@@ -29,6 +29,25 @@ SCOPE LOCK: this module must NEVER import agent.infra.calc_router,
 agent.infra.orchestrator, or agent.infra.chart_profile. This is an
 upload-triggered artifact generator, not a routed Q&A domain -- pulling
 in any deterministic-pipeline module would blur that boundary.
+
+ACCEPTED GAPS (V1, S68 F-C close-out): five gaps registered under
+CLAUDE.md's "Known Source Divergences / Accepted Gaps (V1)" section,
+each ALSO carrying its own informational comment at the named code
+site (the 3-place convention: CLAUDE.md, code-site comment, this note):
+  (a) V-2 anchor legality is union-only (`_check_anchor_legality`) --
+      RATIFIED FINAL, covered by the Ring 3 pass-4 human spot-check.
+  (b) V-1 tag completeness is position-only (`_check_tag_completeness`)
+      -- the untagged-sentence-sandwiched-between-two-tags gap, open by
+      design (sentence-splitter improvisation is explicitly banned).
+  (c) Heart-line corpus gap (`_retrieve_per_feature`) -- p.157-158 have
+      zero chunks; positive-configuration doctrine never ranks in
+      retrieval for this feature; non-harmful under A1 ([OBS] fallback).
+  (d) `CHUNK_ANCHOR_TAG_PATTERN` couples to the current ingestion id
+      schema (`*_p<n>_c<n>`) -- a re-ingested corpus with a different id
+      shape would silently break tagging.
+  (e) `valid_chunk_ids_count` in the F5 dogfood capture (frontend/app.py)
+      is captured as "unavailable" -- not exposed on PalmReadingResult;
+      pass-4's denominator comes from a reconstruction probe instead.
 """
 
 from __future__ import annotations
@@ -316,7 +335,26 @@ def _retrieve_per_feature(
     present as a key (empty list if skipped or the search call failed) --
     this map, not just what's displayed, is the future R3 evidence
     structure, so every assignment is kept even when a chunk_id repeats
-    across features."""
+    across features.
+
+    ACCEPTED GAP (S68 F-C close-out, CLAUDE.md "Known Source Divergences
+    / Accepted Gaps (V1)" register, item (c)): "heart line" queries this
+    corpus's p.156-162 chapter, but a deterministic metadata lookup
+    (`diagnostics/fc_heartline_corpus_S68.md`) found p.157-158 have ZERO
+    chunks (a chunking-pipeline gap, not a retrieval-tuning one), and
+    positive-configuration doctrine that DOES exist (`p159_c2`, `p160_c1`
+    -- e.g. "a happy, tranquil nature, good fortune, and happiness in
+    affection") never ranked in this feature's embedding retrieval
+    across the S68 probe's runs; `p159_c2`'s "...reaching the base of
+    the first\\nfinger" line-wrap also defeats a literal substring check
+    for that doctrine, independent of ranking. Non-harmful under A1: a
+    chunk that never gets retrieved can never be cited, so the model
+    falls back to `[OBS]`-tagged observation for this feature rather
+    than fabricating a citation -- this gap is a coverage LOSS (thinner
+    heart-line interpretation), not a grounding-safety risk. V1.1
+    candidate fix: corpus re-ingestion/chunk-repair (see CLAUDE.md's
+    V1.1 register) -- not attempted here (diagnostics-only probe, no
+    production code touched)."""
     texts_by_feature = _gather_feature_texts(left_fields, right_fields, hd_fields)
     results: dict[str, list[dict]] = {}
     failed: list[str] = []
@@ -656,6 +694,18 @@ NOTE: The available passages have a weak match to these hand descriptions. Rely 
 # e.g. cheiroslanguageo00chei_1_p134_c2) -- deliberately narrower than a
 # bare "\\[\\w+\\]" to minimize false-positive collision with ordinary
 # bracketed prose the model might otherwise emit.
+#
+# ACCEPTED GAP (S68 F-C close-out, CLAUDE.md "Known Source Divergences /
+# Accepted Gaps (V1)" register, item (d)): this pattern is COUPLED to the
+# current ingestion pipeline's id-generation convention (`*_p<n>_c<n>`,
+# see `ingestion/chunker.py`). A future re-ingestion of this corpus (or
+# any corpus onboarded with a different chunk_id shape) would silently
+# break tagging -- the model's citations would still be well-formed per
+# its own output but would never match this pattern, so V-1/V-2 would
+# treat every citation as untagged residue / an unknown id rather than
+# failing loud with a schema-mismatch error. V1.1 register: any corpus
+# re-ingestion/chunk-repair work (see the heart-line corpus gap above)
+# MUST revisit this pattern in the SAME change, not as a follow-up.
 CHUNK_ANCHOR_TAG_PATTERN = re.compile(r"\[(?:OBS|[A-Za-z0-9_]+_p\d+_c\d+)\]")
 
 
@@ -971,8 +1021,18 @@ def _check_anchor_legality(text: str, valid_chunk_ids: frozenset[str]) -> list[s
     union-only. It still kills FABRICATED chunk_ids (never gated for
     any feature, any run) and STALE chunk_ids (gated for a prior
     run/different retrieval, not this one) -- it CANNOT catch a real,
-    gated chunk_id cited under the WRONG feature's sentence. That gap is
-    escalated here for a design-chat ruling, not resolved.
+    gated chunk_id cited under the WRONG feature's sentence. That gap
+    was escalated here for a design-chat ruling.
+
+    RULING FINAL (S68 F-C close-out, CLAUDE.md "Known Source Divergences
+    / Accepted Gaps (V1)" register, item (a)): this is a PERMANENT
+    accepted gap, not an open escalation awaiting a future validator.
+    The wrong-feature-citation case is covered by the Ring 3 pass-4
+    human anchor-fidelity spot-check (claim -> cited-chunk faithfulness,
+    sampled by a person against the tagged draft) instead of a
+    mechanical check -- re-open only if pass-4 evidence shows this gap
+    is being missed at a rate that no longer justifies a human
+    spot-check over a real (heuristic-splitter) fix.
     """
     try:
         cited: set[str] = set()

@@ -140,6 +140,19 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     # captured as "unavailable" rather than derived from an unreliable
     # proxy or a new dataclass field -- palm_reading.py is out of scope
     # for this task.
+    #
+    # ACCEPTED GAP (S68 F-C close-out, CLAUDE.md "Known Source
+    # Divergences / Accepted Gaps (V1)" register, item (e)): this is a
+    # real, currently-open capture gap, not resolved by the note above --
+    # pass-4's anchor-fidelity spot-check denominator does NOT read this
+    # line. It is sourced instead from a reconstruction probe script
+    # (same style as scripts/probe_fc_heartline_corpus.py /
+    # scripts/probe_fc_retrieval.py -- read-only, re-derives
+    # generate_palm_reading()'s retrieval+support-gate path against a
+    # captured run's confirmed descriptions). V1.1 register: promoting
+    # valid_chunk_ids onto PalmReadingResult would let this line capture
+    # the real count/membership and retire the reconstruction-probe
+    # workaround.
     lines.append("valid_chunk_ids_count: unavailable")
     lines.append("")
 
