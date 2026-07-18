@@ -3161,3 +3161,158 @@ See CLAUDE.md's Carry-Forward register for the live, actionable list
 checkpoint plain-language field glosses, layman progressive disclosure,
 AppTest-in-CI proposal). Not duplicated here per the Session 62
 diagnostics-retention convention -- CLAUDE.md is the single live copy.
+
+## Session 67 -- S67 fix-forward queue closed: R1 per-feature retrieval -> R3 support gate/decline -> R2 exemplar rewrite/echo guard (reordered), implementation-ready for Ring 3 pass 3 (2026-07-16)
+
+### Opening probe (`0a738c3`)
+`scripts/probe_r1_retrieval.py` (throwaway) ran 29 live queries -- 10
+features x 3 template variants + 1 negative control, 0 errors -- to
+pick R1's retrieval design before writing any product code. Established
+two things used directly in R1/R3 below: the doctrine-interrogative
+template ("what does a {quality} {feature} signify...", variant iii)
+reliably surfaced doctrine chunks (p.134 life, p.163 fate -- the
+inversion-critical page) where RAW field-text queries mostly missed
+them; and the 0.30 support-score floor (negative-control ceiling
+0.2192, minimum genuine-doctrine score 0.3954 -- 0.30 sits in the empty
+band between them, a noise cut only). Rider: removed unconsumed
+`data/test_images/Face.jpeg`/`Body.jpeg` (no consuming surface;
+Back Hand + palm fixtures untouched).
+
+### Sequencing reorder: R1 -> R2 -> R3 (Session 66 register) became R1 -> R3 -> R2
+Design-chat decision, user-confirmed, no dependency violated. R1 alone
+(per-feature retrieval, ungated) measurably *increased* fabrication
+surface: 28 unique chunks / ~23.7K assembled context vs. the old flat
+6-chunk query, because weak features' n=3 slots were often filled by
+sub-floor junk (ChromaDB always returns nearest neighbors regardless of
+relevance). Gating that context (R3) was judged higher-leverage than
+applying a prompt-text-only voice guard (R2) on top of an still-ungated
+context, so R3 was pulled ahead of R2.
+
+### R1 -- per-feature doctrine-interrogative retrieval (`8c1b8ab`)
+Replaced the single whole-description RAG query with a 10-feature
+registry (life/head/heart/fate/sun lines, thumb, fingers, mounts of
+Venus/Jupiter, markings/other) and deterministic field parsing (ported
+from the probe script, plus a new hand_detail bullet-format parser).
+An absence rule skips the query entirely for "not clearly visible"-
+style fields; unparseable fields fail OPEN (logged, not dropped -- S23
+precedent). n=3/feature, justified from the probe's worst doctrine-
+first-hit rank of 2 (+1 margin). Result is an ordered per-feature map
+`{feature: [chunks]}`; sources now carry a `feature` tag.
+**hand_detail's code-level RAG-exclusion (S66-era, never a formal
+CLAUDE.md lock -- see `.claude/read_prompt.md`'s S66 note) is LIFTED**:
+its rationale (unreviewed AI output feeding retrieval) died once F1
+gave hand_detail a human checkpoint; hand_detail fields are now
+first-class registry features. New CLAUDE.md Locked Decision records
+this.
+Real bug caught during implementation: `_is_absence`'s whole-string
+check misfired on MOUNTS' "other mounts are unremarkable" clause,
+silently dropping "developed" from mount of venus -- fixed with a
+needle-scoped clause extractor, verified against the real pass-2
+fixture before writing tests.
+Suite: 3177 -> 3183 (+6), zero regressions.
+
+### R3 -- deterministic per-feature support gate (`b6dee9b`)
+Needle registry of OCR-robust short forms (the corpus garbles words --
+e.g. p.163's "life" OCRs to "hfe"); support = needle-contains AND
+score >= 0.30. Chunk-side match is deliberately plain substring, NOT
+word-boundary (accepted spec deviation, surfaced via test docstring):
+OCR garbling makes word-boundary matching on chunk text unreliable and
+would wrongly exclude genuine doctrine -- asymmetric on purpose with
+the LLM-output side below, rider comment at `_chunk_supports_feature`
+cites the "hfe" example.
+LLM-side: system prompt bans discussing any feature outside the
+supported set; new word-boundary Ring 1 validator
+(`_check_banned_feature_mentions`) catches violations, fed to the
+existing F2c retry (hard 2-call cap unchanged, fail-closed). A
+Python-owned deterministic decline block (fixed template, no
+LLM-authored decline language) is appended before DISCLAIMER for
+observed-but-unsupported features; genuine-negative-absence findings
+(never observed at all) are exempted from the decline list.
+`PalmReadingResult` gains `supported_features`/`unsupported_features`
+(registry order); gated (not raw) chunks feed prompt/sources/
+context_corpus, so the zero-support path falls out of the existing
+`total_chunks == 0` check for free.
+Suite: 3183 -> 3192 (+9), zero regressions.
+
+### F5 capture schema completion (`6cce4e6`, between R3 and R2)
+Added `retry_used` to the captured ring1_validation block; extended
+each captured source line with its `feature` tag; added a
+`feature_support` section capturing `supported_features`/
+`unsupported_features` verbatim. All additive; existing captured
+fields byte-identical in format (pass-2 artifact comparability
+preserved). Closes the `frontend/app.py` same-file rider from
+Session 66's carry-forward register.
+**Correction of record**: the actual capture target is
+`diagnostics/dogfood_capture.md` (gitignored, local-only, env-flag
+`ASTRO_DOGFOOD_CAPTURE=1`) -- NOT `.claude/read_prompt.md` as an
+earlier design-chat prompt stated; `read_prompt.md`'s past `DOGFOOD:::`
+content was always the user's manual paste FROM that log, never
+written by this function directly. Caught by verifying the actual call
+site before editing rather than trusting the prompt's premise.
+Suite: 3192 -> 3196 (+4), zero regressions.
+
+### R2 -- exemplar rewrite + exemplar-echo guard (`ffd504f`)
+F2c's old model sentences asserted transplantable quality->trait
+doctrine ("Such a fate line denotes success won by personal merit" --
+the exact pass-2 leak vector, present both quoted and unquoted in the
+old prompt text; both instances removed). Replaced with two voice-only
+meta-statements containing zero interpretive content:
+  - "I have examined many hands in my years of practice, and each one
+    tells its own story to those who know how to read it."
+  - "The hand rarely lies to the palmist who reads it honestly."
+User sign-off on this exact wording: **CONFIRMED (2026-07-16)**.
+New deterministic Ring 1 validator: 6-word contiguous n-gram overlap
+(normalized: lowercase, punctuation-stripped, whitespace-collapsed)
+between reading_text and the exemplar sentences ONLY (never retrieved
+chunks -- quoting doctrine is desired behavior). Window justified:
+pass-2's confirmed leaked span was exactly 6 words ("denotes success
+won by personal merit"). Fed to the same F2c retry.
+Bug caught during implementation: the first `_ngrams()` draft returned
+a set, so the reported leaked n-gram wasn't deterministically the
+leftmost overlap -- caught by the test's own exact-string assertion,
+fixed by making the reading-text scan positional (list) while keeping
+the exemplar side a frozenset for lookup.
+Citation note: "hfe" confirmed via grep against
+`diagnostics/ring3_chunks_S66.md`; "palimistry" (also seen in the
+original S67 probe report) could NOT be re-confirmed against the
+current diagnostics tree -- that probe artifact has since been
+overwritten per the standing diagnostics-retention convention. Not a
+fabrication on either side; a citation-decay artifact of overwriting
+diagnostics files across a multi-prompt sequence. Omitted from the
+code comment rather than cited unverified.
+Suite: 3196 -> 3200 (+4), zero regressions.
+
+### Test baseline
+3177 (S66 close) -> 3183 (R1, +6) -> 3192 (R3, +9) -> 3196 (F5 capture
+schema, +4) -> 3200 (R2, +4). Zero regressions at every step. Verified
+against each commit, not assumed.
+
+### Commit hashes
+Substantive: `0a738c3` (probe), `8c1b8ab` (R1), `b6dee9b` (R3),
+`6cce4e6` (F5 capture schema), `ffd504f` (R2).
+
+Docs closeout: `253d85c` ("S67 CLAUDE.md sync").
+
+### Carry-forward resolved this session
+- **S67 opening block** (Session 66 register) -- CLOSED. R1 -> R3 -> R2
+  all landed and committed (reordered from the original R1 -> R2 -> R3
+  register per the sequencing note above; no dependency violated).
+  `palm_reading.py` is implementation-ready for Ring 3 pass 3.
+- **`frontend/app.py` F5 retry_used rider** (Session 66) -- DONE, see
+  F5 capture schema completion above.
+- **hand_detail RAG-exclusion** (S66-era code behavior, informally
+  noted, never a formal lock) -- LIFTED, see R1 above; recorded as a
+  new CLAUDE.md Locked Decision.
+
+### Carry-forward added this session
+See CLAUDE.md's Carry-Forward register for the live, actionable list:
+T4 status (still NOT ratified-live, exemplar sign-off now satisfied,
+pass 2 remains the frozen baseline pending pass 3), Ring 3 pass 3 as
+the next action (N=3, fresh uploads), and the `palm_processor.py`
+same-file rider recoupled to a future coordinated two-file change
+(processor prompt + palm_reading parser) rather than a safe blind
+ride-along -- R1 shipped a bullet-format parser tied to
+`describe_hand_detail_image`'s current output shape, so the prior
+"align to F4 flat-field format" instruction would silently break R1's
+hand_detail extraction if executed standalone. V1.1 register unchanged
+from Session 66 -- no new items this session.
