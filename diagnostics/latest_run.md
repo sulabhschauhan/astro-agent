@@ -196,3 +196,97 @@ regressions.
 `tests/interpretive/test_palm_reading.py` alone: 53 passed (was 23
 passed / 17 failed before this close-out; +13 net new vs. the pre-A1
 40-test file).
+
+---
+
+# S68 F-C A1: Ring 1 input-surface split (display checks on stripped text)
+
+Scope: `agent/interpretive/palm_reading.py` ONLY, `_run_ring1_checks()`
+surgically edited -- validator order, disposition, and the retry-
+feedback path (both call sites, first draft + F2c retry) all UNTOUCHED.
+No test file edited (none needed one -- see Full pytest result below).
+
+## Bug confirmed and fixed
+`_run_ring1_checks()` was calling all eight validators on the same raw
+TAGGED `text` parameter. The six pre-A1 "display" checks (jargon,
+self-help register, unsupported dates, length, banned-feature
+mentions, exemplar echo) measure what the user actually SEES, but
+`[OBS]` / `[<chunk_id>]` anchor tags are visible to all six on that
+surface -- bookkeeping tokens leaking into user-facing-text
+measurements. Fix: compute `stripped = strip_generation_tags(text)`
+once at the top of `_run_ring1_checks()`; the six display checks now
+read `stripped`; V-1 (`_check_tag_completeness`) and V-2
+(`_check_anchor_legality`) keep reading `text` (tagged, unchanged) --
+stripping first would make V-1 vacuously pass (no tags left to be
+incomplete) and V-2 unobservable (no citations left to validate).
+
+## MEASURE-FIRST: does _check_unsupported_dates' pattern match chunk_id digit runs?
+`_YEAR_PATTERN = re.compile(r"\b(?:19|20)\d{2}\b")`. Tested directly
+against real-shaped chunk_id tokens:
+```
+>>> _YEAR_PATTERN.findall('[cheiroslanguageo00chei_1_p134_c2]')
+[]
+>>> _YEAR_PATTERN.findall('[cheiroslanguageo00chei_1_p1998_c2]')   # year-shaped page number
+[]
+>>> _YEAR_PATTERN.findall('[cheiroslanguageo00chei_1_p2031_c9]')   # matches the test suite's own 2031 fixture year
+[]
+>>> _YEAR_PATTERN.findall('...around 2031...[cheiroslanguageo00chei_1_p2031_c9]')
+['2031']   # only the genuine prose year matches; the bracketed digits do not
+```
+**Finding: no match, and this is structural, not incidental.** `\b` is
+a transition between a `\w` char and a non-`\w` char. Every character
+inside a chunk_id token (`<book_name>_p<page>_c<index>`) -- letters,
+digits, underscores -- is `\w`, so the ONLY `\b` positions inside the
+brackets are immediately after `[` and immediately before `]`. A
+4-digit `19xx`/`20xx` run embedded anywhere else in the token (e.g. a
+year-shaped page number `p1998`) is never preceded by a boundary,
+because the character before it (`p`, another digit, `_`) is also
+`\w`. A match is only possible if the token's very FIRST 4 characters
+are themselves `19xx`/`20xx` digits -- true only if a book_name began
+with 4 digits, which no book in this corpus's naming convention does.
+**Conclusion: this particular false-positive vector does not fire
+today, but it is incidental to this corpus's book-naming convention,
+not a contract -- the input-surface split removes the class of risk
+entirely regardless, so both checks (dates AND, structurally, the same
+`\b` argument extends to the banned-feature-mention word-boundary
+check) are safer running on stripped text on principle, not just in
+today's measured case.**
+
+## MEASURE-FIRST: synthetic length-rail demo (stripped passes, tagged fails)
+Built programmatically (not hand-counted) via
+`strip_generation_tags()`/`_check_length()` called directly:
+10 sentences x 70 words = 700 words of real content (the stripped
+count sits exactly ON the 700-word boundary -- passes, since the rail
+is `> 700`, not `>= 700`), each sentence tagged with a SPACE-separated
+tag (`' [OBS]'`/`' [cheiroslanguageo00chei_1_p134_c2]'` -- this test
+suite's own Part-1 retagging convention, a leading space, distinct
+from the live-model "no space before the bracket" contract) -- 10 tags
+= 10 extra whitespace-delimited tokens.
+```
+stripped word count: 700   ->  _check_length(stripped) == []
+tagged   word count: 710   ->  _check_length(tagged)   == ['length_guard: 710 words exceeds 700-word hard rail']
+```
+Exactly the bug class described in the instructing prompt: a
+genuinely-compliant 700-word reading would have failed Ring 1 purely
+on anchor-tag bookkeeping before this fix.
+
+## Tests
+Zero test-file edits. Ran the full `tests/interpretive/
+test_palm_reading.py` suite (53 tests, unchanged since the prior A1
+test-alignment close-out) against the input-surface-split code: **53
+passed**, 0 breakage -- consistent with the expected outcome, since
+every Part-1 stub tags only sentence-finally (trailing `[OBS]`),
+untouched by moving the six display checks to stripped input.
+One-line observation (per instruction, changing nothing):
+`test_length_over_700_words_fails`'s 701-word `long_text` stub is left
+deliberately untagged (Part 1's own note: tagging it would have made
+it 702 words and broken its own `"701" in f` assertion under the OLD
+tagged-input behavior) -- under THIS fix, `_check_length` now reads
+stripped text, so that stub could in principle carry a trailing tag
+without perturbing the word count at all. Not changed here (out of
+scope; the test file needs no edit for this task to pass).
+
+## Full pytest result
+`python -m pytest -q`: **3213 passed, 3 skipped** -- exact match to the
+3213/3 baseline, 0 regressions, 0 new tests (this task is a production-
+code-only fix; no new coverage was requested).

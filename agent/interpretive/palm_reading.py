@@ -1003,14 +1003,35 @@ def _run_ring1_checks(
     both passes. A1 (S68 F-C) appended V-1 (_check_tag_completeness) and
     V-2 (_check_anchor_legality) at the end of the pre-existing six --
     their logic/order is UNTOUCHED; V-1 runs before V-2 (legality is
-    meaningless to check on incomplete tagging)."""
+    meaningless to check on incomplete tagging).
+
+    A1 INPUT-SURFACE SPLIT (S68 F-C, design-chat ruling): `text` is the
+    raw TAGGED draft (the same value that becomes PalmReadingResult.
+    reading_text_tagged) -- but the two input surfaces measure different
+    things, so they read different text:
+      - The six pre-A1 "display" checks (jargon, self-help register,
+        unsupported dates, length, banned-feature mentions, exemplar
+        echo) measure what the user will actually SEE, so they run on
+        `stripped` (strip_generation_tags(text), computed ONCE here, not
+        per-check) -- confirmed bug this fixes: anchor tags are
+        whitespace-delimited tokens on the raw draft (measure-first
+        proof: diagnostics/latest_run.md), so left untouched they
+        inflate _check_length's word count against the 700-word rail
+        and perturb _check_exemplar_echo's n-gram token adjacency.
+      - V-1/_check_tag_completeness and V-2/_check_anchor_legality
+        measure the anchor CONTRACT itself, not display semantics, so
+        they keep reading `text` (tagged, unchanged) -- stripping first
+        would make V-1 vacuously pass (no tags left to be incomplete)
+        and V-2 unobservable (no chunk_id citations left to validate).
+    """
+    stripped = strip_generation_tags(text)
     failures: list[str] = []
-    failures += _check_jargon(text)
-    failures += _check_self_help_register(text)
-    failures += _check_unsupported_dates(text, context_corpus)
-    failures += _check_length(text)
-    failures += _check_banned_feature_mentions(text, unsupported_features)
-    failures += _check_exemplar_echo(text)
+    failures += _check_jargon(stripped)
+    failures += _check_self_help_register(stripped)
+    failures += _check_unsupported_dates(stripped, context_corpus)
+    failures += _check_length(stripped)
+    failures += _check_banned_feature_mentions(stripped, unsupported_features)
+    failures += _check_exemplar_echo(stripped)
     failures += _check_tag_completeness(text)
     failures += _check_anchor_legality(text, valid_chunk_ids)
     return failures
