@@ -883,14 +883,127 @@ def _check_exemplar_echo(text: str) -> list[str]:
     return []
 
 
+# ─── A1 V-1/V-2: chunk-anchor Ring 1 validators (S68 F-C, design-chat) ──
+#
+# Both operate on the RAW generation draft (the text that becomes
+# PalmReadingResult.reading_text_tagged once the draft settles) -- the
+# SAME `text` parameter the pre-existing six checks above already
+# receive, BEFORE strip_generation_tags() runs. Deterministic, no LLM
+# judgment, per CHUNK_ANCHOR_TAG_PATTERN (the single source of truth for
+# tag shape, shared with strip_generation_tags() and importable by any
+# future caller -- CONSTRAINTS section of the instructing design).
+
+
+def _check_tag_completeness(text: str) -> list[str]:
+    """A1 V-1: every sentence in `text` must terminate in a tag matching
+    CHUNK_ANCHOR_TAG_PATTERN or the literal "[OBS]". Deterministic,
+    regex-POSITION-based partitioning ONLY -- no prose sentence-splitter,
+    no NLP dependency (per the instructing design's explicit
+    prohibition). Catches:
+      (a) text empty/whitespace-only -- the PRIMARY guard: "anchor
+          contract not exercised" -- this is what a construction site
+          relying on PalmReadingResult.reading_text_tagged's dataclass
+          default of "" would trip if that value were ever fed back
+          through Ring 1 (generate_palm_reading() itself never does
+          this -- it always passes the real draft -- but the check
+          exists at this layer so the guard holds regardless of caller).
+      (b) untagged residue AFTER THE LAST recognized tag in the text --
+          the one position where "no tag will ever follow" is
+          structurally certain from tag positions alone, with no NLP.
+
+    KNOWN GAP (documented, not silently absorbed): an untagged sentence
+    sandwiched BETWEEN two valid tags (e.g. "...[OBS] untagged sentence
+    here. Another sentence.[OBS]") is NOT caught -- distinguishing "one
+    legitimate multi-clause thought that only needed one trailing tag"
+    from "two sentences, only the second earned its tag" requires
+    sentence-boundary detection, which this design explicitly forbids
+    building. Only whole-text-untagged and trailing-residue are
+    decidable from tag positions alone; this is the honest boundary of
+    a position-only check, not an oversight.
+    """
+    try:
+        if not text or not text.strip():
+            return [
+                "anchor_completeness: anchor contract not exercised "
+                "(reading_text_tagged is empty or whitespace-only)"
+            ]
+
+        matches = list(CHUNK_ANCHOR_TAG_PATTERN.finditer(text))
+        if not matches:
+            residue = text.strip()
+            return [f"anchor_completeness: sentence-final residue with no tag: {residue!r}"]
+
+        trailing_residue = text[matches[-1].end():].strip()
+        if trailing_residue:
+            return [f"anchor_completeness: sentence-final residue with no tag: {trailing_residue!r}"]
+
+        return []
+    except Exception as exc:
+        raise RuntimeError(
+            f"palm_reading._check_tag_completeness: validator crashed -- "
+            f"failing the run loud rather than passing silently: {exc}"
+        ) from exc
+
+
+def _check_anchor_legality(text: str, valid_chunk_ids: frozenset[str]) -> list[str]:
+    """A1 V-2: every cited chunk_id in `text` must be a member of
+    `valid_chunk_ids` -- the union of every chunk_id present ANYWHERE in
+    gated_results (all features combined), the SAME dict the generation
+    prompt's passages were assembled from (single source of truth, no
+    re-retrieval).
+
+    DESIGN-CHAT ESCALATION, per the instructing design's own fallback
+    clause ("if section boundaries are NOT deterministically recoverable
+    ... implement union-of-all-gated-sets membership only ... then STOP
+    and report the section-attribution gap"): this IS that fallback.
+    The stricter per-feature-section requirement ("a cited chunk must
+    belong to the SAME '### {feature}' section the citing sentence is
+    about") needs a deterministic sentence -> feature mapping, and the
+    GENERATED reading has no structural feature markers of its own --
+    the "### {feature}" headings exist only in the INPUT passages shown
+    to the model (see _assemble_retrieved_passages), never in its
+    free-flowing one-paragraph-or-few output prose (the system prompt
+    explicitly asks for "one cohesive, direct reading ... not two
+    separate paragraphs", not per-feature sections). Recovering
+    sentence -> feature attribution from that output format is NOT
+    deterministic without a heuristic splitter, which this prompt's
+    instructions explicitly forbid improvising. RESULT: this check is
+    union-only. It still kills FABRICATED chunk_ids (never gated for
+    any feature, any run) and STALE chunk_ids (gated for a prior
+    run/different retrieval, not this one) -- it CANNOT catch a real,
+    gated chunk_id cited under the WRONG feature's sentence. That gap is
+    escalated here for a design-chat ruling, not resolved.
+    """
+    try:
+        cited: set[str] = set()
+        for match in CHUNK_ANCHOR_TAG_PATTERN.finditer(text):
+            token = match.group(0)[1:-1]  # strip surrounding [ ]
+            if token == "OBS":
+                continue
+            cited.add(token)
+        unknown = sorted(cited - valid_chunk_ids)
+        if unknown:
+            return [f"anchor_legality: unknown/malformed chunk_id(s): {', '.join(unknown)}"]
+        return []
+    except Exception as exc:
+        raise RuntimeError(
+            f"palm_reading._check_anchor_legality: validator crashed -- "
+            f"failing the run loud rather than passing silently: {exc}"
+        ) from exc
+
+
 def _run_ring1_checks(
     text: str,
     context_corpus: str,
     unsupported_features: tuple[str, ...] = (),
+    valid_chunk_ids: frozenset[str] = frozenset(),
 ) -> list[str]:
-    """All six Ring 1 validators, run in a fixed order. Shared by the
+    """All eight Ring 1 validators, run in a fixed order. Shared by the
     first draft and the S66 F2c retry draft -- same checks, same order,
-    both passes."""
+    both passes. A1 (S68 F-C) appended V-1 (_check_tag_completeness) and
+    V-2 (_check_anchor_legality) at the end of the pre-existing six --
+    their logic/order is UNTOUCHED; V-1 runs before V-2 (legality is
+    meaningless to check on incomplete tagging)."""
     failures: list[str] = []
     failures += _check_jargon(text)
     failures += _check_self_help_register(text)
@@ -898,6 +1011,8 @@ def _run_ring1_checks(
     failures += _check_length(text)
     failures += _check_banned_feature_mentions(text, unsupported_features)
     failures += _check_exemplar_echo(text)
+    failures += _check_tag_completeness(text)
+    failures += _check_anchor_legality(text, valid_chunk_ids)
     return failures
 
 
@@ -1013,6 +1128,15 @@ def generate_palm_reading(
         per_feature_results, texts_by_feature
     )
 
+    # A1 V-2: single source of truth for anchor-legality membership -- the
+    # SAME gated_results dict the generation prompt's passages were
+    # assembled from below, no re-retrieval. Union across ALL features
+    # (see _check_anchor_legality's own docstring for why this is
+    # union-only, not per-feature-section -- a documented, escalated gap).
+    valid_chunk_ids = frozenset(
+        c["chunk_id"] for chunks in gated_results.values() for c in chunks
+    )
+
     assembled_passages, total_chunks = _assemble_retrieved_passages(gated_results)
 
     system_prompt = _READING_SYSTEM_PROMPT
@@ -1068,7 +1192,9 @@ def generate_palm_reading(
         c["text"] for chunks in gated_results.values() for c in chunks
     )
 
-    failures = _run_ring1_checks(reading_text, context_corpus, unsupported_features)
+    failures = _run_ring1_checks(
+        reading_text, context_corpus, unsupported_features, valid_chunk_ids
+    )
     retry_used = False
 
     # S66 F2c retry: HARD CAP of 2 LLM calls ever, no exceptions.
@@ -1099,7 +1225,9 @@ def generate_palm_reading(
             },
         ]
         reading_text = _call(retry_messages)
-        failures = _run_ring1_checks(reading_text, context_corpus, unsupported_features)
+        failures = _run_ring1_checks(
+            reading_text, context_corpus, unsupported_features, valid_chunk_ids
+        )
 
     validation = ValidationReport(passed=not failures, failures=tuple(failures))
 

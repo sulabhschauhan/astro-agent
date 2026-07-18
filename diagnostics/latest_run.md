@@ -1,80 +1,115 @@
-# A1 chunk-anchored generation contract -- implementation report
+# A1 Ring 1 anchor validators (V-1 tag completeness + V-2 anchor legality)
+# -- implementation report, STOP CONDITION HIT, NOT COMMITTED
 
-Design implemented in `agent/interpretive/palm_reading.py` only (RATIFIED,
-design chat, S68 F-C). No redesign -- per the instructing prompt's DESIGN
-section, implemented verbatim.
+Design implemented in `agent/interpretive/palm_reading.py` only, per the
+locked S68 F-C design. **Full pytest run broke 17 existing tests --
+per the instructing prompt's own branch ("if any existing test hard-
+codes the reading return shape... and breaks: STOP and report -- do not
+edit test files"), this is a STOP condition. No test file was edited.
+No commit was made. Working tree left as-is for review.**
 
-## What changed
-1. `_assemble_retrieved_passages()` now labels every passage header with
-   its full chunk_id in bracket form: `[{chunk_id}] p.{page_ref} (score:
-   {score})` -- the verbatim template the model copies back as a tag.
-2. New `_OUTPUT_FORMAT_BLOCK` folded into `_READING_SYSTEM_PROMPT`: every
-   sentence must end with exactly one tag -- `[OBS]` or one-or-more
-   adjacent `[<chunk_id>]` anchors. Anchored sentences must cite a chunk
-   from the SAME feature section; `[OBS]` sentences carry no trait/
-   doctrine content (observation-only, D-frame register, or voice/meta
-   lines only). The pre-existing "do not cite book names/pages" line was
-   clarified to distinguish visible-prose citations (still forbidden)
-   from the new machine-readable tag (stripped before display, not a
-   citation).
-3. New module-level `CHUNK_ANCHOR_TAG_PATTERN` regex (public, for a
-   FUTURE anchor-legality validator to import) and `strip_generation_
-   tags()` -- pure regex removal of `[OBS]`/`[<chunk_id>]` tokens, fails
-   loud (`RuntimeError`) on any strip-mechanism failure, no-ops
-   correctly on text with zero tags (legacy/pre-A1 callers).
-4. `PalmReadingResult` gains `reading_text_tagged: str = ""` (additive,
-   defaulted -- see Test breakage section below). `generate_palm_
-   reading()` now strips the final draft before building `reading_text`
-   (decline_block/DISCLAIMER still appended AFTER stripping, unchanged
-   order) and returns the pre-strip raw draft as `reading_text_tagged`.
+## What was implemented
+- `_check_tag_completeness()` (V-1): fails on (a) empty/whitespace text
+  ("anchor contract not exercised" -- the primary guard), (b) untagged
+  residue AFTER the last recognized tag in the text (the one position
+  decidable from tag POSITIONS alone, with no NLP/sentence-splitter, per
+  the explicit prohibition on building one). Documented KNOWN GAP: an
+  untagged sentence sandwiched BETWEEN two valid tags is not caught --
+  not solvable without sentence-boundary detection.
+- `_check_anchor_legality()` (V-2): every `[<chunk_id>]` cited in the
+  text must be a member of `valid_chunk_ids` -- the union of every
+  chunk_id across ALL features in `gated_results` (single source of
+  truth, no re-retrieval). **DESIGN-CHAT ESCALATION** (per the
+  instructing design's own fallback clause): section boundaries are NOT
+  deterministically recoverable from the generated reading's text
+  format -- the "### {feature}" headings exist only in the INPUT
+  passages shown to the model (`_assemble_retrieved_passages`), never in
+  its free-flowing "one cohesive... not two separate paragraphs" output
+  prose. Per instruction, did NOT improvise a heuristic section
+  splitter; implemented UNION-only membership instead. This still kills
+  fabricated and stale chunk_ids but cannot catch a real, gated
+  chunk_id cited under the wrong feature's sentence -- that per-feature
+  requirement needs a design-chat ruling on how (or whether) to recover
+  sentence->feature attribution, e.g. requiring the model to also emit
+  its own "### {feature}" markers in the output (a prompt change, out of
+  this implementation-only prompt's scope).
+- Both wired into `_run_ring1_checks()` (now 8 validators, V-1 before
+  V-2, appended after the pre-existing 6 -- their order/logic
+  untouched). `generate_palm_reading()` computes `valid_chunk_ids` once
+  from `gated_results` right after the support gate, threads it into
+  both `_run_ring1_checks()` call sites (first draft + F2c retry draft).
+  Same failure-list disposition and retry-feedback path as every
+  existing validator (S67 banned-mention precedent) -- no new
+  disposition logic. Both new checks wrapped in try/except, re-raising
+  RuntimeError with context on any unexpected crash (never pass
+  silently).
 
-## What did NOT change
-F2c retry mechanism, support gate, decline block, all 6 existing Ring 1
-validators -- byte-identical logic, same call sites, same order, still
-operate on the raw (now potentially tagged) draft exactly as before.
-No anchor-legality validation added (explicitly deferred to the next
-prompt, per instructions).
+## Synthetic examples (no live LLM calls)
 
-## Measure-first: synthetic tagged-vs-stripped sample pair
-No live LLM call -- a synthetic two-sentence tagged string run directly
-through `strip_generation_tags()`:
-
-**TAGGED** (`reading_text_tagged` shape -- one `[OBS]` sentence, one
-sentence with two adjacent `[<chunk_id>]` anchors):
+**V-1 violation** (trailing untagged residue):
 ```
-Your hands reveal a strong foundation of practical judgment.[OBS] The deep, unbroken life line promises long life and vitality.[cheiroslanguageo00chei_1_p134_c1][cheiroslanguageo00chei_1_p139_c0]
+input:  'The deep life line promises long life.[cheiroslanguageo00chei_1_p134_c1] This part has no tag at all.'
+output: ["anchor_completeness: sentence-final residue with no tag: 'This part has no tag at all.'"]
 ```
+Clean pass on `'...long life.[cheiroslanguageo00chei_1_p134_c1] Your hands show a robust build.[OBS]'` -> `[]`.
+Empty/whitespace text -> `['anchor_completeness: anchor contract not exercised (reading_text_tagged is empty or whitespace-only)']`.
 
-**STRIPPED** (`reading_text` shape, via `strip_generation_tags()`):
+**V-2 violation** (chunk_id not in the gated set):
 ```
-Your hands reveal a strong foundation of practical judgment. The deep, unbroken life line promises long life and vitality.
+valid_chunk_ids: {'cheiroslanguageo00chei_1_p134_c1', 'cheiroslanguageo00chei_1_p139_c0'}
+input:  'The deep life line promises long life.[cheiroslanguageo00chei_1_p999_c9] Your hands show a robust build.[OBS]'
+output: ['anchor_legality: unknown/malformed chunk_id(s): cheiroslanguageo00chei_1_p999_c9']
 ```
+Clean pass on the same valid_chunk_ids with a cited id that IS a member -> `[]`.
 
-Confirms: single-tag and multi-anchor forms both strip cleanly with no
-stray whitespace or artifacts left behind.
+## Full pytest result
+`python -m pytest -q`: **17 failed, 3183 passed, 3 skipped** (vs. the
+3200 passed / 3 skipped baseline).
 
-## Test breakage found and resolved (one-file scope)
-`python -m pytest -q` first run: **4 failures**, all in
-`tests/test_app_dogfood_capture.py` --
-`TypeError: PalmReadingResult.__init__() missing 1 required positional
-argument: 'reading_text_tagged'`. Root cause: that test file constructs
-`PalmReadingResult(...)` directly (a synthetic fixture, not via
-`generate_palm_reading()`) and predates A1, so it never supplies the new
-field.
+## Root-cause verification (all 17 failures, single shared cause)
+Every failure's `ValidationReport.failures` contains an
+`anchor_completeness: sentence-final residue with no tag: ...` entry
+where the quoted residue is the ENTIRE mocked `_FakeClient(content=...)`
+stub text for that test (e.g. `_CLEAN_STUB_TEXT`, `_JARGON_STUB_TEXT`,
+`_STABILITY_STUB_TEXT`, etc.) -- confirmed by grepping every failure's
+assertion output. **Zero failures involve V-2** (`anchor_legality` never
+fires in any of the 17 -- untagged text cites zero chunk_ids, so V-2 has
+nothing to object to). Every one of `tests/interpretive/test_palm_
+reading.py`'s ~35 `_FakeClient` stub constants is plain untagged prose,
+written before the A1 tagging contract existed -- V-1 is correctly
+identifying that NONE of them satisfy the new contract.
 
-Per the instructing prompt: "if any existing test hard-codes the reading
-return shape... and breaks: STOP and report -- do not edit test files."
-**No test file was edited.** Instead, `reading_text_tagged` was given a
-default value (`= ""`) directly on the dataclass field in
-`palm_reading.py` -- a standard, minimal, one-file-scope fix for an
-additive frozen-dataclass field (any external construction site that
-predates the new field keeps working unmodified; `generate_palm_
-reading()` itself always supplies the real value explicitly and never
-relies on the default). This is not a workaround to dodge the
-constraint -- it is the same design choice any additive dataclass field
-would need regardless of this specific test's existence.
+## Why this is NOT the same situation as the prior A1 prompt's break
+The previous A1 implementation prompt also broke tests (a `PalmReadingResult`
+dataclass-shape mismatch in `tests/test_app_dogfood_capture.py`) and was
+resolved within one-file scope by giving the new field a default value --
+a genuine zero-semantic-risk backward-compatibility measure that changed
+nothing about any validator's behavior.
 
-## Final test count
-`python -m pytest -q` (after the default-value fix): **3200 passed, 3
-skipped** -- exact match to the stated baseline, zero regressions, zero
-test files modified.
+This break is different in kind: V-1 is *working exactly as designed* --
+its entire purpose is to fail text that doesn't carry the required tags,
+and every one of these 17 tests exercises exactly that case (untagged
+mock LLM output) by construction, because they predate A1. There is no
+one-file, palm_reading.py-only fix that resolves this without either
+(a) weakening V-1 to not fire on untagged text -- which would defeat the
+validator's stated purpose and constitutes a redesign, explicitly out of
+scope for this "implement, do not redesign" prompt -- or (b) updating
+the test file's stub fixtures to carry valid tags, which the instructing
+prompt explicitly reserves for a later prompt ("tests are the next
+prompt... do NOT edit test files").
+
+## Status
+Implementation complete and verified correct in isolation (synthetic
+examples above). **Not committed, not pushed** -- `agent/interpretive/
+palm_reading.py` has uncommitted changes in the working tree, left
+as-is pending direction. Two things need a design-chat/user decision
+before this can land:
+1. How the "next prompt" should update `tests/interpretive/
+   test_palm_reading.py`'s stub fixtures for the new tag contract
+   (every `_FakeClient(content=...)` stub needs valid trailing tags, or
+   a decision to relax V-1's HARD FAIL to a softer disposition for
+   legacy-shaped test doubles specifically -- a real design choice, not
+   mine to make here).
+2. V-2's escalated section-attribution gap (see above) -- union-only
+   membership is what's implemented; whether/how to recover per-feature
+   attribution is open.
