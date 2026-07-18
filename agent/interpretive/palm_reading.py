@@ -348,7 +348,13 @@ def _assemble_retrieved_passages(
     DISPLAY only (token economy) -- per_feature_results itself keeps
     every feature's full assignment untouched. Returns (assembled_text,
     total chunk assignments across all features, pre-dedupe -- used to
-    decide the empty-retrieval low-confidence path)."""
+    decide the empty-retrieval low-confidence path).
+
+    A1 (S68 F-C): each passage's header line now leads with its full
+    chunk_id in bracket form, e.g. "[cheiroslanguageo00chei_1_p134_c2]
+    p.134 (score: 0.58)" -- this is the verbatim template the model is
+    asked to copy back as a [<chunk_id>] anchor tag (see
+    _OUTPUT_FORMAT_BLOCK / CHUNK_ANCHOR_TAG_PATTERN below)."""
     lines: list[str] = []
     seen_chunk_ids: set[str] = set()
     total = 0
@@ -359,7 +365,7 @@ def _assemble_retrieved_passages(
             continue
         lines.append(f"### {feature}")
         for c in display_chunks:
-            lines.append(f"p.{c['page_ref']} (score: {c['score']})")
+            lines.append(f"[{c['chunk_id']}] p.{c['page_ref']} (score: {c['score']})")
             lines.append(c["text"])
             lines.append("")
             seen_chunk_ids.add(c["chunk_id"])
@@ -569,6 +575,19 @@ _STRICT_CONTEXT_RULE = (
 # so there is no doctrine content left in them to leak. See
 # _EXEMPLAR_SENTENCES / _check_exemplar_echo below for the deterministic
 # guard that now backs this up (fed to the same F2c retry loop).
+#
+# A1 (S68 F-C, design-chat ratified): _OUTPUT_FORMAT_BLOCK is a plain
+# string (not an f-string) folded into _READING_SYSTEM_PROMPT's own
+# f-string below via {_OUTPUT_FORMAT_BLOCK} -- same pattern as
+# _LANGUAGE_JARGON_BLOCK/_STRICT_CONTEXT_RULE, so its literal
+# "{feature}" text is never mistaken for an f-string substitution site.
+_OUTPUT_FORMAT_BLOCK = """## Output format (chunk-anchor tags)
+Every sentence in your reading must end with exactly one tag, placed immediately after the sentence's closing punctuation with NO space before the bracket:
+- "[OBS]" -- for observation-only sentences: restating what the confirmed hand description(s) say, the left/right innate-potential-vs-current-trajectory synthesis convention, or a voice/tone sentence carrying no interpretive claim of its own. Never put trait or doctrine content in an [OBS] sentence.
+- "[<chunk_id>]" -- one or more, written back to back with no space between them, for any sentence that paraphrases doctrine from a specific retrieved passage. Copy the chunk_id EXACTLY as shown in that passage's own "[chunk_id] p.NNN (score: ...)" label above -- character for character, never invented or abbreviated. A chunk you cite this way MUST belong to the SAME "### {feature}" section your sentence is about.
+Example: "The deep, unbroken life line promises long life and vitality.[cheiroslanguageo00chei_1_p134_c1]"
+Tag every sentence, including the opening and closing ones. These tags are a machine-readable annotation only -- they are stripped before the reading is shown to the client, so they are not the "citations" the rule below forbids; that rule is about your visible prose, not this tag."""
+
 _READING_SYSTEM_PROMPT = f"""You are a Cheiro-tradition palmist writing a single, one-shot palm reading for a client who has just uploaded photo(s) of their hand(s).
 
 ## Your knowledge
@@ -578,7 +597,7 @@ You have been provided with relevant passages from Cheiro's Language of the Hand
 - Synthesize the provided hand description(s) into one cohesive, direct reading -- speak as a confident palmist, not an academic.
 - When BOTH hands are present: the left hand reveals innate potential and character, the right hand reveals the native's current life trajectory -- synthesize both into a single unified reading, not two separate paragraphs.
 - When only one hand is present, read that hand alone -- do not speculate about the missing hand.
-- Do not cite book names, page numbers, or passage numbers -- deliver the reading directly.
+- Do not cite book names, page numbers, or passage numbers in your prose -- deliver the reading directly. (The chunk-id tag required at the end of every sentence, per the Output format section below, is a separate machine-readable annotation, not a citation in your prose -- it is stripped before display.)
 - If the retrieved passages do not clearly support a feature in the description, say so honestly -- do not fabricate.
 - Where a retrieved passage speaks directly to a described feature, apply that passage's specific teaching rather than a generic gloss -- do not let a feature you have textual support for get the same vague treatment as one you don't.
 - STRICT SCOPE (S67 R3): base this reading ONLY on the features named by a "### {{feature}}" heading in the provided passages section below -- do not name, allude to, or interpret any OTHER palm feature, even if it appears in the hand description(s) below. If a feature has no heading there, it is out of scope for this reading; a separate note about anything left out is appended after your response completes -- do not write your own version of that note.
@@ -588,6 +607,8 @@ You have been provided with relevant passages from Cheiro's Language of the Hand
 Write in Cheiro's declarative register: direct, confident assertions in period-appropriate diction, addressed straight to the reader. This is a palmist reading a hand, not a therapist offering affirmation -- speak with the authority of someone who has read thousands of hands and states plainly what each one shows.
 Model sentences (voice and cadence ONLY -- do not reuse or adapt ANY part of their wording, not even a short fragment; they contain no interpretive content of their own): "I have examined many hands in my years of practice, and each one tells its own story to those who know how to read it." / "The hand rarely lies to the palmist who reads it honestly." Every interpretive claim in your actual reading must come from the provided passages and the confirmed hand description(s) below -- these two sentences exist only to model tone, never as a source of content.
 FORBIDDEN words and phrasings (never use these, in any form): stability, fulfillment, fulfilling, favorable, journey, navigate, navigating, empower, empowerment, and any "this suggests you are the kind of person who..." self-help framing.
+
+{_OUTPUT_FORMAT_BLOCK}
 
 {_LANGUAGE_JARGON_BLOCK}
 
@@ -607,6 +628,66 @@ Do NOT include any disclaimer or closing caveat in your response -- one is appen
 _LOW_CONFIDENCE_ADDENDUM = """
 
 NOTE: The available passages have a weak match to these hand descriptions. Rely more heavily on general Cheiro palmistry principles than on close textual citation, and keep the reading appropriately general."""
+
+
+# ─── A1: chunk-anchor tag format + strip layer (S68 F-C, design-chat) ──
+#
+# Every sentence in the raw generation output must end with exactly one
+# tag -- "[OBS]" for observation-only prose, or one-or-more adjacent
+# "[<chunk_id>]" anchors for a sentence paraphrasing doctrine from a
+# specific retrieved passage (see _OUTPUT_FORMAT_BLOCK above, folded
+# into _READING_SYSTEM_PROMPT). CHUNK_ANCHOR_TAG_PATTERN is the SINGLE
+# source of truth for what a tag token looks like -- strip_generation_
+# tags() below uses it, and it is a PUBLIC module attribute specifically
+# so a future anchor-legality validator (a separate prompt, not this
+# one) can import the exact same pattern rather than re-deriving it and
+# risking drift between the two.
+#
+# NOT built here: any check that a sentence actually HAS a trailing tag,
+# that an anchored sentence's cited chunk_id actually belongs to its
+# feature section, or that [OBS] sentences carry no doctrine content --
+# those are anchor-LEGALITY checks, explicitly deferred to the next
+# prompt. This layer only knows how to find and remove tag tokens; the
+# existing Ring 1 validators below are untouched and still run on the
+# raw (tagged) draft exactly as before A1.
+#
+# Pattern shape: "[OBS]" literally, or "[<chunk_id>]" where chunk_id
+# matches this corpus's real id shape (<book_name>_p<page>_c<index>,
+# e.g. cheiroslanguageo00chei_1_p134_c2) -- deliberately narrower than a
+# bare "\\[\\w+\\]" to minimize false-positive collision with ordinary
+# bracketed prose the model might otherwise emit.
+CHUNK_ANCHOR_TAG_PATTERN = re.compile(r"\[(?:OBS|[A-Za-z0-9_]+_p\d+_c\d+)\]")
+
+
+def strip_generation_tags(text: str) -> str:
+    """Removes every [OBS] / [<chunk_id>] tag from `text`, producing the
+    clean display text. Pure regex on CHUNK_ANCHOR_TAG_PATTERN -- text
+    with no tags at all (e.g. any pre-A1 caller, or a test stub written
+    before this contract existed) passes through unchanged, since there
+    is nothing for the pattern to match; that is a legitimate no-op, not
+    degraded behavior.
+
+    Raises:
+        RuntimeError: the strip operation itself fails for any reason
+                      (e.g. non-string input) -- fails loud rather than
+                      risk silently shipping tagged text to display.
+    """
+    try:
+        stripped = CHUNK_ANCHOR_TAG_PATTERN.sub("", text)
+        # Tags are attached directly to sentence-final punctuation with no
+        # leading space (per the prompt contract), so removing one leaves
+        # no stray space behind in the common case; this pass only cleans
+        # up incidental multi-space/trailing-space runs a removed tag
+        # might leave when it wasn't the very last token on its line.
+        stripped = re.sub(r"[ \t]{2,}", " ", stripped)
+        stripped = re.sub(r"[ \t]+\n", "\n", stripped)
+        stripped = re.sub(r"[ \t]+$", "", stripped)
+        return stripped
+    except Exception as exc:
+        raise RuntimeError(
+            f"palm_reading.strip_generation_tags: failed to strip "
+            f"chunk-anchor tags from generation output: {exc}"
+        ) from exc
 
 
 # ─── LLM call configuration ─────────────────────────────────────────────
@@ -839,6 +920,20 @@ class PalmReadingResult:
     # to decline.
     supported_features: tuple[str, ...]
     unsupported_features: tuple[str, ...]
+    # A1 (S68 F-C): the raw generation output BEFORE tag-stripping --
+    # every sentence's trailing [OBS]/[chunk_id] tag(s) intact, no
+    # decline_block/DISCLAIMER appended (those are Python-owned strings
+    # the LLM never tagged). Additive only -- reading_text above remains
+    # the existing clean-display key, now populated via
+    # strip_generation_tags() rather than passed through verbatim. Feeds
+    # a FUTURE anchor-legality validator; this prompt does not itself
+    # validate the tags' legality. Defaults to "" (not None -- this
+    # field's type is str, never optional) so any construction site that
+    # predates A1 (e.g. tests/test_app_dogfood_capture.py's direct
+    # PalmReadingResult(...) fixture, unrelated to this prompt's scope)
+    # keeps working unmodified; generate_palm_reading() itself always
+    # supplies the real value explicitly, never relies on this default.
+    reading_text_tagged: str = ""
 
 
 def generate_palm_reading(
@@ -877,6 +972,11 @@ def generate_palm_reading(
         validation reflects whichever draft was actually returned. Still
         never regenerates or suppresses beyond that single retry -- a
         failing retry's ValidationReport is final and fail-closed.
+        A1 (S68 F-C): reading_text is now built via strip_generation_
+        tags() rather than passed through verbatim; reading_text_tagged
+        carries the same final draft BEFORE stripping (no decline_block/
+        DISCLAIMER appended either), for a future anchor-legality
+        validator to inspect.
 
     Raises:
         ValueError: Both palm_left and palm_right are None (hand_detail
@@ -1003,11 +1103,19 @@ def generate_palm_reading(
 
     validation = ValidationReport(passed=not failures, failures=tuple(failures))
 
+    # A1: raw tagged draft preserved verbatim (pre-decline, pre-disclaimer,
+    # pre-strip) for reading_text_tagged, captured BEFORE any of the
+    # display-text post-processing below touches reading_text.
+    reading_text_tagged = reading_text
+
     # S67 R3: Python-owned decline block for observed-but-unsupported
     # features, appended AFTER validation runs (same reasoning as
     # DISCLAIMER below) but BEFORE it.
     decline_block = _build_decline_block(unsupported_features)
-    final_text = reading_text.rstrip()
+    # A1: strip chunk-anchor tags before building the clean display text --
+    # decline_block/DISCLAIMER are Python-owned strings the LLM never
+    # tagged, so they are appended AFTER stripping, not before.
+    final_text = strip_generation_tags(reading_text).rstrip()
     if decline_block:
         final_text += "\n\n" + decline_block
     # DISCLAIMER appended AFTER validation runs -- its own wording/any
@@ -1027,6 +1135,7 @@ def generate_palm_reading(
 
     return PalmReadingResult(
         reading_text=final_text,
+        reading_text_tagged=reading_text_tagged,
         sources=sources,
         validation=validation,
         model=_READING_MODEL,
