@@ -290,3 +290,107 @@ scope; the test file needs no edit for this task to pass).
 `python -m pytest -q`: **3213 passed, 3 skipped** -- exact match to the
 3213/3 baseline, 0 regressions, 0 new tests (this task is a production-
 code-only fix; no new coverage was requested).
+
+---
+
+# S68 F-C A1: F5 capture -- tagged reading + ring1_failures + anchor denominator
+
+Scope: `frontend/app.py`'s `_capture_dogfood_run()` ONLY, additive --
+no existing line renamed, reordered, or removed (confirmed by re-
+reading the function's full diff before commit).
+
+## Field verification (verify-before-transcribe, per constraint)
+Read `PalmReadingResult` directly in `agent/interpretive/palm_reading.py`
+before writing anything:
+```
+reading_text: str
+sources: tuple[dict, ...]          # each dict: book/page/score/feature -- NO chunk_id
+validation: ValidationReport       # .passed / .failures
+model: str
+retry_used: bool
+supported_features: tuple[str, ...]
+unsupported_features: tuple[str, ...]
+reading_text_tagged: str = ""      # A1 field, confirmed present, defaults to ""
+```
+
+## Change 1 -- "### READING (TAGGED)" subsection
+Inserted right after the existing "### reading_text" block (before
+"### sources"), unconditionally appending `reading.reading_text_tagged`
+verbatim. The existing "### reading_text" lines are untouched. Wrapped
+in its own try/except (distinct from the outer call-site safety net at
+the `_capture_dogfood_run()` call site) so a failure capturing this ONE
+new field can't also cost the pre-existing lines around it -- verified
+the default `reading_text_tagged=""` (pre-A1 construction sites, e.g.
+this file's own `_synthetic_reading()` fixture) renders as an empty-but
+-present section, not a crash (smoke-tested directly, see below).
+
+## Change 2 -- "ring1_failures:" line
+Added inside the existing "### ring1_validation" section, after the
+existing `retry_used:` line -- one line per `ValidationReport.failures`
+tuple entry verbatim, or the literal `none` when empty. This is
+additive alongside the pre-existing `failures: {tuple!r}` single-line
+form, not a replacement -- the tuple-repr line stays for programmatic
+parsing, the new grep-able per-line form is what pass 4 actually reads
+V-1/V-2 (and any other Ring 1 check's) violation strings from.
+
+## Change 3 -- "valid_chunk_ids_count:" line, VERIFIED UNAVAILABLE
+Per the constraint's own instruction, checked whether the count is
+derivable from the same surface the capture already uses for sources
+before writing anything:
+- `valid_chunk_ids` is a local `frozenset` computed inside
+  `generate_palm_reading()` (from `gated_results`) and is never
+  returned on `PalmReadingResult` -- confirmed by reading the function
+  body, not assumed.
+- `reading.sources` dicts carry `book`/`page`/`score`/`feature` only --
+  no `chunk_id` key exists anywhere on that surface.
+- `len(reading.sources)` is NOT a safe proxy for the distinct chunk_id
+  count either: S67 R1's per-feature retrieval can legitimately return
+  the SAME chunk_id under two different features' source entries (see
+  `test_per_feature_map_ordering_and_dedupe_for_display` in
+  `tests/interpretive/test_palm_reading.py`), so counting source
+  entries would overcount relative to the true distinct-chunk_id
+  union; a `(book, page, score)` tuple isn't safe either, since the
+  SAME chunk_id retrieved under two different per-feature queries can
+  legitimately carry two different similarity scores (each query
+  re-embeds against its own text).
+**Conclusion: cannot be derived from any existing app.py-visible
+surface without new plumbing into palm_reading.py (out of scope).**
+Per the constraint's explicit fallback, captured as
+`valid_chunk_ids_count: unavailable` -- the dataclass was NOT modified.
+This gap is reported here, not silently worked around with an
+unreliable proxy that would have looked like real data in the capture
+log.
+
+## Fail-soft verification
+The call site (`frontend/app.py`, the "Generate Palm Reading" button
+handler) already wraps the ENTIRE `_capture_dogfood_run()` call in its
+own try/except that only logs a warning -- that outer net was already
+sufficient to guarantee a capture failure never blocks the reading
+path. The constraint asked for something more granular: each of the 3
+NEW additions is ALSO individually try/except-wrapped inside the
+function itself, so a failure isolated to one new field (e.g. some
+future caller passing a malformed `reading` object) still lets the
+OTHER pre-existing (working) capture lines get written, rather than
+losing the whole block to one bad new field.
+
+## Smoke verification (direct call, not via AppTest)
+Ran `_capture_dogfood_run()` directly against a tmp log path with two
+synthetic `PalmReadingResult`s:
+1. A failing-validation reading (2 failures, tagged text with a real
+   chunk_id citation) -- confirmed `### READING (TAGGED)` renders the
+   tagged text verbatim, `ring1_failures:` lists both failure strings
+   one per line, `valid_chunk_ids_count: unavailable` present.
+2. This file's own `_synthetic_reading()` fixture (`failures=()`,
+   `reading_text_tagged` left at its `""` default) -- confirmed
+   `ring1_failures:` renders `none`, and the TAGGED section renders as
+   present-but-empty rather than crashing.
+
+## Tests
+Zero test-file edits, as expected -- capture tests construct
+`PalmReadingResult` directly and the new field defaults cleanly.
+`tests/test_app_dogfood_capture.py`: **6 passed**, 0 breakage.
+
+## Full pytest result
+`python -m pytest -q`: **3213 passed, 3 skipped** -- exact match to the
+3213/3 baseline, 0 regressions, 0 new tests (F5 capture is observability
+plumbing, not a code path the existing suite was asked to cover further).

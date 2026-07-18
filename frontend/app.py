@@ -69,6 +69,20 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     lines.append(reading.reading_text)
     lines.append("")
 
+    # A1 (S68 F-C F5): raw tagged draft (anchors intact, pre-decline/
+    # pre-DISCLAIMER) alongside the stripped/display form above -- Ring 3
+    # pass 4 scores claim->anchor fidelity from THIS form; the stripped
+    # reading_text alone can't show which retrieved chunk backs which
+    # sentence. Wrapped in its own try/except (not just the outer
+    # call-site safety net) so a failure capturing this NEW field alone
+    # can never also cost the pre-existing capture lines around it.
+    lines.append("### READING (TAGGED)")
+    try:
+        lines.append(reading.reading_text_tagged)
+    except Exception as exc:
+        lines.append(f"[capture error: reading_text_tagged unavailable: {exc}]")
+    lines.append("")
+
     lines.append("### sources")
     # score is already round(..., 4) at the source (ingestion/query_engine.py)
     # -- same value the UI renders, not reformatted here. S67 R1 added a
@@ -95,6 +109,38 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     # any of its 3 captured runs needed the validator-fed retry. Captured
     # here, alongside the other Ring 1 outcome fields.
     lines.append(f"retry_used: {reading.retry_used}")
+
+    # A1 (S68 F-C F5): one-line-per-failure form of the SAME
+    # ValidationReport.failures tuple already captured above as a single
+    # repr'd line -- today only retry_used implies a first-draft failure
+    # existed without saying what it was; this makes V-1/V-2 violations
+    # (and any display-check failure) grep-able per-run hard data, not a
+    # replacement for the existing "failures:" line.
+    lines.append("ring1_failures:")
+    try:
+        if reading.validation.failures:
+            lines.extend(reading.validation.failures)
+        else:
+            lines.append("none")
+    except Exception as exc:
+        lines.append(f"[capture error: ring1_failures unavailable: {exc}]")
+
+    # A1 (S68 F-C F5): size of the V-2 anchor-legality membership union
+    # (valid_chunk_ids in generate_palm_reading) -- a cheap denominator
+    # for pass-4's anchor-fidelity spot-check. VERIFIED UNAVAILABLE from
+    # any existing app.py-visible surface (verify-before-transcribe,
+    # per the instructing prompt's own constraint): valid_chunk_ids is a
+    # local computed inside generate_palm_reading() and never returned
+    # on PalmReadingResult, and reading.sources' dicts (book/page/score/
+    # feature) never carry chunk_id -- the S67 R1 per-feature dedupe
+    # also rules out len(reading.sources) as a safe proxy (the SAME
+    # chunk_id can legitimately appear under two different features'
+    # source entries, see test_per_feature_map_ordering_and_dedupe_
+    # for_display). Per the instructing constraint's own fallback:
+    # captured as "unavailable" rather than derived from an unreliable
+    # proxy or a new dataclass field -- palm_reading.py is out of scope
+    # for this task.
+    lines.append("valid_chunk_ids_count: unavailable")
     lines.append("")
 
     _DOGFOOD_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
