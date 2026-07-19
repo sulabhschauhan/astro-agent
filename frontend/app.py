@@ -72,10 +72,15 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     # A1 (S68 F-C F5): raw tagged draft (anchors intact, pre-decline/
     # pre-DISCLAIMER) alongside the stripped/display form above -- Ring 3
     # pass 4 scores claim->anchor fidelity from THIS form; the stripped
-    # reading_text alone can't show which retrieved chunk backs which
-    # sentence. Wrapped in its own try/except (not just the outer
-    # call-site safety net) so a failure capturing this NEW field alone
-    # can never also cost the pre-existing capture lines around it.
+    # reading_text alone can't show which claim backs which sentence.
+    # S69 F-H (P6a): tag vocabulary is now Stage 2's {[C<n>], [OBS],
+    # [FLOW]} (claim_id / observation / connective-flow markers), NOT
+    # the single-call architecture's old {[OBS], [<chunk_id>]} -- the
+    # claims_inventory section below is what resolves a [C<n>] tag back
+    # to its chunk_id/feature. Wrapped in its own try/except (not just
+    # the outer call-site safety net) so a failure capturing this NEW
+    # field alone can never also cost the pre-existing capture lines
+    # around it.
     lines.append("### READING (TAGGED)")
     try:
         lines.append(reading.reading_text_tagged)
@@ -101,6 +106,27 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     lines.append(f"unsupported_features: {reading.unsupported_features}")
     lines.append("")
 
+    # S69 F-H P5 / S70 P6a: full Stage-1 extraction inventory
+    # (claim_extraction.Claim, verbatim from reading.claims), including
+    # claims excluded_from_voice -- the full inventory (not just what
+    # made it into the voiced reading) is the point, per P6a instructions.
+    # One line per claim, tuple order (registry order, per claim_
+    # extraction.py); claim_text has internal newlines flattened to a
+    # single space so each claim stays one grep-able line.
+    lines.append("### claims_inventory")
+    if reading.claims:
+        for claim in reading.claims:
+            claim_text_oneline = claim.claim_text.replace("\n", " ")
+            lines.append(
+                f"{claim.claim_id} | {claim.feature} | {claim.chunk_id} | "
+                f"{claim.valence} | {claim.excluded_from_voice} | "
+                f"{claim.exclusion_reason} | {claim.condition_text} | "
+                f"{claim_text_oneline}"
+            )
+    else:
+        lines.append("claims_inventory: EMPTY")
+    lines.append("")
+
     lines.append("### ring1_validation")
     lines.append(f"passed: {reading.validation.passed}")
     lines.append(f"failures: {reading.validation.failures}")
@@ -109,6 +135,25 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     # any of its 3 captured runs needed the validator-fed retry. Captured
     # here, alongside the other Ring 1 outcome fields.
     lines.append(f"retry_used: {reading.retry_used}")
+    # S69 F-H P5 / S70 P6a: retry_used above is COMPAT (true if EITHER
+    # stage retried) -- these two give the per-stage breakdown.
+    stage1_retry_features_str = (
+        ", ".join(reading.stage1_retry_features)
+        if reading.stage1_retry_features
+        else "NONE"
+    )
+    lines.append(f"stage1_retry_features: {stage1_retry_features_str}")
+    lines.append(f"stage2_retry_used: {reading.stage2_retry_used}")
+
+    # S70 P6a: semicolon-joined single-line form of the SAME
+    # ValidationReport.failures tuple already captured above as a repr'd
+    # line -- verbatim from reading.validation.failures.
+    validation_failures_str = (
+        "; ".join(reading.validation.failures)
+        if reading.validation.failures
+        else "NONE"
+    )
+    lines.append(f"validation_failures: {validation_failures_str}")
 
     # A1 (S68 F-C F5): one-line-per-failure form of the SAME
     # ValidationReport.failures tuple already captured above as a single
@@ -125,35 +170,12 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     except Exception as exc:
         lines.append(f"[capture error: ring1_failures unavailable: {exc}]")
 
-    # A1 (S68 F-C F5): size of the V-2 anchor-legality membership union
-    # (valid_chunk_ids in generate_palm_reading) -- a cheap denominator
-    # for pass-4's anchor-fidelity spot-check. VERIFIED UNAVAILABLE from
-    # any existing app.py-visible surface (verify-before-transcribe,
-    # per the instructing prompt's own constraint): valid_chunk_ids is a
-    # local computed inside generate_palm_reading() and never returned
-    # on PalmReadingResult, and reading.sources' dicts (book/page/score/
-    # feature) never carry chunk_id -- the S67 R1 per-feature dedupe
-    # also rules out len(reading.sources) as a safe proxy (the SAME
-    # chunk_id can legitimately appear under two different features'
-    # source entries, see test_per_feature_map_ordering_and_dedupe_
-    # for_display). Per the instructing constraint's own fallback:
-    # captured as "unavailable" rather than derived from an unreliable
-    # proxy or a new dataclass field -- palm_reading.py is out of scope
-    # for this task.
-    #
-    # ACCEPTED GAP (S68 F-C close-out, CLAUDE.md "Known Source
-    # Divergences / Accepted Gaps (V1)" register, item (e)): this is a
-    # real, currently-open capture gap, not resolved by the note above --
-    # pass-4's anchor-fidelity spot-check denominator does NOT read this
-    # line. It is sourced instead from a reconstruction probe script
-    # (same style as scripts/probe_fc_heartline_corpus.py /
-    # scripts/probe_fc_retrieval.py -- read-only, re-derives
-    # generate_palm_reading()'s retrieval+support-gate path against a
-    # captured run's confirmed descriptions). V1.1 register: promoting
-    # valid_chunk_ids onto PalmReadingResult would let this line capture
-    # the real count/membership and retire the reconstruction-probe
-    # workaround.
-    lines.append("valid_chunk_ids_count: unavailable")
+    # S70 P6a: the old "valid_chunk_ids_count: unavailable" line/comment
+    # block (S68 F-C F5, accepted gap (e)) is RETIRED here -- the
+    # claims_inventory section above now captures each claim's chunk_id
+    # directly, closing the anchor-membership gap that line worked
+    # around. CLAUDE.md's accepted-gap register update is a separate
+    # close-out prompt's job, not done here.
     lines.append("")
 
     _DOGFOOD_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

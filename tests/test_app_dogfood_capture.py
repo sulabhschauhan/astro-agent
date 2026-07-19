@@ -22,6 +22,14 @@ warnings (confirmed harmless -- Streamlit's own message -- before relying
 on this) but does not raise; frontend/app.py's module-level code (up to
 and including `st.set_page_config`) executes once and is safe to import
 directly for this purpose.
+
+S70 P6a SCHEMA UPDATE: same direct-import style, covering the two-stage
+(S69 F-H) pipeline's additions to _capture_dogfood_run() -- the new
+claims_inventory section (reading.claims, full Stage-1 inventory incl.
+excluded_from_voice claims), stage1_retry_features / stage2_retry_used
+(alongside the existing COMPAT retry_used), and validation_failures. Also
+covers removal of the retired "valid_chunk_ids_count: unavailable" line
+(closed by claims_inventory's per-claim chunk_id).
 """
 import sys
 from pathlib import Path
@@ -30,6 +38,7 @@ from streamlit.testing.v1 import AppTest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from agent.interpretive.claim_extraction import Claim
 from agent.interpretive.palm_reading import PalmReadingResult, ValidationReport
 
 _ROOT     = Path(__file__).parent.parent
@@ -74,7 +83,36 @@ def _synthetic_reading() -> PalmReadingResult:
     feature tags, 1 supported feature, 2 unsupported (registry order:
     life line, fate line, sun line -- fate/sun both unsupported), and
     retry_used=True, to prove every new capture line reflects the
-    ACTUAL field, not a hardcoded placeholder."""
+    ACTUAL field, not a hardcoded placeholder.
+
+    S70 P6a: 2 claims (one excluded_from_voice, one clean) exercise the
+    new claims_inventory section; stage1_retry_features/stage2_retry_used
+    exercise the two-stage retry breakdown alongside the pre-existing
+    COMPAT retry_used=True."""
+    claims = (
+        Claim(
+            claim_id="C1",
+            feature="life line",
+            chunk_id="cheiroslanguageo00chei_1_p134_c2",
+            claim_text="A long, unbroken life line indicates steady vitality.",
+            valence="positive",
+            condition_text=None,
+            observation_basis="visible",
+            excluded_from_voice=False,
+            exclusion_reason=None,
+        ),
+        Claim(
+            claim_id="C2",
+            feature="fate line",
+            chunk_id="cheiroslanguageo00chei_1_p200_c1",
+            claim_text="A fate line rising from the life line suggests self-made success,\nif its origin can be confirmed.",
+            valence="positive",
+            condition_text="fate line rises from the life line",
+            observation_basis="barely visible",
+            excluded_from_voice=True,
+            exclusion_reason="precondition unverified",
+        ),
+    )
     return PalmReadingResult(
         reading_text="Your life line shows steady vitality.\n\nFor major life decisions, I recommend consulting a qualified astrologer or palm reader for a personal reading.",
         sources=(
@@ -86,6 +124,9 @@ def _synthetic_reading() -> PalmReadingResult:
         retry_used=True,
         supported_features=("life line",),
         unsupported_features=("fate line", "sun line"),
+        claims=claims,
+        stage1_retry_features=("life line",),
+        stage2_retry_used=False,
     )
 
 
@@ -129,6 +170,144 @@ def test_capture_dogfood_run_writes_feature_support_verdicts(monkeypatch, tmp_pa
     assert "### feature_support" in content
     assert "supported_features: ('life line',)" in content
     assert "unsupported_features: ('fate line', 'sun line')" in content
+
+
+# ─── S70 P6a schema coverage: claims_inventory / two-stage retry fields ─
+
+
+def test_capture_dogfood_run_writes_claims_inventory(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, _synthetic_reading())
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "### claims_inventory" in content
+
+    # Clean claim: every field reflects the actual Claim, not a placeholder.
+    assert (
+        "C1 | life line | cheiroslanguageo00chei_1_p134_c2 | positive | "
+        "False | None | None | A long, unbroken life line indicates "
+        "steady vitality."
+    ) in content
+
+    # Excluded claim: excluded_from_voice/exclusion_reason/condition_text
+    # all present, and claim_text's internal newline is flattened to a
+    # single space (verbatim otherwise, per P6a's single-line requirement).
+    assert (
+        "C2 | fate line | cheiroslanguageo00chei_1_p200_c1 | positive | "
+        "True | precondition unverified | fate line rises from the life "
+        "line | A fate line rising from the life line suggests self-made "
+        "success, if its origin can be confirmed."
+    ) in content
+    # No raw newline survives inside the C2 claim line.
+    assert "success,\nif its origin" not in content
+
+
+def test_capture_dogfood_run_claims_inventory_empty(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    reading = PalmReadingResult(
+        reading_text="Your life line shows steady vitality.",
+        sources=(),
+        validation=ValidationReport(passed=True, failures=()),
+        model="gpt-4o",
+        retry_used=False,
+        supported_features=(),
+        unsupported_features=(),
+    )
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, reading)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "### claims_inventory" in content
+    assert "claims_inventory: EMPTY" in content
+
+
+def test_capture_dogfood_run_writes_two_stage_retry_fields(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, _synthetic_reading())
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "stage1_retry_features: life line" in content
+    assert "stage2_retry_used: False" in content
+
+
+def test_capture_dogfood_run_stage1_retry_features_none_when_empty(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    reading = PalmReadingResult(
+        reading_text="Your life line shows steady vitality.",
+        sources=(),
+        validation=ValidationReport(passed=True, failures=()),
+        model="gpt-4o",
+        retry_used=False,
+        supported_features=(),
+        unsupported_features=(),
+    )
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, reading)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "stage1_retry_features: NONE" in content
+    assert "stage2_retry_used: False" in content
+
+
+def test_capture_dogfood_run_writes_validation_failures_line(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    reading = PalmReadingResult(
+        reading_text="Your life line shows steady vitality.",
+        sources=(),
+        validation=ValidationReport(passed=False, failures=("V-1: untagged sentence", "V-3: illegal tag")),
+        model="gpt-4o",
+        retry_used=True,
+        supported_features=(),
+        unsupported_features=(),
+    )
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, reading)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "validation_failures: V-1: untagged sentence; V-3: illegal tag" in content
+
+
+def test_capture_dogfood_run_validation_failures_none_when_empty(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, _synthetic_reading())
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "validation_failures: NONE" in content
+
+
+def test_capture_dogfood_run_no_longer_writes_valid_chunk_ids_count(monkeypatch, tmp_path):
+    """S70 P6a: the retired accepted-gap (e) line must be gone -- the
+    claims_inventory section's per-claim chunk_id closes that gap."""
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, _synthetic_reading())
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "valid_chunk_ids_count" not in content
 
 
 def test_capture_dogfood_run_still_appends_never_overwrites(monkeypatch, tmp_path):
