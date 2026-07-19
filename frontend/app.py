@@ -144,6 +144,19 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     )
     lines.append(f"stage1_retry_features: {stage1_retry_features_str}")
     lines.append(f"stage2_retry_used: {reading.stage2_retry_used}")
+    # S70: retry attribution -- WHAT drove Stage 2's retry, distinct from
+    # merely knowing THAT it retried (stage2_retry_used above). Closes the
+    # exact gap the "ring1_failures" comment above flags ("today only
+    # retry_used implies a first-draft failure existed without saying
+    # what it was") for the Stage-2-retry case specifically: a run that
+    # ends up clean (stage2_retry_used=True, validation.passed=True) still
+    # records here what the first draft actually failed on.
+    stage2_first_attempt_failures_str = (
+        "; ".join(reading.stage2_first_attempt_failures)
+        if reading.stage2_first_attempt_failures
+        else "NONE"
+    )
+    lines.append(f"stage2_first_attempt_failures: {stage2_first_attempt_failures_str}")
 
     # S70 P6a: semicolon-joined single-line form of the SAME
     # ValidationReport.failures tuple already captured above as a repr'd

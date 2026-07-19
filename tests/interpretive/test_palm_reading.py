@@ -1379,6 +1379,54 @@ def test_exemplar_echo_guard_clean_draft_happy_path_no_behavior_change(monkeypat
     assert result.validation.failures == ()
 
 
+# ─── S70: stage2_first_attempt_failures -- retry attribution ───────────
+#
+# stage2_retry_used alone answers "did Stage 2 retry"; this field answers
+# "what did the FIRST draft fail on", even when the retry fully clears it
+# and the final result passes cleanly -- the exact gap pass-5 preflight's
+# own addenda flagged (diagnostics/pass5_preflight_S70.md).
+
+
+def test_stage2_first_attempt_failures_carries_first_draft_failure_verbatim(monkeypatch):
+    """(a) Reuses test_exemplar_echo_guard_fires_draft1_retries_and_
+    clears_on_clean_draft2's exact fixture shape: draft 1 echoes, draft 2
+    is clean -> the final result still passes, but
+    stage2_first_attempt_failures records what draft 1 actually failed
+    on, verbatim."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    stage1 = json.dumps({"feature": "life line", "claims": [
+        {"claim_id": "x", "chunk_id": chunk["chunk_id"], "claim_text": chunk["text"],
+         "valence": "supports", "condition_text": None, "observation_basis": "observed"},
+    ]})
+    echo_draft = (
+        "Each one tells its own story to those who understand the "
+        "craft.[FLOW] "
+        "A long, unbroken life line indicates steady vitality.[C1]"
+    )
+    clean_draft = "A long, unbroken life line indicates steady vitality.[C1]"
+    client = _FakeClient(responses=[(stage1, None), (echo_draft, None), (clean_draft, None)])
+
+    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
+
+    assert result.stage2_retry_used is True
+    assert result.validation.passed is True
+    assert result.stage2_first_attempt_failures == ("exemplar_echo: each one tells its own story",)
+
+
+def test_stage2_first_attempt_failures_empty_when_no_retry(monkeypatch):
+    """(b) A clean first draft (no retry fires) -> stage2_first_attempt_
+    failures is the empty-tuple default, same as stage2_retry_used=False."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _CLEAN_STUB_TEXT)
+
+    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
+
+    assert result.stage2_retry_used is False
+    assert result.stage2_first_attempt_failures == ()
+
+
 def test_exemplar_echo_boundary_5word_no_fire_6word_fires(monkeypatch):
     """Measure-first boundary pair: a 5-word overlap with the exemplar
     does NOT fire; extended by one word to complete the genuine 6-gram

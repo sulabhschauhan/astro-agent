@@ -147,7 +147,18 @@ def _synthetic_reading() -> PalmReadingResult:
     S70 P6a: 2 claims (one excluded_from_voice, one clean) exercise the
     new claims_inventory section; stage1_retry_features/stage2_retry_used
     exercise the two-stage retry breakdown alongside the pre-existing
-    COMPAT retry_used=True."""
+    COMPAT retry_used=True.
+
+    S70 (retry attribution rider): stage2_first_attempt_failures carries
+    2 distinct failure strings (not 1) so the capture line's semicolon
+    JOIN behavior is actually exercised, not just its presence -- proves
+    the captured line reflects this ACTUAL field, not a hardcoded
+    placeholder. (Left alongside stage2_retry_used=False -- an
+    unrealistic combination in real complete_palm_reading() output, but
+    this fixture only needs to prove the CAPTURE line reads whatever
+    tuple is on the object; the production invariant between the two
+    fields is enforced and tested separately in
+    tests/interpretive/test_palm_reading.py.)"""
     claims = (
         Claim(
             claim_id="C1",
@@ -186,6 +197,10 @@ def _synthetic_reading() -> PalmReadingResult:
         claims=claims,
         stage1_retry_features=("life line",),
         stage2_retry_used=False,
+        stage2_first_attempt_failures=(
+            "exemplar_echo: tells its own story to those",
+            "jargon_blacklist: found antardasha",
+        ),
     )
 
 
@@ -199,6 +214,25 @@ def test_capture_dogfood_run_writes_retry_used_line(monkeypatch, tmp_path):
 
     content = log_path.read_text(encoding="utf-8")
     assert "retry_used: True" in content
+
+
+def test_capture_dogfood_run_writes_stage2_first_attempt_failures_line(monkeypatch, tmp_path):
+    """S70 (retry attribution rider): the new capture line joins
+    reading.stage2_first_attempt_failures with "; ", verbatim -- proves
+    it reflects the ACTUAL field (2 distinct strings, exercising the join,
+    not just presence) rather than a hardcoded placeholder."""
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, _synthetic_reading())
+
+    content = log_path.read_text(encoding="utf-8")
+    assert (
+        "stage2_first_attempt_failures: exemplar_echo: tells its own story to those; "
+        "jargon_blacklist: found antardasha"
+    ) in content
 
 
 def test_capture_dogfood_run_source_lines_carry_feature_tag(monkeypatch, tmp_path):

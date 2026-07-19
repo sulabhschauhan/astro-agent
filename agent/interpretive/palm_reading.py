@@ -1548,6 +1548,23 @@ class PalmReadingResult:
     claims: tuple[Claim, ...] = ()
     stage1_retry_features: tuple[str, ...] = ()
     stage2_retry_used: bool = False
+    # S70 (retry attribution): the FIRST-attempt failure list that drove
+    # Stage 2's retry -- claim_voicing.voice_claims' own diagnostics
+    # dict's "first_attempt_failures" key, verbatim, empty tuple when
+    # absent (a clean first draft, no retry needed). Same additive-
+    # defaulted convention as reading_text_tagged/claims/stage1_retry_
+    # features/stage2_retry_used above -- any pre-S70 construction site
+    # keeps working unmodified. Distinct from `validation.failures`
+    # (the FINAL verdict, on whichever draft actually shipped): this
+    # field answers "what was wrong on attempt 1" even when the retry
+    # fully cleared it and the final result passed cleanly --
+    # `stage2_retry_used=True` alone doesn't say WHY the retry fired;
+    # this field does. Motivated directly by pass-5 preflight's own
+    # documented gap (diagnostics/pass5_preflight_S70.md's post-F-G and
+    # post-F-G3 addenda): a clean final PASS with stage2_retry_used=True
+    # left no way to tell whether the retry was exemplar-echo-related or
+    # something else entirely.
+    stage2_first_attempt_failures: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1763,6 +1780,9 @@ def complete_palm_reading(
 
     stage1_retry_features = prep.diagnostics.get("stage1_retry_features", ())
     stage2_retry_used = voice_result.retry_used
+    stage2_first_attempt_failures = tuple(
+        voice_result.diagnostics.get("first_attempt_failures", ())
+    )
 
     return PalmReadingResult(
         reading_text=final_text,
@@ -1776,6 +1796,7 @@ def complete_palm_reading(
         claims=prep.claims,
         stage1_retry_features=stage1_retry_features,
         stage2_retry_used=stage2_retry_used,
+        stage2_first_attempt_failures=stage2_first_attempt_failures,
     )
 
 
