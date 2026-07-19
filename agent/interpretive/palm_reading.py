@@ -54,15 +54,78 @@ CLAUDE.md, code-site comment, this note):
       cited once; a direct consequence of gap (a)'s union-only V-2
       semantics. RATIFIED FINAL, same disposition as (a): covered by the
       SAME Ring 3 pass-4 human anchor-fidelity spot-check.
+
+S69 F-H P5 (two-stage wiring, this module's single-call generation
+RETIRED): the block that used to build `_READING_SYSTEM_PROMPT` +
+`_LOW_CONFIDENCE_ADDENDUM`, assemble one whole-reading prompt, and make a
+single free-composition generation call (with its own F2c retry) is
+REPLACED by a call to `claim_extraction.extract_claims()` (Stage 1: one
+per-feature extraction call, paraphrase-or-nothing, its own F2c retry per
+feature) followed by `claim_voicing.voice_claims()` (Stage 2: one
+closed-inventory voice call over Stage 1's surviving claims, its own F2c
+retry). `generate_palm_reading()` keeps its exact pre-existing signature
+and behavior contract -- it is now `prepare_palm_reading()` composed with
+`complete_palm_reading()`, split at that seam for a future dogfood
+checkpoint (P6) to inspect the Stage-1 claims inventory before voicing.
+
+RETIRED, NOT DELETED (this prompt's own instruction: leave the functions
+defined, delete only their INVOCATION -- a future close-out prompt owns
+actual deletion):
+  - V-1 (`_check_tag_completeness`) / V-2 (`_check_anchor_legality`): no
+    longer called. Their whole-reading anchor-legality job is NATIVELY
+    replaced, not merely re-implemented, by the two-stage architecture
+    itself -- `claim_extraction.py`'s E-1 validator checks chunk_id
+    legality PER FEATURE at extraction time (retiring accepted gaps (a)
+    and (f) above, which were both consequences of V-2's UNION-only
+    membership check), and `claim_voicing.py`'s own V-3 validator checks
+    tag legality on Stage 2's OWN `{[C<n>], [OBS], [FLOW]}` tag
+    vocabulary -- a DIFFERENT vocabulary than `CHUNK_ANCHOR_TAG_PATTERN`
+    ever recognized (see `_STAGE2_TAG_PATTERN` / `_strip_stage2_tags`
+    below: reusing `strip_generation_tags()` as-is on Stage-2 output
+    would silently leave `[C1]`/`[FLOW]` tokens in the displayed text,
+    since that pattern only ever recognized `[OBS]` or a full
+    `[<book>_p<n>_c<n>]` chunk-id token).
+  - `_check_feature_coverage` (F-A, S68): superseded by V-4 (claim
+    coverage), which is STRICTLY STRONGER -- V-4 checks that every claim
+    Stage 2 was actually OFFERED gets voiced at least once, a
+    claim-level guarantee the old whole-reading coverage warning could
+    only approximate via chunk-id set membership. No longer called;
+    `ValidationReport.warnings` is kept for dataclass compatibility but
+    is now always `()`.
+  - `_run_ring1_checks` (the old eight-validator sequence spanning both
+    display checks and V-1/V-2): no longer called. Its six DISPLAY
+    checks (jargon, self-help register, unsupported dates, length,
+    banned-feature mentions, exemplar echo) survive, unchanged, in the
+    new `_run_display_checks()` below -- they still measure real display
+    semantics on Stage 2's stripped output, and `_check_exemplar_echo`
+    in particular stays meaningful since `claim_voicing._VOICE_SYSTEM_
+    PROMPT` transplants the SAME `_EXEMPLAR_SENTENCES` tone-anchors this
+    module already owns.
+
+NOTED BEHAVIOR CHANGE (not a bug, a direct architectural consequence,
+flagged here rather than silently shipped): the old single-call flow's
+`_LOW_CONFIDENCE_ADDENDUM` path let the model free-compose a generic
+reading from confirmed observations alone when retrieval returned zero
+chunks for every feature. The two-stage architecture has no equivalent --
+if every feature's gated chunk list is empty, `extract_claims` has
+nothing to attempt (an empty, non-raising result) and `voice_claims`
+then has nothing to voice (also an empty, non-raising result), so the
+final reading is decline-block-plus-disclaimer only, no generic
+free-composed prose. This is judged a deliberate, correct consequence of
+retiring free composition (the entire point of F-H), not a regression to
+patch here -- flagged for the close-out prompt's CLAUDE.md registration,
+not silently absorbed.
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from agent.interpretive import claim_extraction, claim_voicing
+from agent.interpretive.claim_extraction import Claim
 from agent.prompt_builder import DISCLAIMER
 from ingestion.query_engine import search
 
@@ -322,6 +385,17 @@ def _gather_feature_texts(
                 texts[feature].append(_extract_needle_clause(v, needle))
 
     return texts
+
+
+# S69 F-H P5: claim_extraction.extract_claims / claim_voicing.voice_claims
+# both expect ONE string per feature (their own module contracts), but
+# _gather_feature_texts returns a LIST of raw per-source texts (one entry
+# per LEFT/RIGHT/HAND_DETAIL mention). Joined with " / " -- the SAME
+# separator _resolve_feature_quality below already uses to merge multiple
+# non-absent qualities for one feature, reused here rather than inventing
+# a second joining convention.
+def _join_feature_texts(texts_by_feature: dict[str, list[str]]) -> dict[str, str]:
+    return {feature: " / ".join(texts) for feature, texts in texts_by_feature.items() if texts}
 
 
 def _resolve_feature_quality(feature: str, raw_texts: list[str]) -> str | None:
@@ -828,6 +902,42 @@ def strip_generation_tags(text: str) -> str:
         ) from exc
 
 
+# S69 F-H P5: Stage 2 (claim_voicing.py) tags its own output with a
+# DIFFERENT vocabulary ({[C<n>], [OBS], [FLOW]}) than CHUNK_ANCHOR_TAG_
+# PATTERN above recognizes (only [OBS] or a full [<book>_p<n>_c<n>]
+# chunk-id token) -- strip_generation_tags() would silently leave
+# Stage-2's own tags in the displayed text if reused as-is. Duplicated
+# (not imported) from claim_voicing._VOICE_TAG_PATTERN -- reaching into
+# another module's PRIVATE (underscore) pattern would be worse than a
+# cited duplicate; same "duplicate + cite" convention claim_extraction.py
+# itself already used for this module's own _READING_TIMEOUT_SECONDS.
+_STAGE2_TAG_PATTERN = re.compile(r"\[(?:C\d+|OBS|FLOW)\]")
+
+
+def _strip_stage2_tags(text: str) -> str:
+    """Stage-2 analog of strip_generation_tags() -- same whitespace
+    cleanup logic, different tag vocabulary. CHUNK_ANCHOR_TAG_PATTERN /
+    strip_generation_tags() are left untouched (retired-but-defined, see
+    the module docstring's S69 F-H P5 note) -- a future close-out pass,
+    not this one, decides whether to delete or merge them.
+
+    Raises:
+        RuntimeError: the strip operation itself fails for any reason --
+                      same fail-loud contract as strip_generation_tags().
+    """
+    try:
+        stripped = _STAGE2_TAG_PATTERN.sub("", text)
+        stripped = re.sub(r"[ \t]{2,}", " ", stripped)
+        stripped = re.sub(r"[ \t]+\n", "\n", stripped)
+        stripped = re.sub(r"[ \t]+$", "", stripped)
+        return stripped
+    except Exception as exc:
+        raise RuntimeError(
+            f"palm_reading._strip_stage2_tags: failed to strip "
+            f"voice tags from generation output: {exc}"
+        ) from exc
+
+
 # ─── LLM call configuration ─────────────────────────────────────────────
 
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
@@ -1254,6 +1364,119 @@ def _run_ring1_checks(
     return failures
 
 
+def _run_display_checks(
+    stripped_text: str,
+    context_corpus: str,
+    unsupported_features: tuple[str, ...],
+) -> list[str]:
+    """S69 F-H P5: the six 'display' checks that survive the two-stage
+    wiring -- see the module docstring's RETIRED-NOT-DELETED note for why
+    V-1/V-2 (_check_tag_completeness/_check_anchor_legality) are NOT
+    called here. Runs on the STRIPPED Stage-2 output (_strip_stage2_tags,
+    not strip_generation_tags -- different tag vocabulary). Unlike
+    _run_ring1_checks, there is no separate raw-tagged input surface to
+    preserve: nothing downstream needs to see claim_voicing's own
+    [C<n>]/[OBS]/[FLOW] tags after this point -- that contract is
+    claim_voicing.py's own V-3/V-4/V-5's business, already validated
+    inside voice_claims() itself."""
+    failures: list[str] = []
+    failures += _check_jargon(stripped_text)
+    failures += _check_self_help_register(stripped_text)
+    failures += _check_unsupported_dates(stripped_text, context_corpus)
+    failures += _check_length(stripped_text)
+    failures += _check_banned_feature_mentions(stripped_text, unsupported_features)
+    failures += _check_exemplar_echo(stripped_text)
+    return failures
+
+
+def _compute_decline_features(
+    supported_features: tuple[str, ...],
+    unsupported_features: tuple[str, ...],
+    extraction_failed_features: tuple[str, ...],
+    claims: tuple[Claim, ...],
+) -> tuple[str, ...]:
+    """S69 F-H P5: decline set = union of (a) gate-unsupported features,
+    (b) features Stage 1 (extract_claims) failed to extract at all after
+    its own retry, and (c) gate-supported features whose Stage-1 claims
+    are ALL excluded_from_voice OR whose claims list is simply empty (a
+    legitimate Stage-1 outcome, per claim_extraction.py's own tests) --
+    "honest decline over silence" for the zero-claim-but-supported case,
+    per this prompt's own instruction. Registry order, deduped via a
+    `seen` set then re-derived by filtering _FEATURE_REGISTRY (not
+    insertion order) -- same convention supported_features/
+    unsupported_features already use."""
+    claims_by_feature: dict[str, list[Claim]] = {}
+    for c in claims:
+        claims_by_feature.setdefault(c.feature, []).append(c)
+
+    seen: set[str] = set()
+    for feature in unsupported_features:
+        seen.add(feature)
+    for feature in extraction_failed_features:
+        seen.add(feature)
+    for feature in supported_features:
+        feature_claims = claims_by_feature.get(feature, [])
+        if not feature_claims:
+            logger.info(
+                "palm_reading._compute_decline_features: feature %r was "
+                "gate-supported but produced zero Stage-1 claims -- "
+                "declining honestly rather than silently omitting it.",
+                feature,
+            )
+            seen.add(feature)
+        elif all(c.excluded_from_voice for c in feature_claims):
+            seen.add(feature)
+
+    return tuple(f for f in _FEATURE_REGISTRY if f in seen)
+
+
+def _build_sources_from_claims(
+    reading_text_tagged: str,
+    claims: tuple[Claim, ...],
+    gated_results: dict[str, list[dict]],
+) -> tuple[dict, ...]:
+    """S69 F-H P5: sources rebuilt per-claim, not per-gated-chunk -- the
+    OLD sources list included EVERY chunk fed to the (single) generation
+    prompt regardless of whether it was actually used; this is a
+    deliberate tightening, not an oversight. Only claim_ids Stage 2
+    ACTUALLY CITED (a [C<n>] tag present in the final `reading_text_
+    tagged`) contribute a source -- claims dropped by claim_voicing's own
+    input filter (excluded_from_voice, corrective-overflow) or never
+    cited in a failing draft are excluded. Deduped by (chunk_id, feature),
+    in stable order = order of first citation in the text (the same order
+    a reader encounters them)."""
+    claims_by_id = {c.claim_id: c for c in claims}
+    chunk_lookup = {
+        (feature, c["chunk_id"]): c
+        for feature, chunks in gated_results.items()
+        for c in chunks
+    }
+
+    seen: set[tuple[str, str]] = set()
+    sources: list[dict] = []
+    for match in _STAGE2_TAG_PATTERN.finditer(reading_text_tagged):
+        tag = match.group(0)
+        if not tag.startswith("[C"):
+            continue
+        claim = claims_by_id.get(tag[1:-1])
+        if claim is None:
+            continue
+        key = (claim.chunk_id, claim.feature)
+        if key in seen:
+            continue
+        chunk = chunk_lookup.get((claim.feature, claim.chunk_id))
+        if chunk is None:
+            continue
+        seen.add(key)
+        sources.append({
+            "book": chunk["book_name"],
+            "page": chunk["page_ref"],
+            "score": chunk["score"],
+            "feature": claim.feature,
+        })
+    return tuple(sources)
+
+
 @dataclass(frozen=True)
 class ValidationReport:
     passed: bool
@@ -1293,6 +1516,194 @@ class PalmReadingResult:
     # keeps working unmodified; generate_palm_reading() itself always
     # supplies the real value explicitly, never relies on this default.
     reading_text_tagged: str = ""
+    # S69 F-H P5 additions (additive only, all default so any pre-P5
+    # construction site keeps working unmodified -- same convention
+    # reading_text_tagged's own default already established).
+    #   claims: the FULL Stage-1 extraction inventory (claim_extraction.
+    #     ExtractionResult.claims verbatim) -- every claim, including
+    #     ones excluded_from_voice or dropped by claim_voicing's
+    #     corrective-overflow cap, kept here for transparency/future
+    #     tooling (e.g. P6's dogfood checkpoint), not just what made it
+    #     into the final voiced reading.
+    #   stage1_retry_features: registry-order tuple of features whose
+    #     Stage-1 extraction call needed its own F2c retry.
+    #   stage2_retry_used: whether Stage 2's single whole-reading F2c
+    #     retry fired.
+    #   retry_used above is COMPAT: true if EITHER stage retried, so any
+    #   pre-P5 caller reading retry_used alone still gets a meaningful
+    #   answer ("was anything retried at all"), just coarser than the two
+    #   new fields.
+    claims: tuple[Claim, ...] = ()
+    stage1_retry_features: tuple[str, ...] = ()
+    stage2_retry_used: bool = False
+
+
+@dataclass(frozen=True)
+class PalmReadingPrep:
+    """S69 F-H P5 two-phase seam: everything `prepare_palm_reading()`
+    computes before Stage 2 ever runs -- retrieval, the support gate, and
+    Stage 1 (claim_extraction.extract_claims) itself. `complete_palm_
+    reading()` consumes this to run Stage 2 + display checks + decline +
+    DISCLAIMER + strip. Exists so a FUTURE prompt (P6) can insert a human
+    checkpoint on the Stage-1 claims inventory between the two calls --
+    not used for that here, just the seam.
+
+    diagnostics carries Stage-1's own diagnostics dict verbatim under
+    "stage1" (per-feature call_count/retry_used/overlap_scores/exclusion_
+    ledger, see claim_extraction.ExtractionResult.diagnostics) PLUS two
+    keys this module's own complete_palm_reading() needs but that aren't
+    naturally part of a "prep" field list: "stage1_failed_features"
+    (tuple, extract_claims' own failed_features) and
+    "stage1_retry_features" (tuple, registry-order, derived from the
+    per-feature diagnostics -- computed once here rather than re-derived
+    at complete-time)."""
+    gated_results: dict[str, list[dict]]
+    supported_features: tuple[str, ...]
+    unsupported_features: tuple[str, ...]
+    claims: tuple[Claim, ...]
+    texts_by_feature: dict[str, str]
+    diagnostics: dict = field(default_factory=dict)
+
+
+def prepare_palm_reading(
+    palm_left: str | None,
+    palm_right: str | None,
+    hand_detail: str | None = None,
+    client: OpenAI | None = None,
+) -> PalmReadingPrep:
+    """S69 F-H P5: parse -> retrieve -> support gate -> Stage 1
+    (claim_extraction.extract_claims). Same ValueError input guard as
+    generate_palm_reading() (unchanged) -- this is where palm_left/
+    palm_right are first validated, before any parsing happens.
+
+    Raises:
+        ValueError: Both palm_left and palm_right are None.
+        RuntimeError: extract_claims' own fail-closed condition -- every
+                      feature that had gated chunks failed extraction
+                      (both calls each) -- propagates UNCAUGHT, per this
+                      prompt's own ERRORS section (fail-closed, no
+                      reading possible from zero extractable claims).
+    """
+    if palm_left is None and palm_right is None:
+        raise ValueError(
+            "palm_reading.prepare_palm_reading: at least one of "
+            "palm_left/palm_right must be provided -- hand_detail alone "
+            "is insufficient input by design."
+        )
+
+    left_fields = _parse_fields(palm_left) if palm_left else {}
+    right_fields = _parse_fields(palm_right) if palm_right else {}
+    hd_fields = _parse_bullet_fields(hand_detail) if hand_detail else {}
+    per_feature_results, failed_retrieval_features = _retrieve_per_feature(
+        left_fields, right_fields, hd_fields
+    )
+    if failed_retrieval_features:
+        logger.warning(
+            "palm_reading.prepare_palm_reading: retrieval failed for "
+            "features: %s -- reading proceeds without them.",
+            ", ".join(failed_retrieval_features),
+        )
+
+    raw_texts_by_feature = _gather_feature_texts(left_fields, right_fields, hd_fields)
+    gated_results, supported_features, unsupported_features = _apply_support_gate(
+        per_feature_results, raw_texts_by_feature
+    )
+    texts_by_feature = _join_feature_texts(raw_texts_by_feature)
+
+    extraction_result = claim_extraction.extract_claims(
+        gated_results, texts_by_feature, client=client
+    )
+
+    stage1_retry_features = tuple(
+        f for f in _FEATURE_REGISTRY
+        if extraction_result.diagnostics.get("features", {}).get(f, {}).get("retry_used")
+    )
+
+    return PalmReadingPrep(
+        gated_results=gated_results,
+        supported_features=supported_features,
+        unsupported_features=unsupported_features,
+        claims=extraction_result.claims,
+        texts_by_feature=texts_by_feature,
+        diagnostics={
+            "stage1": extraction_result.diagnostics,
+            "stage1_failed_features": extraction_result.failed_features,
+            "stage1_retry_features": stage1_retry_features,
+        },
+    )
+
+
+def complete_palm_reading(
+    prep: PalmReadingPrep,
+    client: OpenAI | None = None,
+) -> PalmReadingResult:
+    """S69 F-H P5: Stage 2 (claim_voicing.voice_claims) + display checks
+    + decline block + DISCLAIMER + strip. Consumes a PalmReadingPrep from
+    prepare_palm_reading() (or a future P6 checkpoint step that inspects/
+    edits `prep.claims` first).
+
+    NO retry at this layer -- claim_voicing.voice_claims() already owns
+    its own single F2c retry internally; a validation failure here (voice
+    failures merged with display-check failures) is fail-closed
+    (`ValidationReport.passed=False`), never triggers a second call to
+    voice_claims. F-G RISK (documented, not mitigated here): the "stability"
+    self-help-blacklist composition habit CLAUDE.md's F-G entry describes
+    for the OLD single-call architecture has a fundamentally different
+    failure surface in Stage 2's closed-inventory voice pass, but has not
+    been re-measured against THIS pipeline -- a live dogfood pass (P6)
+    is what would surface whether it recurs here.
+
+    Raises:
+        RuntimeError: claim_voicing.voice_claims' own fail condition --
+                      an API exception on either its first or retry call
+                      -- propagates UNCAUGHT, per this prompt's ERRORS
+                      section.
+    """
+    voice_result = claim_voicing.voice_claims(prep.claims, prep.texts_by_feature, client=client)
+
+    stripped = _strip_stage2_tags(voice_result.reading_text_tagged)
+
+    context_corpus = " ".join(prep.texts_by_feature.values()) + " " + " ".join(
+        c["text"] for chunks in prep.gated_results.values() for c in chunks
+    )
+    display_failures = _run_display_checks(stripped, context_corpus, prep.unsupported_features)
+
+    failures = tuple(voice_result.validation_failures) + tuple(display_failures)
+    validation = ValidationReport(passed=not failures, failures=failures, warnings=())
+
+    decline_features = _compute_decline_features(
+        prep.supported_features,
+        prep.unsupported_features,
+        prep.diagnostics.get("stage1_failed_features", ()),
+        prep.claims,
+    )
+    decline_block = _build_decline_block(decline_features)
+
+    final_text = stripped.rstrip()
+    if decline_block:
+        final_text += "\n\n" + decline_block
+    final_text += "\n\n" + DISCLAIMER
+
+    sources = _build_sources_from_claims(
+        voice_result.reading_text_tagged, prep.claims, prep.gated_results
+    )
+
+    stage1_retry_features = prep.diagnostics.get("stage1_retry_features", ())
+    stage2_retry_used = voice_result.retry_used
+
+    return PalmReadingResult(
+        reading_text=final_text,
+        reading_text_tagged=voice_result.reading_text_tagged,
+        sources=sources,
+        validation=validation,
+        model=claim_voicing._VOICE_MODEL,
+        retry_used=bool(stage1_retry_features) or stage2_retry_used,
+        supported_features=prep.supported_features,
+        unsupported_features=prep.unsupported_features,
+        claims=prep.claims,
+        stage1_retry_features=stage1_retry_features,
+        stage2_retry_used=stage2_retry_used,
+    )
 
 
 def generate_palm_reading(
@@ -1309,6 +1720,14 @@ def generate_palm_reading(
     palm_right (palm_processor.describe_palm_image output) before calling
     this function -- the human checkpoint lives upstream, not here.
 
+    S69 F-H P5: this is now `prepare_palm_reading()` composed with
+    `complete_palm_reading()` -- same signature, same behavior contract,
+    no fork. The SAME `client` is used for both Stage 1 (extraction) and
+    Stage 2 (voicing), matching the pre-P5 single-call flow's one-client
+    contract. See `prepare_palm_reading`/`complete_palm_reading`'s own
+    docstrings for the two-stage pipeline detail, and the module
+    docstring's S69 F-H P5 section for what was retired and why.
+
     Args:
         palm_left: Left-hand description (already user-confirmed), or None.
         palm_right: Right-hand description (already user-confirmed), or None.
@@ -1324,219 +1743,19 @@ def generate_palm_reading(
     Returns:
         PalmReadingResult -- reading_text always carries the appended
         DISCLAIMER regardless of validation outcome; validation.passed is
-        the caller's signal for whether to display it. S66 F2c: if the
-        first draft trips Ring 1, ONE retry is attempted (validator-fed,
-        deterministic-reviewer-only -- see the HARD CAP comment at the
-        retry call site); retry_used reports whether that happened, and
-        validation reflects whichever draft was actually returned. Still
-        never regenerates or suppresses beyond that single retry -- a
-        failing retry's ValidationReport is final and fail-closed.
-        A1 (S68 F-C): reading_text is now built via strip_generation_
-        tags() rather than passed through verbatim; reading_text_tagged
-        carries the same final draft BEFORE stripping (no decline_block/
-        DISCLAIMER appended either), for a future anchor-legality
-        validator to inspect.
-        F-A (S68): validation.warnings carries supported-feature coverage
-        misses from the FINAL draft (_check_feature_coverage) -- a
-        first-draft miss feeds the same single F2c retry (retry_used
-        reports it identically), but a final-draft miss is fail-open:
-        warnings never enter failures and never flip passed.
+        the caller's signal for whether to display it. ValidationReport.
+        warnings is now ALWAYS `()` (F-A's `_check_feature_coverage` is
+        retired, superseded by claim_voicing's own V-4 claim-coverage
+        check -- see the module docstring). `retry_used` is COMPAT (true
+        if EITHER stage retried); `stage1_retry_features`/
+        `stage2_retry_used` are the new, more precise fields.
 
     Raises:
         ValueError: Both palm_left and palm_right are None (hand_detail
                     alone is insufficient input by design).
-        RuntimeError: The GPT-4o reading-generation call fails for any
-                      reason (network, auth, timeout, empty response) --
-                      on either the first draft or the retry call.
+        RuntimeError: extract_claims' all-features-failed condition, or
+                      voice_claims' API-call-failure condition -- both
+                      propagate uncaught (fail-closed, no reading).
     """
-    if palm_left is None and palm_right is None:
-        raise ValueError(
-            "palm_reading.generate_palm_reading: at least one of "
-            "palm_left/palm_right must be provided -- hand_detail alone "
-            "is insufficient input by design."
-        )
-
-    left_fields = _parse_fields(palm_left) if palm_left else {}
-    right_fields = _parse_fields(palm_right) if palm_right else {}
-    hd_fields = _parse_bullet_fields(hand_detail) if hand_detail else {}
-    per_feature_results, failed_features = _retrieve_per_feature(
-        left_fields, right_fields, hd_fields
-    )
-    if failed_features:
-        logger.warning(
-            "palm_reading.generate_palm_reading: retrieval failed for "
-            "features: %s -- reading proceeds without them.",
-            ", ".join(failed_features),
-        )
-
-    # S67 R3: gate R1's raw retrieval down to chunks that actually
-    # support their feature. gated_results (not per_feature_results) is
-    # what feeds the prompt, sources, and context_corpus from here on.
-    texts_by_feature = _gather_feature_texts(left_fields, right_fields, hd_fields)
-    gated_results, supported_features, unsupported_features = _apply_support_gate(
-        per_feature_results, texts_by_feature
-    )
-
-    # A1 V-2: single source of truth for anchor-legality membership -- the
-    # SAME gated_results dict the generation prompt's passages were
-    # assembled from below, no re-retrieval. Union across ALL features
-    # (see _check_anchor_legality's own docstring for why this is
-    # union-only, not per-feature-section -- a documented, escalated gap).
-    valid_chunk_ids = frozenset(
-        c["chunk_id"] for chunks in gated_results.values() for c in chunks
-    )
-
-    assembled_passages, total_chunks = _assemble_retrieved_passages(gated_results)
-
-    system_prompt = _READING_SYSTEM_PROMPT
-    if total_chunks == 0:
-        logger.info("palm_reading.generate_palm_reading: empty RAG results -- proceeding with low-confidence caveat, not refusing.")
-        system_prompt += _LOW_CONFIDENCE_ADDENDUM
-
-    lines: list[str] = []
-    if assembled_passages:
-        lines += [
-            "Retrieved passages (Cheiro's Language of the Hand):",
-            "---",
-            assembled_passages,
-            "---",
-        ]
-    if palm_left:
-        lines.append(f"\nLEFT HAND (innate potential):\n{palm_left}")
-    if palm_right:
-        lines.append(f"\nRIGHT HAND (current trajectory):\n{palm_right}")
-    if hand_detail:
-        lines.append(f"\nHAND DETAIL:\n{hand_detail}")
-    user_message = "\n".join(lines)
-
-    if client is not None:
-        effective_client = client
-    else:
-        from openai import OpenAI
-        effective_client = OpenAI()
-
-    def _call(messages: list[dict]) -> str:
-        try:
-            response = effective_client.chat.completions.create(
-                model=_READING_MODEL,
-                messages=messages,
-                temperature=_READING_TEMPERATURE,
-                timeout=_READING_TIMEOUT_SECONDS,
-            )
-            return response.choices[0].message.content
-        except Exception as exc:
-            raise RuntimeError(
-                f"palm_reading.generate_palm_reading: GPT-4o reading-generation call failed: {exc}"
-            ) from exc
-
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_message},
-    ]
-    reading_text = _call(messages)
-
-    context_corpus = " ".join(
-        part for part in (palm_left, palm_right, hand_detail) if part
-    ) + " " + " ".join(
-        c["text"] for chunks in gated_results.values() for c in chunks
-    )
-
-    failures = _run_ring1_checks(
-        reading_text, context_corpus, unsupported_features, valid_chunk_ids
-    )
-    # F-A (S68): coverage runs ALONGSIDE Ring 1's eight validators, never
-    # inside _run_ring1_checks -- its misses are warning-class (fail-open
-    # on the final draft), a different disposition than the fail-closed
-    # eight. Reads the tagged draft (contract surface, like V-1/V-2).
-    coverage_misses = _check_feature_coverage(
-        reading_text, gated_results, supported_features
-    )
-    retry_used = False
-
-    # S66 F2c retry: HARD CAP of 2 LLM calls ever, no exceptions.
-    # Justification: S23 + S66 pre-flight (diagnostics/latest_run.md,
-    # commit f906f3e) proved prompt-only voice control fails ~100% of the
-    # time for this task shape (3/3 live pre-flight runs tripped
-    # self_help_blacklist) -- one deterministic-validator-fed retry is
-    # the fix, not a longer prompt or a higher cap. The reviewer here is
-    # a regex (_run_ring1_checks), never an LLM judging its own or
-    # another LLM's output -- this is NOT AI-reviewing-AI (CLAUDE.md
-    # Working Style #5/#9): Python observes the draft's failures
-    # independently and deterministically, then hands that observation
-    # to the model as a correction instruction. Revisit trigger: if
-    # pass-2 shows the retry draft ALSO failing routinely, that is a
-    # signal to redesign the prompt (or the validator), never to raise
-    # this cap to 3.
-    # F-A (S68): coverage misses FEED the same single retry (same 2-call
-    # hard cap, same deterministic-reviewer-only mechanism -- a
-    # coverage-only retry sets retry_used=True via this existing path, no
-    # new flags), but on the FINAL draft they land in ValidationReport.
-    # warnings, never failures -- fail-open, display never blocked.
-    if failures or coverage_misses:
-        retry_used = True
-        retry_messages = messages + [
-            {"role": "assistant", "content": reading_text},
-            {
-                "role": "user",
-                "content": (
-                    "Your draft failed these checks: "
-                    + "; ".join(failures + coverage_misses) + ". "
-                    "Rewrite the reading correcting ONLY these issues. Same "
-                    "facts, same structure."
-                ),
-            },
-        ]
-        reading_text = _call(retry_messages)
-        failures = _run_ring1_checks(
-            reading_text, context_corpus, unsupported_features, valid_chunk_ids
-        )
-        coverage_misses = _check_feature_coverage(
-            reading_text, gated_results, supported_features
-        )
-
-    validation = ValidationReport(
-        passed=not failures,
-        failures=tuple(failures),
-        warnings=tuple(coverage_misses),
-    )
-
-    # A1: raw tagged draft preserved verbatim (pre-decline, pre-disclaimer,
-    # pre-strip) for reading_text_tagged, captured BEFORE any of the
-    # display-text post-processing below touches reading_text.
-    reading_text_tagged = reading_text
-
-    # S67 R3: Python-owned decline block for observed-but-unsupported
-    # features, appended AFTER validation runs (same reasoning as
-    # DISCLAIMER below) but BEFORE it.
-    decline_block = _build_decline_block(unsupported_features)
-    # A1: strip chunk-anchor tags before building the clean display text --
-    # decline_block/DISCLAIMER are Python-owned strings the LLM never
-    # tagged, so they are appended AFTER stripping, not before.
-    final_text = strip_generation_tags(reading_text).rstrip()
-    if decline_block:
-        final_text += "\n\n" + decline_block
-    # DISCLAIMER appended AFTER validation runs -- its own wording/any
-    # incidental year-like strings must never trip the validators above.
-    final_text += "\n\n" + DISCLAIMER
-
-    sources = tuple(
-        {
-            "book": c["book_name"],
-            "page": c["page_ref"],
-            "score": c["score"],
-            "feature": feature,
-        }
-        for feature, chunks in gated_results.items()
-        for c in chunks
-    )
-
-    return PalmReadingResult(
-        reading_text=final_text,
-        reading_text_tagged=reading_text_tagged,
-        sources=sources,
-        validation=validation,
-        model=_READING_MODEL,
-        retry_used=retry_used,
-        supported_features=supported_features,
-        unsupported_features=unsupported_features,
-    )
+    prep = prepare_palm_reading(palm_left, palm_right, hand_detail, client=client)
+    return complete_palm_reading(prep, client=client)
