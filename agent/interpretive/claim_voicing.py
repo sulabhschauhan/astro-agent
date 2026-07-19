@@ -450,6 +450,22 @@ def _run_validators(text: str, included_claim_ids: set[str]) -> list[str]:
     return failures
 
 
+def _run_extra_validators(text: str, extra_validators: tuple) -> list[str]:
+    """S70 F-G1: runs each caller-supplied `(tagged_draft: str) -> list[str]`
+    callable against the raw tagged draft (same text V-3/V-4/V-5 see,
+    BEFORE any stripping) and concatenates their failure lists, in the
+    order given. Deliberately NOT wrapped in try/except -- a validator
+    that raises is a caller bug (a malformed callable), not a voice
+    failure; swallowing it here would silently disable that guard, the
+    opposite of what F-G1 exists to add. Runs unconditionally (not gated
+    on V-3 passing) -- these are independent, caller-owned checks with no
+    dependency on this module's own tag-position validators."""
+    failures: list[str] = []
+    for validator in extra_validators:
+        failures.extend(validator(text))
+    return failures
+
+
 # ─── Dataclass ───────────────────────────────────────────────────────────
 
 
@@ -468,6 +484,8 @@ def voice_claims(
     claims: tuple["Claim", ...],
     texts_by_feature: dict[str, str],
     client=None,
+    *,
+    extra_validators: tuple = (),
 ) -> VoiceResult:
     """One whole-reading voice call over the closed inventory of `claims`
     (after the input filter drops excluded_from_voice claims and caps
@@ -489,6 +507,26 @@ def voice_claims(
     is constructed lazily INSIDE this function (never at module import
     time; same S65 flag (b) precedent claim_extraction.py already
     documents).
+
+    extra_validators (S70 F-G1, keyword-only): tuple of caller-owned
+    `(tagged_draft: str) -> list[str]` callables, run after V-3/V-4/V-5
+    on BOTH the first draft and the retry draft (see `_run_extra_
+    validators`). Their failures are merged into the SAME list that
+    drives the single F2c retry and the returned `validation_failures` --
+    a first-draft failure from an extra validator alone triggers the
+    retry, identical semantics to a V-3/V-4/V-5 failure. This is the seam
+    pass-5 preflight's exemplar-echo ABORT (`diagnostics/pass5_preflight_
+    S70.md`) needs: that check currently runs only at the outer display-
+    check layer, which has no retry, so Stage 2's own internal retry
+    never sees an echo failure as a correction. Wiring the actual display
+    validators through this seam (palm_reading.py, tag-stripped first) is
+    F-G2's job, NOT done here -- this module still never imports
+    palm_reading (circular-import lock) and never strips tags itself;
+    strip-wrapping is the caller's responsibility. An extra_validator
+    that raises propagates UNCAUGHT (a caller bug, not a voice failure --
+    see `_run_extra_validators`'s own docstring). Default `()` preserves
+    every pre-F-G1 call site's behavior byte-for-byte -- no wiring here
+    yet, this prompt is the seam only.
 
     Raises:
         RuntimeError: an API exception on EITHER call (first attempt or
@@ -532,18 +570,23 @@ def voice_claims(
         raise RuntimeError(f"claim_voicing: API call failed: {exc}") from exc
 
     failures = _run_validators(raw, included_claim_ids)
+    extra_failures = _run_extra_validators(raw, extra_validators)
+    failures = failures + extra_failures
     retry_used = False
     diagnostics: dict = dict(filter_diagnostics)
 
     if failures:
         retry_used = True
         diagnostics["first_attempt_failures"] = failures
+        if extra_failures:
+            diagnostics["extra_validator_failures"] = extra_failures
         try:
             call_count += 1
             raw = _call_llm(client, _build_retry_messages(user_prompt, raw, failures))
         except Exception as exc:  # noqa: BLE001
             raise RuntimeError(f"claim_voicing: API retry call failed: {exc}") from exc
         failures = _run_validators(raw, included_claim_ids)
+        failures = failures + _run_extra_validators(raw, extra_validators)
 
     diagnostics["call_count"] = call_count
 

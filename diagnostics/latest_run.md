@@ -1,98 +1,100 @@
-# S70 F-E: comma-tolerant absence filler groups
+# S70 F-G1: extra-validator injection seam in voice_claims
 
-**MODIFIED TWO FILES.** `agent/interpretive/palm_reading.py`
-(`_build_absence_noun_pattern` only, inside the `_ABSENCE_PATTERNS_BY_
-FEATURE` construction) and `tests/interpretive/test_palm_reading.py`
-(new Item 18 section, appended). No other code touched --
-`_ABSENCE_PHRASES` (Tier 1), `_SUPPORT_NEEDLES`, `_ABSENCE_NOUN_EXTRAS`
-untouched.
+**MODIFIED TWO FILES.** `agent/interpretive/claim_voicing.py`
+(`voice_claims()` signature/body + new `_run_extra_validators` helper
+only) and `tests/interpretive/test_claim_voicing.py` (5 new tests,
+appended). `palm_reading.py` untouched, per this prompt's own scope lock
+-- wiring the actual display validators through this seam is F-G2.
 
-## MEASURE FIRST -- exact prior pattern
+## Context (why)
 
-```python
-def _build_absence_noun_pattern(needles: tuple[str, ...]) -> re.Pattern:
-    noun_alt = "|".join(re.escape(n) for n in needles)
-    return re.compile(
-        rf"\bno\b(?:\s+\w+){{0,3}}\s+(?:{noun_alt})s?\b(?:\s+\w+){{0,6}}\s+visible\b",
-        re.IGNORECASE,
-    )
-```
+`diagnostics/pass5_preflight_S70.md` (prior task) caught a live ABORT:
+Stage 2 voiced a draft that verbatim-echoed both R2 exemplar sentences
+(`exemplar_echo: i have examined many hands in`). The exemplar-echo check
+only runs at the outer display-check layer (`palm_reading._run_display_
+checks`, called once, post-Stage-2, no retry), so Stage 2's own internal
+F2c retry (which DID fire, for an unrelated `thumb` extraction reason)
+never saw the echo failure as a correction instruction. Pre-ratified fix
+(CLAUDE.md F-G residual note): feed display validators into Stage 2's own
+retry loop. This prompt is step 1 (the seam) only.
 
-Shape: `\bno\b` + 0-3 pre-noun filler hops (`(?:\s+\w+)`) + a mandatory
-connector `\s+` + the noun (+ optional `s`, word-boundary) + 0-6
-post-noun filler hops + `\s+visible\b`. Every hop and the connector
-require literal whitespace immediately -- a comma anywhere in that
-position breaks the match, since `,` is not `\s` and not `\w`.
+## Edit summary
 
-## New pattern
+1. **New keyword-only param** `extra_validators: tuple = ()` on
+   `voice_claims()`. Each element: `(tagged_draft: str) -> list[str]`.
+   Default `()` -- every existing call site (`palm_reading.
+   complete_palm_reading()`, all pre-F-G1 tests) is byte-for-byte
+   unaffected; verified directly (test (d) below).
+2. **New helper** `_run_extra_validators(text, extra_validators) ->
+   list[str]` -- calls each callable against the raw tagged draft (same
+   text V-3/V-4/V-5 see, no stripping), concatenates failures in order.
+   No import of `palm_reading` anywhere (circular-import lock preserved
+   -- `claim_voicing.py` still has zero references to that module).
+3. **Merge point**: after `failures = _run_validators(raw,
+   included_claim_ids)` on BOTH the first-draft and retry-draft branches,
+   `failures = failures + _run_extra_validators(raw, extra_validators)`.
+   The combined list is what drives the single F2c retry decision (`if
+   failures:`) and the final `validation_failures` -- an extra-validator-
+   only failure on draft 1 now triggers the retry exactly like a V-3/V-4/
+   V-5 failure would, with its string included in the correction message
+   `_build_retry_messages` sends.
+4. **Exception discipline**: `_run_extra_validators` has NO try/except --
+   a raising callable propagates uncaught through `voice_claims` (a
+   caller bug, not a voice failure; swallowing it would silently disable
+   the guard). Verified directly (test (c)).
+5. **Diagnostics**: `diagnostics["extra_validator_failures"]` set to the
+   first-attempt extra-validator failure list, ONLY when non-empty,
+   alongside the existing `first_attempt_failures` key (which now
+   includes the merged V-3/V-4/V-5 + extra set). Both keys are absent
+   entirely when nothing failed on the first draft (verified in test (d)).
+6. Hard 2-call cap: UNCHANGED -- no new call sites added, `call_count`
+   logic untouched.
 
-```python
-def _build_absence_noun_pattern(needles: tuple[str, ...]) -> re.Pattern:
-    noun_alt = "|".join(re.escape(n) for n in needles)
-    return re.compile(
-        rf"\bno\b(?:[,;]?\s+\w+){{0,3}}[,;]?\s+(?:{noun_alt})s?\b[,;]?"
-        rf"(?:[,;]?\s+\w+){{0,6}}\s+visible\b",
-        re.IGNORECASE,
-    )
-```
+## Deviations from the instructing prompt
 
-Changes (repetition counts `{0,3}`/`{0,6}` unchanged):
-1. Both filler-hop groups (pre- and post-noun) become `(?:[,;]?\s+\w+)`
-   -- an optional single `[,;]` immediately before each hop's whitespace.
-2. An optional `[,;]` also added immediately after the noun match
-   (`s?\b[,;]?`), before the post-noun filler resumes.
-3. **One deviation from the instructing prompt's stated scope, found
-   necessary by direct testing, not assumed:** the mandatory connector
-   `\s+` directly before the noun ALSO needed `[,;]?` tolerance. Reason:
-   in the target sentence "No crosses, stars, grilles, squares, or moles
-   clearly visible", `\b` cannot fire between "cross" and the following
-   "es" (both `\w` characters, no boundary) -- so "crosses" is NOT a
-   valid match point for the "cross" needle, contrary to my first
-   (wrong) manual trace. The only needle that actually lands on a real
-   word boundary in that sentence is "square" (in "squares", followed
-   by a comma). Reaching it requires 3 pre-noun hops ("crosses",
-   "stars", "grilles"), which leaves a comma immediately before the
-   noun-connector's `\s+` -- so that connector needed the same
-   tolerance as the hops, or the target case does not flip. Verified by
-   running the regex directly (see below) before writing tests, not
-   assumed correct from the diff alone. No other loosening was added;
-   "or"/"and" still consumed as ordinary filler words within the
-   unchanged hop budgets.
+None. All 5 numbered edit points and all 5 lettered test scenarios were
+implemented as specified; no additional loosening, no palm_reading.py
+touch, no re-ordering relative to V-3/V-4/V-5 beyond what was asked
+("after V-3/V-4/V-5 on BOTH the first draft and the retry draft").
 
-## Direct regex verification (pre-test, interactive)
+One judgment call not fully dictated by the prompt (documented here per
+Working Style #4 discipline, though not a numeric threshold): whether
+`_run_extra_validators` should be gated on V-3 passing (skipped when
+`_run_validators` already failed) or run unconditionally every time. Ran
+UNCONDITIONALLY -- the instruction says "after V-3/V-4/V-5" (sequential
+position), not "only if V-3/V-4/V-5 pass" (conditional gating), and extra
+validators are independent, caller-owned checks with no dependency on
+this module's own tag-position state, so there is no correctness reason
+to skip them just because a tag-legality issue also exists on the same
+draft.
 
-```
-markings/target (comma list):  True   (was False pre-edit)
-markings/semi   (semicolon):   True   (was False pre-edit)
-life/islands regression:       False  (unchanged)
-head/islands regression:       False  (unchanged)
-heart/islands regression:      False  (unchanged)
-```
+## Tests added (`tests/interpretive/test_claim_voicing.py`)
 
-## Tests added (`tests/interpretive/test_palm_reading.py`, Item 18)
+(a) `test_extra_validator_fails_draft1_passes_draft2_retry_fires_and_clears`
+(b) `test_extra_validator_fails_both_drafts_exactly_two_calls_no_third`
+(c) `test_extra_validator_raising_propagates_uncaught`
+(d) `test_default_extra_validators_empty_tuple_zero_behavior_change`
+(e) `test_extra_validator_failures_recorded_in_diagnostics_first_attempt_only`
 
-1. `test_absence_comma_list_phrasing_flips_markings_to_absent` -- target
-   case, asserts `_is_absence(text, "markings/other features") is True`.
-2. `test_absence_semicolon_list_phrasing_also_flips_markings_to_absent`
-   -- semicolon variant of the same case.
-3. `test_absence_islands_regression_guard_stays_present_for_line_
-   features` (parametrized over `life line`/`head line`/`heart line`) --
-   F-B's "...no breaks, chains, forks, or islands visible" case must
-   stay `_is_absence(...) is False` for all three line features (per-
-   feature noun anchoring: "island" is a markings needle, not a
-   life/head/heart needle, so it can never be the match point there).
-
-No existing test asserted the old pattern's literal source string, so
-zero existing tests were modified.
+All reuse the existing `_FakeClient`/`_claim` builders (transplanted from
+`test_palm_reading.py`'s lineage) -- no new fixture machinery invented.
 
 ## Test run (targeted only, per instructions -- no full suite)
 
 ```
-pytest tests/interpretive/test_palm_reading.py -q
-62 passed, 4 skipped (pre-existing F-H retirement skips, unchanged)
+pytest tests/interpretive/test_claim_voicing.py -q
+22 passed (17 pre-existing + 5 new), 0 failed
 ```
 
-## Out of scope, confirmed untouched
+## Carry-forward (not this prompt's scope, flagged for F-G2)
 
-Noun-after-"visible" phrasing ("There is no clearly visible fate
-line") -- stays a V1.1 register item, not attempted here.
+F-G2 must: (a) build the actual display-validator callables in
+`palm_reading.py` (jargon/self-help/dates/length/banned-mention/
+exemplar-echo), each wrapping `_strip_stage2_tags` internally before
+running its check (per this module's contract: `claim_voicing` passes
+the RAW tagged draft, stripping is the caller's job); (b) wire them into
+`complete_palm_reading()`'s call to `voice_claims(..., extra_validators=
+(...))`; (c) decide whether `_run_display_checks`'s own post-hoc call
+stays as a final belt-and-suspenders check on the LAST draft, or is fully
+subsumed by the new retry-fed path -- not decided here, this prompt only
+built the seam.

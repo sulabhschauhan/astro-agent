@@ -398,3 +398,128 @@ def test_all_claims_excluded_from_voice_skips_llm_call():
     assert result.diagnostics["skipped"] == "no included claims to voice"
     assert result.diagnostics["excluded_count"] == 1
     assert client.completions.calls == []
+
+
+# ─── S70 F-G1: extra_validators injection seam ───────────────────────────
+#
+# extra_validators is a keyword-only tuple of caller-owned
+# (tagged_draft: str) -> list[str] callables, run after V-3/V-4/V-5 on
+# BOTH the first draft and the retry draft, merged into the same failure
+# list that drives the single F2c retry. This is the seam only -- no
+# wiring of any real validator (e.g. exemplar-echo) happens here, that is
+# F-G2's job in palm_reading.py.
+
+
+def test_extra_validator_fails_draft1_passes_draft2_retry_fires_and_clears():
+    """(a) An extra validator fails the first draft (which otherwise
+    passes V-3/V-4/V-5 cleanly) and passes the second -> retry fires, the
+    correction message sent on retry contains the extra validator's
+    failure string, and the final validation_failures is empty."""
+    claim = _claim()
+    texts_by_feature = {"life line": "deep, long"}
+    draft1 = "A long deep life line promises vitality.[C1]"
+    draft2 = "A long deep life line promises vitality once more.[C1]"
+    client = _FakeClient(responses=[(draft1, None), (draft2, None)])
+
+    def extra_validator(text: str) -> list[str]:
+        return ["extra_check: found something bad"] if text == draft1 else []
+
+    result = voice_claims(
+        (claim,), texts_by_feature, client=client, extra_validators=(extra_validator,)
+    )
+
+    assert result.retry_used is True
+    assert result.validation_failures == ()
+    retry_messages = client.completions.calls[1]["messages"]
+    correction = retry_messages[-1]["content"]
+    assert "Your draft failed these checks" in correction
+    assert "extra_check: found something bad" in correction
+
+
+def test_extra_validator_fails_both_drafts_exactly_two_calls_no_third():
+    """(b) An extra validator fails on BOTH drafts -> exactly 2 LLM
+    calls (the hard cap, unchanged), non-empty validation_failures, no
+    third call attempted."""
+    claim = _claim()
+    texts_by_feature = {"life line": "deep, long"}
+    draft = "A long deep life line promises vitality.[C1]"
+    client = _FakeClient(responses=[(draft, None), (draft, None)])
+
+    def extra_validator(text: str) -> list[str]:
+        return ["extra_check: always fails"]
+
+    result = voice_claims(
+        (claim,), texts_by_feature, client=client, extra_validators=(extra_validator,)
+    )
+
+    assert len(client.completions.calls) == 2
+    assert result.diagnostics["call_count"] == 2
+    assert result.retry_used is True
+    assert result.validation_failures == ("extra_check: always fails",)
+
+
+def test_extra_validator_raising_propagates_uncaught():
+    """(c) A raising extra_validator is a CALLER bug, not a voice
+    failure -- it must propagate uncaught, never be swallowed into
+    validation_failures (a swallowed validator is a silently disabled
+    guard)."""
+    claim = _claim()
+    texts_by_feature = {"life line": "deep, long"}
+    draft = "A long deep life line promises vitality.[C1]"
+    client = _FakeClient(content=draft)
+
+    def bad_validator(text: str) -> list[str]:
+        raise ValueError("caller bug: malformed extra validator")
+
+    with pytest.raises(ValueError, match="caller bug: malformed extra validator"):
+        voice_claims(
+            (claim,), texts_by_feature, client=client, extra_validators=(bad_validator,)
+        )
+
+    # The first call still happened (the raise occurs during validation,
+    # AFTER the LLM call) -- no retry was attempted since the exception
+    # propagates before the retry branch is ever reached.
+    assert len(client.completions.calls) == 1
+
+
+def test_default_extra_validators_empty_tuple_zero_behavior_change():
+    """(d) Omitting extra_validators entirely (the default `()`) must
+    reproduce the exact pre-F-G1 happy-path outcome, byte-for-byte --
+    same shape as test_v5_same_needle_inside_claim_sentence_passes above,
+    with an added guard that no extra_validator_failures diagnostics key
+    is ever introduced when nothing was supplied."""
+    claim = _claim()
+    texts_by_feature = {"life line": "deep, long"}
+    good = "A long deep life line promises vitality.[C1]"
+    client = _FakeClient(content=good)
+
+    result = voice_claims((claim,), texts_by_feature, client=client)
+
+    assert result.validation_failures == ()
+    assert result.retry_used is False
+    assert result.diagnostics["call_count"] == 1
+    assert "extra_validator_failures" not in result.diagnostics
+    assert "first_attempt_failures" not in result.diagnostics
+
+
+def test_extra_validator_failures_recorded_in_diagnostics_first_attempt_only():
+    """(e) A first-draft-only extra-validator failure is recorded under
+    its own diagnostics["extra_validator_failures"] key (the first-
+    attempt list, not the retry draft's), alongside the existing
+    first_attempt_failures key -- both populated with the SAME single
+    failure string here since no V-3/V-4/V-5 failure co-occurred."""
+    claim = _claim()
+    texts_by_feature = {"life line": "deep, long"}
+    draft1 = "A long deep life line promises vitality.[C1]"
+    draft2 = "A long deep life line promises vitality, restated plainly.[C1]"
+    client = _FakeClient(responses=[(draft1, None), (draft2, None)])
+
+    def extra_validator(text: str) -> list[str]:
+        return ["extra_check: found echo"] if text == draft1 else []
+
+    result = voice_claims(
+        (claim,), texts_by_feature, client=client, extra_validators=(extra_validator,)
+    )
+
+    assert result.diagnostics["extra_validator_failures"] == ["extra_check: found echo"]
+    assert result.diagnostics["first_attempt_failures"] == ["extra_check: found echo"]
