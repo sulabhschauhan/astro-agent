@@ -451,15 +451,44 @@ def test_client_raises_becomes_runtime_error_no_retry(monkeypatch):
 # (search() is now called once per observed feature). This test's fixture
 # below deliberately observes 2 features (life line, heart line) to prove
 # the LLM-call invariant holds even when multiple search() calls happen.
+#
+# F-A (S68) UPDATE: a "clean first draft" now also means "no coverage
+# miss" -- a supported feature left uncited (e.g. _CLEAN_STUB_TEXT, which
+# is entirely [OBS]-tagged) trips a coverage-only retry, which would make
+# this test's `== 1` assertion false. _TWO_FEATURE_CHUNK deliberately
+# names BOTH needles ("life", "heart") so the SAME chunk_id survives the
+# support gate under BOTH observed features (the shared-chunk accepted-
+# gap boundary -- see palm_reading._check_feature_coverage's own
+# docstring); citing it once in _CLEAN_TWO_FEATURE_STUB_TEXT satisfies
+# coverage for both, so this dedicated stub (not the shared
+# _CLEAN_STUB_TEXT, which several OTHER tests below still use unmodified
+# since none of them assert call count or retry_used -- confirmed by grep
+# of this file's `completions.calls` and `retry_used is False`
+# assertions) is what proves the true "zero failures AND zero coverage
+# misses" first-draft-passes case.
+_TWO_FEATURE_CHUNK = _chunk(
+    text=(
+        "A long, unbroken life line paired with a well-formed heart line "
+        "together suggest steady character."
+    ),
+    chunk_id="cheiroslanguageo00chei_1_p42_c1",
+)
+
+_CLEAN_TWO_FEATURE_STUB_TEXT = (
+    "Your hand shows a long, unbroken life line paired with a "
+    "well-formed heart line, both pointing to steady "
+    "character.[cheiroslanguageo00chei_1_p42_c1] Overall, this is a hand "
+    "that carries itself with calm, quiet confidence.[OBS]"
+)
 
 
 def test_exactly_one_llm_call_when_first_draft_passes(monkeypatch):
     # 2 observed features (life line from palm_left, heart line from
     # palm_right) -> 2 search calls; this test asserts the SEPARATE LLM
     # call count only (unaffected by how many search() calls occurred).
-    fake_search = _FakeSearch([_chunk()])
+    fake_search = _FakeSearch([_TWO_FEATURE_CHUNK])
     monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+    client = _FakeClient(content=_CLEAN_TWO_FEATURE_STUB_TEXT)
 
     result = generate_palm_reading(
         palm_left="LIFE LINE: A long life line.",
@@ -470,6 +499,7 @@ def test_exactly_one_llm_call_when_first_draft_passes(monkeypatch):
     assert len(fake_search.calls) == 2
     assert len(client.completions.calls) == 1
     assert result.validation.passed is True
+    assert result.validation.warnings == ()
     assert result.retry_used is False
 
 
@@ -1603,3 +1633,152 @@ def test_end_to_end_tagged_draft_with_cited_chunk_validates_clean_and_strips_tag
     assert result.retry_used is False
     assert result.reading_text_tagged == tagged_draft
     assert palm_reading.CHUNK_ANCHOR_TAG_PATTERN.search(result.reading_text) is None
+
+
+# ─── Item 17: F-A supported-feature coverage check (S68) ────────────────
+#
+# palm_reading._check_feature_coverage tested directly as a plain function
+# first (same convention as items 3/16 above -- deterministic, no-LLM-
+# judgment checks get a direct proof, not only integration coverage),
+# then 2 generate_palm_reading() integration tests proving the retry-feed
+# + fail-open wiring, then a bare ValidationReport() default-field check.
+
+
+def test_coverage_supported_feature_never_cited_produces_verbatim_warning():
+    gated_results = {
+        "thumb": [
+            _chunk(text="A broad, strong thumb.", chunk_id="cheiroslanguageo00chei_1_p200_c1"),
+        ],
+    }
+    tagged_text = "The hand shows a broad thumb.[OBS]"
+
+    warnings = palm_reading._check_feature_coverage(tagged_text, gated_results, ("thumb",))
+
+    assert warnings == ["coverage: thumb supported but never cited"]
+
+
+def test_coverage_obs_only_mention_of_supported_feature_still_a_miss():
+    """Landmark-exclusion enforced BY CONSTRUCTION (see palm_reading.
+    _check_feature_coverage's own docstring): [OBS] tags contribute
+    nothing to the cited set, so a sentence that NAMES the feature in
+    prose but tags itself [OBS] still counts as a miss -- only a real
+    chunk_id citation marks a feature addressed."""
+    gated_results = {
+        "thumb": [
+            _chunk(text="A broad, strong thumb.", chunk_id="cheiroslanguageo00chei_1_p200_c1"),
+        ],
+    }
+    tagged_text = "The thumb appears broad and strong.[OBS]"
+
+    warnings = palm_reading._check_feature_coverage(tagged_text, gated_results, ("thumb",))
+
+    assert warnings == ["coverage: thumb supported but never cited"]
+
+
+def test_coverage_cited_chunk_id_marks_feature_addressed_no_warning():
+    gated_results = {
+        "thumb": [
+            _chunk(text="A broad, strong thumb.", chunk_id="cheiroslanguageo00chei_1_p200_c1"),
+        ],
+    }
+    tagged_text = "The thumb is broad and strong.[cheiroslanguageo00chei_1_p200_c1]"
+
+    warnings = palm_reading._check_feature_coverage(tagged_text, gated_results, ("thumb",))
+
+    assert warnings == []
+
+
+def test_coverage_shared_chunk_id_cited_once_marks_both_features_addressed():
+    """ACCEPTED GAP (V1, documented in _check_feature_coverage's own
+    docstring, 3-place rule place 2): a chunk_id gated under TWO features
+    marks BOTH addressed when cited once, regardless of which feature the
+    citing sentence is actually about -- a direct consequence of V-2's
+    union-only anchor semantics (no sentence -> feature attribution
+    exists to disambiguate). This test documents the boundary, not a
+    bug -- direction of error is a real omission going un-warned, never a
+    spurious warning."""
+    shared_chunk = _chunk(
+        text="A broad thumb and long fingers both suggest a practical nature.",
+        chunk_id="cheiroslanguageo00chei_1_p210_c3",
+    )
+    gated_results = {
+        "thumb": [shared_chunk],
+        "fingers": [shared_chunk],
+    }
+    tagged_text = "The thumb is broad and strong.[cheiroslanguageo00chei_1_p210_c3]"
+
+    warnings = palm_reading._check_feature_coverage(
+        tagged_text, gated_results, ("thumb", "fingers")
+    )
+
+    assert warnings == []
+
+
+_COVERAGE_RETRY_CHUNK = _chunk(
+    text="A deep, unbroken life line promises steady vitality.",
+    chunk_id="cheiroslanguageo00chei_1_p50_c1",
+)
+_COVERAGE_CLEAN_RETRY_DRAFT = (
+    "Your life line runs long and clear, promising steady vitality and "
+    "quiet resolve.[cheiroslanguageo00chei_1_p50_c1]"
+)
+
+
+def test_coverage_only_retry_fires_and_clean_retry_clears_warnings(monkeypatch):
+    """A first draft with ZERO Ring 1 failures but a coverage MISS (life
+    line supported, never cited -- _CLEAN_STUB_TEXT is entirely [OBS])
+    still triggers the single F2c retry -- retry_used reports it via the
+    SAME mechanism a failure-triggered retry uses, no new flag. The
+    retry draft cites the chunk -> clean pass, empty warnings."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_COVERAGE_RETRY_CHUNK]))
+    client = _FakeClient(
+        responses=[
+            (_CLEAN_STUB_TEXT, None),
+            (_COVERAGE_CLEAN_RETRY_DRAFT, None),
+        ]
+    )
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client,
+    )
+
+    assert len(client.completions.calls) == 2
+    assert result.retry_used is True
+    assert result.validation.passed is True
+    assert result.validation.failures == ()
+    assert result.validation.warnings == ()
+    retry_messages = client.completions.calls[1]["messages"]
+    assert "coverage: life line supported but never cited" in retry_messages[-1]["content"]
+
+
+def test_coverage_fail_open_final_still_missing_warning_present_reading_displays(monkeypatch):
+    """Fail-open: if the retry draft STILL doesn't cite the supported
+    feature, there is no third attempt (2-call hard cap unchanged) --
+    passed stays True (coverage warnings never enter failures, never
+    block display), the miss surfaces in validation.warnings, and the
+    reading still renders with its DISCLAIMER."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_COVERAGE_RETRY_CHUNK]))
+    # Same content on both calls (never cites) -- proves the retry draft
+    # itself is what's re-checked, not just the first draft's misses
+    # blindly carried forward.
+    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client,
+    )
+
+    assert len(client.completions.calls) == 2
+    assert result.retry_used is True
+    assert result.validation.passed is True
+    assert result.validation.failures == ()
+    assert result.validation.warnings == ("coverage: life line supported but never cited",)
+    assert DISCLAIMER in result.reading_text
+
+
+def test_validation_report_warnings_defaults_to_empty_tuple():
+    """Pre-F-A construction sites (e.g. tests/test_app_dogfood_capture.py's
+    `ValidationReport(passed=True, failures=())`) keep working unmodified --
+    the additive default, not a required third argument."""
+    vr = ValidationReport(passed=True, failures=())
+
+    assert vr.warnings == ()
