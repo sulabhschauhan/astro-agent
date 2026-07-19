@@ -1,158 +1,229 @@
-# S68 F-B: _ABSENCE_PHRASES regex broadening -- implementation report
+# Pre-flight smoke probe for Ring 3 pass 4 (S68 close-out state)
 
-## Source-path correction (verify-before-transcribe)
+**THROWAWAY SCRIPT. NOT A SCORING PASS.** Ring 3 pass 4 itself still requires fresh uploads through the real app with live human checkpoints (CLAUDE.md T4 golden semantics / Palm human checkpoint locks). This probe uses `data/test_images/` fixtures (sanctioned for mechanical probes only) to catch a pipeline defect in the S68 F-C/F-A/F-B landed work before spending a fresh-upload pass-4 run on it. Vision descriptions below are captured verbatim but are NOT human-confirmed -- this headless script bypasses the S65/S66 F1 checkpoint UI by construction; that gate is unaffected and still applies to any real user-facing flow.
 
-The instructing prompt named `.claude/read_prompt.md` as the location of
-the 2026-07-18 F5-captured RUN blocks. That file's content has since been
-overwritten by an unrelated later commit (`2bb2e44 Update
-.claude/read_prompt.md content` -- it now holds a Sade Sati/marriage
-question, nothing palm-related). The real capture log is
-`diagnostics/dogfood_capture.md` (`frontend/app.py`'s `_capture_dogfood_
-run()` writes there, confirmed by reading the source, not assumed). It
-contains **3** 2026-07-18 RUN blocks, not 4 (`11:34:32`, `11:35:40`,
-`11:38:22` -- matching SESSION_LOG's own Session 68 Run A/B/C labels).
-Used those 3 for this measure-first pass; noted here rather than blocking
-on the discrepancy, since the 3 blocks are the complete, real,
-already-ratified (Ring 3 pass 3) capture set.
+Run shape: Run-C (hardest case) -- both palm images + hand_detail, live OpenAI vision + generation.
 
-## What changed
+## Fixtures
 
-Two-tier fix in `agent/interpretive/palm_reading.py`'s `_is_absence()`:
-- **TIER 1** (`_ABSENCE_PHRASES`): the OLD 6-phrase fixed-substring list,
-  unchanged in content, recompiled as case-insensitive regex (`re.escape`
-  per phrase -- byte-identical matching behavior to the old `in` check).
-- **TIER 2** (`_ABSENCE_PATTERNS_BY_FEATURE`, new): per-feature,
-  noun-anchored `no <0-3 filler words> <feature noun> <0-6 filler words>
-  visible` patterns, reusing `_SUPPORT_NEEDLES` as the noun source (one
-  extra inflection, "marking", added only for the markings feature).
-  `_is_absence()` gained an optional `feature` parameter; both call sites
-  (`_resolve_feature_quality`, `_is_genuine_negative_absence`) now pass
-  it. `scripts/probe_fc_retrieval.py`'s existing single-argument call
-  (`_is_absence(t)`) keeps working unmodified -- `feature=None` is the
-  pre-F-B behavior (TIER 1 only).
+- LEFT: `C:\Users\sulab\Documents\Python Scripts\astro-agent\data\test_images\palm_left_test.jpg`
+- RIGHT: `C:\Users\sulab\Documents\Python Scripts\astro-agent\data\test_images\palm_right_test.jpg`
+- HAND_DETAIL: `C:\Users\sulab\Documents\Python Scripts\astro-agent\data\test_images\Back Hand.jpeg`
 
-## Sanity check against the design's own false-positive warning
+## Confirmed descriptions (NOT human-confirmed -- headless probe)
 
-Before running classification over the captured runs, verified the
-literal danger case the design called out -- direct interpreter probe,
-not a guess:
-
+**LEFT** (verbatim):
 ```
-_is_absence('no breaks, chains, forks, or islands visible.', 'life line') -> False
-_is_absence('no breaks, chains, forks, or islands visible.', 'head line') -> False
-_is_absence('no breaks, chains, forks, or islands visible.', 'heart line') -> False
+HAND SHAPE: Square palm, overall build is medium.
+
+FINGERS: Fingers are long relative to the palm, appear straight, fingertips are rounded, spacing is moderate.
+
+THUMB: Medium size, set moderately low, wide angle from the palm.
+
+LIFE LINE: Present, deep, long, curves around the base of the thumb, no clear breaks or forks visible.
+
+HEAD LINE: Present, deep, long, slightly curved, no clear breaks or forks visible.
+
+HEART LINE: Present, deep, long, curves slightly upwards, no clear breaks or forks visible.
+
+FATE LINE: Barely visible.
+
+OTHER LINES: Not clearly visible.
+
+MOUNTS: Mount of Venus appears developed, other mounts are unremarkable.
+
+MARKS: No clear marks visible.
 ```
 
-This is the REAL LEFT-hand LIFE/HEAD/HEART LINE text from all 3 captured
-runs, containing "islands" -- a literal `markings/other features` needle
--- yet it correctly stays unmatched for all three line features, because
-each feature's noun pattern requires ITS OWN noun ("life"/"head"/"heart"),
-none of which appear in that clause. Confirms per-feature noun anchoring
-(not a generic "no...visible" match) is doing real protective work here,
-not just in theory.
+**RIGHT** (verbatim):
+```
+HAND SHAPE: Square palm, overall build is medium.
 
-## MEASURE-FIRST: OLD vs NEW classification, all 3 RUN blocks
+FINGERS: Fingers are slightly longer than the palm, appear straight, fingertips are rounded, spacing is moderate.
 
-LEFT and RIGHT hand text is byte-identical across all 3 runs (regenerate/
-add-HAND_DETAIL only); HAND_DETAIL exists only in the 3rd run
-(`11:38:22`). One consolidated table therefore covers all 3 runs, with
-HAND_DETAIL fields marked as run-3-only.
+THUMB: Medium size, set moderately low, wide angle from the palm.
 
-| Source | Field text | Feature | OLD | NEW | Delta |
-|---|---|---|---|---|---|
-| LEFT | "no breaks, chains, forks, or islands visible" | life line | not-absence | not-absence | none |
-| LEFT | "no breaks, chains, forks, or islands visible" | head line | not-absence | not-absence | none |
-| LEFT | "no breaks, chains, forks, or islands visible" | heart line | not-absence | not-absence | none |
-| LEFT | "Barely visible." | fate line | not-absence | not-absence | none |
-| LEFT | "Mount of Venus appears developed" (clause) | mount of venus | not-absence | not-absence | none |
-| LEFT | **"No marks clearly visible."** | markings/other features | not-absence | **absence** | **FLIP** |
-| RIGHT | "no clear breaks or forks" (no "visible") | life line | not-absence | not-absence | none |
-| RIGHT | "Sun line is not clearly visible" (clause) | sun line | absence (TIER1) | absence (TIER1) | none |
-| RIGHT | "Mount of Venus appears developed" (clause) | mount of venus | not-absence | not-absence | none |
-| RIGHT | "No clear marks such as crosses, stars, grilles, squares, or moles visible." | markings/other features | absence (TIER1) | absence (TIER1) | none |
-| HAND_DETAIL (run 3 only) | "A prominent line curves around the base of the thumb." | life line | not-absence | not-absence | none |
-| HAND_DETAIL (run 3 only) | "This line runs horizontally..." | head line | not-absence | not-absence | none |
-| HAND_DETAIL (run 3 only) | "The heart line is visible, curving..." | heart line | not-absence | not-absence | none |
-| HAND_DETAIL (run 3 only) | "There is no clearly visible fate line in the image." | fate line | not-absence | not-absence | **none (see below)** |
-| HAND_DETAIL (run 3 only) | "...appear slightly raised" (venus/jupiter clause) | mount of venus / mount of jupiter | not-absence | not-absence | none |
-| HAND_DETAIL (run 3 only) | **"There are no unusual markings or features visible on the hand."** | markings/other features | not-absence | **absence** | **FLIP** |
+LIFE LINE: Present, deep, long, curves around the base of the thumb, no clear breaks or forks.
 
-**Every delta is exactly the expected one**: the 2 MARKS/markings-class
-fields (LEFT's field-label text, HAND_DETAIL's bullet text) flip from
-"not-absence" to "absence" -- both previously-missed word-order variants
-of the pass-3 finding. Every LINE-quality field (all 3 lines' "no
-breaks/chains/forks/islands" text, both hands' fate line, life line's
-"no clear breaks or forks") is unchanged. **No unexpected delta occurred
--- nothing to STOP on.**
+HEAD LINE: Present, deep, long, slightly curved, starts joined with the life line.
 
-### One observed-but-out-of-scope non-catch (documented, not a bug)
+HEART LINE: Present, deep, curves slightly upward, ends below the index finger.
 
-HAND_DETAIL's fate line text, "There is no clearly visible fate line in
-the image.", stays `not-absence` under BOTH old and new code -- not a
-regression (it was already a miss), and not fixed by this pass. Reason:
-its word order is `no <qualifier> visible <noun>` (noun AFTER "visible"),
-the reverse of the design's specified `no <qualifier> <noun> <anything>
-visible` target shape. This is a real but DIFFERENT word-order gap than
-the one F-B was scoped to fix (the pass-3 finding was specifically about
-`no <qualifier> <noun>` vs `no <noun> <qualifier>` ordering, both noun-
-before-visible). Not escalated here: this exact field is harmless in
-practice (fate line's OTHER 2 sources -- LEFT "Barely visible.", RIGHT's
-real quality text -- already carry it to a genuine, correctly-supported
-retrieval in the actual captured Run 3 output, `unsupported_features:
-()`), so nothing downstream is currently affected by leaving this
-narrower gap open.
+FATE LINE: Present, moderately deep, starts from the base of the palm and runs towards the middle finger.
 
-## The knock-on (pass-3-vs-pass-4 comparability evidence)
+OTHER LINES: Sun line is not clearly visible, health and marriage lines not clearly visible.
 
-For all 3 captured runs, `markings/other features`'s raw-text set is now
-ALL absence-phrased (LEFT + RIGHT always; + HAND_DETAIL in run 3), so
-`_is_genuine_negative_absence` now returns `True` where it previously
-returned `False`. Concretely, per run:
-- The feature is REMOVED from both `supported_features` and
-  `unsupported_features` entirely (the genuine-negative-absence
-  pathway -- nothing to support, nothing to decline).
-- Zero `search()` calls fire for it (previously 1, since a query was
-  built from the un-recognized "absence" text).
-- Its previously-borderline sources disappear from `sources` -- these
-  were real production near-floor hits (0.3654/0.3639/0.3484 in run 1/2,
-  0.4115/0.4078 in run 3, all barely above the 0.30 `_SUPPORT_SCORE_
-  FLOOR`) that were junk retrieval symptomatic of exactly this bug, not
-  genuine markings doctrine.
-- The decline block no longer names it (it was never named there before
-  either, since it was `supported`, not `unsupported` -- this is a
-  change in WHY it's absent from the decline block, not a visible text
-  change).
-- `_check_feature_coverage`'s denominator shrinks by 1 for these 3 runs
-  (one fewer `supported` feature that coverage has to check) -- any
-  future pass-4 scoring against these same captures will see a smaller
-  supported-feature set than pass-3's `ring3_palm_rubric_S67_pass3.md`
-  scored against. This is the fix working as intended, not a
-  regression: pass-3's own Findings #1 flagged this exact field as
-  "routing a genuinely-absent field through the fail-open real-query
-  path instead of genuine-negative-absence... a latent risk" -- that
-  risk is now closed for this field, and any pass-4 comparison to
-  pass-3's markings-related findings should account for the feature no
-  longer appearing in `supported_features` at all.
+MOUNTS: Mount of Venus appears developed, other mounts are unremarkable.
 
-## Tests
+MARKS: No clear marks such as crosses, stars, grilles, squares, or moles visible.
+```
 
-Zero test-file edits needed. Full suite run FIRST, unprompted (not
-assumed clean): **3220 passed, 3 skipped** -- exact match to the F-A
-baseline, 0 regressions, 0 new failures. Grepped
-`tests/interpretive/test_palm_reading.py` for existing MARKS fixtures:
-all 3 hits already read `"MARKS: No clear marks visible."` -- already a
-TIER-1 match under the OLD code (that exact word order was never the bug
-pass-3 found), so no existing test exercised the word-order gap this
-prompt fixes. This explains the clean run: the fix closes a gap real
-production dogfood data hit but the existing synthetic test suite never
-happened to construct.
+**HAND_DETAIL** (verbatim):
+```
+The image shows a hand with the following observable features:
 
-Per the instructing prompt's two-commit-one-push discipline: since
-nothing broke, this is a SINGLE commit, no commit B needed.
+- **Hand Shape**: The hand appears broad with a relatively square palm.
+- **Finger Lengths**: The fingers are of moderate length. The index finger is slightly shorter than the middle finger, and the ring finger is slightly longer than the index finger. The little finger is noticeably shorter.
+- **Thumb**: The thumb is of average length with a moderate angle of flexibility, indicating it is not too rigid or too flexible.
+- **Visible Lines**:
+  - **Life Line**: A prominent line curves around the base of the thumb.
+  - **Head Line**: Appears to be separate from the life line, running across the palm.
+  - **Heart Line**: Curves across the top of the palm, below the fingers.
+  - **Fate Line**: Not clearly visible in this image.
+- **Mounts**: The mounts of Venus (base of the thumb) and Jupiter (below the index finger) appear slightly raised.
+- **Markings**: There are no unusual markings or features that stand out.
+- **Other Features**: There is visible hair on the back of the hand and fingers.
 
-## Full pytest result
+This description is based solely on the physical characteristics visible in the image.
+```
 
-`python -m pytest -q`: **3220 passed, 3 skipped** -- baseline was 3220/3
-(post F-A), 0 regressions, 0 new tests this pass (a pure classification-
-logic broadening with no user-visible surface change to test against
-beyond what the suite already covers).
+## Per-feature retrieval map (raw, pre-gate, all 10 registry features)
+
+| Feature | Chunks (page_ref, score, chunk_id) |
+|---|---|
+| life line | (p.135, 0.6131, cheiroslanguageo00chei_1_p135_c0); (p.134, 0.6063, cheiroslanguageo00chei_1_p134_c1); (p.134, 0.5725, cheiroslanguageo00chei_1_p134_c0) |
+| head line | (p.134, 0.5581, cheiroslanguageo00chei_1_p134_c2); (p.147, 0.5525, cheiroslanguageo00chei_1_p147_c1); (p.139, 0.5422, cheiroslanguageo00chei_1_p139_c1) |
+| heart line | (p.160, 0.5735, cheiroslanguageo00chei_1_p160_c2); (p.160, 0.5706, cheiroslanguageo00chei_1_p160_c1); (p.159, 0.5534, cheiroslanguageo00chei_1_p159_c2) |
+| fate line | (p.165, 0.5958, cheiroslanguageo00chei_1_p165_c1); (p.163, 0.5942, cheiroslanguageo00chei_1_p163_c1); (p.165, 0.5739, cheiroslanguageo00chei_1_p165_c0) |
+| sun line | _(none -- skipped or retrieval failed)_ |
+| thumb | (p.88, 0.5514, cheiroslanguageo00chei_1_p88_c1); (p.87, 0.5489, cheiroslanguageo00chei_1_p87_c0); (p.89, 0.5339, cheiroslanguageo00chei_1_p89_c0) |
+| fingers | (p.98, 0.5885, cheiroslanguageo00chei_1_p98_c1); (p.96, 0.5284, cheiroslanguageo00chei_1_p96_c1); (p.96, 0.5282, cheiroslanguageo00chei_1_p96_c0) |
+| mount of venus | (p.112, 0.6824, cheiroslanguageo00chei_1_p112_c0); (p.111, 0.6698, cheiroslanguageo00chei_1_p111_c1); (p.111, 0.5591, cheiroslanguageo00chei_1_p111_c0) |
+| mount of jupiter | (p.112, 0.6630, cheiroslanguageo00chei_1_p112_c0); (p.111, 0.6457, cheiroslanguageo00chei_1_p111_c1); (p.113, 0.5894, cheiroslanguageo00chei_1_p113_c0) |
+| markings/other features | (p.221, 0.4764, cheiroslanguageo00chei_1_p221_c1); (p.107, 0.4382, cheiroslanguageo00chei_1_p107_c0); (p.172, 0.4305, cheiroslanguageo00chei_1_p172_c1) |
+
+## Support gate verdicts
+
+- **supported_features** (registry order): ['life line', 'head line', 'heart line', 'fate line', 'thumb', 'fingers', 'mount of venus', 'mount of jupiter', 'markings/other features']
+- **unsupported_features** (registry order): []
+- **genuine negative-absence** (in neither tuple -- nothing to support, nothing to decline): ['sun line']
+- **valid_chunk_ids** (V-2 union, count=24): ['cheiroslanguageo00chei_1_p107_c0', 'cheiroslanguageo00chei_1_p111_c0', 'cheiroslanguageo00chei_1_p111_c1', 'cheiroslanguageo00chei_1_p112_c0', 'cheiroslanguageo00chei_1_p113_c0', 'cheiroslanguageo00chei_1_p134_c0', 'cheiroslanguageo00chei_1_p134_c1', 'cheiroslanguageo00chei_1_p134_c2', 'cheiroslanguageo00chei_1_p135_c0', 'cheiroslanguageo00chei_1_p139_c1', 'cheiroslanguageo00chei_1_p147_c1', 'cheiroslanguageo00chei_1_p159_c2', 'cheiroslanguageo00chei_1_p160_c1', 'cheiroslanguageo00chei_1_p160_c2', 'cheiroslanguageo00chei_1_p163_c1', 'cheiroslanguageo00chei_1_p165_c0', 'cheiroslanguageo00chei_1_p165_c1', 'cheiroslanguageo00chei_1_p172_c1', 'cheiroslanguageo00chei_1_p87_c0', 'cheiroslanguageo00chei_1_p88_c1', 'cheiroslanguageo00chei_1_p89_c0', 'cheiroslanguageo00chei_1_p96_c0', 'cheiroslanguageo00chei_1_p96_c1', 'cheiroslanguageo00chei_1_p98_c1']
+
+## Python decline block
+
+Not appended (unsupported_features is empty).
+
+## LLM call count
+
+2 chat.completions.create() call(s) captured (hard cap 2).
+
+## retry_used + first-draft Ring 1 failures / coverage misses
+
+`retry_used`: **True**
+
+First-draft Ring 1 failures (best-effort recomputation against this probe's own locally-computed unsupported_features/context_corpus/valid_chunk_ids -- see caveat above; this is what triggered the retry, combined with any coverage miss below):
+
+| Validator | Result | Detail |
+|---|---|---|
+| jargon_blacklist | pass | -- |
+| self_help_blacklist | FAIL | self_help_blacklist: found fulfillment, navigate, stability |
+| unsupported_dates | pass | -- |
+| length_guard | pass | -- |
+| banned_feature_mention | pass | -- |
+| exemplar_echo | pass | -- |
+| anchor_completeness | FAIL | anchor_completeness: sentence-final residue with no tag: 'Note: The retrieved passages did not cover the specific features of the fingers, mounts other than Venus, or any markings beyond those mentioned.' |
+| anchor_legality | pass | -- |
+
+First-draft coverage misses (F-A, best-effort recomputation): ['coverage: fingers supported but never cited', 'coverage: markings/other features supported but never cited']
+
+## Final Ring 1 result (authoritative, from PalmReadingResult.validation)
+
+`passed`: **True**
+
+| Validator | Result | Detail |
+|---|---|---|
+| jargon_blacklist | pass | -- |
+| self_help_blacklist | pass | -- |
+| unsupported_dates | pass | -- |
+| length_guard | pass | -- |
+| banned_feature_mention | pass | -- |
+| exemplar_echo | pass | -- |
+| anchor_completeness | pass | -- |
+| anchor_legality | pass | -- |
+
+**F-A coverage warnings** (`validation.warnings`, fail-open, never blocks display, per the S68 close-out lock a warning-bearing run cannot score P4 clean): ['coverage: markings/other features supported but never cited']
+
+## reading_text (verbatim, final -- includes decline block + disclaimer, tags STRIPPED)
+
+```
+Your hands reveal a life of robust health and vitality, as indicated by the deep and unbroken life line on both hands. This line promises a long life, free from significant health issues or interruptions. The life line's consistent depth and length in both hands suggest a strong foundation of energy and resilience, which is a notable aspect of your character and life path.
+
+The head line, deep and slightly curved, shows a mind guided by reason and intelligence. In your right hand, it begins joined with the life line, indicating that your life is currently guided by a balance of reason and personal sensitivity. This connection suggests a cautious approach to personal endeavors, with a strong reliance on intellect to face life's challenges. The slight curve of the head line also points to a creative and adaptable mind, capable of adjusting to new ideas and circumstances.
+
+Your heart line, deep and curving slightly upwards, reflects a nature capable of deep affection and emotional engagement. In the right hand, it ends below the index finger, suggesting a focus on personal happiness and success in relationships. This line's upward curve indicates a positive outlook on emotional matters, with a tendency towards optimism in love and affection.
+
+The fate line, more visible in your right hand, suggests a current trajectory marked by a developing sense of purpose and direction. Its presence indicates that you are in a phase of life where career and personal ambitions are becoming more defined. The line's path towards the middle finger, or Mount of Saturn, suggests a focus on responsibility in your endeavors.
+
+The Mount of Venus, well-developed in both hands, signifies a strong capacity for love, affection, and a desire to connect with others. This mount's prominence indicates a robust physical constitution and a passionate nature, with a love for beauty and harmony in your surroundings.
+
+Your thumb, medium in size and set at a wide angle, reflects a balanced character with a blend of willpower and adaptability. This positioning suggests a person who is neither overly rigid nor excessively flexible, capable of making decisions with both strength and consideration.
+
+The fingers, being long and straight, suggest an intellectual nature, with a tendency towards independence of thought and action. This is further supported by the moderate spacing, which indicates a balanced approach to life.
+
+Overall, your hands reveal a life path characterized by health, reason, emotional depth, and a developing sense of purpose. The features of your hands suggest a person who is well-equipped to face life's challenges with resilience and intelligence.
+
+Note: The retrieved passages did not cover the specific features of the mounts other than Venus, or any markings beyond those mentioned.
+
+For major life decisions, I recommend consulting a qualified astrologer or palm reader for a personal reading.
+```
+
+## reading_text_tagged (verbatim, A1 raw tagged draft -- anchors intact)
+
+```
+Your hands reveal a life of robust health and vitality, as indicated by the deep and unbroken life line on both hands. This line promises a long life, free from significant health issues or interruptions.[cheiroslanguageo00chei_1_p134_c1] The life line's consistent depth and length in both hands suggest a strong foundation of energy and resilience, which is a notable aspect of your character and life path.[OBS]
+
+The head line, deep and slightly curved, shows a mind guided by reason and intelligence. In your right hand, it begins joined with the life line, indicating that your life is currently guided by a balance of reason and personal sensitivity. This connection suggests a cautious approach to personal endeavors, with a strong reliance on intellect to face life's challenges.[cheiroslanguageo00chei_1_p134_c2] The slight curve of the head line also points to a creative and adaptable mind, capable of adjusting to new ideas and circumstances.[OBS]
+
+Your heart line, deep and curving slightly upwards, reflects a nature capable of deep affection and emotional engagement. In the right hand, it ends below the index finger, suggesting a focus on personal happiness and success in relationships. This line's upward curve indicates a positive outlook on emotional matters, with a tendency towards optimism in love and affection.[cheiroslanguageo00chei_1_p160_c1]
+
+The fate line, more visible in your right hand, suggests a current trajectory marked by a developing sense of purpose and direction. Its presence indicates that you are in a phase of life where career and personal ambitions are becoming more defined. The line's path towards the middle finger, or Mount of Saturn, suggests a focus on responsibility in your endeavors.[cheiroslanguageo00chei_1_p163_c1]
+
+The Mount of Venus, well-developed in both hands, signifies a strong capacity for love, affection, and a desire to connect with others. This mount's prominence indicates a robust physical constitution and a passionate nature, with a love for beauty and harmony in your surroundings.[cheiroslanguageo00chei_1_p112_c0]
+
+Your thumb, medium in size and set at a wide angle, reflects a balanced character with a blend of willpower and adaptability. This positioning suggests a person who is neither overly rigid nor excessively flexible, capable of making decisions with both strength and consideration.[cheiroslanguageo00chei_1_p88_c1]
+
+The fingers, being long and straight, suggest an intellectual nature, with a tendency towards independence of thought and action. This is further supported by the moderate spacing, which indicates a balanced approach to life.[cheiroslanguageo00chei_1_p96_c0]
+
+Overall, your hands reveal a life path characterized by health, reason, emotional depth, and a developing sense of purpose. The features of your hands suggest a person who is well-equipped to face life's challenges with resilience and intelligence.[OBS]
+
+Note: The retrieved passages did not cover the specific features of the mounts other than Venus, or any markings beyond those mentioned.[OBS]
+```
+
+## sources (from PalmReadingResult, post-gate)
+
+- cheiroslanguageo00chei_1, p.135 (score: 0.6127) -- feature: life line
+- cheiroslanguageo00chei_1, p.134 (score: 0.6054) -- feature: life line
+- cheiroslanguageo00chei_1, p.134 (score: 0.5721) -- feature: life line
+- cheiroslanguageo00chei_1, p.134 (score: 0.5581) -- feature: head line
+- cheiroslanguageo00chei_1, p.147 (score: 0.5525) -- feature: head line
+- cheiroslanguageo00chei_1, p.139 (score: 0.5422) -- feature: head line
+- cheiroslanguageo00chei_1, p.160 (score: 0.5735) -- feature: heart line
+- cheiroslanguageo00chei_1, p.160 (score: 0.5706) -- feature: heart line
+- cheiroslanguageo00chei_1, p.159 (score: 0.5534) -- feature: heart line
+- cheiroslanguageo00chei_1, p.165 (score: 0.5958) -- feature: fate line
+- cheiroslanguageo00chei_1, p.163 (score: 0.5942) -- feature: fate line
+- cheiroslanguageo00chei_1, p.165 (score: 0.5739) -- feature: fate line
+- cheiroslanguageo00chei_1, p.88 (score: 0.5514) -- feature: thumb
+- cheiroslanguageo00chei_1, p.87 (score: 0.5489) -- feature: thumb
+- cheiroslanguageo00chei_1, p.89 (score: 0.5339) -- feature: thumb
+- cheiroslanguageo00chei_1, p.98 (score: 0.5885) -- feature: fingers
+- cheiroslanguageo00chei_1, p.96 (score: 0.5284) -- feature: fingers
+- cheiroslanguageo00chei_1, p.96 (score: 0.5282) -- feature: fingers
+- cheiroslanguageo00chei_1, p.112 (score: 0.6824) -- feature: mount of venus
+- cheiroslanguageo00chei_1, p.111 (score: 0.6698) -- feature: mount of venus
+- cheiroslanguageo00chei_1, p.111 (score: 0.5591) -- feature: mount of venus
+- cheiroslanguageo00chei_1, p.112 (score: 0.663) -- feature: mount of jupiter
+- cheiroslanguageo00chei_1, p.113 (score: 0.5894) -- feature: mount of jupiter
+- cheiroslanguageo00chei_1, p.107 (score: 0.4382) -- feature: markings/other features
+- cheiroslanguageo00chei_1, p.172 (score: 0.4304) -- feature: markings/other features
+
+## Sanity asserts
+
+- [x] At least 1 feature supported -- got 9: ['life line', 'head line', 'heart line', 'fate line', 'thumb', 'fingers', 'mount of venus', 'mount of jupiter', 'markings/other features']
+- [x] Ring 1 `passed=True` on the final draft
+- [x] No 6-gram exemplar echo in `reading_text`
+- [x] `reading_text_tagged` is populated and contains a recognized anchor tag
+
+## Verdict
+
+All 4 sanity asserts PASSED. This is a wiring smoke check only -- it says nothing about interpretive quality/citation accuracy (that is Ring 3 pass 4's job, on fresh uploads, human-scored). No product code was touched or fixed by this script.
