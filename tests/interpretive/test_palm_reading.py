@@ -2,67 +2,43 @@
 tests/interpretive/test_palm_reading.py
 
 Ring 2 file for agent/interpretive/palm_reading.py (CLAUDE.md Session 65
-"T4 golden semantics" lock -- three-ring model: Ring 1 is the module's own
-pure-Python ValidationReport, Ring 2 is this file's stubbed-LLM tests, Ring
-3 is a human-rubric ratification artifact). Zero live API calls, zero live
-ChromaDB -- CI never asserts live prose here, only the deterministic
-plumbing around it.
+"T4 golden semantics" lock). Zero live API calls, zero live ChromaDB.
 
-STUB PATTERN mirrors tests/infra/test_calc_router_stage2.py's Stage 2
-conftest-stub precedent: a fake OpenAI client is injected via
-generate_palm_reading's `client` seam, recording every call
-(`.completions.calls`) and returning canned content per test. Retrieval is
-stubbed independently -- palm_reading.py imports `search` from
-ingestion.query_engine at module import time (`from ingestion.query_engine
-import search`), so the correct monkeypatch site is the name bound inside
-the palm_reading module's own namespace (`palm_reading.search`), not
-`ingestion.query_engine.search` itself (confirmed by reading palm_reading.py
-before writing these tests, not assumed).
+S69 F-H P5b UPDATE: palm_reading.py's single-call generation is retired,
+replaced by a two-stage pipeline (claim_extraction.extract_claims ->
+claim_voicing.voice_claims). The stub pattern changes accordingly: a
+_FakeClient's `responses=[...]` queue must now answer ONE valid Stage-1
+JSON extraction call PER ATTEMPTED FEATURE (registry order), followed by
+ONE Stage-2 tagged-voice-text call -- see `_two_stage_setup`/
+`_single_feature_client` below, the shared helpers built for this
+alignment pass (one helper, not 34 hand-edited stubs, per the instructing
+prompt). Stage 2's tag vocabulary is `{[C<n>], [OBS], [FLOW]}` -- NOT the
+old `{[OBS], [<chunk_id>]}` vocabulary; V-5 (claim_voicing's own doctrine
+guard) fails any [FLOW]/[OBS] sentence naming a palm-feature noun, so
+every stub below keeps feature-noun mentions ("life", "heart", etc.)
+confined to [C<n>]-tagged sentences.
 
-NOTE on the autouse `_patch_stage2_openai` fixture in tests/conftest.py:
-that fixture patches `openai.OpenAI` (the attribute on the `openai` module),
-which is the correct seam for calc_router.py because
-calc_router._stage2_classify does `from openai import OpenAI` INSIDE the
-function body, re-reading the current attribute on every call. palm_reading.py
-instead does `from openai import OpenAI` at MODULE level (import time) --
-its own `OpenAI` name is bound once, at import, to the real class, and is
-NOT affected by the conftest fixture patching `openai.OpenAI` afterwards.
-This is a real difference from the calc_router pattern (flagged in this
-run's report, not fixed here per the no-source-edit constraint). It does
-not affect these tests: every test below injects an explicit `client=`
-argument, so `generate_palm_reading` never reaches its own
-`OpenAI()`-construction fallback at all.
+Retrieval stubbing (_FakeSearch, monkeypatched at `palm_reading.search`)
+is UNCHANGED -- retrieval and the support gate are untouched by F-H.
 
-Hardest cases first (CLAUDE.md Working Style #3): the fail-closed
-ValueError battery (items 1-2) comes before anything that reaches the
-network-shaped stubs.
-
-S67 R1 UPDATE: search() is now called once PER OBSERVED canonical hand
-feature (life line, head line, ..., see palm_reading._FEATURE_REGISTRY),
-not once per whole description -- the monkeypatch site
-(`palm_reading.search`) is unchanged, but every expected call count
-below now derives from how many features the test's synthetic
-palm_left/palm_right/hand_detail text actually observes, not a fixed
-"1 call always" assumption. Synthetic descriptions below use F4's flat
-"LABEL: text" field format (e.g. "LIFE LINE: ...") rather than free
-prose, since that is what feature-extraction parses -- a description
-with zero recognizable "LABEL:" fields observes zero features and
-never calls search() at all (see the absence-rule test).
-
-S67 R3 UPDATE: retrieved chunks now pass through a support gate (needle
-+ score floor, palm_reading._SUPPORT_NEEDLES/_SUPPORT_SCORE_FLOOR)
-before entering the prompt/sources/context_corpus -- a chunk returned
-by a stubbed search() no longer automatically "counts" unless its text
-actually names the feature it was retrieved for. Several R1-era stub
-texts (_CLEAN_STUB_TEXT and others) originally discussed multiple
-features (life/heart/head/fate) for flavor; since most tests here only
-observe ONE feature, those incidental extra mentions now trip the new
-banned-mention Ring 1 check and were trimmed to reference only the
-observed feature (see the S67 R3 comments at each changed constant).
+Retired-validator tests: V-1 (_check_tag_completeness) / V-2
+(_check_anchor_legality) / _check_feature_coverage / _run_ring1_checks
+are no longer CALLED by generate_palm_reading (see palm_reading.py's own
+module docstring, S69 F-H P5 section) but remain DEFINED -- direct unit
+tests of those functions (item 16/17 below) stay passing unmodified.
+INTEGRATION tests that exercised them THROUGH generate_palm_reading are
+marked skip (reason references this retirement), not deleted, so
+close-out sees the full inventory. One additional integration test
+(per-feature prompt-assembly dedupe/display) is ALSO skipped -- discovered
+during this alignment pass, not previously flagged in P5's own report:
+_assemble_retrieved_passages (the old single-prompt assembler) is no
+longer called either, for the same reason; flagged in this prompt's own
+report, not silently expanded scope.
 """
 from __future__ import annotations
 
 import inspect
+import json
 
 import pytest
 
@@ -76,18 +52,13 @@ from agent.prompt_builder import DISCLAIMER
 from ingestion.query_engine import multi_source_search
 
 
-# ─── Fakes ──────────────────────────────────────────────────────────────
+# ─── Fakes (unchanged from pre-P5) ──────────────────────────────────────
 
 
 class _FakeSearch:
     """Drop-in replacement for query_engine.search, injected via
     monkeypatch.setattr(palm_reading, "search", ...). Records every call
-    (`.calls`) and returns a fixed, configurable chunk list.
-
-    S67 R1: search() is now called once PER OBSERVED FEATURE, not once
-    per whole description -- `raise_for`, if given, is a predicate on
-    the query text letting a single fake answer some feature queries
-    normally and raise for others (per-feature failure isolation test)."""
+    (`.calls`) and returns a fixed, configurable chunk list."""
 
     def __init__(
         self,
@@ -123,17 +94,9 @@ class _FakeResponse:
 
 
 class _FakeCompletions:
-    """Records every call (`.calls`); returns canned content or raises a
-    canned exception, per construction -- mirrors
-    tests/infra/test_calc_router_stage2.py's _FakeCompletions shape,
-    adapted for palm_reading.py's plain-content (not tool-call) response.
-
-    S66 F2c: `responses`, if given, is a list of (content, exception)
-    tuples consumed in call order (one per `.create()` invocation) --
-    lets a single fake client answer the first-draft call and the
-    retry call differently, for the retry-loop tests below. `content`/
-    `exception` (single-shot) stay supported unchanged for every
-    pre-existing test that doesn't care about a second call."""
+    """Records every call (`.calls`); `responses`, if given, is a list of
+    (content, exception) tuples consumed in call order -- lets a single
+    fake answer every Stage-1/Stage-2 call differently."""
 
     def __init__(
         self,
@@ -176,9 +139,9 @@ class _FakeClient:
 
 def _explosive_client() -> _FakeClient:
     """A client whose create() raises AssertionError if invoked at all --
-    belt-and-suspenders proof for the fail-closed ValueError tests, where
+    belt-and-suspenders proof for fail-closed/zero-call cases, where
     `.completions.calls == []` is the real proof."""
-    return _FakeClient(exception=AssertionError("LLM call must not fire for a fail-closed ValueError case"))
+    return _FakeClient(exception=AssertionError("LLM call must not fire for this case"))
 
 
 def _chunk(
@@ -202,19 +165,84 @@ def _chunk(
     }
 
 
-# S67 R3: rewritten LIFE-LINE-ONLY (was: life+heart+head+fate) -- most
-# consuming tests' synthetic palm_left now observes exactly ONE feature
-# (life line), so a stub draft naming heart/head/fate lines would trip
-# the new banned-mention validator on those unsupported features. Tests
-# that genuinely need a multi-feature scenario use their own dedicated
-# stub text (see items 13c/13e/13f below), not this shared constant.
+# ─── S69 F-H P5b: two-stage response builders ──────────────────────────
+#
+# Stage 1 (claim_extraction.extract_claims) makes one call per ATTEMPTED
+# feature (registry order, only features with >=1 gated chunk); Stage 2
+# (claim_voicing.voice_claims) makes exactly one whole-reading call after
+# that. These helpers build the `responses=[...]` sequence _FakeClient
+# needs to answer BOTH stages cleanly, so each test can focus on its own
+# actual target (a display-check failure, a sources shape, etc.) instead
+# of hand-rolling the two-stage shape 30+ times.
+
+
+def _stage1_claim(chunk: dict, claim_id: str) -> dict:
+    """One Stage-1 claim dict citing `chunk`. claim_text defaults to the
+    chunk's own text verbatim -- trivially satisfies claim_extraction's
+    E-3 paraphrase-overlap floor (overlap of identical text is 1.0)."""
+    return {
+        "claim_id": claim_id,
+        "chunk_id": chunk["chunk_id"],
+        "claim_text": chunk["text"],
+        "valence": "supports",
+        "condition_text": None,
+        "observation_basis": "observed",
+    }
+
+
+def _two_stage_setup(
+    feature_chunks: dict[str, list[dict]],
+    voice_text_builder,
+) -> tuple[_FakeClient, dict[str, list[str]]]:
+    """feature_chunks: {feature: [chunk, ...]} -- the chunks this test's
+    _FakeSearch/support-gate setup is expected to leave GATED for each
+    feature (the test author already knows this, same as this file's
+    pre-P5 "N observed features -> N search calls" comments). Builds one
+    valid Stage-1 JSON response per feature (registry order, one claim
+    per chunk), then calls voice_text_builder(claim_ids) -- claim_ids is
+    {feature: ["C1", "C2", ...]} in the SAME global numbering order
+    extract_claims itself assigns -- to get the Stage-2 response text.
+    Returns (client, claim_ids)."""
+    ordered_features = [f for f in palm_reading._FEATURE_REGISTRY if f in feature_chunks]
+    claim_ids: dict[str, list[str]] = {}
+    counter = 1
+    stage1_responses: list[tuple[str, None]] = []
+    for feature in ordered_features:
+        chunks = feature_chunks[feature]
+        ids = []
+        claims = []
+        for chunk in chunks:
+            cid = f"C{counter}"
+            counter += 1
+            ids.append(cid)
+            claims.append(_stage1_claim(chunk, cid))
+        claim_ids[feature] = ids
+        stage1_responses.append((json.dumps({"feature": feature, "claims": claims}), None))
+
+    voice_text = voice_text_builder(claim_ids)
+    client = _FakeClient(responses=stage1_responses + [(voice_text, None)])
+    return client, claim_ids
+
+
+def _single_feature_client(feature: str, chunk: dict, voice_text: str) -> _FakeClient:
+    """Convenience for the common single-feature, single-chunk case.
+    `voice_text` should cite the sole claim as "[C1]" (always C1 in this
+    shape -- the only claim, first and only attempted feature)."""
+    client, _ = _two_stage_setup({feature: [chunk]}, lambda ids: voice_text)
+    return client
+
+
+# S67 R3: LIFE-LINE-ONLY stub -- most consuming tests observe exactly one
+# feature (life line). Feature-noun content ("life line") is confined to
+# the [C1]-tagged sentence; the [FLOW] sentence carries no needle words
+# (V-5 in claim_voicing.py fails any [FLOW]/[OBS] sentence naming a
+# feature noun).
 _CLEAN_STUB_TEXT = (
-    "Your hand shows a long, unbroken life line, suggesting steady vitality "
-    "and resilience that will carry you through many years. This depth and "
-    "continuity in the line points to a strong constitution and an "
-    "enduring capacity to meet life's demands without being easily worn "
-    "down. Overall, this is a hand that reflects genuine physical staying "
-    "power, carried forward with quiet, steady confidence. [OBS]"
+    "This is a hand that reflects genuine physical staying power, "
+    "carried forward with quiet, steady confidence, meeting every "
+    "demand without being easily worn down.[FLOW] "
+    "A long, unbroken life line indicates steady vitality and "
+    "resilience.[C1]"
 )
 
 
@@ -251,30 +279,22 @@ def test_both_none_no_hand_detail_raises_value_error(monkeypatch):
 
 # ─── Item 3: jargon injection, case-insensitivity + word boundary ──────
 
-# Stub neutralized S66 -- "favorable" joined the self-help blacklist (Ring
-# 3 pass 1); swapped for "promising" (not on the 9-term list) so this test
-# isolates the jargon validator alone.
-# S67 R3: "mark" -> "sign" -- the original text's "yogart mark" is a
-# standalone word-boundary match for the markings/other-features needle
-# "mark"; since only life line is observed/supported in the test using
-# this stub, "markings/other features" is unsupported and would trip
-# the new banned-mention validator, confounding this test's actual
-# purpose (isolating the jargon validator). "sign" preserves the
-# sentence's meaning without touching any needle.
 _JARGON_STUB_TEXT = (
     "Your LAGNA reveals strong ambition, while a promising Antardasha this "
     "season brings real opportunity. A gentle yoga forming across your "
     "palm suggests balance and steady growth, and anyone with a bold "
     "yogart sign on their hand should feel encouraged. It is a warm, "
     "positive outlook for the months ahead, with room to deepen important "
-    "relationships and explore new creative directions along the way. [OBS]"
+    "relationships and explore new creative directions along the "
+    "way.[FLOW] "
+    "A long, unbroken life line indicates steady vitality.[C1]"
 )
 
 
 def test_jargon_injection_case_insensitive_and_word_boundary(monkeypatch):
-    # 1 observed feature (life line) -> 1 search call.
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_JARGON_STUB_TEXT)
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _JARGON_STUB_TEXT)
 
     result = generate_palm_reading(
         palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client
@@ -287,14 +307,8 @@ def test_jargon_injection_case_insensitive_and_word_boundary(monkeypatch):
     assert failure.startswith("jargon_blacklist: found ")
     assert not any("self_help_blacklist" in f for f in result.validation.failures)
     hits = {h.strip() for h in failure.removeprefix("jargon_blacklist: found ").split(",")}
-    # "LAGNA" and "Antardasha" hit despite mixed case; "yoga" hits once from
-    # "yoga forming" -- NOT from "yogart" (word-boundary must not trip on a
-    # substring match).
     assert hits == {"lagna", "antardasha", "yoga"}
 
-    # Direct boundary proof against the module's own compiled pattern: only
-    # ONE "yoga" match in the stub text, from "yoga forming" -- if the
-    # word-boundary logic were broken, "yogart" would contribute a second.
     raw_matches = palm_reading._JARGON_PATTERN.findall(_JARGON_STUB_TEXT)
     assert raw_matches.count("yoga") == 1
 
@@ -303,22 +317,19 @@ def test_jargon_injection_case_insensitive_and_word_boundary(monkeypatch):
 
 _YEAR_STUB_TEXT = (
     "A period of expansion opens around 2031, bringing new opportunities "
-    "for growth and travel. Your hand shows steady resilience through "
-    "life's changes, with a natural warmth that draws others close. Trust "
+    "for growth and travel. Steady resilience carries through the "
+    "changes ahead, with a natural warmth that draws others close. Trust "
     "your instincts during this stretch and lean into new connections -- "
-    "they carry real long-term value. [OBS]"
+    "they carry real long-term value.[FLOW] "
+    "A steady life line with no numeric markers.[C1]"
 )
 
 
 def test_fabricated_year_absent_from_context_fails(monkeypatch):
-    monkeypatch.setattr(
-        palm_reading,
-        "search",
-        _FakeSearch([_chunk(text="A steady life line with no numeric markers.")]),
-    )
-    client = _FakeClient(content=_YEAR_STUB_TEXT)
+    chunk = _chunk(text="A steady life line with no numeric markers.")
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _YEAR_STUB_TEXT)
 
-    # 1 observed feature (life line) -> 1 search call.
     result = generate_palm_reading(
         palm_left="LIFE LINE: A steady, long life line -- no dates mentioned.",
         palm_right=None,
@@ -336,9 +347,9 @@ def test_year_supported_by_retrieved_chunk_does_not_fail(monkeypatch):
     retrieved Cheiro chunk -- must NOT trip the date validator."""
     chunk = _chunk(text="Cheiro documented a comparable case in 2031 involving a strong life line.")
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
-    client = _FakeClient(content=_YEAR_STUB_TEXT)
+    voice_text = "Cheiro documented a comparable case in 2031 involving a strong life line.[C1]"
+    client = _single_feature_client("life line", chunk, voice_text)
 
-    # 1 observed feature (life line) -> 1 search call.
     result = generate_palm_reading(
         palm_left="LIFE LINE: A steady, long life line.", palm_right=None, client=client
     )
@@ -349,11 +360,14 @@ def test_year_supported_by_retrieved_chunk_does_not_fail(monkeypatch):
 
 # ─── Item 5: length rail ────────────────────────────────────────────────
 
+# 700 "word" tokens + "Noted." = exactly 701 words after tag-stripping.
+_LONG_STUB_TEXT = " ".join(["word"] * 700) + ".[FLOW] Noted.[C1]"
+
 
 def test_length_over_700_words_fails(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
-    long_text = " ".join(["word"] * 701)
-    client = _FakeClient(content=long_text)
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _LONG_STUB_TEXT)
 
     result = generate_palm_reading(
         palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
@@ -364,439 +378,14 @@ def test_length_over_700_words_fails(monkeypatch):
     assert any("701" in f for f in result.validation.failures)
 
 
-# ─── Item 6: empty retrieval proceeds with low-confidence caveat ───────
-
-# S67 R3: with search() returning [] on its only call, life line -- the
-# ONLY observed feature -- ends up with zero surviving chunks too, so
-# EVERY registry feature is unsupported here. _CLEAN_STUB_TEXT (which
-# names the life line) would trip the new banned-mention validator in
-# this specific all-unsupported scenario, forcing a retry -- this stub
-# is deliberately feature-NEUTRAL (contains none of the 10 features'
-# needles) so the test keeps proving its original point (search
-# proceeds, exactly 1 LLM call, no refusal) rather than exercising the
-# retry loop, which is a different test's job (see item 13a).
-_GENERIC_NO_FEATURE_STUB_TEXT = (
-    "Your hands speak of steady effort and quiet resolve, promising a "
-    "path shaped more by personal merit than mere chance. This is a "
-    "grounded nature built for endurance and calm judgment through the "
-    "years ahead. [OBS]"
-)
-
-
-def test_empty_retrieval_proceeds_with_low_confidence_caveat(monkeypatch):
-    fake_search = _FakeSearch([])
-    monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_GENERIC_NO_FEATURE_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long, deep life line.", palm_right=None, client=client
-    )
-
-    # search WAS called (not refused) and returned an empty list.
-    # 1 observed feature (life line) -> 1 search call.
-    assert len(fake_search.calls) == 1
-    assert len(client.completions.calls) == 1
-    system_prompt_sent = client.completions.calls[0]["messages"][0]["content"]
-    assert "weak match" in system_prompt_sent.lower()
-    assert result.validation.passed is True
-    assert result.sources == ()
-    # All 10 registry features are unsupported (life line's own query
-    # returned nothing; the other 9 were never observed at all) -> the
-    # decline block names every one of them.
-    assert "A note on what I have not interpreted" in result.reading_text
-
-
-# ─── Item 7: happy path, left-only ──────────────────────────────────────
-
-
-def test_happy_path_left_only(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long, deep life line with a gentle curve.",
-        palm_right=None,
-        client=client,
-    )
-
-    assert result.validation.passed is True
-    assert result.validation.failures == ()
-    # DISCLAIMER appears exactly once, at the end.
-    assert result.reading_text.endswith(DISCLAIMER)
-    assert result.reading_text.count(DISCLAIMER) == 1
-    # No pre-append seam is exposed by palm_reading.py (confirmed by
-    # reading the module) -- fallback per the task spec: prove the
-    # disclaimer text was never part of what the stub returned, so it
-    # could not have been part of what the Ring 1 validators inspected.
-    assert DISCLAIMER not in _CLEAN_STUB_TEXT
-
-
-# ─── Item 8: client failure -> RuntimeError, no retry ──────────────────
-
-
-def test_client_raises_becomes_runtime_error_no_retry(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
-    client = _FakeClient(exception=ConnectionError("simulated network failure"))
-
-    with pytest.raises(RuntimeError, match="GPT-4o reading-generation call failed"):
-        generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
-
-    assert len(client.completions.calls) == 1
-
-
-# ─── Item 9: exactly-one-call invariant when the first draft passes ────
-# NOTE (S67 R1): this invariant is about the LLM call count (the F2c
-# retry mechanism), which R1 does not touch -- it is NOT the old
-# "exactly one search() call" invariant, which R1 makes false by design
-# (search() is now called once per observed feature). This test's fixture
-# below deliberately observes 2 features (life line, heart line) to prove
-# the LLM-call invariant holds even when multiple search() calls happen.
+# ─── Item 6: empty retrieval -- S69 F-H P5 NEW CONTRACT ────────────────
 #
-# F-A (S68) UPDATE: a "clean first draft" now also means "no coverage
-# miss" -- a supported feature left uncited (e.g. _CLEAN_STUB_TEXT, which
-# is entirely [OBS]-tagged) trips a coverage-only retry, which would make
-# this test's `== 1` assertion false. _TWO_FEATURE_CHUNK deliberately
-# names BOTH needles ("life", "heart") so the SAME chunk_id survives the
-# support gate under BOTH observed features (the shared-chunk accepted-
-# gap boundary -- see palm_reading._check_feature_coverage's own
-# docstring); citing it once in _CLEAN_TWO_FEATURE_STUB_TEXT satisfies
-# coverage for both, so this dedicated stub (not the shared
-# _CLEAN_STUB_TEXT, which several OTHER tests below still use unmodified
-# since none of them assert call count or retry_used -- confirmed by grep
-# of this file's `completions.calls` and `retry_used is False`
-# assertions) is what proves the true "zero failures AND zero coverage
-# misses" first-draft-passes case.
-_TWO_FEATURE_CHUNK = _chunk(
-    text=(
-        "A long, unbroken life line paired with a well-formed heart line "
-        "together suggest steady character."
-    ),
-    chunk_id="cheiroslanguageo00chei_1_p42_c1",
-)
-
-_CLEAN_TWO_FEATURE_STUB_TEXT = (
-    "Your hand shows a long, unbroken life line paired with a "
-    "well-formed heart line, both pointing to steady "
-    "character.[cheiroslanguageo00chei_1_p42_c1] Overall, this is a hand "
-    "that carries itself with calm, quiet confidence.[OBS]"
-)
-
-
-def test_exactly_one_llm_call_when_first_draft_passes(monkeypatch):
-    # 2 observed features (life line from palm_left, heart line from
-    # palm_right) -> 2 search calls; this test asserts the SEPARATE LLM
-    # call count only (unaffected by how many search() calls occurred).
-    fake_search = _FakeSearch([_TWO_FEATURE_CHUNK])
-    monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_CLEAN_TWO_FEATURE_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line.",
-        palm_right="HEART LINE: A curved heart line.",
-        client=client,
-    )
-
-    assert len(fake_search.calls) == 2
-    assert len(client.completions.calls) == 1
-    assert result.validation.passed is True
-    assert result.validation.warnings == ()
-    assert result.retry_used is False
-
-
-# ─── Item 9b: S66 F2c validator-fed single retry ────────────────────────
-
-_RETRY_FIRST_DRAFT_STUB_TEXT = (
-    "This hand promises stability through disciplined effort, with a firm "
-    "grip on practical matters and steady, deliberate choices in every "
-    "undertaking that comes before it. [OBS]"
-)
-
-_RETRY_SECOND_DRAFT_STILL_FAILS_STUB_TEXT = (
-    "This calm hand still speaks of quiet empowerment gained through "
-    "disciplined practice and patient, steady effort across many years. [OBS]"
-)
-
-
-def test_retry_after_failed_first_draft_then_clean_retry_passes(monkeypatch):
-    """(a) First draft trips the validator; the retry draft is clean ->
-    exactly 2 calls, passed=True, retry_used=True, and the retry's user
-    turn carries the exact failure string back to the model."""
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(
-        responses=[
-            (_RETRY_FIRST_DRAFT_STUB_TEXT, None),
-            (_CLEAN_STUB_TEXT, None),
-        ]
-    )
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client,
-    )
-
-    assert len(client.completions.calls) == 2
-    assert result.validation.passed is True
-    assert result.validation.failures == ()
-    assert result.retry_used is True
-
-    retry_messages = client.completions.calls[1]["messages"]
-    # system, user (original), assistant (failed draft), user (feedback).
-    assert len(retry_messages) == 4
-    assert retry_messages[0]["role"] == "system"
-    assert retry_messages[1]["role"] == "user"
-    assert retry_messages[2] == {"role": "assistant", "content": _RETRY_FIRST_DRAFT_STUB_TEXT}
-    assert retry_messages[3]["role"] == "user"
-    assert "self_help_blacklist: found stability" in retry_messages[3]["content"]
-
-
-def test_retry_after_failed_first_draft_still_fails_stays_failed(monkeypatch):
-    """(b) Both drafts trip the validator -> exactly 2 calls (no third
-    attempt), fail-closed: passed=False, retry_used=True, and the
-    SECOND draft's failure is what's reported (not the first's)."""
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(
-        responses=[
-            (_RETRY_FIRST_DRAFT_STUB_TEXT, None),
-            (_RETRY_SECOND_DRAFT_STILL_FAILS_STUB_TEXT, None),
-        ]
-    )
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client,
-    )
-
-    assert len(client.completions.calls) == 2
-    assert result.validation.passed is False
-    assert result.retry_used is True
-    assert any("empowerment" in f for f in result.validation.failures)
-    assert not any("stability" in f for f in result.validation.failures)
-
-
-def test_retry_call_raises_becomes_runtime_error_no_third_call(monkeypatch):
-    """(c) The first draft trips the validator, but the retry call
-    itself raises -> RuntimeError propagates (same as item 8's
-    single-call case), and no third call is ever attempted."""
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(
-        responses=[
-            (_RETRY_FIRST_DRAFT_STUB_TEXT, None),
-            (None, ConnectionError("simulated network failure on retry")),
-        ]
-    )
-
-    with pytest.raises(RuntimeError, match="GPT-4o reading-generation call failed"):
-        generate_palm_reading(
-            palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client,
-        )
-
-    assert len(client.completions.calls) == 2
-
-
-# ─── Item 10: Cheiro book filter ────────────────────────────────────────
-
-
-def test_search_filters_to_canonical_cheiro_book(monkeypatch):
-    # Independent verification: the canonical Cheiro string is read directly
-    # from ingestion/query_engine.py's own source (its multi_source_search()
-    # default 14-book list, S12 fixed-exact-string convention) rather than
-    # hardcoded from memory, then cross-checked against the constant
-    # palm_reading.py itself exposes.
-    source = inspect.getsource(multi_source_search)
-    assert "cheiroslanguageo00chei_1" in source
-    assert palm_reading._CHEIRO_BOOK == "cheiroslanguageo00chei_1"
-
-    fake_search = _FakeSearch([_chunk()])
-    monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
-
-    generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
-
-    # 1 observed feature (life line) -> 1 search call.
-    assert len(fake_search.calls) == 1
-    assert fake_search.calls[0]["book_name"] == palm_reading._CHEIRO_BOOK
-    # S67 R1 threshold: n_results is now per-feature (3), not the old
-    # whole-description 6.
-    assert fake_search.calls[0]["n_results"] == palm_reading._N_RESULTS_PER_FEATURE == 3
-
-
-# ─── Item 11: sources propagation ───────────────────────────────────────
-
-
-def test_sources_propagate_book_page_score(monkeypatch):
-    # 1 observed feature (life line) -> 1 search call, returning 2 chunks.
-    # S67 R3: both chunk texts must be needle-valid ("life") to survive
-    # the support gate, or sources would come back empty.
-    chunk1 = _chunk(text="Chunk one text about the life line.", page_ref=12, score=0.81, chunk_id="c1")
-    chunk2 = _chunk(text="Chunk two text about the life line.", page_ref=57, score=0.66, chunk_id="c2")
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk1, chunk2]))
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
-
-    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
-
-    # S67 R1: sources now carry a "feature" tag (both chunks came from
-    # the single "life line" query).
-    assert result.sources == (
-        {"book": "cheiroslanguageo00chei_1", "page": 12, "score": 0.81, "feature": "life line"},
-        {"book": "cheiroslanguageo00chei_1", "page": 57, "score": 0.66, "feature": "life line"},
-    )
-
-
-# ─── Item 12: self-help register validator (S66 F2b) ───────────────────
-
-_STABILITY_STUB_TEXT = (
-    "This hand promises STABILITY through disciplined effort, with a firm "
-    "grip on practical matters and a steady, deliberate approach to every "
-    "undertaking that comes before it. [OBS]"
-)
-
-
-def test_self_help_case_insensitive(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_STABILITY_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client
-    )
-
-    assert result.validation.passed is False
-    assert len(result.validation.failures) == 1
-    failure = result.validation.failures[0]
-    assert failure == "self_help_blacklist: found stability"
-
-
-# Word-boundary positive/negative pair: "instability" and "journeyman" both
-# contain a blacklisted term as a substring but not as a standalone word --
-# the literal 9-term list is deliberate (THRESHOLD DISCIPLINE, see
-# _SELF_HELP_BLACKLIST's comment in palm_reading.py); this test proves the
-# word-boundary regex does not over-match on these substrings.
-_WORD_BOUNDARY_STUB_TEXT = (
-    "A hand marked by inner instability at times still moves toward calm "
-    "judgment, and this journeyman spirit for craft rewards patient hands "
-    "with quiet mastery over many years. [OBS]"
-)
-
-
-def test_self_help_word_boundary_excludes_substrings(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_WORD_BOUNDARY_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client
-    )
-
-    assert not any("self_help_blacklist" in f for f in result.validation.failures)
-    assert result.validation.passed is True
-
-
-# Non-listed conjugation "navigated" does NOT trip -- documents the
-# narrowness of the 9-term list as a deliberate choice (THRESHOLD
-# DISCIPLINE revisit trigger: pass-2 evidence that a conjugation like this
-# is itself an observed offender, not a preemptive widening here).
-# S67 R3: "head line" -> "life line" -- only life line is observed/
-# supported in the test using this stub; "head line" would trip the new
-# banned-mention validator, confounding this test's actual purpose.
-_NAVIGATED_STUB_TEXT = (
-    "The life line, once navigated with hesitation in youth, now runs firm "
-    "and true across the palm, showing settled judgment and clear resolve. [OBS]"
-)
-
-
-def test_self_help_unlisted_conjugation_does_not_trip(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_NAVIGATED_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client
-    )
-
-    assert not any("self_help_blacklist" in f for f in result.validation.failures)
-    assert result.validation.passed is True
-
-
-# S67 R3: reworded to reference only "the life line" (was: heart/head/
-# fate lines) -- only life line is observed/supported in the test using
-# this stub; the original heart/head/fate mentions would trip the new
-# banned-mention validator. "fulfilling" (x2) / "journey" (x2) preserved
-# unchanged -- those are this test's actual subject.
-_MULTI_TERM_STUB_TEXT = (
-    "The life line points to fulfilling achievements forged through effort, "
-    "while its steady course traces a long journey of independent "
-    "judgment; a second look at this same line confirms the journey "
-    "continues on firm ground for fulfilling work ahead. [OBS]"
-)
-
-
-def test_self_help_multi_term_single_sorted_deduped_failure(monkeypatch):
-    """Mirrors the jargon validator's format assertions (item 3): two
-    distinct terms, each appearing twice, collapse to one failure string
-    listing both terms once, sorted."""
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_MULTI_TERM_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client
-    )
-
-    assert result.validation.passed is False
-    assert len(result.validation.failures) == 1
-    assert result.validation.failures[0] == "self_help_blacklist: found fulfilling, journey"
-
-
-# S67 R3: reworded LIFE-LINE-ONLY (was: also thumb/heart/head/fate) --
-# only life line is observed/supported in the test using this stub; the
-# original "base of the thumb"/heart/head/fate mentions would trip the
-# new banned-mention validator. Cheiro declarative register preserved.
-_CHEIRO_VOICE_STUB_TEXT = (
-    "The life line runs long and unbroken around the base of the palm, "
-    "promising sound constitution and vigor that will carry through many "
-    "years. Its depth and continuity reveal a nature built for endurance, "
-    "sharpened by direct experience rather than idle theory. Such a life "
-    "line, clear and undivided, promises success won through personal "
-    "exertion rather than chance. [OBS]"
-)
-
-
-def test_self_help_clean_cheiro_register_passes(monkeypatch):
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_CHEIRO_VOICE_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client
-    )
-
-    assert result.validation.passed is True
-    assert result.validation.failures == ()
-
-
-_EMPOWERMENT_STUB_TEXT = (
-    "This hand speaks of quiet empowerment gained through steady effort, "
-    "with practical instincts and calm resolve carrying you through each "
-    "new challenge that life presents along the way. [OBS]"
-)
-
-
-def test_self_help_integration_empowerment_fails_and_propagates(monkeypatch):
-    """Full generate_palm_reading() integration: a stub reading containing
-    a blacklisted term must produce a failed, propagated ValidationReport
-    inside the returned PalmReadingResult -- not just a bare validator
-    function result."""
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_EMPOWERMENT_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line with a gentle curve.",
-        palm_right="HEART LINE: A curved heart line.",
-        client=client,
-    )
-
-    assert isinstance(result, PalmReadingResult)
-    assert isinstance(result.validation, ValidationReport)
-    assert result.validation.passed is False
-    assert any(
-        f == "self_help_blacklist: found empowerment" for f in result.validation.failures
-    )
-
-
-# ─── Item 13: S67 R1 per-feature retrieval -- hardest new cases first ──
+# The OLD "_LOW_CONFIDENCE_ADDENDUM, still makes exactly 1 LLM call" path
+# is RETIRED (palm_reading.py's own module docstring, S69 F-H P5's NOTED
+# BEHAVIOR CHANGE): zero gated chunks -> Stage 1 has nothing to attempt
+# (empty, non-raising) -> Stage 2 has nothing to voice (empty,
+# non-raising) -> ZERO LLM calls anywhere, decline-block-plus-disclaimer
+# only.
 
 _ALL_ABSENT_LEFT = (
     "HAND SHAPE: Square palm.\n"
@@ -812,50 +401,494 @@ _ALL_ABSENT_LEFT = (
 )
 
 
-def test_absence_rule_all_features_absent_yields_zero_search_calls_and_low_confidence(monkeypatch):
-    """(13a) Hardest new case: all 10 registry features resolve to "no
-    query" -- the 7 plain fields (life/head/heart/fate/thumb/fingers/
-    marks) are each absence-phrased on their only mentioning source
-    (this single hand), and sun line / mount of venus / mount of jupiter
-    are never NAMED at all (OTHER LINES / MOUNTS present but don't say
-    "sun"/"venus"/"jupiter") -> not observed. Derivation: 0 of 10
-    features query -> 0 search calls, and the empty-retrieval
-    low-confidence path fires exactly as it does for a genuinely empty
-    ChromaDB result."""
-    # Configured to return a chunk if ever called -- a call here would
-    # be a strong, visible test failure (sources would be non-empty),
-    # not a silent pass.
+def test_empty_retrieval_yields_zero_llm_calls_and_full_decline(monkeypatch):
+    fake_search = _FakeSearch([])
+    monkeypatch.setattr(palm_reading, "search", fake_search)
+    client = _explosive_client()
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long, deep life line.", palm_right=None, client=client
+    )
+
+    # 1 observed feature (life line) -> 1 search call, even though it
+    # returns nothing; Stage 1/Stage 2 never call the LLM at all.
+    assert len(fake_search.calls) == 1
+    assert client.completions.calls == []
+    assert result.validation.passed is True
+    assert result.sources == ()
+    assert DISCLAIMER in result.reading_text
+    # life line: observed with a real (non-absence) quality but zero
+    # surviving chunks -> gate-unsupported. The other 9 registry
+    # features: never mentioned at all -> also gate-unsupported (not
+    # genuine-negative-absence, which requires >=1 mentioning source).
+    # All 10 land in the decline block.
+    expected_decline = palm_reading._build_decline_block(palm_reading._FEATURE_REGISTRY)
+    assert expected_decline in result.reading_text
+
+
+def test_absence_rule_all_features_absent_yields_zero_search_and_llm_calls(monkeypatch):
+    """(13a) 0 search calls, 0 LLM calls. Of the 10 registry features: 7
+    (life/head/heart/fate/thumb/fingers/marks) are genuine negative
+    absence (each is absence-phrased on its own mentioning source) --
+    exempt from the decline block, nothing to support, nothing to
+    decline. The other 3 (sun line, mount of venus, mount of jupiter) are
+    sub-features NEVER NAMED at all (OTHER LINES/MOUNTS present but say
+    neither "sun" nor "venus"/"jupiter") -- NOT genuine absence (that
+    requires an actual mentioning source), so they land in unsupported_
+    features and the decline block, same as before P5's wiring."""
     fake_search = _FakeSearch([_chunk()])
     monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+    client = _explosive_client()
 
     result = generate_palm_reading(palm_left=_ALL_ABSENT_LEFT, palm_right=None, client=client)
 
     assert fake_search.calls == []
+    assert client.completions.calls == []
     assert result.sources == ()
-    system_prompt_sent = client.completions.calls[0]["messages"][0]["content"]
-    assert "weak match" in system_prompt_sent.lower()
+    assert result.validation.passed is True
+    assert DISCLAIMER in result.reading_text
+    assert result.unsupported_features == ("sun line", "mount of venus", "mount of jupiter")
+    expected_decline = palm_reading._build_decline_block(result.unsupported_features)
+    assert expected_decline in result.reading_text
 
+
+def test_zero_support_path_routes_to_zero_calls_with_full_decline(monkeypatch):
+    """(14e) Search DOES return a chunk (not empty), but it fails the
+    needle check -- routes to the SAME zero-call path as genuinely empty
+    retrieval, with the full decline block (every registry feature,
+    since none survived and none were absence-phrased)."""
+    off_topic_chunk = _chunk(
+        text="Chapter II lists the seven principal lines of the hand.",
+        page_ref=120, score=0.65, chunk_id="offtopic",
+    )
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([off_topic_chunk]))
+    client = _explosive_client()
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    assert client.completions.calls == []
+    assert result.supported_features == ()
+    assert result.unsupported_features == palm_reading._FEATURE_REGISTRY
+    assert "A note on what I have not interpreted" in result.reading_text
+    assert result.validation.passed is True
+    assert result.sources == ()
+
+
+# ─── Item 7: happy path, left-only ──────────────────────────────────────
+
+
+def test_happy_path_left_only(monkeypatch):
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _CLEAN_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long, deep life line with a gentle curve.",
+        palm_right=None,
+        client=client,
+    )
+
+    assert result.validation.passed is True
+    assert result.validation.failures == ()
+    assert result.reading_text.endswith(DISCLAIMER)
+    assert result.reading_text.count(DISCLAIMER) == 1
+    assert DISCLAIMER not in _CLEAN_STUB_TEXT
+
+
+# ─── Item 8: Stage-1 client failure -> RuntimeError propagates ─────────
+
+
+def test_stage1_client_raises_becomes_runtime_error(monkeypatch):
+    """S69 F-H P5: with a real (non-empty) retrieval, a client that
+    always raises causes Stage 1's OWN all-features-failed RuntimeError
+    to propagate uncaught -- the OLD single-call wrapper's "GPT-4o
+    reading-generation call failed" message no longer exists; this is
+    claim_extraction's own message now."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _FakeClient(exception=ConnectionError("simulated network failure"))
+
+    with pytest.raises(RuntimeError, match="claim_extraction.extract_claims"):
+        generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
+
+    # 1 attempted feature (life line) -> first call raises; no retry is
+    # attempted (an API exception on the FIRST call skips Stage 1's own
+    # retry entirely, per claim_extraction.py's own contract).
+    assert len(client.completions.calls) == 1
+
+
+# ─── Item 9: LLM-call-count invariant when everything is clean ────────
+# NOTE (S69 F-H P5): the OLD "exactly 1 LLM call" invariant was about the
+# single-call architecture's own F2c retry. The NEW invariant is "exactly
+# N+1 calls, no extra retries" (N = attempted Stage-1 features, +1 for
+# Stage 2) -- this test's fixture observes 2 features (life line, heart
+# line) to prove the invariant holds across multiple Stage-1 calls.
+
+_TWO_FEATURE_CHUNK = _chunk(
+    text=(
+        "A long, unbroken life line paired with a well-formed heart line "
+        "together suggest steady character."
+    ),
+    chunk_id="cheiroslanguageo00chei_1_p42_c1",
+)
+
+_CLEAN_TWO_FEATURE_STUB_TEXT = (
+    "This is a hand that carries itself with calm, quiet confidence.[FLOW] "
+    "A long, unbroken life line paired with a well-formed heart line "
+    "together suggest steady character.[C1] "
+    "This same quality of steady character carries through "
+    "consistently.[C2]"
+)
+
+
+def test_exactly_n_plus_one_llm_calls_when_first_draft_passes(monkeypatch):
+    # 2 observed features (life line from palm_left, heart line from
+    # palm_right) -> 2 search calls, 2 Stage-1 calls, 1 Stage-2 call.
+    fake_search = _FakeSearch([_TWO_FEATURE_CHUNK])
+    monkeypatch.setattr(palm_reading, "search", fake_search)
+    client, _ = _two_stage_setup(
+        {"life line": [_TWO_FEATURE_CHUNK], "heart line": [_TWO_FEATURE_CHUNK]},
+        lambda ids: _CLEAN_TWO_FEATURE_STUB_TEXT,
+    )
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.",
+        palm_right="HEART LINE: A curved heart line.",
+        client=client,
+    )
+
+    assert len(fake_search.calls) == 2
+    assert len(client.completions.calls) == 3
+    assert result.validation.passed is True
+    assert result.validation.warnings == ()
+    assert result.retry_used is False
+
+
+# ─── Item 9b: retry_used compat -- OR-composition across both stages ───
+# S69 F-H P5: `retry_used` (compat) = stage1 retry OR stage2 retry.
+# These tests prove the OR-composition from EITHER side, plus the
+# persistent-failure and retry-call-exception paths -- Stage 2's OWN
+# validator logic (V-3/V-4/V-5) is already exhaustively tested in
+# tests/interpretive/test_claim_voicing.py; these are INTEGRATION proofs
+# that palm_reading.py surfaces the retry correctly, not re-derivations
+# of claim_voicing's own internal logic.
+
+
+def test_retry_used_true_when_stage1_retries(monkeypatch):
+    """An E-1-illegal first Stage-1 response, corrected on retry ->
+    stage1_retry_features names the feature, stage2_retry_used stays
+    False, retry_used (compat) is True."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+
+    bad_stage1 = json.dumps({"feature": "life line", "claims": [
+        {"claim_id": "x", "chunk_id": "not-a-real-chunk", "claim_text": chunk["text"],
+         "valence": "supports", "condition_text": None, "observation_basis": "observed"},
+    ]})
+    good_stage1 = json.dumps({"feature": "life line", "claims": [
+        {"claim_id": "x", "chunk_id": chunk["chunk_id"], "claim_text": chunk["text"],
+         "valence": "supports", "condition_text": None, "observation_basis": "observed"},
+    ]})
+    voice_text = "A long, unbroken life line indicates steady vitality.[C1]"
+    client = _FakeClient(responses=[(bad_stage1, None), (good_stage1, None), (voice_text, None)])
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    assert len(client.completions.calls) == 3  # Stage-1 first + retry, Stage-2 once
+    assert result.stage1_retry_features == ("life line",)
+    assert result.stage2_retry_used is False
+    assert result.retry_used is True
+    assert result.validation.passed is True
+
+
+def test_retry_used_true_when_stage2_retries(monkeypatch):
+    """A V-4 claim-coverage miss on the first voice draft, corrected on
+    retry -> stage1_retry_features stays empty, stage2_retry_used is
+    True, retry_used (compat) is True."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    stage1 = json.dumps({"feature": "life line", "claims": [
+        {"claim_id": "x", "chunk_id": chunk["chunk_id"], "claim_text": chunk["text"],
+         "valence": "supports", "condition_text": None, "observation_basis": "observed"},
+    ]})
+    voice_miss = "An opening thought.[FLOW] A closing thought.[FLOW]"  # never cites C1
+    voice_clean = "A long, unbroken life line indicates steady vitality.[C1]"
+    client = _FakeClient(responses=[(stage1, None), (voice_miss, None), (voice_clean, None)])
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    assert len(client.completions.calls) == 3  # Stage-1 once, Stage-2 first + retry
+    assert result.stage1_retry_features == ()
+    assert result.stage2_retry_used is True
+    assert result.retry_used is True
+    assert result.validation.passed is True
+
+
+def test_stage2_persistent_failure_stays_failed_no_third_stage2_call(monkeypatch):
+    """Stage 2's own hard 2-call retry cap: both voice drafts miss claim
+    coverage -> validation.passed=False (fail-closed, not raised),
+    retry_used/stage2_retry_used both True, no third Stage-2 call is
+    ever attempted."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    stage1 = json.dumps({"feature": "life line", "claims": [
+        {"claim_id": "x", "chunk_id": chunk["chunk_id"], "claim_text": chunk["text"],
+         "valence": "supports", "condition_text": None, "observation_basis": "observed"},
+    ]})
+    voice_miss = "An opening thought.[FLOW] A closing thought.[FLOW]"
+    client = _FakeClient(responses=[(stage1, None), (voice_miss, None), (voice_miss, None)])
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    )
+
+    # Stage-1 once + Stage-2 first + Stage-2 retry = 3 calls; a 4th
+    # (third Stage-2 attempt) must never happen -- only 3 responses were
+    # queued, and the fake would silently reuse the last one if a 4th
+    # call occurred, so the real proof is the call COUNT.
+    assert len(client.completions.calls) == 3
+    assert result.validation.passed is False
+    assert result.stage2_retry_used is True
+    assert result.retry_used is True
+
+
+def test_stage2_retry_call_raises_becomes_runtime_error(monkeypatch):
+    """Stage 2's retry call itself raising propagates as claim_voicing's
+    own RuntimeError, uncaught -- no third call is ever attempted."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    stage1 = json.dumps({"feature": "life line", "claims": [
+        {"claim_id": "x", "chunk_id": chunk["chunk_id"], "claim_text": chunk["text"],
+         "valence": "supports", "condition_text": None, "observation_basis": "observed"},
+    ]})
+    voice_miss = "An opening thought.[FLOW] A closing thought.[FLOW]"
+    client = _FakeClient(responses=[
+        (stage1, None), (voice_miss, None), (None, ConnectionError("simulated network failure on retry")),
+    ])
+
+    with pytest.raises(RuntimeError, match="claim_voicing: API retry call failed"):
+        generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
+
+    assert len(client.completions.calls) == 3
+
+
+# ─── Item 10: Cheiro book filter ────────────────────────────────────────
+
+
+def test_search_filters_to_canonical_cheiro_book(monkeypatch):
+    source = inspect.getsource(multi_source_search)
+    assert "cheiroslanguageo00chei_1" in source
+    assert palm_reading._CHEIRO_BOOK == "cheiroslanguageo00chei_1"
+
+    chunk = _chunk()
+    fake_search = _FakeSearch([chunk])
+    monkeypatch.setattr(palm_reading, "search", fake_search)
+    client = _single_feature_client("life line", chunk, _CLEAN_STUB_TEXT)
+
+    generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
+
+    assert len(fake_search.calls) == 1
+    assert fake_search.calls[0]["book_name"] == palm_reading._CHEIRO_BOOK
+    assert fake_search.calls[0]["n_results"] == palm_reading._N_RESULTS_PER_FEATURE == 3
+
+
+# ─── Item 11: sources propagation ───────────────────────────────────────
+
+
+def test_sources_propagate_book_page_score(monkeypatch):
+    chunk1 = _chunk(text="Chunk one text about the life line.", page_ref=12, score=0.81, chunk_id="c1")
+    chunk2 = _chunk(text="Chunk two text about the life line.", page_ref=57, score=0.66, chunk_id="c2")
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk1, chunk2]))
+    voice_text = (
+        "This hand shows steady character throughout.[FLOW] "
+        "Chunk one text about the life line.[C1] "
+        "Chunk two text about the life line.[C2]"
+    )
+    client, _ = _two_stage_setup({"life line": [chunk1, chunk2]}, lambda ids: voice_text)
+
+    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
+
+    assert result.sources == (
+        {"book": "cheiroslanguageo00chei_1", "page": 12, "score": 0.81, "feature": "life line"},
+        {"book": "cheiroslanguageo00chei_1", "page": 57, "score": 0.66, "feature": "life line"},
+    )
+
+
+# ─── Item 12: self-help register validator (S66 F2b) ───────────────────
+# Display checks no longer retry (S69 F-H P5's "NO retry at this layer"
+# rule) -- each of these is now a single-shot failure/pass, not a
+# retry-then-clean scenario.
+
+_STABILITY_STUB_TEXT = (
+    "This hand promises STABILITY through disciplined effort, with a "
+    "firm grip on practical matters and a steady, deliberate approach "
+    "to every undertaking that comes before it.[FLOW] "
+    "A long, unbroken life line indicates steady vitality.[C1]"
+)
+
+
+def test_self_help_case_insensitive(monkeypatch):
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _STABILITY_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client
+    )
+
+    assert result.validation.passed is False
+    assert len(result.validation.failures) == 1
+    failure = result.validation.failures[0]
+    assert failure == "self_help_blacklist: found stability"
+
+
+_WORD_BOUNDARY_STUB_TEXT = (
+    "A hand marked by inner instability at times still moves toward calm "
+    "judgment, and this journeyman spirit for craft rewards patient hands "
+    "with quiet mastery over many years.[FLOW] "
+    "A long, unbroken life line indicates steady vitality.[C1]"
+)
+
+
+def test_self_help_word_boundary_excludes_substrings(monkeypatch):
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _WORD_BOUNDARY_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client
+    )
+
+    assert not any("self_help_blacklist" in f for f in result.validation.failures)
+    assert result.validation.passed is True
+
+
+_NAVIGATED_STUB_TEXT = (
+    "Once navigated with hesitation in youth, this quality now runs firm "
+    "and true, showing settled judgment and clear resolve.[FLOW] "
+    "A long, unbroken life line indicates steady vitality.[C1]"
+)
+
+
+def test_self_help_unlisted_conjugation_does_not_trip(monkeypatch):
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _NAVIGATED_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client
+    )
+
+    assert not any("self_help_blacklist" in f for f in result.validation.failures)
+    assert result.validation.passed is True
+
+
+_MULTI_TERM_STUB_TEXT = (
+    "This quality points to fulfilling achievements forged through "
+    "effort, while its steady course traces a long journey of "
+    "independent judgment; a second look confirms the journey continues "
+    "on firm ground for fulfilling work ahead.[FLOW] "
+    "A long, unbroken life line indicates steady vitality.[C1]"
+)
+
+
+def test_self_help_multi_term_single_sorted_deduped_failure(monkeypatch):
+    """Two distinct terms, each appearing twice, collapse to one failure
+    string listing both terms once, sorted."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _MULTI_TERM_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client
+    )
+
+    assert result.validation.passed is False
+    assert len(result.validation.failures) == 1
+    assert result.validation.failures[0] == "self_help_blacklist: found fulfilling, journey"
+
+
+_CHEIRO_VOICE_STUB_TEXT = (
+    "This quality runs long and unbroken, promising sound constitution "
+    "and vigor that will carry through many years. Its depth and "
+    "continuity reveal a nature built for endurance, sharpened by direct "
+    "experience rather than idle theory. Such a quality, clear and "
+    "undivided, promises success won through personal exertion rather "
+    "than chance.[FLOW] "
+    "A long, unbroken life line indicates steady vitality.[C1]"
+)
+
+
+def test_self_help_clean_cheiro_register_passes(monkeypatch):
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _CHEIRO_VOICE_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line with a gentle curve.", palm_right=None, client=client
+    )
+
+    assert result.validation.passed is True
+    assert result.validation.failures == ()
+
+
+_EMPOWERMENT_STUB_TEXT = (
+    "This hand speaks of quiet empowerment gained through steady effort, "
+    "with practical instincts and calm resolve carrying you through each "
+    "new challenge that comes your way.[FLOW] "
+    "A long, unbroken life line indicates steady vitality.[C1]"
+)
+
+
+def test_self_help_integration_empowerment_fails_and_propagates(monkeypatch):
+    """Full generate_palm_reading() integration: a Stage-2 draft
+    containing a blacklisted term must produce a failed, propagated
+    ValidationReport inside the returned PalmReadingResult."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _EMPOWERMENT_STUB_TEXT)
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long life line with a gentle curve.",
+        palm_right="HEART LINE: A curved heart line.",
+        client=client,
+    )
+
+    assert isinstance(result, PalmReadingResult)
+    assert isinstance(result.validation, ValidationReport)
+    assert result.validation.passed is False
+    assert any(
+        f == "self_help_blacklist: found empowerment" for f in result.validation.failures
+    )
+
+
+# ─── Item 13: S67 R1 per-feature retrieval ──────────────────────────────
+# (13a, the hardest case -- all features absent -- lives in Item 6 above,
+# alongside the other empty-retrieval/zero-call tests it shares a root
+# cause with.)
 
 _DEGENERATE_QUALITY_LEFT = "LIFE LINE: Present."
 
 
 def test_fail_open_degenerate_quality_still_queries_and_logs(monkeypatch, caplog):
     """(13b) LIFE LINE's text is just "Present." -- not absence-phrased,
-    but quality extraction degenerates to the bare word "present" (no
-    second clause to fall back to, unlike the real "Present, deep,
-    long..." fields). FAIL OPEN: the feature is still queried, using
-    its own raw field text as the quality, and a warning is logged --
-    silent feature-dropping is the S23 failure mode this guards
-    against, junk retrieval is recoverable."""
-    fake_search = _FakeSearch([_chunk()])
+    but quality extraction degenerates to the bare word "present". FAIL
+    OPEN: the feature is still queried, using its own raw field text as
+    the quality, and a warning is logged."""
+    chunk = _chunk()
+    fake_search = _FakeSearch([chunk])
     monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+    client = _single_feature_client("life line", chunk, _CLEAN_STUB_TEXT)
 
     with caplog.at_level("WARNING"):
         generate_palm_reading(palm_left=_DEGENERATE_QUALITY_LEFT, palm_right=None, client=client)
 
-    # 1 observed feature (life line, fail-open path) -> 1 search call.
     assert len(fake_search.calls) == 1
     assert "present" in fake_search.calls[0]["question"].lower()
     assert "fail-open" in caplog.text.lower()
@@ -866,14 +899,15 @@ def test_one_feature_search_failure_does_not_kill_reading_other_feature_succeeds
     query raises, the heart-line query succeeds -> the reading still
     proceeds (no exception propagates), the failure is logged, and
     sources reflect only the surviving feature's chunk."""
-    heart_chunk = _chunk(text="Heart line chunk.", page_ref=57, score=0.7, chunk_id="heart1")
+    heart_chunk = _chunk(text="A well-formed heart line suggests warmth.", page_ref=57, score=0.7, chunk_id="heart1")
 
     def _raise_for(question: str) -> bool:
         return "life line" in question
 
     fake_search = _FakeSearch([heart_chunk], raise_for=_raise_for)
     monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+    voice_text = "A well-formed heart line suggests warmth.[C1]"
+    client, _ = _two_stage_setup({"heart line": [heart_chunk]}, lambda ids: voice_text)
 
     with caplog.at_level("WARNING"):
         result = generate_palm_reading(
@@ -882,8 +916,6 @@ def test_one_feature_search_failure_does_not_kill_reading_other_feature_succeeds
             client=client,
         )
 
-    # 2 observed features (life line, heart line) -> 2 search calls
-    # attempted (both, regardless of the first one raising).
     assert len(fake_search.calls) == 2
     assert result.sources == (
         {"book": "cheiroslanguageo00chei_1", "page": 57, "score": 0.7, "feature": "heart line"},
@@ -893,12 +925,15 @@ def test_one_feature_search_failure_does_not_kill_reading_other_feature_succeeds
 
 def test_query_template_two_hand_merged_quality_literal_shape(monkeypatch):
     """(13d) Two-hand differing fate-line qualities (barely visible vs.
-    moderately deep -- the real Ring 3 pass-2 fixture pair,
-    diagnostics/ring3_palm_rubric_S66_pass2.md) merge into exactly the
-    ratified variant-iii template shape."""
+    moderately deep) merge into exactly the ratified variant-iii template
+    shape. Unaffected by the two-stage wiring -- retrieval-only assertion,
+    and the default `_chunk()` text never mentions "fate", so nothing
+    survives the support gate for fate line here; Stage 1/Stage 2 have
+    nothing to attempt, and the (unused) client would raise if ever
+    called."""
     fake_search = _FakeSearch([_chunk()])
     monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+    client = _explosive_client()
 
     generate_palm_reading(
         palm_left="FATE LINE: Barely visible.",
@@ -917,23 +952,26 @@ def test_query_template_two_hand_merged_quality_literal_shape(monkeypatch):
         "— meaning and indications of a barely visible / moderately deep fate line"
     )
     assert fake_search.calls[0]["n_results"] == palm_reading._N_RESULTS_PER_FEATURE == 3
+    assert client.completions.calls == []
 
 
+@pytest.mark.skip(
+    reason="F-H: _assemble_retrieved_passages (the old single-prompt "
+    "'### {feature}' assembler) is retired at P5 -- no longer called by "
+    "the two-stage pipeline (Stage 1/Stage 2 build their own per-call "
+    "prompts). This test asserted on the OLD assembled prompt's dedupe/ "
+    "display-order behavior via client.completions.calls[0]'s message "
+    "content, which no longer reflects that assembly at all. Deletion "
+    "decision at close-out; the function itself is untouched and could "
+    "be tested directly (same convention as the V-1/V-2/coverage direct "
+    "unit tests below) if its logic is still wanted."
+)
 def test_per_feature_map_ordering_and_dedupe_for_display(monkeypatch):
     """(13e) Life line (registry position 1) and head line (position 2)
     both retrieve the SAME chunk_id (corpus overlap) -- the assembled
-    user-message prompt shows it once, under life line's heading only
-    (first-feature-wins for display, registry order); sources still
-    carries BOTH assignments (the per-feature map keeps every
-    assignment -- the future R3 evidence structure)."""
-    # S67 R3: chunk text must contain BOTH needles ("life", "head") --
-    # the same chunk is checked against a DIFFERENT feature's needle set
-    # each time it's associated with that feature, so it must pass the
-    # gate for both to prove the dedupe (not the gate) is what's being
-    # tested here.
+    user-message prompt shows it once, under life line's heading only."""
     shared_text = "Shared passage about the life line and the head line."
     dupe_chunk = _chunk(text=shared_text, page_ref=99, score=0.5, chunk_id="dupe1")
-    # Same chunk returned for every call, regardless of query.
     fake_search = _FakeSearch([dupe_chunk])
     monkeypatch.setattr(palm_reading, "search", fake_search)
     client = _FakeClient(content=_CLEAN_STUB_TEXT)
@@ -944,13 +982,11 @@ def test_per_feature_map_ordering_and_dedupe_for_display(monkeypatch):
         client=client,
     )
 
-    # 2 observed features (life line, head line) -> 2 search calls, same
-    # chunk_id both times.
     assert len(fake_search.calls) == 2
     user_message = client.completions.calls[0]["messages"][1]["content"]
     assert user_message.count(shared_text) == 1
     assert "### life line" in user_message
-    assert "### head line" not in user_message  # suppressed: chunk already shown
+    assert "### head line" not in user_message
 
     assert result.sources == (
         {"book": "cheiroslanguageo00chei_1", "page": 99, "score": 0.5, "feature": "life line"},
@@ -962,8 +998,8 @@ def test_sources_carry_distinct_feature_tags(monkeypatch):
     """(13f) Two observed features, each returning its OWN distinct
     chunk -- sources must tag each with the feature that actually
     produced it, not a shared/default value."""
-    life_chunk = _chunk(text="Life line passage.", page_ref=134, score=0.6, chunk_id="life1")
-    heart_chunk = _chunk(text="Heart line passage.", page_ref=88, score=0.55, chunk_id="heart1")
+    life_chunk = _chunk(text="Life line passage about vitality.", page_ref=134, score=0.6, chunk_id="life1")
+    heart_chunk = _chunk(text="Heart line passage about warmth.", page_ref=88, score=0.55, chunk_id="heart1")
 
     class _SequencedSearch:
         def __init__(self):
@@ -979,7 +1015,14 @@ def test_sources_carry_distinct_feature_tags(monkeypatch):
 
     fake_search = _SequencedSearch()
     monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+    voice_text = (
+        "This hand carries itself calmly.[FLOW] "
+        "Life line passage about vitality.[C1] "
+        "Heart line passage about warmth.[C2]"
+    )
+    client, _ = _two_stage_setup(
+        {"life line": [life_chunk], "heart line": [heart_chunk]}, lambda ids: voice_text
+    )
 
     result = generate_palm_reading(
         palm_left="LIFE LINE: A long life line.",
@@ -994,34 +1037,21 @@ def test_sources_carry_distinct_feature_tags(monkeypatch):
     )
 
 
-# ─── Item 14: S67 R3 support gate + decline mechanism -- hardest first ─
-
-_FATE_MENTIONING_DRAFT = (
-    "Your life line shows steady vitality, and the fate line reveals a "
-    "path shaped by personal choice rather than external circumstance. [OBS]"
-)
-_FATE_CLEAN_RETRY_DRAFT = (
-    "Your life line shows steady vitality, promising a path shaped by "
-    "personal choice and quiet determination through the years ahead. [OBS]"
-)
+# ─── Item 14: S67 R3 support gate + decline mechanism ──────────────────
+# Display checks (including banned-feature-mention) no longer retry --
+# each "guard fires" case below is now single-shot, not retry-then-clean.
 
 
-def test_doctrine_inversion_guard_fate_unsupported_first_draft_retried_clean(monkeypatch):
-    """(14a) Hardest new case: fate line is OBSERVED (a real quality,
-    "Barely visible", not one of R1's absence phrases) but all 3
-    retrieved chunks fail the needle check (no "fate" anywhere in their
-    text -- generic nomenclature/procedural passages, the exact
-    pass-2/S67-probe failure mode) -> fate line is unsupported. The
-    first draft names "the fate line" anyway -> Ring 1's new
-    banned-mention check fires -> the F2c retry produces a clean draft
-    that avoids it -> passes on the retry (2 calls), and the decline
-    block names the fate line."""
+def test_banned_mention_fires_when_draft_names_unsupported_feature(monkeypatch):
+    """(14a) fate line is OBSERVED but its retrieved chunks fail the
+    needle check (unsupported); a Stage-2 draft that nonetheless names
+    "the fate line" trips the banned-mention display check -- single-shot
+    fail (no retry at this layer)."""
     life_chunk = _chunk(text="A long life line promises vitality.", page_ref=134, score=0.6, chunk_id="life1")
-    non_doctrine_chunks = [
-        _chunk(text="Chapter II lists the seven principal lines of the hand.", page_ref=120, score=0.62, chunk_id="nd1"),
-        _chunk(text="The lines of the head and heart run parallel across the palm.", page_ref=121, score=0.55, chunk_id="nd2"),
-        _chunk(text="Modus operandi: examine the mounts before the lines.", page_ref=226, score=0.5, chunk_id="nd3"),
-    ]
+    non_doctrine_chunk = _chunk(
+        text="Chapter II lists the seven principal lines of the hand.",
+        page_ref=120, score=0.62, chunk_id="nd1",
+    )
 
     class _PerFeatureSearch:
         def __init__(self):
@@ -1032,17 +1062,16 @@ def test_doctrine_inversion_guard_fate_unsupported_first_draft_retried_clean(mon
             if "life line" in question:
                 return [life_chunk]
             if "fate line" in question:
-                return non_doctrine_chunks
+                return [non_doctrine_chunk]
             return []
 
     fake_search = _PerFeatureSearch()
     monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(
-        responses=[
-            (_FATE_MENTIONING_DRAFT, None),
-            (_FATE_CLEAN_RETRY_DRAFT, None),
-        ]
+    voice_text = (
+        "Your life line shows steady vitality, and the fate line reveals "
+        "a path shaped by personal choice.[C1]"
     )
+    client, _ = _two_stage_setup({"life line": [life_chunk]}, lambda ids: voice_text)
 
     result = generate_palm_reading(
         palm_left="LIFE LINE: A long life line.\nFATE LINE: Barely visible.",
@@ -1050,88 +1079,67 @@ def test_doctrine_inversion_guard_fate_unsupported_first_draft_retried_clean(mon
         client=client,
     )
 
-    # 2 observed features (life line, fate line) -> 2 search calls.
     assert len(fake_search.calls) == 2
-    assert len(client.completions.calls) == 2
-    assert result.retry_used is True
-    assert result.validation.passed is True
     assert result.supported_features == ("life line",)
     assert "fate line" in result.unsupported_features
-    # the retry draft (what's actually in reading_text) never mentions fate.
-    assert "fate" not in result.reading_text.split("A note on")[0].lower()
-    # the decline block names it.
+    assert result.validation.passed is False
+    assert any("unsupported feature mentioned: fate line" in f for f in result.validation.failures)
     assert "fate line" in result.reading_text.split("A note on")[1]
-
-
-_COLLISION_SAFE_DRAFT = (
-    "Your life line shows steady vitality; this reading reflects on a "
-    "sunny disposition and a remarkable, marked sense of purpose that "
-    "carries through every Sunday and every ordinary day alike. [OBS]"
-)
 
 
 def test_needle_collision_battery_sunday_sunny_remarkable_marked_do_not_trip(monkeypatch):
     """(14b) sun line and markings/other features are BOTH unsupported
-    here (never mentioned at all -- only LIFE LINE is given). A draft
-    containing "sunny", "Sunday", "remarkable", and "marked" -- none of
-    them the STANDALONE words "sun"/"mark" -- must NOT trip the
-    banned-mention validator (word-boundary matching is mandatory, not
-    plain substring, unlike the support gate's chunk-side check)."""
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_COLLISION_SAFE_DRAFT)
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
+    here (never mentioned at all). A draft containing "sunny", "Sunday",
+    "remarkable", and "marked" -- none of them the STANDALONE words
+    "sun"/"mark" -- must NOT trip the banned-mention validator."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    voice_text = (
+        "This reading reflects on a sunny disposition and a remarkable, "
+        "marked sense of purpose that carries through every Sunday and "
+        "every ordinary day alike.[FLOW] "
+        "A long, unbroken life line indicates steady vitality.[C1]"
     )
+    client = _single_feature_client("life line", chunk, voice_text)
+
+    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
 
     assert result.validation.passed is True
     assert not any("unsupported feature mentioned" in f for f in result.validation.failures)
 
 
-_COLLISION_TRIPPED_DRAFT = (
-    "Your life line shows steady vitality, and a faint sun line "
-    "suggests hidden creative promise. [OBS]"
-)
-
-
 def test_needle_collision_battery_genuine_sun_line_mention_fires(monkeypatch):
-    """(14b, companion boundary case) A GENUINE standalone "sun line"
-    mention, with sun line unsupported, DOES fire -- proving the
-    word-boundary matcher isn't so loose it never fires at all. The
-    F2c retry then produces a clean, feature-neutral draft that
-    passes."""
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(
-        responses=[
-            (_COLLISION_TRIPPED_DRAFT, None),
-            (_GENERIC_NO_FEATURE_STUB_TEXT, None),
-        ]
+    """(14b, companion) A GENUINE standalone "sun line" mention, with sun
+    line unsupported, DOES fire. Placed in the [C1]-tagged sentence (not
+    [FLOW]/[OBS]) so it reaches the display text without first tripping
+    claim_voicing's own V-5 doctrine guard (which only scans [FLOW]/
+    [OBS] segments) -- proving the word-boundary matcher isn't so loose
+    it never fires at all."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    voice_text = (
+        "A long, unbroken life line paired with a faint sun line "
+        "suggests hidden creative promise.[C1]"
     )
+    client = _single_feature_client("life line", chunk, voice_text)
 
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
-    )
+    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
 
-    assert len(client.completions.calls) == 2
-    assert result.retry_used is True
-    assert result.validation.passed is True
+    assert result.validation.passed is False
+    assert any("unsupported feature mentioned: sun line" in f for f in result.validation.failures)
 
 
 def test_score_floor_boundary_029_excluded_031_included(monkeypatch):
     """(14c) Needle-passing chunks at the score-floor boundary -- 0.29
     (just under _SUPPORT_SCORE_FLOOR) is gated OUT; 0.31 (just over)
-    SURVIVES. Both chunks mention "life" (pass the needle check) --
-    score alone is what's being tested, measure-first boundary-pair
-    style (same convention as R1's fabricated-year boundary pair)."""
+    SURVIVES."""
     below_floor = _chunk(text="A note on the life line's course.", page_ref=1, score=0.29, chunk_id="below")
     above_floor = _chunk(text="A note on the life line's course.", page_ref=2, score=0.31, chunk_id="above")
-
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([below_floor, above_floor]))
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+    voice_text = "A note on the life line's course.[C1]"
+    client, _ = _two_stage_setup({"life line": [above_floor]}, lambda ids: voice_text)
 
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
-    )
+    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
 
     assert result.supported_features == ("life line",)
     assert result.sources == (
@@ -1141,12 +1149,11 @@ def test_score_floor_boundary_029_excluded_031_included(monkeypatch):
 
 def test_decline_block_exact_text_two_feature_list(monkeypatch):
     """(14d) Exact decline-block wording with exactly 2 unsupported
-    features (fate line, sun line -- both observed with a real,
-    non-absent quality, but zero chunks retrieved for either). Every
-    OTHER registry feature is deliberately absence-phrased BY NAME
-    (genuine negative absence, exempted per
-    palm_reading._is_genuine_negative_absence) so the list is exactly
-    these 2, in registry order, proving the exact constant wording."""
+    features (fate line, sun line). Every OTHER registry feature is
+    absence-phrased BY NAME (genuine negative absence) so the list is
+    exactly these 2. Search returns [] always -> nothing is ever
+    attempted at Stage 1/2 -- unaffected by the two-stage wiring, the
+    (unused) explosive client proves it."""
     fixture = (
         "HAND SHAPE: Square palm.\n"
         "FINGERS: Not clearly visible.\n"
@@ -1160,10 +1167,11 @@ def test_decline_block_exact_text_two_feature_list(monkeypatch):
         "MARKS: No clear marks visible."
     )
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
-    client = _FakeClient(content=_GENERIC_NO_FEATURE_STUB_TEXT)
+    client = _explosive_client()
 
     result = generate_palm_reading(palm_left=fixture, palm_right=None, client=client)
 
+    assert client.completions.calls == []
     assert result.unsupported_features == ("fate line", "sun line")
     assert result.supported_features == ()
     assert (
@@ -1190,8 +1198,9 @@ def test_decline_block_absent_when_all_observed_features_supported(monkeypatch):
         "MOUNTS: Mount of Venus is unremarkable, Mount of Jupiter is unremarkable.\n"
         "MARKS: No clear marks visible."
     )
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=_CLEAN_STUB_TEXT)
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _CLEAN_STUB_TEXT)
 
     result = generate_palm_reading(palm_left=fixture, palm_right=None, client=client)
 
@@ -1200,37 +1209,14 @@ def test_decline_block_absent_when_all_observed_features_supported(monkeypatch):
     assert "A note on what I have not interpreted" not in result.reading_text
 
 
-def test_zero_support_path_routes_to_low_confidence_with_full_decline(monkeypatch):
-    """(14e) Search DOES return a chunk (not empty), but it fails the
-    needle check -- this must route to the SAME low-confidence path as
-    a genuinely empty retrieval, with the full decline block (every
-    registry feature, since none survived and none were
-    absence-phrased)."""
-    off_topic_chunk = _chunk(
-        text="Chapter II lists the seven principal lines of the hand.",
-        page_ref=120, score=0.65, chunk_id="offtopic",
-    )
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([off_topic_chunk]))
-    client = _FakeClient(content=_GENERIC_NO_FEATURE_STUB_TEXT)
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
-    )
-
-    system_prompt_sent = client.completions.calls[0]["messages"][0]["content"]
-    assert "weak match" in system_prompt_sent.lower()
-    assert result.supported_features == ()
-    assert result.unsupported_features == palm_reading._FEATURE_REGISTRY
-    assert "A note on what I have not interpreted" in result.reading_text
-    assert result.validation.passed is True
-
-
 def test_supported_unsupported_tuples_propagate_in_registry_order(monkeypatch):
-    """(14f) 3 observed features given in NON-registry input order
-    (fate, heart, life) -- life line and heart line supported, fate
-    line unsupported. Output tuples must reflect _FEATURE_REGISTRY
-    order (life, heart, fate skipped from supported since unsupported),
-    not input order."""
+    """(14f) 3 observed features given in NON-registry input order (fate,
+    heart, life) -- life line and heart line supported, fate line
+    unsupported. Output tuples must reflect _FEATURE_REGISTRY order, not
+    input order."""
+    life_chunk = _chunk(text="A long life line passage.", score=0.6, chunk_id="l1")
+    heart_chunk = _chunk(text="A curved heart line passage.", score=0.6, chunk_id="h1")
+    fate_chunk = _chunk(text="Unrelated nomenclature passage.", score=0.6, chunk_id="f1")
 
     class _Search:
         def __init__(self):
@@ -1239,16 +1225,23 @@ def test_supported_unsupported_tuples_propagate_in_registry_order(monkeypatch):
         def __call__(self, question, n_results=None, **filters):
             self.calls.append({"question": question, "n_results": n_results, **filters})
             if "life line" in question:
-                return [_chunk(text="A long life line passage.", score=0.6, chunk_id="l1")]
+                return [life_chunk]
             if "heart line" in question:
-                return [_chunk(text="A curved heart line passage.", score=0.6, chunk_id="h1")]
+                return [heart_chunk]
             if "fate line" in question:
-                return [_chunk(text="Unrelated nomenclature passage.", score=0.6, chunk_id="f1")]
+                return [fate_chunk]
             return []
 
     fake_search = _Search()
     monkeypatch.setattr(palm_reading, "search", fake_search)
-    client = _FakeClient(content=_GENERIC_NO_FEATURE_STUB_TEXT)
+    voice_text = (
+        "This hand shows steady character.[FLOW] "
+        "A long life line passage.[C1] "
+        "A curved heart line passage.[C2]"
+    )
+    client, _ = _two_stage_setup(
+        {"life line": [life_chunk], "heart line": [heart_chunk]}, lambda ids: voice_text
+    )
 
     result = generate_palm_reading(
         palm_left=(
@@ -1263,110 +1256,76 @@ def test_supported_unsupported_tuples_propagate_in_registry_order(monkeypatch):
 
     assert len(fake_search.calls) == 3
     assert result.supported_features == ("life line", "heart line")
-    # fate line (unsupported, observed) plus every never-mentioned
-    # feature (head/sun/thumb/fingers/both mounts/markings -- pathway
-    # (A), also unsupported per _is_genuine_negative_absence's False
-    # case), all in _FEATURE_REGISTRY order.
     assert result.unsupported_features == (
         "head line", "fate line", "sun line", "thumb", "fingers",
         "mount of venus", "mount of jupiter", "markings/other features",
     )
 
 
-def test_f2c_cap_unchanged_banned_mention_fails_both_drafts_stays_failed(monkeypatch):
-    """(14g) Both the first draft AND the retry draft mention an
-    unsupported feature ("sun line") -- exactly 2 LLM calls (HARD CAP
-    unchanged, no third attempt), fail-closed: passed=False,
-    retry_used=True, and the failure that's reported is the SECOND
-    draft's (same as R1-era retry tests' pattern)."""
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(
-        responses=[
-            (_COLLISION_TRIPPED_DRAFT, None),
-            (_COLLISION_TRIPPED_DRAFT, None),
-        ]
-    )
+def test_banned_mention_failure_is_single_shot_no_retry(monkeypatch):
+    """(14g) S69 F-H P5: display-check failures (banned-mention here) do
+    NOT retry -- a draft naming an unsupported feature fails immediately,
+    with only the ONE Stage-2 call ever made (plus Stage 1's own call)."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    voice_text = "A faint sun line suggests hidden creative promise.[C1]"
+    client, _ = _two_stage_setup({"life line": [chunk]}, lambda ids: voice_text)
 
     result = generate_palm_reading(
         palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
     )
 
-    assert len(client.completions.calls) == 2
-    assert result.retry_used is True
+    assert len(client.completions.calls) == 2  # Stage 1 once, Stage 2 once -- no retry
     assert result.validation.passed is False
-    assert any(
-        "unsupported feature mentioned: sun line" in f for f in result.validation.failures
+    assert any("unsupported feature mentioned: sun line" in f for f in result.validation.failures)
+
+
+# ─── Item 15: S67 R2 exemplar-echo guard ────────────────────────────────
+# Display checks no longer retry -- each is single-shot now.
+
+
+def test_exemplar_echo_guard_fires_single_shot_no_retry(monkeypatch):
+    """Hardest case: the draft reuses a verbatim 6-word span from
+    exemplar 1 ("each one tells its own story") -- exactly the
+    doctrine-inversion vector R2 exists to close. Single-shot fail, no
+    retry at this layer."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    voice_text = (
+        "Each one tells its own story to those who understand the "
+        "craft.[FLOW] "
+        "A long, unbroken life line indicates steady vitality.[C1]"
     )
+    client, _ = _two_stage_setup({"life line": [chunk]}, lambda ids: voice_text)
 
+    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
 
-# ─── Item 15: S67 R2 exemplar-echo guard -- hardest first ──────────────
-
-_EXEMPLAR_ECHO_FIRST_DRAFT = (
-    "Your life line shows steady vitality. Each one tells its own story "
-    "to those who understand the craft. [OBS]"
-)
-_EXEMPLAR_ECHO_CLEAN_RETRY = (
-    "Your life line shows steady vitality, promising sound health and "
-    "quiet endurance through the years ahead. [OBS]"
-)
-
-
-def test_exemplar_echo_guard_fires_first_draft_retried_clean(monkeypatch):
-    """(15a) Hardest new case: the first draft reuses a verbatim 6-word
-    span from exemplar 1 ("each one tells its own story") -- exactly
-    the doctrine-inversion vector R2 exists to close (Ring 3 pass 2's
-    fate-line finding traced to F2c's OLD exemplar's content being
-    transplanted, not just its voice). The validator fires, naming the
-    exact n-gram in the retry feedback; the F2c retry produces a clean
-    draft -> passes on the retry (2 calls)."""
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(
-        responses=[
-            (_EXEMPLAR_ECHO_FIRST_DRAFT, None),
-            (_EXEMPLAR_ECHO_CLEAN_RETRY, None),
-        ]
-    )
-
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
-    )
-
-    # 1 observed feature (life line) -> 1 search call; 2 LLM calls
-    # (first draft trips exemplar_echo, retry is clean).
-    assert len(client.completions.calls) == 2
-    assert result.retry_used is True
-    assert result.validation.passed is True
-    retry_messages = client.completions.calls[1]["messages"]
-    assert "exemplar_echo: each one tells its own story" in retry_messages[-1]["content"]
+    assert len(client.completions.calls) == 2  # Stage 1 once, Stage 2 once -- no retry
+    assert result.validation.passed is False
+    assert any(f == "exemplar_echo: each one tells its own story" for f in result.validation.failures)
 
 
 def test_exemplar_echo_boundary_5word_no_fire_6word_fires(monkeypatch):
-    """(15b) Measure-first boundary pair: a 5-word overlap with the
-    exemplar ("each one tells its own", one word short of the 6-word
-    window -- embedded so neither adjacent 6-gram in the exemplar
-    matches either) does NOT fire; the same passage extended by one
-    word to complete the genuine 6-gram ("each one tells its own
-    story") DOES fire."""
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    """Measure-first boundary pair: a 5-word overlap with the exemplar
+    does NOT fire; extended by one word to complete the genuine 6-gram
+    DOES fire."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
 
-    five_word_draft = (
-        "Your life line shows lasting vitality. Each one tells its own "
-        "tale in every hand I read. [OBS]"
+    five_word_voice = (
+        "Each one tells its own tale in every hand I read.[FLOW] "
+        "A long, unbroken life line indicates steady vitality.[C1]"
     )
-    client5 = _FakeClient(content=five_word_draft)
-    result5 = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client5
-    )
+    client5 = _single_feature_client("life line", chunk, five_word_voice)
+    result5 = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client5)
     assert not any("exemplar_echo" in f for f in result5.validation.failures)
 
-    six_word_draft = (
-        "Your life line shows lasting vitality. Each one tells its own "
-        "story in every hand I read. [OBS]"
+    six_word_voice = (
+        "Each one tells its own story in every hand I read.[FLOW] "
+        "A long, unbroken life line indicates steady vitality.[C1]"
     )
-    client6 = _FakeClient(content=six_word_draft)
-    result6 = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client6
-    )
+    client6 = _single_feature_client("life line", chunk, six_word_voice)
+    result6 = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client6)
     assert any(
         f == "exemplar_echo: each one tells its own story"
         for f in result6.validation.failures
@@ -1374,19 +1333,18 @@ def test_exemplar_echo_boundary_5word_no_fire_6word_fires(monkeypatch):
 
 
 def test_exemplar_echo_normalization_case_punctuation_whitespace(monkeypatch):
-    """(15c) An overlap differing only in case, punctuation, and
+    """An overlap differing only in case, punctuation, and
     whitespace-run-length still fires -- proves normalized-token
     matching, not exact-string matching."""
-    weird_draft = (
-        "Your life line shows vitality.   EACH,   one   tells; ITS   own "
-        "STORY!!! in every hand. [OBS]"
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    weird_voice = (
+        "EACH,   one   tells; ITS   own   STORY!!! in every hand.[FLOW] "
+        "A long, unbroken life line indicates steady vitality.[C1]"
     )
-    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
-    client = _FakeClient(content=weird_draft)
+    client = _single_feature_client("life line", chunk, weird_voice)
 
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
-    )
+    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
 
     assert any(
         f == "exemplar_echo: each one tells its own story"
@@ -1395,60 +1353,40 @@ def test_exemplar_echo_normalization_case_punctuation_whitespace(monkeypatch):
 
 
 def test_exemplar_echo_does_not_fire_on_retrieved_chunk_quote(monkeypatch):
-    """(15d) Doctrine-quoting immunity: a draft sharing a 6-word span
-    with a RETRIEVED CHUNK (not an exemplar) must NOT fire -- quoting or
-    closely paraphrasing the provided passages is desired behavior (the
-    system prompt explicitly asks for it); the guard compares against
-    the 2 exemplar sentences ONLY, never retrieved chunks."""
+    """Doctrine-quoting immunity: a draft sharing a 6-word span with a
+    RETRIEVED CHUNK (not an exemplar) must NOT fire -- the guard compares
+    against the 2 exemplar sentences ONLY, never retrieved chunks."""
     doctrine_chunk = _chunk(
         text="The line of life should be long narrow and deep without irregularities",
         score=0.6,
     )
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([doctrine_chunk]))
-    draft_quoting_chunk = (
-        "Your life line should be long narrow and deep without "
-        "irregularities, promising a strong constitution. [OBS]"
+    voice_text = (
+        "The line of life should be long narrow and deep without "
+        "irregularities, promising a strong constitution.[C1]"
     )
-    client = _FakeClient(content=draft_quoting_chunk)
+    client = _single_feature_client("life line", doctrine_chunk, voice_text)
 
-    result = generate_palm_reading(
-        palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
-    )
+    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
 
     assert not any("exemplar_echo" in f for f in result.validation.failures)
     assert result.validation.passed is True
-
-# (15e) existing-stub-rewording check: N/A this pass -- verified by
-# running the full pre-existing 27+9=36-test suite (items 1-14) against
-# the rewritten exemplars BEFORE writing any of the tests above; all 36
-# passed unchanged, so no stub text in this file happened to echo either
-# new exemplar sentence. Nothing to reword; the R3 convention ("fix the
-# stub, don't weaken the guard") simply had nothing to fix this time.
 
 
 # ─── Item 16: A1 V-1/V-2 chunk-anchor Ring 1 validators (S68 F-C) ───────
 #
 # palm_reading._check_tag_completeness (V-1) and palm_reading._check_
-# anchor_legality (V-2) are tested here as plain functions, not only
-# through the full generate_palm_reading() integration -- same convention
-# as item 3's direct _JARGON_PATTERN proof above: both are deterministic,
-# no-LLM-judgment validators, so a direct call is the more exact proof.
-#
-# ACCEPTED BOUNDARY (documented, not fixed here): V-1 is position-only and
-# can only decide two of the three places an untagged sentence could sit
-# relative to a tag -- (1) the whole text is empty/untagged, and (3)
-# residue trailing the LAST tag. Place (2), a sentence sandwiched BETWEEN
-# two valid tags, is the accepted sandwich gap (see palm_reading._check_
-# tag_completeness's own KNOWN GAP docstring). Formalizing this 3-place
-# taxonomy in CLAUDE.md and this module's own docstring rides the S68 F-C
-# close-out prompt, not this test-alignment pass.
+# anchor_legality (V-2) are RETIRED from generate_palm_reading's own call
+# path (S69 F-H P5 -- natively replaced by claim_extraction's E-1 and
+# claim_voicing's V-3) but remain DEFINED. Direct unit tests of the
+# functions themselves (not through generate_palm_reading) stay passing
+# unmodified -- untouched below. The ONE test that exercised them through
+# the full generate_palm_reading() integration is marked skip.
 
 
 def test_tag_completeness_empty_string_reports_anchor_contract_not_exercised():
     """Guards against PalmReadingResult.reading_text_tagged's dataclass
-    default of "" ever being fed back through Ring 1 -- generate_palm_
-    reading() itself never does this (it always supplies the real draft),
-    but the check must hold regardless of caller."""
+    default of "" ever being fed back through Ring 1."""
     failures = palm_reading._check_tag_completeness("")
 
     assert failures == [
@@ -1481,9 +1419,8 @@ def test_tag_completeness_wholly_untagged_prose_reports_residue():
 
 def test_tag_completeness_trailing_residue_after_last_tag_quoted_in_message():
     """A valid tag exists, but untagged text follows it -- the residue
-    AFTER the last recognized tag is the one position decidable from tag
-    positions alone with no sentence-splitter, and it is quoted verbatim
-    (repr, not the raw string) in the failure message."""
+    AFTER the last recognized tag is quoted verbatim (repr) in the
+    failure message."""
     text = "First sentence.[OBS] Second sentence needs a tag but has none"
 
     failures = palm_reading._check_tag_completeness(text)
@@ -1495,8 +1432,8 @@ def test_tag_completeness_trailing_residue_after_last_tag_quoted_in_message():
 
 
 def test_tag_completeness_clean_pass_mixed_obs_and_anchor_tags():
-    """One [OBS] observation sentence followed by one doctrine-citing
-    sentence -- both terminate in a recognized tag, nothing trails the
+    """One [OBS] observation sentence followed by one sentence citing a
+    chunk_id -- both terminate in a recognized tag, nothing trails the
     last one -> clean pass."""
     text = (
         "Your life line runs long and clear.[OBS] "
@@ -1509,9 +1446,7 @@ def test_tag_completeness_clean_pass_mixed_obs_and_anchor_tags():
 
 def test_tag_completeness_multi_anchor_sentence_pass():
     """A single sentence citing two adjacent chunk_id anchors back to
-    back (per the output-format contract's "one or more, written back to
-    back with no space between them") -- still a clean pass since nothing
-    trails the last tag."""
+    back -- still a clean pass since nothing trails the last tag."""
     text = (
         "This claim draws on two passages at once."
         "[cheiroslanguageo00chei_1_p134_c1][cheiroslanguageo00chei_1_p163_c3]"
@@ -1536,10 +1471,8 @@ def test_anchor_legality_fabricated_chunk_id_hard_fail_listed_verbatim():
 
 def test_anchor_legality_stale_id_valid_shape_not_in_gated_set_fails():
     """A chunk_id that is a genuine, valid-shaped corpus id (it could have
-    been gated in a PRIOR run or a different retrieval) but is not a
-    member of THIS run's valid_chunk_ids -- membership, not shape, is the
-    only thing V-2 checks, so a stale id fails exactly like a fabricated
-    one."""
+    been gated in a PRIOR run) but is not a member of THIS run's valid_
+    chunk_ids -- membership, not shape, is the only thing V-2 checks."""
     text = "A claim citing a stale, previously-valid chunk.[cheiroslanguageo00chei_1_p134_c2]"
     valid_chunk_ids = frozenset({"cheiroslanguageo00chei_1_p163_c1"})
 
@@ -1583,8 +1516,7 @@ def test_anchor_legality_empty_valid_chunk_ids_any_citation_fails():
 def test_v1_before_v2_untagged_text_reports_completeness_without_legality_failure():
     """Ordering proof: text with no tags at all trips V-1 (completeness)
     but cites nothing, so V-2 (legality) contributes no failure of its
-    own -- "legality is meaningless to check on incomplete tagging" (see
-    _run_ring1_checks's docstring) holds concretely, not just as prose."""
+    own."""
     text = "This is a wholly untagged sentence with no citation at all."
 
     completeness_failures = palm_reading._check_tag_completeness(text)
@@ -1593,24 +1525,20 @@ def test_v1_before_v2_untagged_text_reports_completeness_without_legality_failur
     assert any("anchor_completeness" in f for f in completeness_failures)
     assert legality_failures == []
 
-    # Same proof through the full ordered runner: a text with nothing
-    # else wrong (no jargon/self-help/dates/length/banned-mention/
-    # exemplar-echo hits) produces EXACTLY the completeness failure --
-    # V-2 runs after V-1 in the fixed order but adds nothing here.
     assert palm_reading._run_ring1_checks(text, "", (), frozenset()) == [
         "anchor_completeness: sentence-final residue with no tag: "
         "'This is a wholly untagged sentence with no citation at all.'"
     ]
 
 
+@pytest.mark.skip(reason="F-H: retired at P5, deletion decision at close-out")
 def test_end_to_end_tagged_draft_with_cited_chunk_validates_clean_and_strips_tags(monkeypatch):
     """A1 end-to-end: a fully-tagged draft (one [OBS] sentence, one
     sentence citing a chunk_id that IS in this run's gated_results) must
     validate clean through the real generate_palm_reading() path, and the
-    DISPLAYED reading_text must carry NO tag tokens at all -- proven with
-    a regex-negative assertion against CHUNK_ANCHOR_TAG_PATTERN itself
-    (the same pattern strip_generation_tags() and both A1 validators
-    share), not a hand-derived string comparison."""
+    DISPLAYED reading_text must carry NO tag tokens at all. RETIRED (S69
+    F-H P5): generate_palm_reading no longer produces this tag vocabulary
+    (V-1/V-2 are no longer invoked) -- kept for close-out's inventory."""
     cited_chunk = _chunk(
         text="The classical texts describe a long life line as promising vitality.",
         score=0.6,
@@ -1637,11 +1565,11 @@ def test_end_to_end_tagged_draft_with_cited_chunk_validates_clean_and_strips_tag
 
 # ─── Item 17: F-A supported-feature coverage check (S68) ────────────────
 #
-# palm_reading._check_feature_coverage tested directly as a plain function
-# first (same convention as items 3/16 above -- deterministic, no-LLM-
-# judgment checks get a direct proof, not only integration coverage),
-# then 2 generate_palm_reading() integration tests proving the retry-feed
-# + fail-open wiring, then a bare ValidationReport() default-field check.
+# palm_reading._check_feature_coverage is RETIRED from generate_palm_
+# reading's own call path (S69 F-H P5 -- superseded by claim_voicing's
+# V-4) but remains DEFINED. Direct unit tests stay passing unmodified;
+# the 2 integration tests that exercised its retry-feed/fail-open wiring
+# through generate_palm_reading are marked skip.
 
 
 def test_coverage_supported_feature_never_cited_produces_verbatim_warning():
@@ -1658,11 +1586,9 @@ def test_coverage_supported_feature_never_cited_produces_verbatim_warning():
 
 
 def test_coverage_obs_only_mention_of_supported_feature_still_a_miss():
-    """Landmark-exclusion enforced BY CONSTRUCTION (see palm_reading.
-    _check_feature_coverage's own docstring): [OBS] tags contribute
+    """Landmark-exclusion enforced BY CONSTRUCTION: [OBS] tags contribute
     nothing to the cited set, so a sentence that NAMES the feature in
-    prose but tags itself [OBS] still counts as a miss -- only a real
-    chunk_id citation marks a feature addressed."""
+    prose but tags itself [OBS] still counts as a miss."""
     gated_results = {
         "thumb": [
             _chunk(text="A broad, strong thumb.", chunk_id="cheiroslanguageo00chei_1_p200_c1"),
@@ -1689,20 +1615,10 @@ def test_coverage_cited_chunk_id_marks_feature_addressed_no_warning():
 
 
 def test_coverage_shared_chunk_id_cited_once_marks_both_features_addressed():
-    """ACCEPTED GAP (V1, documented in _check_feature_coverage's own
-    docstring, CLAUDE.md accepted-gap register item (f), 3-place rule
-    place 2): a chunk_id gated under TWO features marks BOTH addressed
-    when cited once, regardless of which feature the citing sentence is
-    actually about -- a direct consequence of gap (a)'s union-only V-2
-    anchor semantics (no sentence -> feature attribution exists to
-    disambiguate). This test documents the boundary, not a bug --
-    direction of error is a real omission going un-warned, never a
-    spurious warning.
-
-    RULING FINAL (S68 F-A close-out), same disposition as gap (a): a
-    PERMANENT accepted gap, backstopped by the SAME Ring 3 pass-4 human
-    anchor-fidelity spot-check that covers gap (a), not an open
-    escalation awaiting a future validator."""
+    """ACCEPTED GAP (V1, CLAUDE.md accepted-gap register item (f)): a
+    chunk_id gated under TWO features marks BOTH addressed when cited
+    once, regardless of which feature the citing sentence is actually
+    about."""
     shared_chunk = _chunk(
         text="A broad thumb and long fingers both suggest a practical nature.",
         chunk_id="cheiroslanguageo00chei_1_p210_c3",
@@ -1730,12 +1646,12 @@ _COVERAGE_CLEAN_RETRY_DRAFT = (
 )
 
 
+@pytest.mark.skip(reason="F-H: retired at P5, deletion decision at close-out")
 def test_coverage_only_retry_fires_and_clean_retry_clears_warnings(monkeypatch):
-    """A first draft with ZERO Ring 1 failures but a coverage MISS (life
-    line supported, never cited -- _CLEAN_STUB_TEXT is entirely [OBS])
-    still triggers the single F2c retry -- retry_used reports it via the
-    SAME mechanism a failure-triggered retry uses, no new flag. The
-    retry draft cites the chunk -> clean pass, empty warnings."""
+    """RETIRED (S69 F-H P5): _check_feature_coverage's retry-feed wiring
+    through generate_palm_reading's OLD F2c retry no longer exists --
+    coverage is now superseded by claim_voicing's V-4. Kept for
+    close-out's inventory."""
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([_COVERAGE_RETRY_CHUNK]))
     client = _FakeClient(
         responses=[
@@ -1757,16 +1673,10 @@ def test_coverage_only_retry_fires_and_clean_retry_clears_warnings(monkeypatch):
     assert "coverage: life line supported but never cited" in retry_messages[-1]["content"]
 
 
+@pytest.mark.skip(reason="F-H: retired at P5, deletion decision at close-out")
 def test_coverage_fail_open_final_still_missing_warning_present_reading_displays(monkeypatch):
-    """Fail-open: if the retry draft STILL doesn't cite the supported
-    feature, there is no third attempt (2-call hard cap unchanged) --
-    passed stays True (coverage warnings never enter failures, never
-    block display), the miss surfaces in validation.warnings, and the
-    reading still renders with its DISCLAIMER."""
+    """RETIRED (S69 F-H P5): same disposition as the retry test above."""
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([_COVERAGE_RETRY_CHUNK]))
-    # Same content on both calls (never cites) -- proves the retry draft
-    # itself is what's re-checked, not just the first draft's misses
-    # blindly carried forward.
     client = _FakeClient(content=_CLEAN_STUB_TEXT)
 
     result = generate_palm_reading(
@@ -1782,9 +1692,8 @@ def test_coverage_fail_open_final_still_missing_warning_present_reading_displays
 
 
 def test_validation_report_warnings_defaults_to_empty_tuple():
-    """Pre-F-A construction sites (e.g. tests/test_app_dogfood_capture.py's
-    `ValidationReport(passed=True, failures=())`) keep working unmodified --
-    the additive default, not a required third argument."""
+    """Pre-F-A construction sites keep working unmodified -- the additive
+    default, not a required third argument."""
     vr = ValidationReport(passed=True, failures=())
 
     assert vr.warnings == ()
