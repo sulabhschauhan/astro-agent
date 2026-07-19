@@ -30,6 +30,29 @@ excluded_from_voice claims), stage1_retry_features / stage2_retry_used
 (alongside the existing COMPAT retry_used), and validation_failures. Also
 covers removal of the retired "valid_chunk_ids_count: unavailable" line
 (closed by claims_inventory's per-claim chunk_id).
+
+S70 P6b: the two-mode Stage-1 checkpoint (DOGFOOD path blocks on ack/
+decline against a PalmReadingPrep; END-USER path is unchanged, generate_
+palm_reading() called synchronously). AppTest CANNOT drive a file upload
+or button state deep enough to reach the palm-generation button, the
+checkpoint panel, or Ack/Decline -- those all sit behind file-uploader /
+confirm-button state this harness has no way to simulate (same
+limitation the S67 note above already documents for generate_palm_
+reading()). Coverage here is therefore: (a) 2 AppTest load-smoke tests
+(flag on/off), confirming the new checkpoint code path doesn't break
+module-level execution or write to the log without a real generation --
+placed directly alongside the pre-existing 2 AppTest tests near the top
+of this file, NOT next to the P6b direct-import tests further down,
+because an AppTest.from_file() run placed AFTER any bare `import
+frontend.app as app` (used throughout the S67/P6a direct-import tests
+below) leaks dirty Streamlit widget/form state into the next AppTest run
+and spuriously fails it -- confirmed unrelated to any P6b production
+code by isolating the same test (passes alone, fails only in that file
+position); (b) direct-import tests for the new module-level helper
+_capture_checkpoint_declined(), same style as _capture_dogfood_run()'s
+S67/P6a tests above. End-to-end checkpoint ack/decline simulation is
+NOT attempted here -- it would need a Streamlit-level integration harness
+this test file doesn't have.
 """
 import sys
 from pathlib import Path
@@ -39,7 +62,7 @@ from streamlit.testing.v1 import AppTest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from agent.interpretive.claim_extraction import Claim
-from agent.interpretive.palm_reading import PalmReadingResult, ValidationReport
+from agent.interpretive.palm_reading import PalmReadingPrep, PalmReadingResult, ValidationReport
 
 _ROOT     = Path(__file__).parent.parent
 _APP_PATH = _ROOT / "frontend" / "app.py"
@@ -72,6 +95,42 @@ def test_app_loads_with_dogfood_capture_flag_on_writes_nothing_without_generatio
     assert after == before, (
         "flag-on load with no palm-reading generation must not write to "
         "diagnostics/dogfood_capture.md"
+    )
+
+
+# S70 P6b: kept adjacent to the two AppTest smoke tests above (NOT moved
+# to the P6b section further down this file) -- ordering matters here.
+# Placing an AppTest.from_file() run AFTER any of this file's bare
+# `import frontend.app as app` direct-import tests (used throughout the
+# S67/P6a sections below) leaks dirty Streamlit widget/form state into
+# the next AppTest run and spuriously fails it (`st.button() can't be
+# used in an st.form()`, confirmed unrelated to any P6b code change --
+# reproduces identically in isolation-passes-together-fails order).
+def test_app_loads_with_checkpoint_code_and_dogfood_flag_off(monkeypatch):
+    """The new palm_prep session-state default and checkpoint-panel gate
+    must not break module-level load when the flag is off (palm_prep
+    stays None, so the blocking panel's `if` never renders anything)."""
+    monkeypatch.delenv("ASTRO_DOGFOOD_CAPTURE", raising=False)
+    at = AppTest.from_file(str(_APP_PATH))
+    at.run()
+    assert not at.exception, [str(e) for e in at.exception]
+
+
+def test_app_loads_with_checkpoint_code_and_dogfood_flag_on_writes_nothing_without_generation(monkeypatch):
+    """Same as the flag-on load smoke test above, extended to cover the
+    P6b checkpoint code path: loading alone (no upload/button simulated)
+    must not write to the log, on the DOGFOOD path either."""
+    monkeypatch.setenv("ASTRO_DOGFOOD_CAPTURE", "1")
+    before = _log_snapshot()
+
+    at = AppTest.from_file(str(_APP_PATH))
+    at.run()
+    assert not at.exception, [str(e) for e in at.exception]
+
+    after = _log_snapshot()
+    assert after == before, (
+        "flag-on load with no palm-reading generation/checkpoint must not "
+        "write to diagnostics/dogfood_capture.md"
     )
 
 
@@ -327,3 +386,149 @@ def test_capture_dogfood_run_still_appends_never_overwrites(monkeypatch, tmp_pat
     # substring of the log after the second capture (nothing truncated).
     assert first_content in second_content
     assert second_content.count("### feature_support") == 2
+
+
+# ─── S70 P6b: direct-import coverage for _capture_checkpoint_declined ──
+
+
+def _synthetic_prep() -> PalmReadingPrep:
+    """A realistic post-Stage-1 PalmReadingPrep: same 2 claims as
+    _synthetic_reading() (C1 clean, C2 excluded_from_voice with a
+    condition_text and an embedded newline in claim_text), plus
+    diagnostics carrying stage1_retry_features/stage1_failed_features --
+    the two keys _capture_checkpoint_declined() reads directly."""
+    claims = (
+        Claim(
+            claim_id="C1",
+            feature="life line",
+            chunk_id="cheiroslanguageo00chei_1_p134_c2",
+            claim_text="A long, unbroken life line indicates steady vitality.",
+            valence="positive",
+            condition_text=None,
+            observation_basis="visible",
+            excluded_from_voice=False,
+            exclusion_reason=None,
+        ),
+        Claim(
+            claim_id="C2",
+            feature="fate line",
+            chunk_id="cheiroslanguageo00chei_1_p200_c1",
+            claim_text="A fate line rising from the life line suggests self-made success,\nif its origin can be confirmed.",
+            valence="positive",
+            condition_text="fate line rises from the life line",
+            observation_basis="barely visible",
+            excluded_from_voice=True,
+            exclusion_reason="precondition unverified",
+        ),
+    )
+    return PalmReadingPrep(
+        gated_results={"life line": [], "fate line": []},
+        supported_features=("life line",),
+        unsupported_features=("fate line", "sun line"),
+        claims=claims,
+        texts_by_feature={"life line": "LIFE LINE: A long life line."},
+        diagnostics={
+            "stage1": {},
+            "stage1_failed_features": ("sun line",),
+            "stage1_retry_features": ("life line",),
+        },
+    )
+
+
+def test_capture_checkpoint_declined_writes_claims_inventory(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    app._capture_checkpoint_declined(_synthetic_prep())
+
+    content = log_path.read_text(encoding="utf-8")
+    assert content.startswith("## CHECKPOINT-DECLINED")
+    assert "### claims_inventory" in content
+
+    # Clean claim: every field reflects the actual Claim.
+    assert (
+        "C1 | life line | cheiroslanguageo00chei_1_p134_c2 | positive | "
+        "False | None | None | A long, unbroken life line indicates "
+        "steady vitality."
+    ) in content
+
+    # Excluded claim: excluded_from_voice/exclusion_reason/condition_text
+    # present, embedded newline flattened to a single space.
+    assert (
+        "C2 | fate line | cheiroslanguageo00chei_1_p200_c1 | positive | "
+        "True | precondition unverified | fate line rises from the life "
+        "line | A fate line rising from the life line suggests self-made "
+        "success, if its origin can be confirmed."
+    ) in content
+    assert "success,\nif its origin" not in content
+
+
+def test_capture_checkpoint_declined_writes_stage1_diagnostics(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    app._capture_checkpoint_declined(_synthetic_prep())
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "stage1_retry_features: life line" in content
+    assert "stage1_failed_features: sun line" in content
+
+
+def test_capture_checkpoint_declined_has_no_reading_fields(monkeypatch, tmp_path):
+    """A declined checkpoint never reaches Stage 2 -- there is no
+    reading_text, no READING (TAGGED), no sources, no ring1_validation,
+    because no PalmReadingResult exists for a declined prep."""
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    app._capture_checkpoint_declined(_synthetic_prep())
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "### reading_text" not in content
+    assert "### READING (TAGGED)" not in content
+    assert "### sources" not in content
+    assert "### ring1_validation" not in content
+    assert "### feature_support" not in content
+
+
+def test_capture_checkpoint_declined_empty_claims(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    prep = PalmReadingPrep(
+        gated_results={},
+        supported_features=(),
+        unsupported_features=(),
+        claims=(),
+        texts_by_feature={},
+        diagnostics={"stage1": {}, "stage1_failed_features": (), "stage1_retry_features": ()},
+    )
+    app._capture_checkpoint_declined(prep)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "claims_inventory: EMPTY" in content
+    assert "stage1_retry_features: NONE" in content
+    assert "stage1_failed_features: NONE" in content
+
+
+def test_capture_checkpoint_declined_still_appends_never_overwrites(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    app._capture_checkpoint_declined(_synthetic_prep())
+    first_content = log_path.read_text(encoding="utf-8")
+    app._capture_checkpoint_declined(_synthetic_prep())
+    second_content = log_path.read_text(encoding="utf-8")
+
+    assert first_content in second_content
+    assert second_content.count("## CHECKPOINT-DECLINED") == 2

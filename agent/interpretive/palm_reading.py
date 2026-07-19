@@ -1639,8 +1639,9 @@ def complete_palm_reading(
 ) -> PalmReadingResult:
     """S69 F-H P5: Stage 2 (claim_voicing.voice_claims) + display checks
     + decline block + DISCLAIMER + strip. Consumes a PalmReadingPrep from
-    prepare_palm_reading() (or a future P6 checkpoint step that inspects/
-    edits `prep.claims` first).
+    prepare_palm_reading() (or the S70 P6b checkpoint step that inspects/
+    acks (ACK-ONLY — claims are never edited; S70 ruling) `prep.claims`
+    first).
 
     NO retry at this layer -- claim_voicing.voice_claims() already owns
     its own single F2c retry internally; a validation failure here (voice

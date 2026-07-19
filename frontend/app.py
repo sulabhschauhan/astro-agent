@@ -23,7 +23,7 @@ from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf, _PRIORITY_ORDER
 from PIL import Image
 from agent.palm_processor import validate_palm_image, describe_palm_image, describe_hand_detail_image
-from agent.interpretive.palm_reading import generate_palm_reading
+from agent.interpretive.palm_reading import generate_palm_reading, prepare_palm_reading, complete_palm_reading
 from agent.infra.orchestrator import answer_question
 from agent.interpretive.answer_renderer import render_answer
 
@@ -183,6 +183,54 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
         f.write("\n".join(lines) + "\n")
 
 
+def _capture_checkpoint_declined(prep) -> None:
+    """
+    S70 P6b: append a "## CHECKPOINT-DECLINED" markdown block to
+    diagnostics/dogfood_capture.md when the DOGFOOD-path Stage-1 claims
+    checkpoint is declined -- the claims are discarded and Stage 2
+    (voicing) is never called, so there is no PalmReadingResult, no
+    reading_text, and no ring1_validation for this run; only the
+    claims_inventory section (same pipe-delimited format _capture_
+    dogfood_run() writes, P6a) plus the Stage-1 retry/failed-feature
+    diagnostics are captured.
+
+    Args:
+        prep: the PalmReadingPrep the user declined to ack (from
+            prepare_palm_reading()).
+    """
+    lines = [f"## CHECKPOINT-DECLINED {datetime.datetime.now().isoformat()}", ""]
+
+    lines.append("### claims_inventory")
+    if prep.claims:
+        for claim in prep.claims:
+            claim_text_oneline = claim.claim_text.replace("\n", " ")
+            lines.append(
+                f"{claim.claim_id} | {claim.feature} | {claim.chunk_id} | "
+                f"{claim.valence} | {claim.excluded_from_voice} | "
+                f"{claim.exclusion_reason} | {claim.condition_text} | "
+                f"{claim_text_oneline}"
+            )
+    else:
+        lines.append("claims_inventory: EMPTY")
+    lines.append("")
+
+    stage1_retry_features = prep.diagnostics.get("stage1_retry_features", ())
+    stage1_failed_features = prep.diagnostics.get("stage1_failed_features", ())
+    lines.append(
+        f"stage1_retry_features: "
+        f"{', '.join(stage1_retry_features) if stage1_retry_features else 'NONE'}"
+    )
+    lines.append(
+        f"stage1_failed_features: "
+        f"{', '.join(stage1_failed_features) if stage1_failed_features else 'NONE'}"
+    )
+    lines.append("")
+
+    _DOGFOOD_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(_DOGFOOD_LOG_PATH, "a", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+
+
 # ─── Page config (must be first Streamlit call) ───────────────────────────────
 
 st.set_page_config(
@@ -265,6 +313,12 @@ if "hand_detail_confirmed" not in st.session_state:
     st.session_state.hand_detail_confirmed = False
 if "palm_reading_result" not in st.session_state:
     st.session_state.palm_reading_result = None
+# S70 P6b: PalmReadingPrep from prepare_palm_reading(), set only on the
+# DOGFOOD checkpoint path while awaiting ack/decline -- None otherwise.
+# Every site that clears palm_reading_result above also clears this (S65
+# 4a missed-clear-site precedent).
+if "palm_prep" not in st.session_state:
+    st.session_state.palm_prep = None
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -475,6 +529,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                 st.session_state.palm_left_status    = None
                 st.session_state.palm_left_bytes     = None
                 st.session_state.palm_reading_result = None
+                st.session_state.palm_prep           = None
             elif st.session_state.palm_right_hash == _lh:
                 st.error("Same image uploaded for both hands — please upload each hand separately")
                 st.session_state.palm_left_str       = None
@@ -482,6 +537,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                 st.session_state.palm_left_status    = None
                 st.session_state.palm_left_bytes     = None
                 st.session_state.palm_reading_result = None
+                st.session_state.palm_prep           = None
             else:
                 if _vr["warn"]:
                     st.warning(_vr["warn_message"])
@@ -500,6 +556,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                     st.error(f"Could not read palm image: {e}")
                     st.session_state.palm_left_str       = None
                     st.session_state.palm_reading_result = None
+                    st.session_state.palm_prep           = None
     elif st.session_state.palm_left_hash is not None or st.session_state.palm_left_needs_reupload:
         st.session_state.palm_left_str            = None
         st.session_state.palm_left_hash           = None
@@ -511,6 +568,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
         st.session_state.palm_left_regen_warning  = None
         st.session_state["_palm_left_image_name"] = None
         st.session_state.palm_reading_result      = None
+        st.session_state.palm_prep                = None
 
     # ── Left palm: preview, tips, hand confirmation ─────────────────────────────
     if uploaded_left is not None and st.session_state.palm_left_bytes is not None:
@@ -555,6 +613,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                     st.session_state.palm_left_regen_warning = None
                                     st.session_state.palm_left_confirmed     = False
                                     st.session_state.palm_reading_result     = None
+                                    st.session_state.palm_prep               = None
                                 except RuntimeError:
                                     st.session_state.palm_left_regen_warning = (
                                         "Could not regenerate the left palm reading after "
@@ -562,6 +621,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                         "Consider re-uploading this image."
                                     )
                                     st.session_state.palm_reading_result = None
+                                    st.session_state.palm_prep           = None
                                 try:
                                     st.session_state.palm_right_str = describe_palm_image(
                                         st.session_state.palm_right_bytes, "right"
@@ -569,6 +629,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                     st.session_state.palm_right_regen_warning = None
                                     st.session_state.palm_right_confirmed     = False
                                     st.session_state.palm_reading_result      = None
+                                    st.session_state.palm_prep                = None
                                 except RuntimeError:
                                     st.session_state.palm_right_regen_warning = (
                                         "Could not regenerate the right palm reading after "
@@ -576,6 +637,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                         "Consider re-uploading this image."
                                     )
                                     st.session_state.palm_reading_result = None
+                                    st.session_state.palm_prep           = None
                         else:
                             st.session_state.palm_left_str            = None
                             st.session_state.palm_left_hash           = None
@@ -585,6 +647,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                             st.session_state.palm_left_hand_confirmed = False
                             st.session_state.palm_left_needs_reupload = True
                             st.session_state.palm_reading_result      = None
+                            st.session_state.palm_prep                = None
                     except Exception as e:
                         st.error(f"Could not update palm state: {e}")
                     st.rerun()
@@ -609,6 +672,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                     st.session_state.palm_left_regen_warning  = None
                     st.session_state["_palm_left_image_name"] = None
                     st.session_state.palm_reading_result      = None
+                    st.session_state.palm_prep                = None
                     st.rerun()
         else:
             st.caption("✓ Description confirmed")
@@ -640,6 +704,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                 st.session_state.palm_right_status   = None
                 st.session_state.palm_right_bytes    = None
                 st.session_state.palm_reading_result = None
+                st.session_state.palm_prep           = None
             elif st.session_state.palm_left_hash == _rh:
                 st.error("Same image uploaded for both hands — please upload each hand separately")
                 st.session_state.palm_right_str      = None
@@ -647,6 +712,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                 st.session_state.palm_right_status   = None
                 st.session_state.palm_right_bytes    = None
                 st.session_state.palm_reading_result = None
+                st.session_state.palm_prep           = None
             else:
                 if _vr["warn"]:
                     st.warning(_vr["warn_message"])
@@ -665,6 +731,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                     st.error(f"Could not read palm image: {e}")
                     st.session_state.palm_right_str      = None
                     st.session_state.palm_reading_result = None
+                    st.session_state.palm_prep           = None
     elif st.session_state.palm_right_hash is not None or st.session_state.palm_right_needs_reupload:
         st.session_state.palm_right_str            = None
         st.session_state.palm_right_hash           = None
@@ -676,6 +743,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
         st.session_state.palm_right_regen_warning  = None
         st.session_state["_palm_right_image_name"] = None
         st.session_state.palm_reading_result       = None
+        st.session_state.palm_prep                 = None
 
     # ── Right palm: preview, tips, hand confirmation ────────────────────────────
     if uploaded_right is not None and st.session_state.palm_right_bytes is not None:
@@ -720,6 +788,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                     st.session_state.palm_left_regen_warning = None
                                     st.session_state.palm_left_confirmed     = False
                                     st.session_state.palm_reading_result     = None
+                                    st.session_state.palm_prep               = None
                                 except RuntimeError:
                                     st.session_state.palm_left_regen_warning = (
                                         "Could not regenerate the left palm reading after "
@@ -727,6 +796,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                         "Consider re-uploading this image."
                                     )
                                     st.session_state.palm_reading_result = None
+                                    st.session_state.palm_prep           = None
                                 try:
                                     st.session_state.palm_right_str = describe_palm_image(
                                         st.session_state.palm_right_bytes, "right"
@@ -734,6 +804,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                     st.session_state.palm_right_regen_warning = None
                                     st.session_state.palm_right_confirmed     = False
                                     st.session_state.palm_reading_result      = None
+                                    st.session_state.palm_prep                = None
                                 except RuntimeError:
                                     st.session_state.palm_right_regen_warning = (
                                         "Could not regenerate the right palm reading after "
@@ -741,6 +812,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                                         "Consider re-uploading this image."
                                     )
                                     st.session_state.palm_reading_result = None
+                                    st.session_state.palm_prep           = None
                         else:
                             st.session_state.palm_right_str            = None
                             st.session_state.palm_right_hash           = None
@@ -750,6 +822,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                             st.session_state.palm_right_hand_confirmed = False
                             st.session_state.palm_right_needs_reupload = True
                             st.session_state.palm_reading_result       = None
+                            st.session_state.palm_prep                 = None
                     except Exception as e:
                         st.error(f"Could not update palm state: {e}")
                     st.rerun()
@@ -774,6 +847,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                     st.session_state.palm_right_regen_warning  = None
                     st.session_state["_palm_right_image_name"] = None
                     st.session_state.palm_reading_result       = None
+                    st.session_state.palm_prep                 = None
                     st.rerun()
         else:
             st.caption("✓ Description confirmed")
@@ -825,6 +899,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                 st.session_state.hand_detail_confirmed = False
                 st.session_state["_hand_detail_image_name"] = uploaded_hand_detail.name
                 st.session_state.palm_reading_result   = None
+                st.session_state.palm_prep             = None
                 st.success("Hand detail analysed — review below")
             except ValueError as e:
                 st.error(f"Could not analyse hand detail image: {e}")
@@ -833,6 +908,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                 st.session_state.hand_detail_bytes     = None
                 st.session_state.hand_detail_confirmed = False
                 st.session_state.palm_reading_result   = None
+                st.session_state.palm_prep             = None
     elif st.session_state["_hand_detail_image_name"] is not None:
         st.session_state.hand_detail_str       = None
         st.session_state.hand_detail_hash      = None
@@ -840,6 +916,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
         st.session_state.hand_detail_confirmed = False
         st.session_state["_hand_detail_image_name"] = None
         st.session_state.palm_reading_result   = None
+        st.session_state.palm_prep             = None
 
     # ── Hand detail: review, confirm/discard (mirrors palm checkpoint) ────────
     if uploaded_hand_detail is not None and st.session_state.hand_detail_bytes is not None:
@@ -861,6 +938,7 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
                     st.session_state.hand_detail_confirmed = False
                     st.session_state["_hand_detail_image_name"] = None
                     st.session_state.palm_reading_result   = None
+                    st.session_state.palm_prep             = None
                     st.rerun()
         else:
             st.caption("✓ Description confirmed")
@@ -890,29 +968,37 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
             _confirmed_hand_detail = (
                 st.session_state.hand_detail_str if st.session_state.hand_detail_confirmed else None
             )
-            try:
-                with st.spinner("Generating your palm reading…"):
-                    st.session_state.palm_reading_result = generate_palm_reading(
-                        palm_left=_confirmed_left,
-                        palm_right=_confirmed_right,
-                        hand_detail=_confirmed_hand_detail,
-                    )
-                if _DOGFOOD_CAPTURE:
-                    # Fail-soft: a capture error must NEVER block or alter
-                    # generation or display -- already-set session state
-                    # above is untouched regardless of what happens here.
-                    try:
-                        _capture_dogfood_run(
-                            _confirmed_left,
-                            _confirmed_right,
-                            _confirmed_hand_detail,
-                            st.session_state.palm_reading_result,
+            if _DOGFOOD_CAPTURE:
+                # S70 P6b: DOGFOOD path stops at Stage 1 only -- no
+                # voicing call yet. The blocking claims-inventory
+                # checkpoint (main area, below) gates the Stage-2
+                # complete_palm_reading() call behind an explicit human
+                # ack, same AI-reviewing-AI discipline as the CLAUDE.md
+                # "Palm human checkpoint" lock. A new click here while a
+                # checkpoint is already pending simply replaces palm_prep.
+                try:
+                    with st.spinner("Extracting claims (Stage 1)…"):
+                        st.session_state.palm_prep = prepare_palm_reading(
+                            palm_left=_confirmed_left,
+                            palm_right=_confirmed_right,
+                            hand_detail=_confirmed_hand_detail,
                         )
-                        st.caption("captured to dogfood log")
-                    except Exception:
-                        logger.warning("app.py: dogfood capture failed", exc_info=True)
-            except (ValueError, RuntimeError) as e:
-                st.error(str(e))
+                    st.session_state.palm_reading_result = None
+                    st.rerun()
+                except (ValueError, RuntimeError) as e:
+                    st.error(str(e))
+            else:
+                # END-USER path: unchanged -- synchronous one-shot call,
+                # no checkpoint.
+                try:
+                    with st.spinner("Generating your palm reading…"):
+                        st.session_state.palm_reading_result = generate_palm_reading(
+                            palm_left=_confirmed_left,
+                            palm_right=_confirmed_right,
+                            hand_detail=_confirmed_hand_detail,
+                        )
+                except (ValueError, RuntimeError) as e:
+                    st.error(str(e))
 
 if st.session_state.get("pdf_context"):
     _astrosage_sections = _split_astrosage_sections(st.session_state.pdf_context)
@@ -922,6 +1008,89 @@ if st.session_state.get("pdf_context"):
                 continue
             st.subheader(_section_name)
             st.text(_section_content)
+
+# S70 P6b: DOGFOOD-path blocking checkpoint -- only ever populated on the
+# _DOGFOOD_CAPTURE-on path (see the button block above), so this panel
+# never shows on the END-USER path. ACK-ONLY: claims render read-only,
+# no edit widgets of any kind. Gated on palm_reading_result being None so
+# the panel disappears the instant Ack (or a fresh Generate click, or any
+# of the confirmed-input clear sites above) resolves it.
+if st.session_state.palm_prep is not None and st.session_state.palm_reading_result is None:
+    _prep = st.session_state.palm_prep
+    st.subheader("Review extracted claims (Stage 1)")
+    st.caption(
+        "Every claim extracted from your confirmed hand descriptions, "
+        "including any excluded from voicing. Nothing here is editable — "
+        "ack to proceed to voicing, or decline to discard these claims."
+    )
+    if _prep.claims:
+        for _claim in _prep.claims:
+            _excl = (
+                f"excluded ({_claim.exclusion_reason})"
+                if _claim.excluded_from_voice
+                else "included"
+            )
+            st.caption(
+                f"{_claim.claim_id} | {_claim.feature} | {_claim.chunk_id} | "
+                f"{_claim.valence} | {_excl}"
+            )
+    else:
+        st.caption("No claims extracted.")
+    _stage1_retry_features = _prep.diagnostics.get("stage1_retry_features", ())
+    _stage1_failed_features = _prep.diagnostics.get("stage1_failed_features", ())
+    st.caption(
+        f"stage1_retry_features: "
+        f"{', '.join(_stage1_retry_features) if _stage1_retry_features else 'NONE'}"
+    )
+    st.caption(
+        f"stage1_failed_features: "
+        f"{', '.join(_stage1_failed_features) if _stage1_failed_features else 'NONE'}"
+    )
+
+    _ack_col, _decline_col = st.columns(2)
+    with _ack_col:
+        if st.button("Ack — proceed to voicing", key="checkpoint_ack_btn"):
+            try:
+                with st.spinner("Voicing your palm reading (Stage 2)…"):
+                    st.session_state.palm_reading_result = complete_palm_reading(_prep)
+                st.session_state.palm_prep = None
+                if _DOGFOOD_CAPTURE:
+                    # Fail-soft, same pattern as the END-USER path's
+                    # capture call: a capture error must never block or
+                    # alter generation/display.
+                    _ack_confirmed_left = (
+                        st.session_state.palm_left_str if st.session_state.palm_left_confirmed else None
+                    )
+                    _ack_confirmed_right = (
+                        st.session_state.palm_right_str if st.session_state.palm_right_confirmed else None
+                    )
+                    _ack_confirmed_hand_detail = (
+                        st.session_state.hand_detail_str if st.session_state.hand_detail_confirmed else None
+                    )
+                    try:
+                        _capture_dogfood_run(
+                            _ack_confirmed_left,
+                            _ack_confirmed_right,
+                            _ack_confirmed_hand_detail,
+                            st.session_state.palm_reading_result,
+                        )
+                        st.caption("captured to dogfood log")
+                    except Exception:
+                        logger.warning("app.py: dogfood capture failed", exc_info=True)
+                st.rerun()
+            except RuntimeError as e:
+                st.error(str(e))
+                # palm_prep is retained on failure -- user may retry ack
+                # or decline.
+    with _decline_col:
+        if st.button("Decline — discard claims", key="checkpoint_decline_btn"):
+            if _DOGFOOD_CAPTURE:
+                try:
+                    _capture_checkpoint_declined(_prep)
+                except Exception:
+                    logger.warning("app.py: checkpoint-declined capture failed", exc_info=True)
+            st.session_state.palm_prep = None
+            st.rerun()
 
 if st.session_state.palm_reading_result is not None:
     _reading = st.session_state.palm_reading_result
@@ -935,6 +1104,23 @@ if st.session_state.palm_reading_result is not None:
         with st.expander("Classical sources"):
             for _src in _reading.sources:
                 st.caption(f"{_src['book']}, p.{_src['page']} (score: {_src['score']})")
+        # S70 P6b: non-blocking, display-only, never gates the reading --
+        # the full Stage-1 inventory (incl. excluded_from_voice claims),
+        # collapsed by default.
+        with st.expander("Claims inventory"):
+            if _reading.claims:
+                for _claim in _reading.claims:
+                    _excl = (
+                        f"excluded ({_claim.exclusion_reason})"
+                        if _claim.excluded_from_voice
+                        else "included"
+                    )
+                    st.caption(
+                        f"{_claim.claim_id} | {_claim.feature} | {_claim.chunk_id} | "
+                        f"{_claim.valence} | {_excl}"
+                    )
+            else:
+                st.caption("No claims extracted.")
 
 if not st.session_state.chart_ready:
     st.info("Enter your birth details in the sidebar to begin.")
