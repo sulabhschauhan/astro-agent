@@ -127,9 +127,37 @@ _FEATURE_REGISTRY: tuple[str, ...] = (
 # Scope guard: this module's per-feature gate only. Revisit trigger: a
 # future pass-3 finding that one of these phrases is itself informative
 # for some feature (none observed yet).
-_ABSENCE_PHRASES: tuple[str, ...] = (
-    "not clearly visible", "no clear marks", "unremarkable",
-    "not observed", "not visible", "none",
+#
+# F-B (S68 pass-3 Findings #1) UPDATE: this fixed-substring list MISSED
+# legitimate word-order variants -- confirmed on real production data
+# (diagnostics/dogfood_capture.md's 2026-07-18 RUN blocks). LEFT's real
+# MARKS field, "No marks clearly visible.", was NOT caught (the entry
+# below is "no clear marks" -- that exact word order -- and this text
+# has "marks" BEFORE "clearly", not after), while RIGHT's differently-
+# worded "No clear marks such as crosses..." WAS caught -- the SAME
+# genuine per-hand absence finding was inconsistently classified,
+# letting the feature slip past _is_genuine_negative_absence (which
+# requires ALL sources absence-phrased) into a real query that returned
+# junk (scores 0.348-0.365, barely above the 0.30 noise floor).
+#
+# Two-tier fix, not a rewrite -- _ABSENCE_PHRASES (TIER 1, below) is the
+# OLD list VERBATIM, just promoted to compiled case-insensitive regex
+# (zero behavior change: every string here is `re.escape`d, so each
+# pattern matches exactly the same substring the old `in` check did).
+# TIER 2 (_ABSENCE_PATTERNS_BY_FEATURE, defined after _SUPPORT_NEEDLES
+# below, since it reuses that dict as its noun source) adds NEW
+# per-feature noun-anchored "no <optional qualifier> <noun> <anything>
+# visible" patterns for cases where the value text explicitly NAMES the
+# feature (e.g. "No marks clearly visible."). TIER 1 stays feature-
+# agnostic on purpose -- a field's own LABEL already establishes context
+# (e.g. "LIFE LINE: Not clearly visible." never says "life" in its
+# value), so these short generic markers still need no noun to fire.
+_ABSENCE_PHRASES: tuple[re.Pattern, ...] = tuple(
+    re.compile(re.escape(phrase), re.IGNORECASE)
+    for phrase in (
+        "not clearly visible", "no clear marks", "unremarkable",
+        "not observed", "not visible", "none",
+    )
 )
 
 _FIELD_LINE = re.compile(r"^([A-Z][A-Z ]{2,}):\s*(.*)$")
@@ -204,9 +232,20 @@ def _clean_quality_prefix(quality: str, feature: str) -> str:
     return q or quality
 
 
-def _is_absence(text: str) -> bool:
-    low = text.lower()
-    return any(phrase in low for phrase in _ABSENCE_PHRASES)
+def _is_absence(text: str, feature: str | None = None) -> bool:
+    """TIER 1 (_ABSENCE_PHRASES) always runs, feature-agnostic. TIER 2
+    (_ABSENCE_PATTERNS_BY_FEATURE, defined below _SUPPORT_NEEDLES) only
+    runs when `feature` is given -- `feature=None` is the pre-F-B
+    behavior, kept for scripts/probe_fc_retrieval.py's existing
+    single-argument call (a diagnostics-only script, out of this
+    prompt's scope to touch)."""
+    if any(p.search(text) for p in _ABSENCE_PHRASES):
+        return True
+    if feature is not None:
+        pattern = _ABSENCE_PATTERNS_BY_FEATURE.get(feature)
+        if pattern is not None and pattern.search(text):
+            return True
+    return False
 
 
 def _extract_needle_clause(text: str, needle: str) -> str:
@@ -298,7 +337,7 @@ def _resolve_feature_quality(feature: str, raw_texts: list[str]) -> str | None:
     if not raw_texts:
         return None
 
-    non_absent = [t for t in raw_texts if not _is_absence(t)]
+    non_absent = [t for t in raw_texts if not _is_absence(t, feature)]
     if not non_absent:
         return None
 
@@ -451,6 +490,48 @@ _SUPPORT_NEEDLES: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# F-B (S68 pass-3 Findings #1) TIER 2: per-feature noun-anchored absence
+# patterns, reusing _SUPPORT_NEEDLES as the SAME single source of truth
+# for each feature's noun (not a new, separately-maintained noun list --
+# "mark"/"life"/"venus" etc. already mean "this word names the feature"
+# everywhere else in this module). "marking" is added ONLY for the
+# markings feature (`_ABSENCE_NOUN_EXTRAS` below) -- a natural inflection
+# of "mark" (confirmed on real production data: HAND_DETAIL's own
+# "There are no unusual markings or features visible on the hand."),
+# not a generalizable pattern worth adding to _SUPPORT_NEEDLES itself
+# (that dict scores CHUNK relevance, a different, unrelated use).
+#
+# Pattern shape: "no" + 0-3 filler words + (noun, optional trailing "s")
+# + 0-6 filler words + "visible" -- deliberately requires the noun
+# BETWEEN "no" and "visible", per-FEATURE (not a generic "no...visible"
+# match). This is the conservative-by-construction guard the design
+# calls for: real production LIFE/HEAD/HEART LINE text reads "no
+# breaks, chains, forks, or islands visible" (line-QUALITY detail, not
+# feature absence) -- since "life"/"head"/"heart" never appear in that
+# clause, and this module checks each feature against ONLY its own
+# noun, that sentence correctly does NOT match for any of those three
+# features, even though "island" (a DIFFERENT feature's -- markings' --
+# own needle) is literally present in the text. Verified against this
+# exact live sentence (diagnostics/dogfood_capture.md's 2026-07-18 RUN
+# blocks), not a synthetic case.
+_ABSENCE_NOUN_EXTRAS: dict[str, tuple[str, ...]] = {
+    "markings/other features": ("marking",),
+}
+
+
+def _build_absence_noun_pattern(needles: tuple[str, ...]) -> re.Pattern:
+    noun_alt = "|".join(re.escape(n) for n in needles)
+    return re.compile(
+        rf"\bno\b(?:\s+\w+){{0,3}}\s+(?:{noun_alt})s?\b(?:\s+\w+){{0,6}}\s+visible\b",
+        re.IGNORECASE,
+    )
+
+
+_ABSENCE_PATTERNS_BY_FEATURE: dict[str, re.Pattern] = {
+    feature: _build_absence_noun_pattern(needles + _ABSENCE_NOUN_EXTRAS.get(feature, ()))
+    for feature, needles in _SUPPORT_NEEDLES.items()
+}
+
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
 # Justification: S67 R1 probe (commit 0a738c3) measured a negative-
 # control ceiling of 0.2192 (an unrelated "steam engine boiler
@@ -502,12 +583,13 @@ def _is_genuine_negative_absence(feature: str, raw_texts: list[str]) -> bool:
     at all (e.g. "mount of jupiter" with no hand_detail) -- that case
     DOES belong in unsupported_features/the decline block, since it was
     genuinely never interpretable. Also False whenever a real,
-    non-absent quality was observed (e.g. "Barely visible" is not one
-    of R1's _ABSENCE_PHRASES) even if no chunk ends up supporting it --
-    that is a doctrine-coverage gap, not a negative finding."""
+    non-absent quality was observed (e.g. "Barely visible" is not caught
+    by _ABSENCE_PHRASES or _ABSENCE_PATTERNS_BY_FEATURE) even if no
+    chunk ends up supporting it -- that is a doctrine-coverage gap, not
+    a negative finding."""
     if not raw_texts:
         return False
-    return all(_is_absence(t) for t in raw_texts)
+    return all(_is_absence(t, feature) for t in raw_texts)
 
 
 def _apply_support_gate(

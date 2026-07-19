@@ -1,120 +1,158 @@
-# S68 F-A: coverage check -- test alignment + new coverage tests
+# S68 F-B: _ABSENCE_PHRASES regex broadening -- implementation report
 
-Two-commit sequence per instructing prompt's push discipline (F-C incident,
-not repeating it): Commit A carries the already-correct implementation
-(uncommitted from the prior prompt), Commit B carries this test-alignment
-pass. Full suite verified green LOCALLY before either commit is pushed --
-main is never red remotely at any point.
+## Source-path correction (verify-before-transcribe)
 
-## Part 1 -- alignment: 1 test broke, exactly as predicted
+The instructing prompt named `.claude/read_prompt.md` as the location of
+the 2026-07-18 F5-captured RUN blocks. That file's content has since been
+overwritten by an unrelated later commit (`2bb2e44 Update
+.claude/read_prompt.md content` -- it now holds a Sade Sati/marriage
+question, nothing palm-related). The real capture log is
+`diagnostics/dogfood_capture.md` (`frontend/app.py`'s `_capture_dogfood_
+run()` writes there, confirmed by reading the source, not assumed). It
+contains **3** 2026-07-18 RUN blocks, not 4 (`11:34:32`, `11:35:40`,
+`11:38:22` -- matching SESSION_LOG's own Session 68 Run A/B/C labels).
+Used those 3 for this measure-first pass; noted here rather than blocking
+on the discrepancy, since the 3 blocks are the complete, real,
+already-ratified (Ring 3 pass 3) capture set.
 
-Grepped this file for every assertion shape that would be sensitive to an
-extra coverage-only retry call: `completions.calls) ==` (13 hits) and
-`retry_used is False` (2 hits). Walked each hit against the actual
-observed/supported-feature shape of its test:
+## What changed
 
-- **Broke:** `test_exactly_one_llm_call_when_first_draft_passes`
-  (line ~456). Fixture observes 2 features (life line, heart line, both
-  supported via `_FakeSearch([_chunk()])`), stub is `_CLEAN_STUB_TEXT`
-  (entirely `[OBS]`-tagged, cites nothing). Both features come back
-  `supported but never cited` -> 2 coverage misses -> retry fires ->
-  2 LLM calls, not the asserted 1.
-- **Did NOT break** (11 other `== N` call-count hits, both
-  `retry_used is False` hits): every one of them either (a) already
-  expects >=1 failure for an unrelated reason (jargon/self-help/banned-
-  mention/exemplar-echo), so the retry it triggers was already accounted
-  for regardless of coverage, or (b) doesn't assert call count/retry_used
-  at all -- a silent coverage-triggered second call doesn't touch what
-  the test actually checks (sources, search-call count, message[0]
-  content, etc.). Confirmed by inspection, not guessed: for each, traced
-  which registry features are `supported` given that test's stub fixture
-  and whether its stub cites them.
+Two-tier fix in `agent/interpretive/palm_reading.py`'s `_is_absence()`:
+- **TIER 1** (`_ABSENCE_PHRASES`): the OLD 6-phrase fixed-substring list,
+  unchanged in content, recompiled as case-insensitive regex (`re.escape`
+  per phrase -- byte-identical matching behavior to the old `in` check).
+- **TIER 2** (`_ABSENCE_PATTERNS_BY_FEATURE`, new): per-feature,
+  noun-anchored `no <0-3 filler words> <feature noun> <0-6 filler words>
+  visible` patterns, reusing `_SUPPORT_NEEDLES` as the noun source (one
+  extra inflection, "marking", added only for the markings feature).
+  `_is_absence()` gained an optional `feature` parameter; both call sites
+  (`_resolve_feature_quality`, `_is_genuine_negative_absence`) now pass
+  it. `scripts/probe_fc_retrieval.py`'s existing single-argument call
+  (`_is_absence(t)`) keeps working unmodified -- `feature=None` is the
+  pre-F-B behavior (TIER 1 only).
 
-Fix: added a dedicated `_TWO_FEATURE_CHUNK` / `_CLEAN_TWO_FEATURE_STUB_TEXT`
-pair (not a `_CLEAN_STUB_TEXT` edit -- that constant is shared by ~9 other
-tests and the instructing prompt explicitly names this "dedicated variant
-stub" branch to avoid perturbing them). The chunk deliberately carries
-BOTH needles ("life", "heart") so the same chunk_id survives the support
-gate under both observed features; the stub cites it once, satisfying
-coverage for both (the shared-chunk accepted-gap mechanism doing double
-duty as the fix). `test_exactly_one_llm_call_when_first_draft_passes` now
-also asserts `result.validation.warnings == ()` to make the "truly clean"
-claim explicit, not just implicit in the call count.
+## Sanity check against the design's own false-positive warning
 
-No other stub text or test file required a change.
+Before running classification over the captured runs, verified the
+literal danger case the design called out -- direct interpreter probe,
+not a guess:
 
-## Part 2 -- 7 new coverage tests
-
-Direct-function tests (`palm_reading._check_feature_coverage`, same
-convention as items 3/16's direct-pattern proofs):
-1. `test_coverage_supported_feature_never_cited_produces_verbatim_warning`
-2. `test_coverage_obs_only_mention_of_supported_feature_still_a_miss`
-   (landmark-exclusion proof)
-3. `test_coverage_cited_chunk_id_marks_feature_addressed_no_warning`
-4. `test_coverage_shared_chunk_id_cited_once_marks_both_features_addressed`
-   (accepted false-positive boundary, documented not fixed)
-
-`generate_palm_reading()` integration tests:
-5. `test_coverage_only_retry_fires_and_clean_retry_clears_warnings` --
-   zero Ring 1 failures, one coverage miss on the first draft -> retry
-   fires via the existing mechanism (`retry_used=True`, no new flag);
-   retry cites the chunk -> clean final pass, empty warnings.
-6. `test_coverage_fail_open_final_still_missing_warning_present_reading_displays`
-   -- retry draft STILL doesn't cite -> no third attempt, `passed=True`,
-   warning present in `validation.warnings`, `DISCLAIMER` present in
-   `reading_text` (proves display is never blocked).
-
-Dataclass default:
-7. `test_validation_report_warnings_defaults_to_empty_tuple` -- bare
-   `ValidationReport(passed=True, failures=())` (the exact shape
-   `tests/test_app_dogfood_capture.py` already uses) still works.
-
-## MEASURE-FIRST demo 1: coverage-warning verbatim (supported thumb, zero citations)
-
-Ran `_check_feature_coverage` directly (not through the full LLM-call
-pipeline -- deterministic function, no live API needed) against a
-synthetic supported-but-uncited `thumb`:
-
-```python
->>> from agent.interpretive import palm_reading
->>> gated_results = {"thumb": [{"chunk_id": "cheiroslanguageo00chei_1_p200_c1", "text": "...", "score": 0.6}]}
->>> tagged_text = "The hand shows a broad, strong thumb.[OBS]"
->>> palm_reading._check_feature_coverage(tagged_text, gated_results, ("thumb",))
-['coverage: thumb supported but never cited']
+```
+_is_absence('no breaks, chains, forks, or islands visible.', 'life line') -> False
+_is_absence('no breaks, chains, forks, or islands visible.', 'head line') -> False
+_is_absence('no breaks, chains, forks, or islands visible.', 'heart line') -> False
 ```
 
-Verbatim match to the design's required warning string
-(`"coverage: <feature> supported but never cited"`). Codified as
-`test_coverage_supported_feature_never_cited_produces_verbatim_warning`.
+This is the REAL LEFT-hand LIFE/HEAD/HEART LINE text from all 3 captured
+runs, containing "islands" -- a literal `markings/other features` needle
+-- yet it correctly stays unmatched for all three line features, because
+each feature's noun pattern requires ITS OWN noun ("life"/"head"/"heart"),
+none of which appear in that clause. Confirms per-feature noun anchoring
+(not a generic "no...visible" match) is doing real protective work here,
+not just in theory.
 
-## MEASURE-FIRST demo 2: shared-chunk false-positive boundary
+## MEASURE-FIRST: OLD vs NEW classification, all 3 RUN blocks
 
-Same function, a chunk_id gated under two DIFFERENT features (`thumb`,
-`fingers`), cited once:
+LEFT and RIGHT hand text is byte-identical across all 3 runs (regenerate/
+add-HAND_DETAIL only); HAND_DETAIL exists only in the 3rd run
+(`11:38:22`). One consolidated table therefore covers all 3 runs, with
+HAND_DETAIL fields marked as run-3-only.
 
-```python
->>> shared_chunk = {"chunk_id": "cheiroslanguageo00chei_1_p210_c3", "text": "...", "score": 0.6}
->>> gated_results = {"thumb": [shared_chunk], "fingers": [shared_chunk]}
->>> tagged_text = "The thumb is broad and strong.[cheiroslanguageo00chei_1_p210_c3]"
->>> palm_reading._check_feature_coverage(tagged_text, gated_results, ("thumb", "fingers"))
-[]
-```
+| Source | Field text | Feature | OLD | NEW | Delta |
+|---|---|---|---|---|---|
+| LEFT | "no breaks, chains, forks, or islands visible" | life line | not-absence | not-absence | none |
+| LEFT | "no breaks, chains, forks, or islands visible" | head line | not-absence | not-absence | none |
+| LEFT | "no breaks, chains, forks, or islands visible" | heart line | not-absence | not-absence | none |
+| LEFT | "Barely visible." | fate line | not-absence | not-absence | none |
+| LEFT | "Mount of Venus appears developed" (clause) | mount of venus | not-absence | not-absence | none |
+| LEFT | **"No marks clearly visible."** | markings/other features | not-absence | **absence** | **FLIP** |
+| RIGHT | "no clear breaks or forks" (no "visible") | life line | not-absence | not-absence | none |
+| RIGHT | "Sun line is not clearly visible" (clause) | sun line | absence (TIER1) | absence (TIER1) | none |
+| RIGHT | "Mount of Venus appears developed" (clause) | mount of venus | not-absence | not-absence | none |
+| RIGHT | "No clear marks such as crosses, stars, grilles, squares, or moles visible." | markings/other features | absence (TIER1) | absence (TIER1) | none |
+| HAND_DETAIL (run 3 only) | "A prominent line curves around the base of the thumb." | life line | not-absence | not-absence | none |
+| HAND_DETAIL (run 3 only) | "This line runs horizontally..." | head line | not-absence | not-absence | none |
+| HAND_DETAIL (run 3 only) | "The heart line is visible, curving..." | heart line | not-absence | not-absence | none |
+| HAND_DETAIL (run 3 only) | "There is no clearly visible fate line in the image." | fate line | not-absence | not-absence | **none (see below)** |
+| HAND_DETAIL (run 3 only) | "...appear slightly raised" (venus/jupiter clause) | mount of venus / mount of jupiter | not-absence | not-absence | none |
+| HAND_DETAIL (run 3 only) | **"There are no unusual markings or features visible on the hand."** | markings/other features | not-absence | **absence** | **FLIP** |
 
-Confirms the accepted V1 gap verbatim: citing a chunk shared by two
-features marks BOTH addressed, even though the citing sentence is only
-actually about `thumb` -- `fingers` gets a free pass with zero warning.
-Direction of error: a real omission (fingers never really discussed) can
-go un-warned; the check never produces a spurious warning for a
-genuinely-cited feature. Codified as
-`test_coverage_shared_chunk_id_cited_once_marks_both_features_addressed`.
+**Every delta is exactly the expected one**: the 2 MARKS/markings-class
+fields (LEFT's field-label text, HAND_DETAIL's bullet text) flip from
+"not-absence" to "absence" -- both previously-missed word-order variants
+of the pass-3 finding. Every LINE-quality field (all 3 lines' "no
+breaks/chains/forks/islands" text, both hands' fate line, life line's
+"no clear breaks or forks") is unchanged. **No unexpected delta occurred
+-- nothing to STOP on.**
+
+### One observed-but-out-of-scope non-catch (documented, not a bug)
+
+HAND_DETAIL's fate line text, "There is no clearly visible fate line in
+the image.", stays `not-absence` under BOTH old and new code -- not a
+regression (it was already a miss), and not fixed by this pass. Reason:
+its word order is `no <qualifier> visible <noun>` (noun AFTER "visible"),
+the reverse of the design's specified `no <qualifier> <noun> <anything>
+visible` target shape. This is a real but DIFFERENT word-order gap than
+the one F-B was scoped to fix (the pass-3 finding was specifically about
+`no <qualifier> <noun>` vs `no <noun> <qualifier>` ordering, both noun-
+before-visible). Not escalated here: this exact field is harmless in
+practice (fate line's OTHER 2 sources -- LEFT "Barely visible.", RIGHT's
+real quality text -- already carry it to a genuine, correctly-supported
+retrieval in the actual captured Run 3 output, `unsupported_features:
+()`), so nothing downstream is currently affected by leaving this
+narrower gap open.
+
+## The knock-on (pass-3-vs-pass-4 comparability evidence)
+
+For all 3 captured runs, `markings/other features`'s raw-text set is now
+ALL absence-phrased (LEFT + RIGHT always; + HAND_DETAIL in run 3), so
+`_is_genuine_negative_absence` now returns `True` where it previously
+returned `False`. Concretely, per run:
+- The feature is REMOVED from both `supported_features` and
+  `unsupported_features` entirely (the genuine-negative-absence
+  pathway -- nothing to support, nothing to decline).
+- Zero `search()` calls fire for it (previously 1, since a query was
+  built from the un-recognized "absence" text).
+- Its previously-borderline sources disappear from `sources` -- these
+  were real production near-floor hits (0.3654/0.3639/0.3484 in run 1/2,
+  0.4115/0.4078 in run 3, all barely above the 0.30 `_SUPPORT_SCORE_
+  FLOOR`) that were junk retrieval symptomatic of exactly this bug, not
+  genuine markings doctrine.
+- The decline block no longer names it (it was never named there before
+  either, since it was `supported`, not `unsupported` -- this is a
+  change in WHY it's absent from the decline block, not a visible text
+  change).
+- `_check_feature_coverage`'s denominator shrinks by 1 for these 3 runs
+  (one fewer `supported` feature that coverage has to check) -- any
+  future pass-4 scoring against these same captures will see a smaller
+  supported-feature set than pass-3's `ring3_palm_rubric_S67_pass3.md`
+  scored against. This is the fix working as intended, not a
+  regression: pass-3's own Findings #1 flagged this exact field as
+  "routing a genuinely-absent field through the fail-open real-query
+  path instead of genuine-negative-absence... a latent risk" -- that
+  risk is now closed for this field, and any pass-4 comparison to
+  pass-3's markings-related findings should account for the feature no
+  longer appearing in `supported_features` at all.
+
+## Tests
+
+Zero test-file edits needed. Full suite run FIRST, unprompted (not
+assumed clean): **3220 passed, 3 skipped** -- exact match to the F-A
+baseline, 0 regressions, 0 new failures. Grepped
+`tests/interpretive/test_palm_reading.py` for existing MARKS fixtures:
+all 3 hits already read `"MARKS: No clear marks visible."` -- already a
+TIER-1 match under the OLD code (that exact word order was never the bug
+pass-3 found), so no existing test exercised the word-order gap this
+prompt fixes. This explains the clean run: the fix closes a gap real
+production dogfood data hit but the existing synthetic test suite never
+happened to construct.
+
+Per the instructing prompt's two-commit-one-push discipline: since
+nothing broke, this is a SINGLE commit, no commit B needed.
 
 ## Full pytest result
 
-`python -m pytest -q tests/interpretive/test_palm_reading.py`:
-**60 passed** (was 53 before this pass; +7 new coverage tests, 0 broken,
-0 skipped).
-
-`python -m pytest -q` (full suite): **3220 passed, 3 skipped** --
-baseline was 3213/3; delta is exactly the 7 new tests, 0 regressions
-anywhere else in the suite. Verified LOCALLY green before either commit
-of the 2-commit sequence was pushed.
+`python -m pytest -q`: **3220 passed, 3 skipped** -- baseline was 3220/3
+(post F-A), 0 regressions, 0 new tests this pass (a pure classification-
+logic broadening with no user-visible surface change to test against
+beyond what the suite already covers).
