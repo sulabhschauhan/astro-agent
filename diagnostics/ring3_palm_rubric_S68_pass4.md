@@ -1,7 +1,7 @@
 # Ring 3 — T4 Human-Rubric Ratification Artifact (Session 68) — Pass 4
 
-**STATUS: SCORED — pass 4, verdict PENDING (ratification is design-chat's
-call, per this session's own instruction). Frozen record; keep forever.**
+**STATUS: SCORED — pass 4, verdict NOT RATIFIED (2026-07-19). Frozen
+record; keep forever.**
 
 Preconditions: S68 F-C (A1 chunk-anchor tagging + Ring 1 V-1/V-2, `73dc0a5`
 et al.), F-A (supported-feature coverage check, `d54c968`/`afe6b4f`), F-B
@@ -137,11 +137,15 @@ Per-draft, verbatim: for each of the 3 fail-closed attempts, was the
 "stability"? See Appendix below — done.
 
 ### 5. P7 section
-PENDING USER RATIFICATION. Procedural F1 confirmation (the human-checkpoint
-UI was exercised live for all 3 runs' descriptions) is NOT the same as
-artifact sign-off, per pass-3's own precedent (which required a SEPARATE
-design-chat visual re-verification step before marking P7 OK). Not done in
-this session — recorded as pending, not assumed.
+**RATIFIED (2026-07-19, design chat).** Procedural F1 confirmation (the
+human-checkpoint UI exercised live for all 3 runs' descriptions) is NOT
+itself the same as artifact sign-off, per pass-3's own precedent (which
+required a SEPARATE design-chat visual re-verification step before
+marking P7 OK) — that separate step happened here: the user reviewed the
+fresh 2026-07-19 uploads and confirmed the descriptions against them in
+design chat, and design chat proceeding to close-out on that basis is
+the sign-off itself, same standard pass-3 applied. See the P7 section
+below for the final wording.
 
 ---
 
@@ -360,13 +364,15 @@ composition-habit-driven, not retrieval-driven? Not decided here.
 
 ## P7 — Vision fidelity
 
-**PENDING USER RATIFICATION.** Per adjudication #5: the S65/S66 F1
-human-checkpoint UI was exercised procedurally for all 3 runs (LEFT,
-RIGHT, and Run C's HAND_DETAIL each displayed and confirmed before
-generation) — this is NOT the same as the design-chat visual
-re-verification pass-3's own P7 ratification required (user reviewing
-confirmed descriptions against the actual uploaded photos). Not performed
-in this session. **P7: PENDING**, not scored either way.
+**RATIFIED (2026-07-19, design chat).** The S65/S66 F1 human-checkpoint UI
+was exercised procedurally for all 3 runs (LEFT, RIGHT, and Run C's
+HAND_DETAIL each displayed and confirmed before generation) on FRESH
+2026-07-19 uploads — and, per adjudication #5's own standard (procedural
+confirmation alone is not sign-off), the user reviewed those same fresh
+uploads and confirmed the descriptions against them in design chat, with
+design chat proceeding to this close-out on that basis. Same standard as
+pass-3's own P7 ratification (user review + design-chat proceed = sign-off,
+not the F1 UI pass alone). **P7: OK.**
 
 ## Verdict
 
@@ -380,7 +386,7 @@ on P1-P4, P7 OK/minor. Literal scoring only.**
 | C | N | Y | Y | N | 2/4 |
 
 - [ ] RATIFIED-LIVE
-- [x] NOT RATIFIED (pending — this checkbox reflects the scored state; final ratification call is design-chat's, per this session's own instruction)
+- [x] NOT RATIFIED (2026-07-19, design chat)
 
 **No run reaches 4/4.** P4 fails on all 3 runs via the NEW S68 warnings-
 block-P4-clean mechanical rule (adjudication #1) — this is a rule
@@ -391,8 +397,9 @@ WORSE than pass 3 (pass-3 Run A: 4 U-rows; this pass: 11/10/10 U-rows for
 A/B/C respectively) — driven by a genuinely new failure shape (un-anchored
 doctrine
 `[OBS]` rows, Finding 3) and a CONFIRMED inversion (Finding 4, Run B row
-14) neither of which pass 3 observed in this exact form. P7 is PENDING,
-not scored.
+14) neither of which pass 3 observed in this exact form. P7 is RATIFIED
+(OK) — the P1/P4 gaps are the sole blockers on the ratification bar, same
+framing pass-3 used.
 
 **Progress vs. pass 3** (context, not a scoring input): life line and
 Mount of Venus remain solidly load-bearing C rows in all 3 runs, same as

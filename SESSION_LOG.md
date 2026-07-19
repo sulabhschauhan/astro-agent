@@ -3718,3 +3718,110 @@ fate-line V1.1 register line. S68 fix-forward queue now reads F-C, F-A,
 AND F-B all COMPLETE -- only F-D remains queued. Ring 3 pass 4's gate is
 OPEN: every pre-ratification fix has landed; scheduling now needs only
 fresh palm uploads plus a design-chat go.
+
+### S68 FINAL addendum -- Ring 3 pass 4: SCORED NOT RATIFIED, architectural
+ruling, S69 queue opened (2026-07-19)
+
+**The pass-4 arc.** Pre-flight smoke probe first (`scripts/probe_pass4_
+preflight.py`, ported from pass-3's script for the S68 8-validator + F-A
+coverage + A1 tagged-capture pipeline) against the sanctioned
+`data/test_images/` fixtures -- all 4 sanity asserts passed, a wiring
+check only, never scored. Then 3 fresh live dogfood runs through the real
+app, 2026-07-19, real photo uploads, human-confirmed descriptions: Run A
+(baseline), Run B (identical-input regenerate), Run C (+HAND_DETAIL) --
+plus 3 fail-closed attempts along the way (2 on Run A, 1 on Run B), all 3
+tripping `self_help_blacklist: found stability` on BOTH the first AND
+retry draft, requiring a manual re-click outside the S66 F2c in-call
+retry mechanism to get a scoreable run.
+
+**Evidence assembly** (`diagnostics/ring3_evidence_S68_pass4.md`,
+Sonnet): claim ledger built from SELF-DECLARED anchors in each run's
+`reading_text_tagged` -- direct positional parse, explicitly NOT a
+reconstruction (that was the F-C payoff: the tagging contract means the
+model's own citations are the evidence, not a re-derivation). Coverage
+warnings (missing from the F5 capture -- `frontend/app.py` never writes a
+`warnings:` line, a real gap caught by reading the capture function
+directly) and per-chunk verbatim text WERE reconstructed, gated behind a
+measure-first reconstruction-fidelity assert that PASSED for all 3 runs
+before any reconstructed data was trusted.
+
+**Scoring** (`diagnostics/ring3_palm_rubric_S68_pass4.md`, Sonnet, pass-3
+lineage + 2 S68 rows): **all 3 runs scored 2/4 (P1 N, P2 Y, P3 Y, P4 N).
+NOT RATIFIED.** P7 initially left PENDING (procedural F1 confirmation is
+not sign-off, per pass-3's own precedent), then RATIFIED in this
+close-out once the user reviewed the fresh uploads in design chat and
+design chat proceeded on that basis -- same standard pass-3 used.
+
+New findings beyond the 5 items design chat pre-adjudicated:
+- **Confirmed citation inversion** (Run B, row 14) -- the model cites
+  `p98_c1` for "long fingers -> intellectual nature," and that exact
+  chunk states the claim is *"erroneous and misleading."* Stronger than
+  pass-3's "bordering inversion" language (pass-3 never actually cited
+  the rejection chunk directly against the claim; this run does).
+- **Cross-run retrieval flip-flop on the identical claim type** -- Run C
+  cites a DIFFERENT chunk (`p95_c0`, which genuinely supports the claim)
+  for the same "long fingers" claim that inverted in Run A/B via `p98_c1`.
+  Same confirmed attribute, opposite doctrine outcome, purely from which
+  chunk the per-feature query happened to retrieve -- the same
+  instability class pass-3's Findings #2 first identified (there, on
+  head-line/life-line joining doctrine), now reconfirmed on a second,
+  unrelated claim.
+- **`[OBS]` doctrine leakage x3** -- Run B rows 5, 7, 9 assert real
+  interpretive trait claims (row 5 echoes Cheiro's own "guided by reason
+  and intelligence" phrasing near-verbatim) tagged `[OBS]` with NO anchor
+  at all. A failure shape pass-3 could not have observed (it predates the
+  A1 tagging contract) -- worse than a bad citation, since there is
+  nothing to check.
+- **F-B comma-list absence gap, live-confirmed on 3/3 runs** -- LEFT's
+  MARKS field this pass read *"No crosses, stars, grilles, squares, or
+  moles clearly visible"*, a comma-separated list that defeats
+  `_ABSENCE_PATTERNS_BY_FEATURE`'s filler-group regex (a comma is not
+  `\s`, so the pattern can't skip past it). Falsifies the F-B close-out's
+  own comparability note, which stated the shrink-to-genuine-absence
+  behavior as a general fact rather than the phrasing-conditional
+  prediction it actually was -- a measure-first violation on the
+  design-chat side, corrected in this close-out (see CLAUDE.md).
+
+**Scorer self-correction, documented not silent**: mid-session, an initial
+read of Run A's head-line/chain-indecision claim scored it C via negation
+("chain -> indecision" implying "no chain -> no indecision"); re-checked
+against pass-3's own precedent (which required a chunk to STATE the
+positive valence directly, not merely imply it by negating a stated
+negative -- see pass-3's heart-line U-rows) and corrected to U before the
+artifact was finalized. Recorded in the rubric's own verify-before-
+transcribe note, per this session's explicit "stop and report rather than
+conform" instruction.
+
+**Design-chat retrospective verdict**: three consecutive passes of
+downstream fixes -- S67's per-feature retrieval + support gate +
+exemplar-echo guard, S68's chunk-anchor grounding + coverage check +
+absence-phrase broadening -- each shipped exactly what it was scoped to
+fix, verified working as designed, and P1 (grounding) FAILED EVERY SINGLE
+PASS regardless. Ruled architectural, not another link in the same fix
+chain: single-call generation composes from GPT-4o's pretraining prior
+first and retrieved doctrine second, making citations decorative rather
+than load-bearing -- the `p98_c1` inversion and the `[OBS]` doctrine
+leakage are direct evidence of this, not incidental defects a fourth
+downstream patch would close.
+
+**S69 queue opened, replacing the S68 fix-forward queue** (CLAUDE.md
+Carry-Forward, full detail there): **F-H (PRIMARY)** -- two-stage
+extract-then-voice generation redesign (Stage 1: per-feature claim
+extraction from gated chunks, paraphrase-or-nothing; Stage 2:
+closed-inventory voice pass over only Stage 1's output), probe-first on
+the FROZEN pass-4 inputs before any production change, folding in a
+temperature review and a Stage-1 model-choice question. **F-E** (small):
+comma-tolerant absence-pattern fix. **F-G**: the "stability" appendix
+datum (2/3 fail-closed drafts cited `p160_c2`, which lacks the word; 1/3
+pure `[OBS]`) confirms the blacklist hits are composition-habit-driven,
+not chunk-driven -- folded into F-H's design, retry-cap question left
+open. **F-F absorbed into F-H** (the anchored-but-unfaithful citation
+class IS the architecture problem, not a separate patch). **F-D**
+unchanged, still queued, untouched by F-H's Stage 1 (same retrieval feeds
+both). **Option S** (feature scope-down) recorded REJECTED-as-primary --
+shrinks the problem's surface, not its mechanism, and pass-4's worst
+findings landed on flagship high-confidence features scope-down would not
+have removed; retained as a fallback only if F-H's Stage-1 probe fails.
+**Pass-5 gate: CLOSED** until F-H and F-E both land; the N=5
+re-ratification counter is UNSTARTED (no ratified-live baseline exists to
+count failures against yet).
