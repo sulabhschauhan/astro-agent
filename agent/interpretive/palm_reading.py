@@ -1645,6 +1645,48 @@ def prepare_palm_reading(
     )
 
 
+def _build_display_extra_validators(
+    context_corpus: str,
+    unsupported_features: tuple[str, ...],
+) -> tuple:
+    """S70 F-G2: one strip-wrapped closure per `_run_display_checks`
+    check, fed to `claim_voicing.voice_claims`'s `extra_validators` seam
+    (F-G1) so a display-check failure on Stage 2's FIRST draft becomes a
+    correction instruction on Stage 2's own retry, instead of only
+    surfacing at the outer `_run_display_checks` backstop below (which
+    has no retry of its own). Each closure strips claim_voicing's own tag
+    vocabulary via `_strip_stage2_tags` before running its single check --
+    this mirrors EXACTLY the text state `_run_display_checks` itself
+    checks (stripped, BEFORE `decline_block`/`DISCLAIMER` are appended --
+    those are only ever assembled once, after `voice_claims` returns, so
+    there is no per-draft divergence to replicate here: every draft
+    `voice_claims` internally considers, first or retry, is checked in
+    exactly this same pre-decline/pre-disclaimer, tags-stripped state).
+    One closure per check, not one mega-closure, so each check's own
+    failure string(s) survive distinctly into the retry correction
+    message (`claim_voicing._build_retry_messages` joins the merged list,
+    but each check still contributes its own recognizable substring)."""
+    def _jargon(tagged_draft: str) -> list[str]:
+        return _check_jargon(_strip_stage2_tags(tagged_draft))
+
+    def _self_help(tagged_draft: str) -> list[str]:
+        return _check_self_help_register(_strip_stage2_tags(tagged_draft))
+
+    def _dates(tagged_draft: str) -> list[str]:
+        return _check_unsupported_dates(_strip_stage2_tags(tagged_draft), context_corpus)
+
+    def _length(tagged_draft: str) -> list[str]:
+        return _check_length(_strip_stage2_tags(tagged_draft))
+
+    def _banned(tagged_draft: str) -> list[str]:
+        return _check_banned_feature_mentions(_strip_stage2_tags(tagged_draft), unsupported_features)
+
+    def _echo(tagged_draft: str) -> list[str]:
+        return _check_exemplar_echo(_strip_stage2_tags(tagged_draft))
+
+    return (_jargon, _self_help, _dates, _length, _banned, _echo)
+
+
 def complete_palm_reading(
     prep: PalmReadingPrep,
     client: OpenAI | None = None,
@@ -1655,16 +1697,30 @@ def complete_palm_reading(
     acks (ACK-ONLY — claims are never edited; S70 ruling) `prep.claims`
     first).
 
-    NO retry at this layer -- claim_voicing.voice_claims() already owns
-    its own single F2c retry internally; a validation failure here (voice
-    failures merged with display-check failures) is fail-closed
-    (`ValidationReport.passed=False`), never triggers a second call to
-    voice_claims. F-G RISK (documented, not mitigated here): the "stability"
-    self-help-blacklist composition habit CLAUDE.md's F-G entry describes
-    for the OLD single-call architecture has a fundamentally different
-    failure surface in Stage 2's closed-inventory voice pass, but has not
-    been re-measured against THIS pipeline -- a live dogfood pass (P6)
-    is what would surface whether it recurs here.
+    S70 F-G2: display checks feed Stage 2's single internal retry (the
+    F-G1 seam, `claim_voicing.voice_claims`'s `extra_validators` param);
+    this outer layer remains fail-closed with no additional retry -- hard
+    cap 2 Stage-2 calls unchanged. `_build_display_extra_validators`
+    builds one strip-wrapped closure per `_run_display_checks` check
+    (jargon/self-help/unsupported-dates/length/banned-feature-mention/
+    exemplar-echo) from THIS function's own `context_corpus`/
+    `prep.unsupported_features`, passed to `voice_claims` as
+    `extra_validators` -- a failure on Stage 2's first draft now feeds
+    that check's own failure string into Stage 2's correction retry, the
+    same as a V-3/V-4/V-5 failure would. The `_run_display_checks` call
+    just below is UNCHANGED -- it still re-runs the identical six checks
+    against whichever draft actually ships (first or retry), as the
+    deterministic fail-closed backstop: a draft failing at the seam
+    either gets corrected by the retry, or fails closed here exactly as
+    it did before F-G2 (no double-jeopardy in outcome -- only one of
+    those two things happens to a given failing draft, never both).
+    F-G RISK (CLAUDE.md's F-G entry, OLD single-call architecture): the
+    "stability" self-help-blacklist composition habit has a fundamentally
+    different failure surface in Stage 2's closed-inventory voice pass;
+    pass-5 preflight (`diagnostics/pass5_preflight_S70.md`) already
+    surfaced one concrete instance of this class (verbatim exemplar
+    echo) that F-G2 now feeds back into the retry -- a live dogfood pass
+    remains the measure of whether the F-G risk recurs more broadly.
 
     Raises:
         RuntimeError: claim_voicing.voice_claims' own fail condition --
@@ -1672,13 +1728,17 @@ def complete_palm_reading(
                       -- propagates UNCAUGHT, per this prompt's ERRORS
                       section.
     """
-    voice_result = claim_voicing.voice_claims(prep.claims, prep.texts_by_feature, client=client)
-
-    stripped = _strip_stage2_tags(voice_result.reading_text_tagged)
-
     context_corpus = " ".join(prep.texts_by_feature.values()) + " " + " ".join(
         c["text"] for chunks in prep.gated_results.values() for c in chunks
     )
+    extra_validators = _build_display_extra_validators(context_corpus, prep.unsupported_features)
+
+    voice_result = claim_voicing.voice_claims(
+        prep.claims, prep.texts_by_feature, client=client, extra_validators=extra_validators
+    )
+
+    stripped = _strip_stage2_tags(voice_result.reading_text_tagged)
+
     display_failures = _run_display_checks(stripped, context_corpus, prep.unsupported_features)
 
     failures = tuple(voice_result.validation_failures) + tuple(display_failures)

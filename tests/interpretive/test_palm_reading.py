@@ -292,6 +292,13 @@ _JARGON_STUB_TEXT = (
 
 
 def test_jargon_injection_case_insensitive_and_word_boundary(monkeypatch):
+    """S70 F-G2: jargon_blacklist now feeds Stage 2's own retry via the
+    extra_validators seam. This fixture supplies only ONE Stage-2
+    response (`_single_feature_client`), so the retry reuses the SAME
+    still-failing draft -- the failure string appears TWICE (once per
+    attempt) rather than once, and stage2_retry_used flips True. This is
+    the intended behavior change (CLAUDE.md F-G residual, closed by
+    F-G1/F-G2), not a regression."""
     chunk = _chunk()
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
     client = _single_feature_client("life line", chunk, _JARGON_STUB_TEXT)
@@ -301,11 +308,10 @@ def test_jargon_injection_case_insensitive_and_word_boundary(monkeypatch):
     )
 
     assert result.validation.passed is False
-    assert len(result.validation.failures) == 1
-    failure = result.validation.failures[0]
-    assert failure.startswith("jargon_blacklist")
-    assert failure.startswith("jargon_blacklist: found ")
+    assert result.stage2_retry_used is True
+    assert all(f.startswith("jargon_blacklist: found ") for f in result.validation.failures)
     assert not any("self_help_blacklist" in f for f in result.validation.failures)
+    failure = result.validation.failures[0]
     hits = {h.strip() for h in failure.removeprefix("jargon_blacklist: found ").split(",")}
     assert hits == {"lagna", "antardasha", "yoga"}
 
@@ -734,6 +740,10 @@ _STABILITY_STUB_TEXT = (
 
 
 def test_self_help_case_insensitive(monkeypatch):
+    """S70 F-G2: see test_jargon_injection_case_insensitive_and_word_
+    boundary's own note -- this fixture's single Stage-2 response is
+    reused on Stage 2's now-firing retry, so the same failure string
+    appears twice, not once."""
     chunk = _chunk()
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
     client = _single_feature_client("life line", chunk, _STABILITY_STUB_TEXT)
@@ -743,9 +753,8 @@ def test_self_help_case_insensitive(monkeypatch):
     )
 
     assert result.validation.passed is False
-    assert len(result.validation.failures) == 1
-    failure = result.validation.failures[0]
-    assert failure == "self_help_blacklist: found stability"
+    assert result.stage2_retry_used is True
+    assert set(result.validation.failures) == {"self_help_blacklist: found stability"}
 
 
 _WORD_BOUNDARY_STUB_TEXT = (
@@ -800,7 +809,11 @@ _MULTI_TERM_STUB_TEXT = (
 
 def test_self_help_multi_term_single_sorted_deduped_failure(monkeypatch):
     """Two distinct terms, each appearing twice, collapse to one failure
-    string listing both terms once, sorted."""
+    string per attempt, listing both terms once, sorted. S70 F-G2: this
+    fixture's single Stage-2 response is reused on Stage 2's now-firing
+    retry, so the same failure string appears twice, not once (see
+    test_jargon_injection_case_insensitive_and_word_boundary's own
+    note)."""
     chunk = _chunk()
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
     client = _single_feature_client("life line", chunk, _MULTI_TERM_STUB_TEXT)
@@ -810,8 +823,8 @@ def test_self_help_multi_term_single_sorted_deduped_failure(monkeypatch):
     )
 
     assert result.validation.passed is False
-    assert len(result.validation.failures) == 1
-    assert result.validation.failures[0] == "self_help_blacklist: found fulfilling, journey"
+    assert result.stage2_retry_used is True
+    assert set(result.validation.failures) == {"self_help_blacklist: found fulfilling, journey"}
 
 
 _CHEIRO_VOICE_STUB_TEXT = (
@@ -1262,10 +1275,15 @@ def test_supported_unsupported_tuples_propagate_in_registry_order(monkeypatch):
     )
 
 
-def test_banned_mention_failure_is_single_shot_no_retry(monkeypatch):
-    """(14g) S69 F-H P5: display-check failures (banned-mention here) do
-    NOT retry -- a draft naming an unsupported feature fails immediately,
-    with only the ONE Stage-2 call ever made (plus Stage 1's own call)."""
+def test_banned_mention_failure_now_retries_and_stays_failed(monkeypatch):
+    """(14g) S70 F-G2 UPDATE (was test_banned_mention_failure_is_single_
+    shot_no_retry, pre-F-G2): display-check failures (banned-mention
+    here) now feed Stage 2's own retry via the extra_validators seam --
+    formerly single-shot with no retry at this layer. A draft naming an
+    unsupported feature still ends up failed (this fixture's single
+    Stage-2 response is reused on retry, so the same unsupported-feature
+    mention persists into the retry draft too), but the call count is now
+    Stage-1 once + Stage-2 TWICE (first + retry), not once."""
     chunk = _chunk()
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
     voice_text = "A faint sun line suggests hidden creative promise.[C1]"
@@ -1275,34 +1293,90 @@ def test_banned_mention_failure_is_single_shot_no_retry(monkeypatch):
         palm_left="LIFE LINE: A long life line.", palm_right=None, client=client
     )
 
-    assert len(client.completions.calls) == 2  # Stage 1 once, Stage 2 once -- no retry
+    assert len(client.completions.calls) == 3  # Stage 1 once, Stage 2 first + retry
+    assert result.stage2_retry_used is True
     assert result.validation.passed is False
     assert any("unsupported feature mentioned: sun line" in f for f in result.validation.failures)
 
 
 # ─── Item 15: S67 R2 exemplar-echo guard ────────────────────────────────
-# Display checks no longer retry -- each is single-shot now.
+# S70 F-G2 UPDATE: display checks now DO retry, via the F-G1
+# extra_validators seam wired into complete_palm_reading() -- this is the
+# exact fix for the pass-5 preflight ABORT
+# (diagnostics/pass5_preflight_S70.md) where Stage 2 echoed an exemplar
+# sentence verbatim and the outer, retry-less display-check layer was the
+# only thing that ever saw it.
 
 
-def test_exemplar_echo_guard_fires_single_shot_no_retry(monkeypatch):
-    """Hardest case: the draft reuses a verbatim 6-word span from
-    exemplar 1 ("each one tells its own story") -- exactly the
-    doctrine-inversion vector R2 exists to close. Single-shot fail, no
-    retry at this layer."""
+def test_exemplar_echo_guard_fires_draft1_retries_and_clears_on_clean_draft2(monkeypatch):
+    """(a) S70 F-G2: draft 1 verbatim-echoes exemplar 1 ("each one tells
+    its own story") -- the seam's exemplar_echo closure catches this on
+    Stage 2's FIRST draft and feeds it into Stage 2's own retry; draft 2
+    is clean -> stage2_retry_used=True, final validation.passed=True."""
     chunk = _chunk()
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
-    voice_text = (
+    stage1 = json.dumps({"feature": "life line", "claims": [
+        {"claim_id": "x", "chunk_id": chunk["chunk_id"], "claim_text": chunk["text"],
+         "valence": "supports", "condition_text": None, "observation_basis": "observed"},
+    ]})
+    echo_draft = (
         "Each one tells its own story to those who understand the "
         "craft.[FLOW] "
         "A long, unbroken life line indicates steady vitality.[C1]"
     )
-    client, _ = _two_stage_setup({"life line": [chunk]}, lambda ids: voice_text)
+    clean_draft = "A long, unbroken life line indicates steady vitality.[C1]"
+    client = _FakeClient(responses=[(stage1, None), (echo_draft, None), (clean_draft, None)])
+
+    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
+
+    assert len(client.completions.calls) == 3  # Stage 1 once, Stage 2 first + retry
+    assert result.stage2_retry_used is True
+    assert result.validation.passed is True
+    retry_correction = client.completions.calls[2]["messages"][-1]["content"]
+    assert "Your draft failed these checks" in retry_correction
+    assert "exemplar_echo: each one tells its own story" in retry_correction
+
+
+def test_exemplar_echo_guard_fires_both_drafts_stays_failed_no_third_call(monkeypatch):
+    """(b) S70 F-G2: both drafts echo the SAME exemplar span -> exactly
+    Stage-1-once + Stage-2-TWICE = 3 calls total (no third Stage-2 call),
+    validation.passed=False, the exemplar failure present in
+    validation.failures."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    stage1 = json.dumps({"feature": "life line", "claims": [
+        {"claim_id": "x", "chunk_id": chunk["chunk_id"], "claim_text": chunk["text"],
+         "valence": "supports", "condition_text": None, "observation_basis": "observed"},
+    ]})
+    echo_draft = (
+        "Each one tells its own story to those who understand the "
+        "craft.[FLOW] "
+        "A long, unbroken life line indicates steady vitality.[C1]"
+    )
+    client = _FakeClient(responses=[(stage1, None), (echo_draft, None), (echo_draft, None)])
+
+    result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
+
+    assert len(client.completions.calls) == 3  # Stage 1 once, Stage 2 first + retry, no 3rd Stage-2 call
+    assert result.stage2_retry_used is True
+    assert result.validation.passed is False
+    assert any(f == "exemplar_echo: each one tells its own story" for f in result.validation.failures)
+
+
+def test_exemplar_echo_guard_clean_draft_happy_path_no_behavior_change(monkeypatch):
+    """(c) S70 F-G2: a clean draft (no echo, no other display-check
+    issue) must be completely unaffected by the new seam -- no retry, no
+    behavior change from the pre-F-G2 happy path."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+    client = _single_feature_client("life line", chunk, _CLEAN_STUB_TEXT)
 
     result = generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
 
     assert len(client.completions.calls) == 2  # Stage 1 once, Stage 2 once -- no retry
-    assert result.validation.passed is False
-    assert any(f == "exemplar_echo: each one tells its own story" for f in result.validation.failures)
+    assert result.stage2_retry_used is False
+    assert result.validation.passed is True
+    assert result.validation.failures == ()
 
 
 def test_exemplar_echo_boundary_5word_no_fire_6word_fires(monkeypatch):
