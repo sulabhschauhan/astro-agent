@@ -3640,3 +3640,81 @@ CLAUDE.md's S68 fix-forward queue now reads F-C and F-A both COMPLETE;
 F-B/F-D remain queued, unblocked, undebated; Ring 3 pass 4 is the next
 gate, requiring fresh palm uploads plus a design-chat go before
 scheduling.
+
+### S68 addendum -- F-B close-out: absence-phrase regex broadening lands (2026-07-19)
+
+**F-B arc in brief.** Small, surgical, one implementation commit
+(`d01401a`, "S68 F-B: absence-phrase regex broadening"). `_is_absence()`
+(`palm_reading.py`) went two-tier: TIER 1 (`_ABSENCE_PHRASES`) is the OLD
+6-phrase fixed-substring list, unchanged in content, recompiled as
+`re.escape`d case-insensitive regex (byte-identical matching). TIER 2
+(`_ABSENCE_PATTERNS_BY_FEATURE`, new) adds per-feature `no <0-3 filler
+words> <noun> <0-6 filler words> visible` patterns, sourced from
+`_SUPPORT_NEEDLES` -- the SAME single source of truth already used for
+chunk-relevance needles, not a second, separately-maintained noun list.
+
+**The islands-needle near-miss, caught by per-feature anchoring, not
+luck.** Before touching the fix, ran the design's own stated
+false-positive risk against real captured text, not a synthetic case:
+LEFT's actual LIFE/HEAD/HEART LINE fields all read "...no breaks,
+chains, forks, or islands visible" -- and "islands" is a literal
+`markings/other features` needle. A feature-agnostic "no...visible"
+match would have wrongly flagged all three clean, PRESENT lines as
+absent. Per-feature noun anchoring (checking each feature against ONLY
+its own needle -- "life"/"head"/"heart", none of which appear in that
+clause) correctly keeps all three unmatched, confirmed by direct
+interpreter probe before running classification, not assumed from the
+design alone.
+
+**Evidence-surface catch, not assumed.** The instructing prompt pointed
+at `.claude/read_prompt.md` for the RUN-block evidence. Reading the
+current file found it overwritten by an unrelated later commit (a Sade
+Sati question, `2bb2e44`) -- the real F5 capture data lives in
+`diagnostics/dogfood_capture.md` instead (`frontend/app.py`'s
+`_capture_dogfood_run()`, append-only). Used the real 3 RUN blocks
+(`11:34:32`/`11:35:40`/`11:38:22`, matching Session 68's own Run A/B/C
+labels) rather than stopping on the stale path -- this go-round's
+close-out promotes that catch into a standing CLAUDE.md correction
+(Reference Materials' new "Dogfood/diagnostic evidence surfaces" note)
+so future prompts stop citing the scratch surface.
+
+**Measure-first result: 2 expected deltas, 0 unexpected.** Classified
+every field across all 3 runs, OLD vs. NEW, before writing any commit
+message. Exactly the 2 predicted MARKS-class flips fired (LEFT's field-
+label MARKS text, and run 3's HAND_DETAIL markings bullet -- both
+previously-missed word-order variants of the SAME genuine per-hand
+absence finding RIGHT's text already caught under the old list); every
+LINE-quality field stayed unchanged. One narrower, differently-shaped
+non-catch was observed and left open by design: HAND_DETAIL's fate-line
+text ("There is no clearly visible fate line in the image.") has its
+noun AFTER "visible", the reverse of F-B's target shape -- harmless in
+practice (fate line resolves correctly from its other 2 sources
+regardless), logged to the V1.1 register rather than expanded into
+scope.
+
+**The knock-on (pass-4 comparability).** `markings/other features` now
+exits via genuine-negative-absence in all 3 reference runs -- removed
+from both `supported_features` and `unsupported_features` entirely,
+where it previously sat in `supported_features` via a junk near-floor
+query (scores 0.348-0.365/0.41-0.41, barely above the 0.30 noise floor).
+`_check_feature_coverage`'s denominator shrinks vs. pass 3 by design;
+CLAUDE.md now locks this explicitly so a future pass-4 scorer doesn't
+misread the shrinkage as new coverage loss.
+
+**Tests.** Zero test-file edits needed -- the existing suite's 3 MARKS
+fixtures all already used the OLD-list-matching word order ("No clear
+marks visible."), so nothing in the synthetic test suite exercised the
+real-world word-order gap this pass fixes. Suite ran clean FIRST,
+unprompted: 3220 passed, 3 skipped, exact match to the F-A baseline. A
+single commit sufficed; the two-commit-one-push discipline's commit-B
+branch was never needed.
+
+**Close-out itself** (this addendum's own commit, "S68 F-B close-out +
+evidence-surface correction", docs/docstrings/comments only, zero logic
+changes): CLAUDE.md gained F-B COMPLETE, the pass-4 comparability lock,
+the evidence-surface correction (plus its own "Dogfood/diagnostic
+evidence surfaces" note under Reference Materials), and the HAND_DETAIL
+fate-line V1.1 register line. S68 fix-forward queue now reads F-C, F-A,
+AND F-B all COMPLETE -- only F-D remains queued. Ring 3 pass 4's gate is
+OPEN: every pre-ratification fix has landed; scheduling now needs only
+fresh palm uploads plus a design-chat go.
