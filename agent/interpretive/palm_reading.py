@@ -594,9 +594,21 @@ _ABSENCE_NOUN_EXTRAS: dict[str, tuple[str, ...]] = {
 
 
 def _build_absence_noun_pattern(needles: tuple[str, ...]) -> re.Pattern:
+    """F-E (S70): filler-word hops -- including the mandatory connector
+    immediately before the noun -- tolerate an optional leading [,;]
+    (list-phrased fields like "No crosses, stars, grilles, squares, or
+    moles clearly visible" -- a comma is not \\s, so the pre-F-E hops
+    (?:\\s+\\w+) could not cross one; e.g. "squares" is the only needle
+    in that sentence reachable by \\bnoun\\b -- "crosses" fails since
+    \\b cannot fire between "cross" and the following "es", both \\w --
+    so the connector right before the noun match must ALSO cross the
+    comma preceding "squares"). An optional [,;] is also tolerated
+    immediately after the matched noun, before the post-noun filler
+    resumes. Repetition counts ({0,3}/{0,6}) UNCHANGED."""
     noun_alt = "|".join(re.escape(n) for n in needles)
     return re.compile(
-        rf"\bno\b(?:\s+\w+){{0,3}}\s+(?:{noun_alt})s?\b(?:\s+\w+){{0,6}}\s+visible\b",
+        rf"\bno\b(?:[,;]?\s+\w+){{0,3}}[,;]?\s+(?:{noun_alt})s?\b[,;]?"
+        rf"(?:[,;]?\s+\w+){{0,6}}\s+visible\b",
         re.IGNORECASE,
     )
 

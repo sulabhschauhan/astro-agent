@@ -1,130 +1,98 @@
-# S70 P6b: two-mode Stage-1 checkpoint (dogfood blocking / end-user expandable)
+# S70 F-E: comma-tolerant absence filler groups
 
-**MODIFIED THREE FILES.** `frontend/app.py` (palm-generation button block +
-new checkpoint block only), `tests/test_app_dogfood_capture.py` (same
-task), and one explicit rider: `agent/interpretive/palm_reading.py`'s
-`complete_palm_reading()` docstring wording ("inspects/edits `prep.claims`"
--> "inspects/acks (ACK-ONLY -- claims are never edited; S70 ruling)").
-No other `palm_reading.py` changes. P6a's capture-schema lines (be64da6)
+**MODIFIED TWO FILES.** `agent/interpretive/palm_reading.py`
+(`_build_absence_noun_pattern` only, inside the `_ABSENCE_PATTERNS_BY_
+FEATURE` construction) and `tests/interpretive/test_palm_reading.py`
+(new Item 18 section, appended). No other code touched --
+`_ABSENCE_PHRASES` (Tier 1), `_SUPPORT_NEEDLES`, `_ABSENCE_NOUN_EXTRAS`
 untouched.
 
-## Design implemented (as locked, not redesigned)
+## MEASURE FIRST -- exact prior pattern
 
-- **END-USER path** (`_DOGFOOD_CAPTURE` off): unchanged behavior --
-  button calls `generate_palm_reading()` synchronously. Added one
-  collapsed `st.expander("Claims inventory")` below the "Classical
-  sources" expander in the shared reading-display block (renders for
-  both paths once a `PalmReadingResult` exists -- harmless/still useful
-  on the dogfood path post-ack, and keeps the display logic in one
-  place rather than duplicated per path). Non-blocking, display-only,
-  never gates the reading.
-- **DOGFOOD path** (`_DOGFOOD_CAPTURE` on): button calls
-  `prepare_palm_reading()` only, stores the `PalmReadingPrep` in
-  `st.session_state.palm_prep`, clears `palm_reading_result`, reruns.
-  A new main-area block (`if palm_prep is not None and
-  palm_reading_result is None`) renders the BLOCKING claims panel:
-  full `prep.claims` (incl. excluded, same `claim_id | feature |
-  chunk_id | valence | included/excluded(reason)` fields), plus
-  `stage1_retry_features`/`stage1_failed_features` from
-  `prep.diagnostics`. Two buttons:
-  - **Ack** -> `complete_palm_reading(prep)`, sets
-    `palm_reading_result`, clears `palm_prep`, then fires the existing
-    P6a `_capture_dogfood_run()` capture unchanged (recomputes the
-    confirmed-description args from current session state -- safe
-    because every site that mutates those descriptions also clears
-    `palm_prep`, so prep and the confirmed strings can never diverge
-    while a checkpoint is pending).
-  - **Decline** -> new module-level helper `_capture_checkpoint_declined
-    (prep)` appends a `## CHECKPOINT-DECLINED <iso-timestamp>` block
-    (claims_inventory in the P6a pipe format + stage1_retry_features +
-    stage1_failed_features, NO reading fields), fail-soft try/except at
-    the call site (same pattern as `_capture_dogfood_run`'s call site,
-    not baked into the helper itself), then clears `palm_prep`. No
-    voicing call.
-  - ACK-ONLY: the panel renders claims via `st.caption()` only -- no
-    edit widgets of any kind.
+```python
+def _build_absence_noun_pattern(needles: tuple[str, ...]) -> re.Pattern:
+    noun_alt = "|".join(re.escape(n) for n in needles)
+    return re.compile(
+        rf"\bno\b(?:\s+\w+){{0,3}}\s+(?:{noun_alt})s?\b(?:\s+\w+){{0,6}}\s+visible\b",
+        re.IGNORECASE,
+    )
+```
 
-## Errors
+Shape: `\bno\b` + 0-3 pre-noun filler hops (`(?:\s+\w+)`) + a mandatory
+connector `\s+` + the noun (+ optional `s`, word-boundary) + 0-6
+post-noun filler hops + `\s+visible\b`. Every hop and the connector
+require literal whitespace immediately -- a comma anywhere in that
+position breaks the match, since `,` is not `\s` and not `\w`.
 
-- `prepare_palm_reading` (`ValueError`/`RuntimeError`) -> existing
-  try/except `st.error()` pattern, in the button handler.
-- `complete_palm_reading` (`RuntimeError`) -> same `st.error()` handling
-  in the Ack button handler; on exception `palm_prep` is deliberately
-  NOT cleared (no `st.session_state.palm_prep = None` inside that
-  except branch) -- retained so the user can retry Ack or Decline.
+## New pattern
 
-## State discipline (S65 4a precedent -- treated as hardest case)
+```python
+def _build_absence_noun_pattern(needles: tuple[str, ...]) -> re.Pattern:
+    noun_alt = "|".join(re.escape(n) for n in needles)
+    return re.compile(
+        rf"\bno\b(?:[,;]?\s+\w+){{0,3}}[,;]?\s+(?:{noun_alt})s?\b[,;]?"
+        rf"(?:[,;]?\s+\w+){{0,6}}\s+visible\b",
+        re.IGNORECASE,
+    )
+```
 
-`st.session_state.palm_prep = None` added to the session-state defaults
-block alongside `palm_reading_result`. **Grepped every
-`palm_reading_result = None` assignment and mirrored it 1:1** with an
-adjacent `palm_prep = None` at matching indentation.
+Changes (repetition counts `{0,3}`/`{0,6}` unchanged):
+1. Both filler-hop groups (pre- and post-noun) become `(?:[,;]?\s+\w+)`
+   -- an optional single `[,;]` immediately before each hop's whitespace.
+2. An optional `[,;]` also added immediately after the noun match
+   (`s?\b[,;]?`), before the post-noun filler resumes.
+3. **One deviation from the instructing prompt's stated scope, found
+   necessary by direct testing, not assumed:** the mandatory connector
+   `\s+` directly before the noun ALSO needed `[,;]?` tolerance. Reason:
+   in the target sentence "No crosses, stars, grilles, squares, or moles
+   clearly visible", `\b` cannot fire between "cross" and the following
+   "es" (both `\w` characters, no boundary) -- so "crosses" is NOT a
+   valid match point for the "cross" needle, contrary to my first
+   (wrong) manual trace. The only needle that actually lands on a real
+   word boundary in that sentence is "square" (in "squares", followed
+   by a comma). Reaching it requires 3 pre-noun hops ("crosses",
+   "stars", "grilles"), which leaves a comma immediately before the
+   noun-connector's `\s+` -- so that connector needed the same
+   tolerance as the hops, or the target case does not flip. Verified by
+   running the regex directly (see below) before writing tests, not
+   assumed correct from the diff alone. No other loosening was added;
+   "or"/"and" still consumed as ordinary filler words within the
+   unchanged hop budgets.
 
-**24 clear sites found, all 24 edited** (verified post-edit by grepping
-every `palm_reading_result = None` line and checking the very next
-source line is the matching `palm_prep = None`, at the correct
-indentation, for all 24): left-palm hard-reject / same-image-uploaded /
-describe-RuntimeError / reupload-clear (4); left-hand swap-regen success
-x2 + failure x2 + no-partner-to-swap-with (5); left-desc discard (1);
-right-palm hard-reject / same-image-uploaded / describe-RuntimeError /
-reupload-clear (4); right-hand swap-regen success x2 + failure x2 +
-no-partner-to-swap-with (5); right-desc discard (1); hand-detail
-analyse-success / analyse-ValueError / reupload-clear (3); hand-detail
-discard (1). Total 4+5+1+4+5+1+3+1 = 24, matches the grep count exactly.
+## Direct regex verification (pre-test, interactive)
 
-A new "Generate Palm Reading" click while a checkpoint is already
-pending simply overwrites `palm_prep` with the fresh
-`prepare_palm_reading()` result (plain reassignment, no extra guard
-needed).
+```
+markings/target (comma list):  True   (was False pre-edit)
+markings/semi   (semicolon):   True   (was False pre-edit)
+life/islands regression:       False  (unchanged)
+head/islands regression:       False  (unchanged)
+heart/islands regression:      False  (unchanged)
+```
 
-## Structure
+## Tests added (`tests/interpretive/test_palm_reading.py`, Item 18)
 
-`_capture_checkpoint_declined(prep)` is a module-level helper (same
-placement/style as `_capture_dogfood_run`, immediately after it),
-direct-import testable.
+1. `test_absence_comma_list_phrasing_flips_markings_to_absent` -- target
+   case, asserts `_is_absence(text, "markings/other features") is True`.
+2. `test_absence_semicolon_list_phrasing_also_flips_markings_to_absent`
+   -- semicolon variant of the same case.
+3. `test_absence_islands_regression_guard_stays_present_for_line_
+   features` (parametrized over `life line`/`head line`/`heart line`) --
+   F-B's "...no breaks, chains, forks, or islands visible" case must
+   stay `_is_absence(...) is False` for all three line features (per-
+   feature noun anchoring: "island" is a markings needle, not a
+   life/head/heart needle, so it can never be the match point there).
 
-## Tests (`tests/test_app_dogfood_capture.py`)
+No existing test asserted the old pattern's literal source string, so
+zero existing tests were modified.
 
-1. **AppTest load smoke** (flag on/off): 2 new tests confirming the
-   `palm_prep` default and the new checkpoint-panel `if` don't break
-   module-level execution or write to the log without a real
-   generation/checkpoint. **CAUGHT ISSUE, self-corrected before
-   reporting**: placing these next to the OTHER new P6b tests (bottom
-   of file, after the file's many bare `import frontend.app as app`
-   direct-import tests) caused a spurious `st.button() can't be used in
-   an st.form()` failure -- confirmed unrelated to any P6b production
-   code (the same test passes in isolation; the pre-existing 2 AppTest
-   tests at the top of the file never hit this because they run before
-   any bare import pollutes Streamlit's widget/form state within the
-   pytest process). Fixed by relocating both new AppTest tests directly
-   alongside the original 2 AppTest tests near the top of the file,
-   documented inline (both in the module docstring and an inline
-   comment) so a future edit doesn't silently move them back into the
-   failure-prone position.
-2. **Direct-import tests for `_capture_checkpoint_declined`** with a
-   synthetic `PalmReadingPrep` (`_synthetic_prep()`, 2 claims -- one
-   clean, one `excluded_from_voice` with a `condition_text` and an
-   embedded newline in `claim_text` to exercise the flatten-to-space
-   rule, same claims as P6a's `_synthetic_reading()` for consistency):
-   claims_inventory lines present (both claims, all 8 fields, newline
-   flattened), stage1_retry_features/stage1_failed_features lines
-   present, NO reading_text/READING (TAGGED)/sources/ring1_validation/
-   feature_support lines, empty-claims case writes `claims_inventory:
-   EMPTY`, and append-not-truncate across two calls.
+## Test run (targeted only, per instructions -- no full suite)
 
-AppTest **cannot** drive a file upload or button state deep enough to
-reach the palm-generation button, the checkpoint panel, or Ack/Decline
--- true end-to-end checkpoint simulation is NOT attempted here (same
-limitation the pre-existing S67 note already documents for
-`generate_palm_reading()`). This is a genuine coverage limit, not an
-oversight.
+```
+pytest tests/interpretive/test_palm_reading.py -q
+62 passed, 4 skipped (pre-existing F-H retirement skips, unchanged)
+```
 
-## Result
+## Out of scope, confirmed untouched
 
-**Targeted run only** (S70 cost discipline, no full-suite run):
-`pytest tests/test_app_dogfood_capture.py` -> **20 passed** (13
-pre-existing/P6a + 2 new AppTest load-smoke + 5 new direct-import), 0
-failures, 0 deviations from the instructing prompt beyond the
-self-corrected test-placement issue above.
-
-Full-suite run deferred to session end per instructions.
+Noun-after-"visible" phrasing ("There is no clearly visible fate
+line") -- stays a V1.1 register item, not attempted here.

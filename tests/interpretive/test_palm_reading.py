@@ -1697,3 +1697,41 @@ def test_validation_report_warnings_defaults_to_empty_tuple():
     vr = ValidationReport(passed=True, failures=())
 
     assert vr.warnings == ()
+
+
+# ─── Item 18: F-E comma-tolerant absence filler groups (S70) ────────────
+#
+# _ABSENCE_PATTERNS_BY_FEATURE's per-feature noun-anchored regex (built by
+# _build_absence_noun_pattern) is exercised directly via _is_absence(text,
+# feature) -- same direct-unit-test convention as Items 16/17 above.
+
+
+def test_absence_comma_list_phrasing_flips_markings_to_absent():
+    """F-E target case: a real production MARKS field listing several
+    needle nouns comma-separated before "clearly visible". Pre-F-E, the
+    filler hops (?:\\s+\\w+) could not cross a comma, so this text was
+    NOT classified as absence for markings/other features."""
+    text = "No crosses, stars, grilles, squares, or moles clearly visible"
+
+    assert palm_reading._is_absence(text, "markings/other features") is True
+
+
+def test_absence_semicolon_list_phrasing_also_flips_markings_to_absent():
+    text = "No crosses; stars; grilles; squares; or moles clearly visible"
+
+    assert palm_reading._is_absence(text, "markings/other features") is True
+
+
+@pytest.mark.parametrize("feature", ["life line", "head line", "heart line"])
+def test_absence_islands_regression_guard_stays_present_for_line_features(feature):
+    """F-B regression guard: real production LIFE/HEAD/HEART LINE text
+    reads "...no breaks, chains, forks, or islands visible" -- line-
+    QUALITY detail, not feature absence. "islands" contains the
+    markings/other features needle "island", but per-feature noun
+    anchoring means this must stay classified as PRESENT (not absence)
+    for life/head/heart, since none of those features' own nouns
+    ("life"/"head"/"heart") appear in the clause. F-E's comma tolerance
+    must not accidentally widen this to match."""
+    text = "The line shows no breaks, chains, forks, or islands visible."
+
+    assert palm_reading._is_absence(text, feature) is False
