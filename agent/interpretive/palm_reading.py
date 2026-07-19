@@ -1052,6 +1052,65 @@ def _check_anchor_legality(text: str, valid_chunk_ids: frozenset[str]) -> list[s
         ) from exc
 
 
+def _check_feature_coverage(
+    tagged_text: str,
+    gated_results: dict[str, list[dict]],
+    supported_features: tuple[str, ...],
+) -> list[str]:
+    """F-A (S68): supported-feature coverage check -- WARNING-class, not
+    a Ring 1 failure. A supported feature counts as ADDRESSED iff at
+    least one sentence in `tagged_text` cites a chunk_id belonging to
+    that feature's own gated_results set. Pure set operations on the
+    anchor tags (same extraction as V-2/_check_anchor_legality, [OBS]
+    excluded) -- no keyword matching on the prose, no thresholds.
+
+    Membership surface is gated_results (the full per-feature assignment
+    map), NOT the deduped display passages -- _assemble_retrieved_
+    passages skips repeat chunk_ids for DISPLAY only, so a chunk shared
+    across features may only ever appear under an earlier feature's
+    heading; crediting from the full gated set keeps coverage satisfiable
+    regardless of which heading displayed the chunk.
+
+    LANDMARK EXCLUSION -- enforced by construction: [OBS] tags contribute
+    nothing to the cited set, so an observation-only mention like
+    "curves around the base of the thumb" (a life-line landmark
+    reference, tagged [OBS] or citing a life-line chunk) can never mark
+    the thumb addressed. The pass-3 false-positive-coverage case
+    (Findings #2's landmark ledger note) is excluded without any prose
+    inspection at all.
+
+    RING 3 PASS-4 EVIDENCE (design-chat lock): these warnings surface in
+    ValidationReport.warnings and are scoring evidence for the human
+    rubric -- a warning-bearing run cannot score P4 clean.
+
+    ACCEPTED GAP (V1, shared-chunk false-positive boundary): a chunk_id
+    gated under TWO features marks BOTH addressed when cited once,
+    regardless of which feature the citing sentence is actually about --
+    a direct consequence of V-2's union-only anchor semantics (no
+    sentence -> feature attribution exists to disambiguate). Direction
+    of error: a real omission can go un-warned; a warning is never
+    spurious for a genuinely-cited feature.
+    """
+    try:
+        cited: set[str] = set()
+        for match in CHUNK_ANCHOR_TAG_PATTERN.finditer(tagged_text):
+            token = match.group(0)[1:-1]  # strip surrounding [ ]
+            if token == "OBS":
+                continue
+            cited.add(token)
+        warnings: list[str] = []
+        for feature in supported_features:
+            feature_ids = {c["chunk_id"] for c in gated_results.get(feature, [])}
+            if not feature_ids & cited:
+                warnings.append(f"coverage: {feature} supported but never cited")
+        return warnings
+    except Exception as exc:
+        raise RuntimeError(
+            f"palm_reading._check_feature_coverage: validator crashed -- "
+            f"failing the run loud rather than passing silently: {exc}"
+        ) from exc
+
+
 def _run_ring1_checks(
     text: str,
     context_corpus: str,
@@ -1101,6 +1160,12 @@ def _run_ring1_checks(
 class ValidationReport:
     passed: bool
     failures: tuple[str, ...]
+    # F-A (S68): coverage warnings (_check_feature_coverage) -- additive
+    # default, same frozen-dataclass pattern as PalmReadingResult.
+    # reading_text_tagged, so pre-F-A construction sites keep working
+    # unmodified. `passed` semantics UNCHANGED: failures only -- warnings
+    # never block display, never flip passed.
+    warnings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1173,6 +1238,11 @@ def generate_palm_reading(
         carries the same final draft BEFORE stripping (no decline_block/
         DISCLAIMER appended either), for a future anchor-legality
         validator to inspect.
+        F-A (S68): validation.warnings carries supported-feature coverage
+        misses from the FINAL draft (_check_feature_coverage) -- a
+        first-draft miss feeds the same single F2c retry (retry_used
+        reports it identically), but a final-draft miss is fail-open:
+        warnings never enter failures and never flip passed.
 
     Raises:
         ValueError: Both palm_left and palm_right are None (hand_detail
@@ -1276,6 +1346,13 @@ def generate_palm_reading(
     failures = _run_ring1_checks(
         reading_text, context_corpus, unsupported_features, valid_chunk_ids
     )
+    # F-A (S68): coverage runs ALONGSIDE Ring 1's eight validators, never
+    # inside _run_ring1_checks -- its misses are warning-class (fail-open
+    # on the final draft), a different disposition than the fail-closed
+    # eight. Reads the tagged draft (contract surface, like V-1/V-2).
+    coverage_misses = _check_feature_coverage(
+        reading_text, gated_results, supported_features
+    )
     retry_used = False
 
     # S66 F2c retry: HARD CAP of 2 LLM calls ever, no exceptions.
@@ -1292,14 +1369,20 @@ def generate_palm_reading(
     # pass-2 shows the retry draft ALSO failing routinely, that is a
     # signal to redesign the prompt (or the validator), never to raise
     # this cap to 3.
-    if failures:
+    # F-A (S68): coverage misses FEED the same single retry (same 2-call
+    # hard cap, same deterministic-reviewer-only mechanism -- a
+    # coverage-only retry sets retry_used=True via this existing path, no
+    # new flags), but on the FINAL draft they land in ValidationReport.
+    # warnings, never failures -- fail-open, display never blocked.
+    if failures or coverage_misses:
         retry_used = True
         retry_messages = messages + [
             {"role": "assistant", "content": reading_text},
             {
                 "role": "user",
                 "content": (
-                    "Your draft failed these checks: " + "; ".join(failures) + ". "
+                    "Your draft failed these checks: "
+                    + "; ".join(failures + coverage_misses) + ". "
                     "Rewrite the reading correcting ONLY these issues. Same "
                     "facts, same structure."
                 ),
@@ -1309,8 +1392,15 @@ def generate_palm_reading(
         failures = _run_ring1_checks(
             reading_text, context_corpus, unsupported_features, valid_chunk_ids
         )
+        coverage_misses = _check_feature_coverage(
+            reading_text, gated_results, supported_features
+        )
 
-    validation = ValidationReport(passed=not failures, failures=tuple(failures))
+    validation = ValidationReport(
+        passed=not failures,
+        failures=tuple(failures),
+        warnings=tuple(coverage_misses),
+    )
 
     # A1: raw tagged draft preserved verbatim (pre-decline, pre-disclaimer,
     # pre-strip) for reading_text_tagged, captured BEFORE any of the
