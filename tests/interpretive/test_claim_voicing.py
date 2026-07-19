@@ -16,8 +16,30 @@ from __future__ import annotations
 
 import pytest
 
+from agent.interpretive import claim_voicing
 from agent.interpretive.claim_extraction import Claim
 from agent.interpretive.claim_voicing import VoiceResult, voice_claims
+
+# ─── S70 F-G3: prompt content -- no verbatim exemplar sentences ─────────
+#
+# Pass-5 preflight's post-F-G re-run (diagnostics/pass5_preflight_S70.md,
+# commit 908d325) found _VOICE_SYSTEM_PROMPT's own "model sentences"
+# (verbatim-shared with palm_reading._EXEMPLAR_SENTENCES) were a standing
+# echo-gravity source that F-G1/F-G2's retry-feed wiring could detect but
+# not eliminate. F-G3 deletes them from the prompt entirely, replacing
+# them with descriptive-only voice guidance. This test imports the two
+# sentences from palm_reading (still the canonical exemplar-echo guard's
+# own source of truth, unchanged by this prompt) rather than pasting them
+# inline, so a future edit to either sentence can't silently desync the
+# two modules without this test catching it.
+
+
+def test_voice_system_prompt_contains_no_r2_exemplar_sentences():
+    from agent.interpretive.palm_reading import _EXEMPLAR_SENTENCES
+
+    for sentence in _EXEMPLAR_SENTENCES:
+        assert sentence not in claim_voicing._VOICE_SYSTEM_PROMPT
+
 
 # ─── Fake OpenAI client -- transplanted from test_palm_reading.py ────────
 

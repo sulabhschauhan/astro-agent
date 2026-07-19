@@ -52,15 +52,18 @@ INPUT FILTER (Python, deterministic, before any LLM call):
     conditionals (no cap on those). Revisit trigger: Ring 3 evidence that
     1 is too restrictive or not restrictive enough.
 
-PROMPT: Cheiro voice register (the "## Voice" block below is TRANSPLANTED
-near-verbatim from `palm_reading._READING_SYSTEM_PROMPT`'s own "## Voice"
-section -- same exemplar sentences, same forbidden self-help word list;
-the one adapted line is the "must come from" sentence, since Stage 2 has
-no retrieved passages to point to, only the claim inventory -- see the
-constant's own comment for the exact diff) + a numbered CLOSED claim
-inventory (claim_id, claim_text, valence, observation_basis) + confirmed
-observations. Chunk text/chunk_id never appears anywhere in the prompt
-by construction (this module never reads `Claim.chunk_id` at all).
+PROMPT: Cheiro voice register (the "## Voice" block below was ORIGINALLY
+TRANSPLANTED near-verbatim from `palm_reading._READING_SYSTEM_PROMPT`'s
+own "## Voice" section -- same forbidden self-help word list; the "must
+come from" clause was adapted at that transplant, since Stage 2 has no
+retrieved passages to point to, only the claim inventory. S70 F-G3:
+the two verbatim exemplar sentences the block originally ALSO shared with
+`palm_reading._EXEMPLAR_SENTENCES` are since DELETED, replaced with
+descriptive-only voice attributes -- see the constant's own comment for
+the full diff/reason) + a numbered CLOSED claim inventory (claim_id,
+claim_text, valence, observation_basis) + confirmed observations. Chunk
+text/chunk_id never appears anywhere in the prompt by construction (this
+module never reads `Claim.chunk_id` at all).
 
 MODEL CHOICE (3-place registration, this docstring is place 2 of 3 --
 place 1 is `_VOICE_MODEL`'s own THRESHOLD DISCIPLINE comment, place 3 is
@@ -213,22 +216,38 @@ def _filter_claims_for_voice(claims: tuple["Claim", ...]) -> tuple[list["Claim"]
     return included, filter_diagnostics
 
 
-# ─── Voice system prompt -- "## Voice" TRANSPLANTED near-verbatim from ────
-# palm_reading._READING_SYSTEM_PROMPT's own "## Voice" block: same
-# declarative-register description, same two tone-only exemplar
-# sentences, same forbidden self-help word list, all copied unchanged.
-# ONE line is ADAPTED (not copied): the original reads "Every interpretive
-# claim in your actual reading must come from the provided passages and
-# the confirmed hand description(s) below" -- Stage 2 has no retrieved
-# passages at all, only the claim inventory, so that clause is replaced
-# with "must come from the numbered CLAIM INVENTORY below". Everything
-# else in this block is unchanged, including the exemplar sentences
-# themselves (their tone-modeling purpose is identical here).
+# ─── Voice system prompt -- "## Voice" ORIGINALLY TRANSPLANTED near- ────
+# verbatim from palm_reading._READING_SYSTEM_PROMPT's own "## Voice"
+# block: same declarative-register description, same forbidden self-help
+# word list. ONE line was ADAPTED even at the original transplant (not
+# copied): the source reads "Every interpretive claim in your actual
+# reading must come from the provided passages and the confirmed hand
+# description(s) below" -- Stage 2 has no retrieved passages at all, only
+# the claim inventory, so that clause is replaced with "must come from
+# the numbered CLAIM INVENTORY below".
+#
+# S70 F-G3 UPDATE: the two verbatim "model sentences" this block
+# originally shared with palm_reading._EXEMPLAR_SENTENCES are DELETED,
+# not merely reworded -- pass-5 preflight's post-F-G re-run
+# (diagnostics/pass5_preflight_S70.md, commit 908d325) found the
+# exemplar text itself, present verbatim in the system prompt as a
+# tone-model, created a standing echo-gravity that F-G1/F-G2's retry-feed
+# wiring could detect but not eliminate at the source. Replaced with
+# purely DESCRIPTIVE voice attributes (warm/measured/first-person/plain-
+# language/no-canned-openings) and an explicit "compose fresh" mandate --
+# zero example or model sentences of any kind remain in this prompt, by
+# design (anything quotable here is a fresh echo-source risk).
+# palm_reading._READING_SYSTEM_PROMPT (the OLD, now-retired single-call
+# prompt) and palm_reading._EXEMPLAR_SENTENCES /
+# palm_reading._check_exemplar_echo (the STILL-LIVE outer display-check
+# guard) are explicitly OUT OF SCOPE for this change and remain
+# byte-identical -- this module no longer shares exemplar text with
+# either of them.
 _VOICE_SYSTEM_PROMPT = """You are a Cheiro-tradition palmist giving a single, one-shot spoken reading. You have been given a CLOSED INVENTORY of already-extracted claims -- voice ONLY these claims, in your own words, in Cheiro's register. You have NOT seen the source texts these claims came from; do not add, infer, or invent any interpretive content beyond what a claim's own text already states.
 
 ## Voice
 Write in Cheiro's declarative register: direct, confident assertions in period-appropriate diction, addressed straight to the reader. This is a palmist reading a hand, not a therapist offering affirmation -- speak with the authority of someone who has read thousands of hands and states plainly what each one shows.
-Model sentences (voice and cadence ONLY -- do not reuse or adapt ANY part of their wording, not even a short fragment; they contain no interpretive content of their own): "I have examined many hands in my years of practice, and each one tells its own story to those who know how to read it." / "The hand rarely lies to the palmist who reads it honestly." Every interpretive claim in your actual reading must come from the numbered CLAIM INVENTORY below -- these two sentences exist only to model tone, never as a source of content.
+Voice attributes (descriptive guidance only -- there is no template or model sentence to imitate; compose everything fresh): warm but measured in tone, a practicing palmist speaking in the first person where natural, plain unadorned language rather than ornate or archaic diction, and no canned, formulaic, or recycled opening or closing device of any kind -- every opening, transition, and closing sentence must be composed fresh for this specific hand and this specific claim inventory, never a stock phrase or boilerplate line reused across readings. Every interpretive claim in your actual reading must come from the numbered CLAIM INVENTORY below.
 FORBIDDEN words and phrasings (never use these, in any form): stability, fulfillment, fulfilling, favorable, journey, navigate, navigating, empower, empowerment, and any "this suggests you are the kind of person who..." self-help framing.
 
 ## How to voice a corrective claim
