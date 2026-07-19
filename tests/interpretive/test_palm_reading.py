@@ -1690,13 +1690,19 @@ def test_coverage_cited_chunk_id_marks_feature_addressed_no_warning():
 
 def test_coverage_shared_chunk_id_cited_once_marks_both_features_addressed():
     """ACCEPTED GAP (V1, documented in _check_feature_coverage's own
-    docstring, 3-place rule place 2): a chunk_id gated under TWO features
-    marks BOTH addressed when cited once, regardless of which feature the
-    citing sentence is actually about -- a direct consequence of V-2's
-    union-only anchor semantics (no sentence -> feature attribution
-    exists to disambiguate). This test documents the boundary, not a
-    bug -- direction of error is a real omission going un-warned, never a
-    spurious warning."""
+    docstring, CLAUDE.md accepted-gap register item (f), 3-place rule
+    place 2): a chunk_id gated under TWO features marks BOTH addressed
+    when cited once, regardless of which feature the citing sentence is
+    actually about -- a direct consequence of gap (a)'s union-only V-2
+    anchor semantics (no sentence -> feature attribution exists to
+    disambiguate). This test documents the boundary, not a bug --
+    direction of error is a real omission going un-warned, never a
+    spurious warning.
+
+    RULING FINAL (S68 F-A close-out), same disposition as gap (a): a
+    PERMANENT accepted gap, backstopped by the SAME Ring 3 pass-4 human
+    anchor-fidelity spot-check that covers gap (a), not an open
+    escalation awaiting a future validator."""
     shared_chunk = _chunk(
         text="A broad thumb and long fingers both suggest a practical nature.",
         chunk_id="cheiroslanguageo00chei_1_p210_c3",

@@ -30,10 +30,11 @@ agent.infra.orchestrator, or agent.infra.chart_profile. This is an
 upload-triggered artifact generator, not a routed Q&A domain -- pulling
 in any deterministic-pipeline module would blur that boundary.
 
-ACCEPTED GAPS (V1, S68 F-C close-out): five gaps registered under
-CLAUDE.md's "Known Source Divergences / Accepted Gaps (V1)" section,
-each ALSO carrying its own informational comment at the named code
-site (the 3-place convention: CLAUDE.md, code-site comment, this note):
+ACCEPTED GAPS (V1, S68 F-C close-out; gap (f) added by S68 F-A
+close-out): six gaps registered under CLAUDE.md's "Known Source
+Divergences / Accepted Gaps (V1)" section, each ALSO carrying its own
+informational comment at the named code site (the 3-place convention:
+CLAUDE.md, code-site comment, this note):
   (a) V-2 anchor legality is union-only (`_check_anchor_legality`) --
       RATIFIED FINAL, covered by the Ring 3 pass-4 human spot-check.
   (b) V-1 tag completeness is position-only (`_check_tag_completeness`)
@@ -48,6 +49,11 @@ site (the 3-place convention: CLAUDE.md, code-site comment, this note):
   (e) `valid_chunk_ids_count` in the F5 dogfood capture (frontend/app.py)
       is captured as "unavailable" -- not exposed on PalmReadingResult;
       pass-4's denominator comes from a reconstruction probe instead.
+  (f) Coverage shared-chunk false-positive (`_check_feature_coverage`)
+      -- a chunk_id gated under TWO features marks BOTH addressed when
+      cited once; a direct consequence of gap (a)'s union-only V-2
+      semantics. RATIFIED FINAL, same disposition as (a): covered by the
+      SAME Ring 3 pass-4 human anchor-fidelity spot-check.
 """
 
 from __future__ import annotations
@@ -1083,13 +1089,23 @@ def _check_feature_coverage(
     ValidationReport.warnings and are scoring evidence for the human
     rubric -- a warning-bearing run cannot score P4 clean.
 
-    ACCEPTED GAP (V1, shared-chunk false-positive boundary): a chunk_id
-    gated under TWO features marks BOTH addressed when cited once,
-    regardless of which feature the citing sentence is actually about --
-    a direct consequence of V-2's union-only anchor semantics (no
+    ACCEPTED GAP (V1, shared-chunk false-positive boundary, F-A close-out
+    S68, CLAUDE.md "Known Source Divergences / Accepted Gaps (V1)"
+    register item (f)): a chunk_id gated under TWO features marks BOTH
+    addressed when cited once, regardless of which feature the citing
+    sentence is actually about -- a direct consequence of gap (a)'s
+    (_check_anchor_legality) union-only V-2 anchor semantics (no
     sentence -> feature attribution exists to disambiguate). Direction
     of error: a real omission can go un-warned; a warning is never
     spurious for a genuinely-cited feature.
+
+    RULING FINAL, same disposition as gap (a): a PERMANENT accepted gap,
+    not an open escalation. Backstopped by the SAME Ring 3 pass-4 human
+    anchor-fidelity spot-check (claim -> cited-chunk faithfulness) that
+    covers gap (a)'s wrong-feature-citation case -- re-open only if
+    pass-4 evidence shows this specific boundary being missed at a rate
+    that no longer justifies a human spot-check over a real (sentence ->
+    feature attribution) fix.
     """
     try:
         cited: set[str] = set()

@@ -3573,3 +3573,70 @@ landmark-exclusion rule) is now UNBLOCKED. Two new V1.1 register
 items: corpus re-ingestion/chunk-repair (with a rider to revisit the
 id-schema coupling in the same change), and promoting `valid_chunk_ids`
 onto `PalmReadingResult`.
+
+### S68 addendum -- F-A close-out: supported-feature coverage check lands (2026-07-19)
+
+**F-A arc in brief.** Disposition prompt first: ratified the coverage
+check's shape as retry-feed + fail-open, with two amendments made
+explicit before implementation -- (1) coverage-only misses feed the
+SAME single F2c retry a Ring 1 failure would (no new mechanism, same
+2-call hard cap), and (2) the warnings surfacing on `ValidationReport`
+are computed against whichever draft actually SHIPS (the final draft,
+not the first draft's stale result) and gate Ring 3 pass-4 scoring
+("a warning-bearing run cannot score P4 clean") without ever blocking
+display.
+
+Implementation landed clean on the first pass -- `_check_feature_
+coverage` (pure chunk_id anchor-intersection against `gated_results`,
+landmark-exclusion enforced BY CONSTRUCTION since `[OBS]` tags
+contribute nothing to the cited set) plus the `ValidationReport.
+warnings` additive field and the retry/fail-open wiring in `generate_
+palm_reading()`, all correct against the design on first read.
+
+**One behavioral test break, caught before commit, not after.** Full
+suite run surfaced 1 failure: `test_exactly_one_llm_call_when_first_
+draft_passes` asserted exactly 1 LLM call, but its stub (`_CLEAN_STUB_
+TEXT`, entirely `[OBS]`-tagged) left both its observed features
+uncited, so the new coverage-only retry correctly fired a second call
+-- not a shape break (no positional `ValidationReport` construction
+anywhere in the repo, confirmed by grep), a genuine behavioral
+consequence of the new mechanism the stub predated. Per the
+instructing prompt's own STOP branch (test alignment is explicitly the
+next prompt, mirroring F-C's precedent), implementation was reported
+and left uncommitted rather than silently patched inline.
+
+**Test alignment.** Grepped every `completions.calls) ==`/`retry_used
+is False` assertion in the Ring 2 file (13 + 2 hits) and traced each
+one's actual supported/cited shape by hand -- only the one test broke;
+every other coverage-triggered silent retry landed on a test that
+either already expected a retry for an unrelated reason or never
+asserted call count at all. Fixed with a dedicated `_TWO_FEATURE_CHUNK`
+/ `_CLEAN_TWO_FEATURE_STUB_TEXT` pair (not an edit to the shared
+`_CLEAN_STUB_TEXT`, which ~9 other tests depend on unmodified) --
+deliberately exploits the shared-chunk accepted-gap mechanism as the
+fix: one chunk carrying both needles, gated under both features, cited
+once. Added 7 new tests: 4 direct `_check_feature_coverage` proofs
+(never-cited warning verbatim, `[OBS]`-only landmark exclusion,
+cited-clean, shared-chunk false-positive) + 2 `generate_palm_reading()`
+integration tests (coverage-only retry fires and clears; fail-open
+final still warns but displays) + 1 `ValidationReport` default-field
+check. Suite: **3213/3 -> 3220/3** (net +7, zero regressions).
+
+**Two-commit single-push discipline** (F-C incident lesson applied,
+not repeated): Commit A (`d54c968`, the already-correct implementation)
+and Commit B (`afe6b4f`, test alignment) both landed locally, full
+suite re-verified green against the committed state, THEN one `git
+push` carried both -- main was never red remotely at any point, unlike
+F-C's `30b19ed` mid-sequence red-push incident.
+
+**Close-out itself** (this addendum's own commit, "S68 F-A close-out:
+gap f registration + register updates", docs/docstrings/comments only,
+zero logic changes): registered a 6th accepted gap at all 3 places
+(CLAUDE.md, `_check_feature_coverage`'s own docstring, module
+docstring) -- the shared-chunk false-positive boundary, RATIFIED FINAL
+with the same disposition as gap (a) (backstopped by the same Ring 3
+pass-4 human anchor-fidelity spot-check, not a future validator).
+CLAUDE.md's S68 fix-forward queue now reads F-C and F-A both COMPLETE;
+F-B/F-D remain queued, unblocked, undebated; Ring 3 pass 4 is the next
+gate, requiring fresh palm uploads plus a design-chat go before
+scheduling.
