@@ -392,6 +392,12 @@ def extract_claims(
     exclusion_ledger: list[dict] = []
     feature_diagnostics: dict[str, dict] = {}
 
+    # If this is empty (every feature's gated chunk list is empty), the
+    # loop below never runs and this function returns an empty, non-
+    # raising ExtractionResult -- no LLM call at all. Downstream, this is
+    # the root of palm_reading.py's own NOTED BEHAVIOR CHANGE (S69 F-H
+    # close-out, CLAUDE.md): the old single-call architecture still made
+    # one low-confidence LLM call here; this one makes zero.
     attempted_features = [f for f, chunks in gated_results.items() if chunks]
 
     for feature in attempted_features:

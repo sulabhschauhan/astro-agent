@@ -62,6 +62,14 @@ inventory (claim_id, claim_text, valence, observation_basis) + confirmed
 observations. Chunk text/chunk_id never appears anywhere in the prompt
 by construction (this module never reads `Claim.chunk_id` at all).
 
+MODEL CHOICE (3-place registration, this docstring is place 2 of 3 --
+place 1 is `_VOICE_MODEL`'s own THRESHOLD DISCIPLINE comment, place 3 is
+CLAUDE.md's S69 F-H close-out entry): `_VOICE_MODEL = "gpt-4o"` is an
+UNTESTED design choice, unlike `claim_extraction._EXTRACTION_MODEL`'s
+probe-validated `gpt-4o-mini` pick -- `fh_stage1_probe_S69.md` measured
+Stage-1 extraction quality only, never Stage-2 voice/register quality. A
+dedicated Stage-2 voice probe is a future candidate, not attempted here.
+
 VALIDATORS (deterministic Python, run in order -- V-4/V-5 only evaluated
 if V-3 passes, since tag POSITIONS must be trustworthy before either can
 mean anything; same "whole-response rejected on any tier's violation"
@@ -491,6 +499,13 @@ def voice_claims(
     """
     included_claims, filter_diagnostics = _filter_claims_for_voice(claims)
 
+    # Empty `claims` (Stage 1 had nothing to attempt or extracted
+    # nothing) -> zero LLM calls here too. Same NOTED BEHAVIOR CHANGE
+    # this early-return pairs with in claim_extraction.extract_claims'
+    # own `attempted_features` comment -- together these two empty-cases
+    # are why an all-absent hand now yields a decline-only reading with
+    # NO LLM call anywhere, not the old single-call low-confidence
+    # fallback (S69 F-H close-out, CLAUDE.md).
     if not included_claims:
         return VoiceResult(
             reading_text_tagged="",

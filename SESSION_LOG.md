@@ -3825,3 +3825,226 @@ have removed; retained as a fallback only if F-H's Stage-1 probe fails.
 **Pass-5 gate: CLOSED** until F-H and F-E both land; the N=5
 re-ratification counter is UNSTARTED (no ratified-live baseline exists to
 count failures against yet).
+
+## Session 69 -- F-H two-stage extract-then-voice redesign landed end to end: probe -> Stage 1 -> Stage 1 tests -> Stage 2 -> Stage 2 tests -> wiring -> test alignment -> close-out (2026-07-19)
+
+### Probe (`ef81bff`) -- pre-implementation gate, ruling: SC-4 is a criterion mis-specification, not an extraction defect
+`scripts/probe_fh_stage1_extraction.py` (throwaway) measured Stage-1
+extraction quality on the FROZEN pass-4 inputs (`diagnostics/
+ring3_evidence_S68_pass4.md` -- the SAME 3 runs pass 4 already scored,
+retrieval bypassed entirely, reconstruction-fidelity-gated against live
+ChromaDB before any cell ran) across a 12-cell matrix: 3 runs x 2 models
+(gpt-4o, gpt-4o-mini) x 2 temperatures (0, 0.3), 5 success criteria per
+cell. Result: SC-1 (no `p98_c1` cited as `supports`, only `corrective`),
+SC-2 (no pass-4 U-row claim reappears), SC-3 (citations stay in-set), and
+SC-5 (100% JSON parse rate) PASSED in all 12 cells, at BOTH models and
+BOTH temperatures -- the cost-discipline lesson, verbatim from the
+resulting `claim_extraction.py` comment: "SC-1/2/3/5 PASS in every one of
+the probe's 12 cells, identically to gpt-4o's results at the same
+criteria; no quality tradeoff was observed for the cheaper/faster model
+on this extraction task." gpt-4o-mini was LOCKED for Stage 1 on this
+measured evidence, not assumed -- a real cost win that would have been
+missed by defaulting to the expensive model out of caution.
+
+SC-4 (a fate-line claim citing `p163_c1` must have `condition_text`
+referencing the rises-from-life-line precondition) FAILED all 12 cells --
+zero claims extracted the precondition at any model/temperature. Design
+ruling, not silently forced: this is a MIS-SPECIFIED CRITERION, not an
+extraction defect. "Barely visible" (the confirmed fate-line observation
+in all 3 frozen runs) states nothing about WHERE the line rises from --
+there is no textual basis for the precondition to be confirmed against,
+so both models correctly, conservatively declined to force a claim. The
+extractor's own downstream design (an empty `claims` list, or E-4's
+`excluded_from_voice` fail-closed marking) is the CORRECT behavior this
+finding predicts and validates, not a gap the implementation needed to
+force past. `_PARAPHRASE_OVERLAP_FLOOR=0.40` was set from the probe's
+pooled overlap distribution (min=0.50, p25=median=p75=max=1.00, n=73)
+with an explicit CAVEAT carried into both the code comment and CLAUDE.md:
+unlike the 0.30 support-score floor (which sits between a measured
+negative-control ceiling and a measured minimum genuine score), this
+probe never measured a genuinely-fabricated claim's overlap -- the floor
+sits below the pooled minimum with a conservative margin, but the band is
+one-sided, not proven from both directions.
+
+### P1 (`d6b4b34`) -- `agent/interpretive/claim_extraction.py`, Stage 1
+New file only. `extract_claims(gated_results, texts_by_feature, client)`
+-- one extraction call per feature with gated chunks, system prompt +
+stopword set TRANSPLANTED verbatim from the probe (the exact text the
+probe validated, not redrafted). E-1 (per-feature-only chunk_id legality,
+retiring accepted gaps (a)/(f) by construction) + E-2 (schema, re-keyed
+claim_ids via a module-owned counter -- never trusting model-emitted
+ids) + E-3 (paraphrase floor) run as an all-or-nothing gate per feature
+response, F2c single retry (hard 2-call cap) on any violation. E-4
+(conditional fail-closed: `valence=="conditional"` OR a populated
+`condition_text`, EXCLUDED unless the precondition is a literal
+substring of the feature's own confirmed text) marks but never drops a
+claim -- kept in the inventory with `excluded_from_voice=True`,
+`exclusion_reason="precondition unverified"`. `RuntimeError` only when
+EVERY attempted feature fails both its tries; zero-gated-features input
+returns an empty, non-raising result. Suite 3220/3 unaffected (new file,
+no other file touched).
+
+### P2 (`73959d4`) -- `tests/interpretive/test_claim_extraction.py`
+New test file only, 15 tests. `_FakeClient`/`_FakeCompletions` transplanted
+from `test_palm_reading.py`'s own precedent, cited not reinvented. A
+SELF-CAUGHT test-design bug during this prompt (not a production bug):
+four persistent-failure tests were first written with only ONE feature in
+`gated_results`, so a single-feature failure IS "all features failed" by
+extract_claims' own contract, tripping the wrong branch (`RuntimeError`
+instead of `failed_features`) on first run. Fixed by adding a second,
+always-succeeding feature alongside the one under test in all four,
+isolating the intended behavior from the separate all-fail path (which
+has its own dedicated test). No production bug exposed. Suite 3220/3 ->
+3235/3 (+15, 0 regressions).
+
+### P3 (`4481ff7`) -- `agent/interpretive/claim_voicing.py`, Stage 2
+New file only. `voice_claims(claims, texts_by_feature, client)` -- one
+whole-reading voice call over the closed inventory Stage 1 produced.
+Input filter drops `excluded_from_voice` claims and caps corrective-
+valence claims at `_CORRECTIVE_CAP=1` (voice/UX judgment call, not
+measured -- more than one correction in a reading reads as a barrage of
+hedges, Ring 3 is the revisit trigger), overflow logged not voiced. "##
+Voice" system-prompt block transplanted near-verbatim from `palm_reading.
+_READING_SYSTEM_PROMPT`'s own Voice section (one line adapted: "provided
+passages" -> "the numbered CLAIM INVENTORY", since Stage 2 never sees a
+retrieved chunk). New `{[C<n>], [OBS], [FLOW]}` tag contract, closed over
+V-3 (tag legality, position-only, same accepted sandwich-gap class as
+palm_reading's own V-1) + V-4 (claim coverage) + V-5 (`[FLOW]`/`[OBS]`
+doctrine guard, reusing `palm_reading._SUPPORT_NEEDLES` as a TRANSPLANTED,
+cited-not-imported constant to avoid a circular import -- deliberately
+coarse, ANY feature-noun hit in a non-claim sentence fails, Ring-3-
+backstopped ACCEPTED GAP, not a false-negative-optimized classifier).
+`_VOICE_MODEL="gpt-4o"` chosen but explicitly flagged UNTESTED (the probe
+never measured Stage-2 voice quality, only Stage-1 extraction). F2c
+single retry, `RuntimeError` on any API exception at either call (a
+single whole-reading call has no per-feature fallback to degrade to,
+unlike Stage 1). Suite 3235/3 unaffected (new file only).
+
+### P4 (`3256d90`) -- `tests/interpretive/test_claim_voicing.py`
+New test file only, 17 tests, same `_FakeClient` lineage. Every test
+passed on first run against P3's module as committed -- no test-design
+bug this time (unlike P2), no production bug exposed. Covers the input
+filter end to end (asserting on the ACTUAL sent messages, not just the
+internal filter function -- excluded/overflow claims verified absent from
+the prompt text itself), all four V-3 failure shapes, V-4 fail/retry/
+persist, V-5 needle-in-FLOW/needle-in-OBS/same-needle-in-claim-passes,
+validator-ordering proof (V-3 gates V-4/V-5), retry cap, both API-
+exception variants, and both empty-included-set paths. Suite 3235/3 ->
+3252/3 (+17, 0 regressions).
+
+### P5 (`62c4a5d`) -- `agent/interpretive/palm_reading.py`, two-stage wiring
+Single-call generation RETIRED: replaced by Stage 1 -> Stage 2, split at
+a new `prepare_palm_reading()`/`complete_palm_reading()` seam (`generate_
+palm_reading()` keeps its exact signature, now a 2-line wrapper -- no
+behavior fork, built for a future P6 dogfood checkpoint on the claims
+inventory). V-1/V-2/`_check_feature_coverage`/`_run_ring1_checks` calls
+REMOVED, functions left DEFINED (deletion deferred to its own future
+prompt). Sources rebuilt per-CLAIM (only claim_ids Stage 2 actually
+CITED, deduped by chunk_id+feature, stable citation order) -- a
+deliberate tightening vs. the old per-gated-chunk sources list, which
+included every chunk fed to the prompt regardless of use. Decline set =
+union of gate-unsupported + Stage-1 `failed_features` + supported-but-
+empty/all-excluded features, "honest decline over silence."
+
+TWO SELF-CAUGHT, SELF-CORRECTED design issues during this prompt (both
+fixed before running any test, documented not silently patched): (1)
+Stage 2 tags its output `{[C<n>], [OBS], [FLOW]}`, a DIFFERENT vocabulary
+than the existing `CHUNK_ANCHOR_TAG_PATTERN`/`strip_generation_tags()`
+recognize (`[OBS]` or a full `[<book>_p<n>_c<n>]` token) -- reusing them
+as-is would have silently left Stage-2 tags in the displayed text; fixed
+by adding `_STAGE2_TAG_PATTERN`/`_strip_stage2_tags` (duplicated from
+`claim_voicing._VOICE_TAG_PATTERN`, cited not imported, same convention
+P1/P3 used for the timeout constant). (2) A first draft assigned
+`PalmReadingResult.unsupported_features=decline_features` (the broader
+union), silently redefining a field whose documented meaning has always
+been "registry-order tuples from the support gate" -- caught on review
+before testing; reverted so the field stays gate-only, and the broader
+union is used ONLY to build the decline-block text, never assigned to
+the field.
+
+Also documented, not fixed: the OLD `_LOW_CONFIDENCE_ADDENDUM` path made
+exactly 1 LLM call even with zero retrieved chunks, free-composing a
+generic reading. The two-stage architecture has no equivalent -- zero
+gated chunks means Stage 1 has nothing to attempt and Stage 2 has nothing
+to voice, so the reading becomes decline-block-plus-disclaimer only, ZERO
+LLM calls anywhere. Ruled a deliberate, correct consequence of retiring
+free composition (the entire point of F-H), flagged as a NOTED BEHAVIOR
+CHANGE for CLAUDE.md rather than silently absorbed. Suite (this commit,
+before alignment): 3213 passed, 39 EXPECTED failures (old single-call
+tests), 3 skipped -- committed LOCALLY ONLY, not pushed, per the
+two-commit single-push discipline (P5b's commit carries the push).
+
+### P5b (`664b159`) -- `tests/interpretive/test_palm_reading.py`, test alignment
+All 39 pre-existing failures individually verified (not inferred from
+position) and grouped into 5 root-cause mechanisms, all traced to test
+fixtures built for the retired architecture -- zero genuine `palm_
+reading.py` bugs exposed. One shared helper (`_two_stage_setup`/
+`_single_feature_client`) built once, not 34 hand-edited stubs, builds
+the two-stage `responses=[...]` sequence (Stage-1 JSON per attempted
+feature + one Stage-2 tagged draft) any test needs. Feature-noun mentions
+moved out of `[FLOW]`/`[OBS]` content into `[C<n>]`-tagged content
+throughout, since V-5 now fails a `[FLOW]`/`[OBS]` sentence naming a
+feature the old single-tag stubs freely mixed in. Four tests marked
+`pytest.mark.skip` (not deleted) for retired-validator invocation paths.
+Three old "F2c retry on a display-check failure" tests, testing a
+mechanism that no longer exists (display checks don't retry in the new
+pipeline), replaced by four INTEGRATION-level tests proving the `retry_
+used` OR-composition and the two new precise fields (`stage1_retry_
+features`, `stage2_retry_used`) instead of re-deriving Stage 2's own
+already-tested validator logic.
+
+DISCOVERY during this alignment pass, not previously flagged in P5's own
+report: `_assemble_retrieved_passages` (the old single-prompt `###
+{feature}` assembler) is ALSO no longer called by the two-stage pipeline
+-- its own integration test (`test_per_feature_map_ordering_and_dedupe_
+for_display`) asserted on that assembly's dedupe/display-order behavior
+via message content that no longer reflects it at all. Flagged in this
+prompt's own report rather than silently expanded scope; the function
+itself is untouched, deletion deferred with the rest of the dead-code
+inventory.
+
+ONE SELF-CAUGHT, SELF-CORRECTED assumption error during testing: a first
+draft of the all-features-absent test assumed ALL 10 registry features
+would be exempt from the decline block (genuine negative absence).
+Running it falsified this -- of the 10, only 7 (life/head/heart/fate/
+thumb/fingers/marks) are genuine negative absence (each absence-phrased
+on its own mentioning source); the other 3 (sun line, mount of venus,
+mount of jupiter) are sub-features NEVER NAMED at all in the fixture text
+-- `_is_genuine_negative_absence` requires an actual mentioning source,
+so "never mentioned" is not the same as "genuinely absent," and these 3
+land in `unsupported_features`/the decline block exactly as they did
+before P5's wiring. Fixed by asserting the actual, verified tuple rather
+than the assumed one.
+
+Both `62c4a5d` and `664b159` pushed together in ONE push, per the
+two-commit single-push discipline. Suite progression across the whole
+P1-P5b arc: **3220/3 (baseline) -> 3252/3 (P1-P4, +32 new tests, 0
+regressions) -> 3213/39-EXPECTED-FAILED/3 (P5, wiring) -> 3249/0/7 (P5b,
+alignment -- 4 new F-H retirement skips + 3 pre-existing unrelated
+skips)**. Zero regressions across the entire arc outside the 39
+EXPECTED, fully-catalogued P5 failures, all resolved by P5b.
+
+### Close-out (docs only, this entry + CLAUDE.md updates)
+CLAUDE.md's F-H Locked Decisions entry rewritten to LANDED state
+(net -5 lines vs. the pre-close-out file, folding the now-resolved S69
+queue/T4-status bullets rather than appending on top); A1 accepted-gap
+register updated in place to mark gaps (a)/(f) RETIRED BY CONSTRUCTION
+(the historical RATIFIED-gap text for the single-call architecture is
+preserved, not deleted -- a retirement note is appended to each). Two
+3-place registration gaps found during verification and closed with
+comment-only edits (zero logic changes, suite re-run to confirm): `claim_
+voicing.py`'s module docstring was missing a mention of `_VOICE_MODEL`'s
+untested status (code-site comment existed, docstring didn't); both
+`claim_extraction.extract_claims` and `claim_voicing.voice_claims` were
+missing a code-site comment at their own empty-input early-return
+(`attempted_features`/`if not included_claims:`) pointing at the NOTED
+BEHAVIOR CHANGE their module docstrings already described elsewhere.
+Carry-forward: P6 (app.py F5 capture wiring + human-checkpoint ruling:
+dogfood=blocking inventory panel, end-user=expandable non-blocking), F-E
+(still queued, small), the pass-5 gate (needs P6 + F-E + fresh uploads +
+design-chat go), the Option S trigger (pass-5 P1 fail = no fourth fix
+cycle), and the Ring 3 rubric pass cap (5, pre-ratification). V1.1
+register gained two new items: the `test_palm_reading.py` monolith split
+(1694 lines) and a prompt-drafting rule (inline fixture-builder specs for
+>15-test prompts; targeted test runs during a rewrite, one full-suite run
+at the end) -- both drawn directly from this arc's own practice.
