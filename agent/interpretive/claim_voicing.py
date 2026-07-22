@@ -87,21 +87,29 @@ philosophy as claim_extraction.py's E-1/E-2/E-3):
   - V-4 claim coverage: every INCLUDED claim_id (post-filter, i.e. what
     was actually offered to Stage 2) is cited by >=1 [C<n>] tag in the
     final draft.
-  - V-5 [FLOW]/[OBS] doctrine guard: reuses `palm_reading._SUPPORT_
-    NEEDLES` (the per-feature trait-noun dictionary) as the SAME single
-    source of truth for "does this sentence name a palm feature's own
-    significance-bearing noun" -- TRANSPLANTED here (`_FEATURE_TRAIT_
-    NEEDLES`, cited, not imported: importing `palm_reading` from this
-    module would create a circular import once `palm_reading.py` wires
-    THIS module in, the same reasoning `claim_extraction.py`'s own
-    `_EXTRACTION_TIMEOUT_SECONDS` comment already documents). ANY needle
-    hit in a [FLOW] or [OBS] segment fails -- deliberately coarse, by
-    design, not a false-negative-optimized classifier. ACCEPTED GAP,
-    3-place registration (CLAUDE.md's own convention): this module
-    docstring + the validator's own code comment are places 2 and 3;
-    place 1 (a CLAUDE.md Known-Source-Divergences entry) is NOT added
-    here -- that is the F-H close-out prompt's job, flagged in this
-    prompt's own report to diagnostics/latest_run.md.
+  - V-5 [FLOW] doctrine guard (S70 F-G4 narrowed -- was [FLOW]/[OBS]):
+    reuses `palm_reading._SUPPORT_NEEDLES` (the per-feature trait-noun
+    dictionary) as the SAME single source of truth for "does this
+    sentence name a palm feature's own significance-bearing noun" --
+    TRANSPLANTED here (`_FEATURE_TRAIT_NEEDLES`, cited, not imported:
+    importing `palm_reading` from this module would create a circular
+    import once `palm_reading.py` wires THIS module in, the same
+    reasoning `claim_extraction.py`'s own `_EXTRACTION_TIMEOUT_SECONDS`
+    comment already documents). ANY needle hit in a [FLOW] segment fails
+    -- deliberately coarse, by design, not a false-negative-optimized
+    classifier. [OBS] segments are OUT OF SCOPE for this guard as of
+    S70 F-G4: 4 consecutive dogfood runs (`.claude/read_prompt.md`,
+    2026-07-22) showed the guard hard-failing on [OBS] sentences that
+    legitimately restate a confirmed observation while naming its own
+    feature (e.g. "The sun line is clearly present on your palm."
+    [OBS]) -- an [OBS] sentence restating an observation about "the sun
+    line" naming "sun" is its INTENDED behavior, not a leak, so the old
+    ACCEPTED GAP framing for [OBS] is RETIRED, not merely re-scoped.
+    [FLOW] stays an accepted gap, 3-place registration (CLAUDE.md's own
+    convention): this module docstring + the validator's own code
+    comment are places 2 and 3; place 1 (a CLAUDE.md Known-Source-
+    Divergences entry) is NOT added here -- that is a future close-out
+    prompt's job.
 
 F2c: single retry, failures fed back as a correction instruction (same
 pattern as palm_reading.py's own S66 F2c retry / claim_extraction.py's
@@ -258,7 +266,7 @@ Every sentence in your reading must end with exactly one tag, placed immediately
 - "[C<n>]" -- for a sentence voicing claim C<n> from the inventory below. Copy the number EXACTLY as given. The sentence's interpretive content must come ONLY from that claim's own text -- never blend in a second claim's content or add anything beyond what the claim states.
 - "[OBS]" -- for a sentence that only restates a confirmed observation, carrying no interpretive content of its own.
 - "[FLOW]" -- for a pure connective or transition sentence (an opening, a closing, or a bridge between claims) that adds no new observation or interpretive content at all.
-Tag every sentence, including the opening and closing ones. Never use any other bracketed token. These tags are machine-readable annotation only -- they are stripped before display, so they are not the "citations" any scope rule below forbids.
+Tag every sentence, including the opening and closing ones. Every tag MUST be preceded by a complete sentence of visible text. Never place two tags back-to-back with nothing between them. Never emit "[X][Y]" -- always "{sentence}. [X] {next sentence}. [Y]". Never use any other bracketed token. These tags are machine-readable annotation only -- they are stripped before display, so they are not the "citations" any scope rule below forbids.
 
 ## Scope
 Voice EVERY claim in the inventory below at least once. Do not mention, allude to, or interpret any palm feature that has no claim in the inventory. Do not cite book names, page numbers, or any source material -- you were never shown any.
@@ -427,25 +435,19 @@ def _segment_by_tag(text: str) -> list[tuple[str, str]]:
     return segments
 
 
-def _check_flow_obs_doctrine_guard(text: str) -> list[str]:
-    """V-5: any [FLOW] or [OBS] segment mentioning ANY feature's own
-    trait-needle (see _FEATURE_TRAIT_NEEDLES / module docstring) fails.
-    Deliberately coarse -- a single needle hit anywhere in the segment
-    fails it, regardless of whether the surrounding sentence is actually
-    interpretive or just incidentally names a feature while restating an
-    observation (e.g. an [OBS] sentence literally restating "the life
-    line is deep and long" would ALSO trip this, since "life" is a
-    needle) -- ACCEPTED GAP, not a bug: see the module docstring's V-5
-    entry for the full 3-place registration note. Direction of error is
-    a FALSE POSITIVE on legitimate feature-naming OBS restatement, which
-    is why this is a Ring-3-backstopped accepted gap rather than a hard
-    production block -- a future refinement could special-case OBS
-    sentences that ALSO don't contain any non-needle trait vocabulary,
-    but that reintroduces exactly the kind of heuristic-tuning this
-    prompt is explicitly not scoped to attempt."""
+def _check_flow_doctrine_guard(text: str) -> list[str]:
+    """V-5 (S70 F-G4 narrowed): any [FLOW] segment mentioning ANY
+    feature's own trait-needle (see _FEATURE_TRAIT_NEEDLES / module
+    docstring) fails. [OBS] segments are OUT OF SCOPE for this guard --
+    an [OBS] sentence restates a confirmed observation by definition, so
+    naming that observation's own feature (e.g. "the sun line is clearly
+    present on your palm") is its intended behavior, not a leak. [FLOW]
+    segments are unchanged: a pure connective/opening/closing sentence
+    naming a feature-noun is the closing/summary-with-feature-nouns
+    pattern this guard exists to catch, and still fails."""
     failures: list[str] = []
     for sentence, tag_label in _segment_by_tag(text):
-        if tag_label not in ("OBS", "FLOW"):
+        if tag_label != "FLOW":
             continue
         hit = _ANY_FEATURE_NEEDLE_PATTERN.search(sentence)
         if hit:
@@ -465,7 +467,7 @@ def _run_validators(text: str, included_claim_ids: set[str]) -> list[str]:
     if failures:
         return failures
     failures.extend(_check_claim_coverage(text, included_claim_ids))
-    failures.extend(_check_flow_obs_doctrine_guard(text))
+    failures.extend(_check_flow_doctrine_guard(text))
     return failures
 
 

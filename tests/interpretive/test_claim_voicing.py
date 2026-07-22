@@ -14,6 +14,8 @@ surface.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from agent.interpretive import claim_voicing
@@ -39,6 +41,31 @@ def test_voice_system_prompt_contains_no_r2_exemplar_sentences():
 
     for sentence in _EXEMPLAR_SENTENCES:
         assert sentence not in claim_voicing._VOICE_SYSTEM_PROMPT
+
+
+# ─── S70 F-G4: adjacent-tag hard rule in the prompt ──────────────────────
+
+
+def test_voice_system_prompt_has_adjacent_tag_hard_rule():
+    prompt = claim_voicing._VOICE_SYSTEM_PROMPT
+    assert "## Output format (voice tags)" in prompt
+    tag_section = prompt.split("## Output format (voice tags)", 1)[1].split("## Scope", 1)[0]
+
+    assert "Every tag MUST be preceded by a complete sentence of visible text" in tag_section
+    assert "Never place two tags back-to-back with nothing between them" in tag_section
+
+    # F-G3 hard constraint carries forward: zero quotable example text
+    # anywhere in the tag-format section -- no quote-delimited run of
+    # >=4 words (a real example sentence) may appear. Brace placeholders
+    # like "{sentence}" / "{next sentence}" in the hard rule's own
+    # format template are stripped before counting, since a placeholder
+    # token is not quotable echo-source prose the way a real example
+    # sentence would be.
+    quoted_runs = re.findall(r'"([^"]*)"', tag_section)
+    for run in quoted_runs:
+        stripped = re.sub(r"\{[^}]*\}", "", run)
+        word_count = len(re.findall(r"[A-Za-z']+", stripped))
+        assert word_count < 4, f"quoted run reads as an example sentence: {run!r}"
 
 
 # ─── Fake OpenAI client -- transplanted from test_palm_reading.py ────────
@@ -283,7 +310,7 @@ def test_v4_persistent_failure_populates_validation_failures():
     assert result.validation_failures == ("claim_coverage: claim_id(s) never cited: ['C1']",)
 
 
-# ─── V-5: [FLOW]/[OBS] doctrine guard ────────────────────────────────────
+# ─── V-5: [FLOW] doctrine guard (S70 F-G4: [OBS] carved out) ────────────
 
 
 def test_v5_needle_in_flow_sentence_fails():
@@ -297,22 +324,51 @@ def test_v5_needle_in_flow_sentence_fails():
     assert any("doctrine_guard: [FLOW]" in f and "'life'" in f for f in result.validation_failures)
 
 
-def test_v5_needle_in_obs_sentence_fails():
+def test_v5_failures_never_labeled_obs():
+    """New in S70 F-G4: when V-5 doctrine_guard failures are populated,
+    none of them may be labeled [OBS] -- the carve-out means [OBS] can
+    no longer appear in this failure class at all. Combines a
+    FLOW-needle failure (still fails) with an OBS-needle sentence (must
+    NOT contribute a failure) in the same draft."""
     claim = _claim()
     texts_by_feature = {"life line": "deep, long"}
-    bad = "The life line is deep and long on your hand.[OBS] A long deep life line promises vitality.[C1]"
+    bad = (
+        "The life line looks promising today.[FLOW] "
+        "The life line is deep and long on your hand.[OBS] "
+        "A long deep life line promises vitality.[C1]"
+    )
     client = _FakeClient(responses=[(bad, None), (bad, None)])
 
     result = voice_claims((claim,), texts_by_feature, client=client)
 
-    assert any("doctrine_guard: [OBS]" in f and "'life'" in f for f in result.validation_failures)
+    doctrine_failures = [f for f in result.validation_failures if f.startswith("doctrine_guard")]
+    assert doctrine_failures
+    assert not any("[OBS]" in f for f in doctrine_failures)
+
+
+def test_v5_needle_in_obs_sentence_passes():
+    """S70 F-G4: [OBS] segments are OUT OF SCOPE for the doctrine guard --
+    an [OBS] sentence restating a confirmed observation while naming its
+    own feature (e.g. "the life line is deep and long") is intended
+    behavior, not a leak. This fixture is the SAME needle-in-[OBS]
+    fixture the pre-F-G4 test asserted a failure on; it now must pass
+    clean on the first draft (no retry)."""
+    claim = _claim()
+    texts_by_feature = {"life line": "deep, long"}
+    good = "The life line is deep and long on your hand.[OBS] A long deep life line promises vitality.[C1]"
+    client = _FakeClient(content=good)
+
+    result = voice_claims((claim,), texts_by_feature, client=client)
+
+    assert result.validation_failures == ()
+    assert result.retry_used is False
 
 
 def test_v5_same_needle_inside_claim_sentence_passes():
     claim = _claim()
     texts_by_feature = {"life line": "deep, long"}
     # "life" appears twice, but both occurrences are inside the [C1]
-    # sentence itself -- V-5 only scans [FLOW]/[OBS] segments, so this
+    # sentence itself -- V-5 only scans [FLOW] segments, so this
     # must PASS.
     good = "A long deep life line promises vitality and shapes your whole life path.[C1]"
     client = _FakeClient(content=good)
