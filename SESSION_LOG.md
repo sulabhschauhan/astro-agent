@@ -4048,3 +4048,222 @@ register gained two new items: the `test_palm_reading.py` monolith split
 (1694 lines) and a prompt-drafting rule (inline fixture-builder specs for
 >15-test prompts; targeted test runs during a rewrite, one full-suite run
 at the end) -- both drawn directly from this arc's own practice.
+
+## Session 70 -- Pass-5 gate closed end to end: F5 capture/checkpoint wiring -> F-E -> a probe-caught exemplar-echo regression -> the F-G fix-forward loop -> stage2 attribution -> T4 RATIFIED-LIVE (2026-07-19 through 2026-07-23)
+
+### P6a (`be64da6`) -- `frontend/app.py`'s `_capture_dogfood_run()`, F5 capture schema
+New `### claims_inventory` section (one pipe-delimited line per
+`reading.claims`, `claim_id | feature | chunk_id | valence |
+excluded_from_voice | exclusion_reason | condition_text | claim_text`),
+new `stage1_retry_features`/`stage2_retry_used`/`validation_failures`
+lines. The old `valid_chunk_ids_count: unavailable` placeholder line
+(S68 F-C accepted gap (e)) is REMOVED entirely, not fixed -- superseded
+by claims_inventory's per-claim `chunk_id`, which gives the real
+membership directly. Targeted run only (S70 cost discipline): `pytest
+tests/test_app_dogfood_capture.py` -> 13 passed (6 pre-existing + 7 new).
+
+### P6b (`27889c1`) -- two-mode Stage-1 checkpoint (dogfood blocking / end-user expandable)
+END-USER path unchanged, gains a non-blocking collapsed "Claims
+inventory" expander. DOGFOOD path changed to two-phase: the generate
+button now calls `prepare_palm_reading()` only, rendering a BLOCKING
+claims panel (ACK-ONLY -- no edit widgets) with Ack (-> `complete_palm_
+reading(prep)`, existing P6a capture fires) / Decline (-> new `_capture_
+checkpoint_declined(prep)`, a `## CHECKPOINT-DECLINED` block, no voicing
+call) buttons -- same AI-reviewing-AI checkpoint discipline as the S65/
+S66 palm-description gate, now extended to the claims inventory. State
+discipline treated as the hardest case: `palm_prep` mirrors `palm_
+reading_result`'s existing clear-site pattern at all 24 sites (grepped
+and verified 1:1, not assumed). One self-caught, self-corrected test-
+placement bug during this prompt: 2 new AppTest tests placed at the
+bottom of the test file (after many bare-import tests) tripped a
+spurious `st.button() can't be used in an st.form()` failure from
+polluted Streamlit widget/form state within the pytest process --
+unrelated to any P6b production code (confirmed: the same test passes
+in isolation), fixed by relocating both next to the pre-existing 2
+AppTest tests near the top of the file. Targeted run only: `pytest
+tests/test_app_dogfood_capture.py` -> 20 passed (13 P6a + 2 new AppTest
++ 5 new direct-import).
+
+### Pass-5 pre-flight probe (`918a4d1`) -- two-stage port, first live ABORT caught
+`scripts/probe_pass5_preflight.py` (throwaway, ported from the pass-4
+probe to the S69 two-stage pipeline) ran the Run-C shape (both palms +
+hand_detail, live vision + live two-stage generation) against `data/
+test_images/` fixtures. 5 of 6 sanity asserts passed; the 6th caught a
+REAL regression: `exemplar_echo: i have examined many hands in` --
+Stage 2's own voice prompt was still handing the model `claim_voicing._
+VOICE_SYSTEM_PROMPT`'s two R2 exemplar sentences (transplanted from
+`palm_reading._EXEMPLAR_SENTENCES`) as tone models, and the model echoed
+one verbatim. This single probe finding is what opened the entire F-G
+fix-forward loop below -- pass-5's own gate had never been exercised
+against the two-stage pipeline before this run.
+
+### F-E (`84c49f1`) -- comma-tolerant absence filler groups
+`_build_absence_noun_pattern`'s two filler-hop groups (and, found
+necessary by DIRECT regex testing rather than assumed from the diff
+alone, the mandatory noun-connector `\s+`) gain `[,;]?` tolerance --
+fixes the S68 pass-4 finding that list-phrased MARKS fields ("No
+crosses, stars, grilles, squares, or moles clearly visible") defeated
+the old comma-blind pattern. One deviation from the instructing prompt's
+stated scope, found necessary by testing: the connector immediately
+before the noun also needed the tolerance, since `\b` cannot fire
+between "cross" and "es" in "crosses" (both `\w`, no boundary), so
+"square" (preceded by a comma) is the only needle that actually lands on
+a real word boundary in the target sentence. 3 new tests (target case,
+semicolon variant, F-B's islands-regression guard re-verified for all
+3 line features). Targeted run: `pytest tests/interpretive/test_palm_
+reading.py -q` -> 62 passed, 4 skipped (unchanged pre-existing skips).
+
+### F-G1 (`eb2c891`) -- extra-validator injection seam in `voice_claims`
+New keyword-only `extra_validators: tuple = ()` param + `_run_extra_
+validators` helper: each `(tagged_draft) -> list[str]` callable runs
+against the raw tagged draft on BOTH the first and retry drafts, merged
+into the same failure list that drives the single F2c retry and the
+final `validation_failures`. No `palm_reading` import (circular-import
+lock preserved). Default `()` verified byte-for-byte behavior-preserving
+for every pre-existing call site. Seam only -- no display validators
+wired yet, that is F-G2.
+
+### F-G2 (`34c7e6f`) -- display checks feed Stage-2 retry (seam wiring)
+New `_build_display_extra_validators(context_corpus, unsupported_
+features)` builds 6 closures (jargon/self-help/unsupported-dates/length/
+banned-feature-mention/exemplar-echo -- MEASURE FIRST found `_run_
+display_checks` actually runs 6 checks, not the 5 the instructing prompt
+named; all 6 wired, not just the named 5), each stripping Stage-2 tags
+before running its check, passed into `voice_claims(..., extra_
+validators=...)`. The outer `_run_display_checks` post-hoc call on the
+final draft is UNCHANGED, kept as the deterministic fail-closed
+backstop. Re-running the pass-5 probe after this landed (`908d325`)
+STILL aborted on exemplar_echo (`tells its own story to those` -- a
+different fragment, same two sentences) -- the retry-feed wiring made
+the echo detectable and retried, but the prompt's OWN exemplar text was
+still the gravitational source pulling the model back to it; this
+finding is what opened F-G3.
+
+### F-G3 (`4b6d15a`) -- descriptive voice guidance replaces verbatim exemplars
+`_VOICE_SYSTEM_PROMPT`'s "Model sentences..." line (the two R2 exemplars
+transplanted from `palm_reading._EXEMPLAR_SENTENCES`) DELETED, not
+reworded -- replaced with purely descriptive voice attributes (warm/
+measured/first-person-where-natural/plain-language/no-canned-openings)
+and an explicit "compose everything fresh" mandate. Stale prose in the
+module comment/docstring claiming the two modules "share the same two
+tone-only exemplar sentences" corrected in the same commit (no longer
+true). New test imports `palm_reading._EXEMPLAR_SENTENCES` directly
+(not pasted inline) so a future edit to either sentence can't silently
+desync the two modules. Re-running the probe after this (`b4dc5a1`):
+**all 6 sanity asserts PASSED** for the first time this arc.
+
+### Stage2 first-attempt attribution (`15fe6d3`) -- `PalmReadingResult` + capture
+Both preflight re-run addenda (`908d325`, `b4dc5a1`) hit the same wall:
+a `stage2_retry_used=True` run gave no way to see WHAT drove the retry.
+New `PalmReadingResult.stage2_first_attempt_failures: tuple[str, ...] =
+()`, populated from `voice_result.diagnostics.get("first_attempt_
+failures", ())` in `complete_palm_reading()`; `frontend/app.py`'s F5
+capture gains one adjacent semicolon-joined line, same join-or-NONE
+convention as the existing `stage1_retry_features_str`/`validation_
+failures_str` lines.
+
+### F-G4 (`f94cecb`) -- V-5 `[OBS]` carve-out + adjacent-tag prompt hardening
+Separately from the probe's echo finding: 4 consecutive REAL dogfood
+runs on 2026-07-22 (`.claude/read_prompt.md`) all fail-closed on the
+IDENTICAL two-stage pattern -- `stage2_first_attempt_failures` always
+`tag_legality: adjacent tags with no sentence between them`, and the
+FINAL `validation_failures` (post-retry) always `doctrine_guard` on an
+`[OBS]` sentence legitimately naming its own observed feature (e.g.
+"The sun line is clearly present on your palm."). Root cause: V-3 gates
+V-4/V-5 (`_run_validators`), so V-5 never even ran on draft 1 -- the
+single retry was spent fixing tag adjacency, leaving no budget to also
+fix the V-5 hit that then failed the retry draft too. Fix: (1) `_check_
+flow_obs_doctrine_guard` renamed `_check_flow_doctrine_guard`, `[OBS]`
+segments skipped entirely (this module's own pre-flagged accepted gap,
+now RETIRED for `[OBS]`, narrowed to `[FLOW]` only); (2) `_VOICE_SYSTEM_
+PROMPT` gains a hard rule requiring a complete sentence between any two
+tags (no example sentences added -- F-G3's zero-quotable-text
+constraint preserved via brace placeholders, not real prose). 25/25
+targeted tests pass (`tests/interpretive/test_claim_voicing.py`), incl.
+2 new: doctrine_guard failures never carry an `[OBS]` label, and the new
+hard-rule text is present with no smuggled example prose.
+
+### Pass-5 preflight re-run post-F-G4 (`5002ddf`)
+All 6 sanity asserts PASSED again (`stage2_retry_used=True`, retry
+cleared cleanly, `tag_legality`/`claim_coverage`/`doctrine_guard` all
+`pass`) -- first clean run exercising the EXACT failure class the 4
+dogfood runs above had hard-blocked on.
+
+### Close-out (docs only, this entry + CLAUDE.md updates, 2026-07-23)
+3 fresh LIVE dogfood runs through the real Streamlit app on 2026-07-23
+(`diagnostics/dogfood_capture.md`: `18:42:14` Run A, `18:43:13` Run B,
+`18:44:11` Run C+HAND_DETAIL -- distinct from the throwaway probe
+script's fixture-based runs above) scored 4/4 on the pass-4 rubric's
+P1-P4 rows, the SAME rubric pass 4 scored P1 FAIL on. Deterministic
+Ring 1 corroborates all 3: `passed=True`, `validation_failures=NONE` on
+every run, with each run's `stage2_first_attempt_failures` showing the
+retry catching a REAL first-draft hit (a doctrine_guard/jargon/self_help
+failure, one per run) and clearing it -- the F-G wiring visibly doing
+its job, not merely absent because nothing tripped it. T4 status
+upgrades directly from SCORED NOT RATIFIED (S68 pass 4) to
+RATIFIED-LIVE on the FIFTH Ring 3 pass, satisfying the S68/S69 pass cap
+exactly at its limit. N=5 post-ratification failure counter STARTED at
+0 (a new, separate counter from the pre-ratification pass cap). Option
+S trigger NOT FIRED -- pass-5's P1 did not fail, so the fallback is
+retained only as a post-ratification-reopen contingency, unchanged.
+
+CLAUDE.md updated: Current Session Focus rewritten to the RATIFIED-LIVE
+state; new **T4 RATIFIED-LIVE** Locked Decisions entry added (full
+detail + all commit refs); the F-H LANDED entry's V-5 and F-G-residual
+notes updated in place (append-only, historical text preserved) to
+point at the RATIFIED-LIVE entry; A1 accepted-gap (e) marked RETIRED in
+place (superseded by P6a's claims_inventory, not merely fixed); three
+now-resolved Carry-Forward bullets (T4 status, F-E, P6) REMOVED per this
+file's own "Carry-Forward holds OPEN items only" rule, resolution
+recorded here instead (see below); V1.1 register gained three new items
+(parallelize Stage-1's sequential per-feature calls -- a mechanical,
+~10s-latency concurrency win, not a design question; V-5's remaining
+`[FLOW]` false-positive on legitimate summary-closing sentences, an
+ACCEPTED gap even after the `[OBS]` carve-out; a needle-inventory audit
+-- `_FEATURE_TRAIT_NEEDLES`/`_SUPPORT_NEEDLES`'s singular needles can't
+match a plural-only surface form on their own, currently masked only
+because both forms already happen to be listed for every feature that
+needs them).
+
+**Baseline correction (Working Style #12 applied to the instructing
+prompt itself):** the close-out prompt's stated baseline of 3279/0/7 was
+verified against a fresh full-suite run before writing it into either
+doc, not trusted as given -- actual result: **3281 passed, 0 failed, 7
+skipped**. The 2-test gap is fully accounted for: F-G4's own targeted
+run reported 25 tests in `test_claim_voicing.py` including 2 new ones
+added after the 3279 baseline was likely last taken, not a discrepancy
+requiring further investigation.
+
+Full-suite progression this arc: **3249/0/7 (S69 baseline) -> 3281/0/7
+(S70 close-out, verified)** -- every individual S70 commit ran a
+TARGETED suite only (P6a/P6b/F-E/F-G1/F-G3/F-G4 test files, `.md`
+diffs above), per the session's own cost-discipline instructions; this
+close-out's full-suite run is the FIRST full-suite verification taken
+across the entire S70 arc.
+
+### Carry-forward resolved this session
+- **P6** (S69 register) -- RESOLVED. P6a (`be64da6`) + P6b (`27889c1`)
+  both landed; F5 dogfood capture now carries the claims inventory and
+  two-stage retry fields, with the blocking-checkpoint/expandable-
+  display split ruled and implemented as specified.
+- **F-E** (S69 queue) -- RESOLVED (`84c49f1`). Comma-tolerant absence
+  filler groups landed; F-B's islands-regression guard re-verified
+  unaffected.
+- **T4 status / pass-5 gate** (S68/S69 register) -- RESOLVED. T4 is
+  RATIFIED-LIVE as of this session's pass 5; see CLAUDE.md's new T4
+  RATIFIED-LIVE entry for the full evidence chain. The Option S trigger
+  and the N=5 pre-ratification pass cap are both retired as ACTIVE gates
+  (the cap was satisfied, not violated); a NEW N=5 post-ratification
+  failure counter takes over from here.
+- **A1 accepted gap (e)** (`valid_chunk_ids_count: unavailable`) --
+  RESOLVED by REMOVAL (`be64da6`), not by exposing the field as the
+  gap's own V1.1 register item once proposed -- claims_inventory's
+  per-claim `chunk_id` made that promotion unnecessary.
+
+### Carry-forward added this session
+See CLAUDE.md's Carry-Forward register for the live, actionable list:
+F-D (unchanged, still queued/undebated), the `palm_processor.py` rider,
+the `astrosage_parser.py` noise-strip touch, and three new V1.1 register
+items from this session (Stage-1 call parallelization, the V-5 `[FLOW]`
+residual false-positive, and the needle-inventory singular/plural audit)
+-- not duplicated here per this file's own compression convention.
