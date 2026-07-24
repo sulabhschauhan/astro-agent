@@ -4267,3 +4267,125 @@ the `astrosage_parser.py` noise-strip touch, and three new V1.1 register
 items from this session (Stage-1 call parallelization, the V-5 `[FLOW]`
 residual false-positive, and the needle-inventory singular/plural audit)
 -- not duplicated here per this file's own compression convention.
+
+## Session 71 -- T4 RATIFICATION REVERSED, first row-level scoring of pass-5 produced P1 FAIL on Run A row 5 (2026-07-24)
+
+### Trigger
+S70's close-out asserted pass-5 scored "4/4 on the pass-4 rubric's P1-P4
+rows" (CLAUDE.md's T4 RATIFIED-LIVE entry), but no row-level rubric
+artifact existed to back it -- unlike pass-3 (`ring3_palm_rubric_S67_
+pass3.md`) and pass-4 (`ring3_palm_rubric_S68_pass4.md`), no `..._pass5.md`
+file was ever written; the only pass-5 artifact was `pass5_preflight_
+S70.md`, an explicitly-labeled throwaway wiring probe on fixture images
+("says nothing about interpretive quality/citation accuracy -- that is
+Ring 3 pass 5's job, human-scored"). This gap surfaced when a design-chat
+session opened the first-ever row-level adjudication of pass-5 Run A row 5
+and found it did not survive scrutiny.
+
+### Row 5 adjudication (design-chat, this session)
+Row 5 -- Run A (`## RUN 2026-07-23T18:42:14.473283`, `diagnostics/
+dogfood_capture.md`), `READING (TAGGED)`: "This line speaks to your
+mental faculties, indicating intellectual strength and the quality of
+your talents. `[C3]`". `claims_inventory` row, verbatim: `C3 | head line
+| cheiroslanguageo00chei_1_p145_c0 | supports | False | None | None |
+The line of head relates principally to the mentality of the subject,
+including intellectual strength or weakness and the direction and
+quality of talent.`
+
+Pass-4 Run A row 4 rationale (`ring3_palm_rubric_S68_pass4.md`, verbatim):
+"4 | 'head line...reflects a strong mental capacity and intellectual
+vigor' | `p145_c0` | **U -> FAIL** -- chunk is the HEAD LINE chapter's
+naming/intro text only ('relates principally to the mentality...to the
+intellectual strength OR weakness' -- neutral framing, no valence for
+deep/long). Identical chunk, identical defect as pass-3 Run A row 8."
+(Note: the source precedent this row-4 text itself cites is pass-3 Run A
+row 8, not pass-4 row 8 -- pass-4's own row 8 is a different, unrelated
+heart-line/`p160_c2` row; the task instruction that opened this
+adjudication conflated the two, corrected in design chat before scoring.)
+
+Three candidate rulings were weighed:
+- **ADJ-A (uphold U)** -- the chunk hasn't changed and neither has its
+  content: `p145_c0` states strength *or* weakness, a two-sided taxonomy
+  statement. Two independent prior passes (pass-3, pass-4) already ruled
+  this exact chunk cannot license one-sided positive framing.
+- **ADJ-B (score C)** -- Stage-1's `valence="supports"` field is real and
+  explicit, produced by an independent extraction call under a documented
+  rule ("if a chunk directly and positively supports the observation, use
+  valence='supports'"), a structurally different evidence base than
+  pass-3/4's raw single-call prose. Ruled to COLLAPSE on inspection: C3's
+  own `claim_text` preserves the identical "strength or weakness"
+  disjunction the label claims to have resolved positively -- the label
+  contradicts its own claim text, so it carries no adjudicative weight.
+- **ADJ-C (score D, tag mis-emitted)** -- would require ruling `[C3]`
+  itself wrongly attached to an OBS-class restatement. Rejected: the
+  clause ("indicating intellectual strength...") is a genuine interpretive
+  leap with no analogue in the confirmed HEAD LINE field; the tag is
+  doing exactly what it's designed to do. Not defensible.
+
+**ADJ-A upheld.** Row 5: U -> FAIL.
+
+### Full Run A ledger (independently re-verified against `dogfood_capture.md` this session)
+Re-parsing the full `READING (TAGGED)` text (not transcribing `.claude/
+read_prompt.md`'s draft, which was independently found to reach the same
+numbers) surfaced two more rows beyond row 5:
+- **Row 3** ("the way this line sweeps far out into your hand is a
+  testament to your good physical strength" `[C2]`, `p139_c0`) --
+  claims_inventory C2 states a CONDITIONAL doctrine ("When the line of
+  life sweeps far out into the hand..."), but neither hand's LIFE LINE
+  field confirms "sweeps far out" (both say only "curves around the base
+  of the thumb"). Same class of defect as row 5: Stage-1 labeled this
+  `valence="supports"` (not "conditional", condition_text=None) despite
+  the claim text itself carrying an unstated precondition. **U -> FAIL.**
+- **Row 10** (summary: "Overall, your hand reveals a picture of strength,
+  vitality, and intellectual capability." `[FLOW]`) -- restates rows 3
+  and 5's U-scored claims with no new citation, pass-4's own summary-row
+  convention. **U -> FAIL.**
+
+Run A tally: 3 C rows (2, 6, 8), 4 D/D-frame rows (1, 4, 7, 9), 3 U rows
+(3, 5, 10). Rubric: P1=N (3 U-class rows), P2=Y (no direct field
+contradictions -- rows 3/5 are precondition-mismatch/unsupported-valence
+issues, not contradictions of a confirmed field), P3=Y (`ring1_
+validation.passed=True`, `failures=()`), P4=Y (`validation_failures:
+NONE` -- this pass's schema retired the old coverage-warnings mechanism,
+superseded by Stage-2's V-4 claim-coverage check per S69 F-H). **Score:
+3/4 -- below the 4/4 ratification bar.**
+
+Per pass-4's own precedent (a single run's P1 FAIL fails the pass
+regardless of the other runs' scores), Run A alone is dispositive. Run B
+and Run C were deliberately NOT scored this session -- both share
+byte-identical LEFT/RIGHT confirmed descriptions with Run A and would
+encounter the same `p145_c0` chunk for the same head-line claim, so
+scoring them could not change the P1 FAIL verdict already reached on Run
+A; out of scope for this reversal.
+
+### Full artifact
+`diagnostics/ring3_palm_rubric_S70_pass5.md` -- new file, written this
+session as the reversal record (not a ratification artifact): STATUS
+SCORED / NOT RATIFIED, Run A ledger complete with row 5's ADJ-A rationale
+expanded verbatim, Run B/C marked NOT SCORED THIS ARTIFACT with the
+reasoning above, re-open path pointing at Ring 3 pass 6.
+
+### CLAUDE.md updated
+T4 RATIFIED-LIVE Locked Decisions entry renamed **T4 RATIFICATION
+REVERSED (S71)** -- original S70 text preserved verbatim beneath a new
+reversal block (append-only, not deleted). Current Session Focus
+rewritten to the reversed state. N=5 post-ratification failure counter
+marked RETIRED (never went live). New Carry-Forward item: Ring 3 pass 6,
+gated by design-chat re-litigation of the `p145_c0` recurring defect
+(THREE passes now -- pass-3 row 8, pass-4 row 4, pass-5 row 5 -- same
+chunk, same defect; read as corpus-level or Stage-1-extraction-level, not
+per-pass variance). No "architectural stability window" lock on
+`palm_reading.py`/`claim_extraction.py`/`claim_voicing.py` existed
+anywhere in CLAUDE.md to lift -- the S71 task instruction assumed one;
+none was fabricated, the gap is noted in place instead.
+
+### No production code touched this session
+Docs only: CLAUDE.md, SESSION_LOG.md (this entry), `diagnostics/ring3_
+palm_rubric_S70_pass5.md` (new), `diagnostics/latest_run.md` (completion
+note). No RATIFIED token required (Working Style #14's docs/diagnostics
+exemption).
+
+### Carry-forward added this session
+**Ring 3 pass 6** -- see CLAUDE.md's Carry-Forward register. Gated on
+design-chat re-litigating the `p145_c0` recurring defect before spending
+a fresh pass-6 dogfood run on the same failure a fourth time.
