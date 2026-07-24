@@ -4389,3 +4389,148 @@ exemption).
 **Ring 3 pass 6** -- see CLAUDE.md's Carry-Forward register. Gated on
 design-chat re-litigating the `p145_c0` recurring defect before spending
 a fresh pass-6 dogfood run on the same failure a fourth time.
+
+## S71 addendum -- V1 palm dropped (Option Z scope lock), Ring 3 arc closed (2026-07-24)
+
+### The six-session arc (S65-S71)
+- **S65**: T4 architecture landed -- AstroSage paragraph + palm reading
+  as upload-triggered artifacts, `agent/interpretive/palm_reading.py`
+  shipped one-shot with Cheiro RAG. Two prior scope locks made at this
+  same session bear directly on today's decision: LLM-generated
+  interpretive Q&A excluded from V1 (the S23 path (c) verdict), and
+  kundali×palm cross-verification explicitly deferred to V1.1 (logged
+  Parashara dissent -- a real capability cut, not a free choice).
+- **S66-S67**: Ring 3 human-rubric passes 1-2 (SCORED NOT RATIFIED both
+  times), then the R1/R2/R3 fix-forward queue (per-feature retrieval,
+  exemplar rewrite, support gate).
+- **S68**: Ring 3 pass 3 (SCORED NOT RATIFIED, P7 ratified OK, P1/P4
+  blockers) -- fix-forward queue opened (F-A through F-H candidates).
+- **S69**: F-H two-stage extract-then-voice redesign (`claim_
+  extraction.py` Stage 1 + `claim_voicing.py` Stage 2) landed end to
+  end, replacing the single-call generator.
+- **S70**: Pass-5 gate work (P6a/P6b capture wiring, F-E, the F-G1-4
+  fix-forward loop) closed out with a claimed RATIFIED-LIVE call -- but,
+  as S71 discovered, that call was never backed by a row-level rubric
+  artifact; only a prose summary and a throwaway wiring probe
+  (`pass5_preflight_S70.md`) existed.
+- **S71 (this session's earlier turns)**: first-ever row-level scoring
+  of pass-5 Run A found row 5 (`p145_c0`) scores U -> FAIL under the
+  SAME rubric methodology pass-3/pass-4 already applied to this
+  identical chunk (pass-3 Run A row 8, pass-4 Run A row 4) -- REVERSED
+  the RATIFIED-LIVE call (commit `c19ea0c`). Independent re-verification
+  of the full Run A ledger surfaced a SECOND, structurally different
+  self-contradicting-valence instance on `p139_c0` (a conditional claim
+  labeled `valence="supports"` instead of `"conditional"`). A follow-up
+  diagnostic scan (`scripts/probe_neutral_chunk_valence.py`, Phase 1,
+  no commit) found 25 candidate chunks in `cheiroslanguageo00chei_1`
+  sharing `p145_c0`'s neutral/disjunctive shape, AND explicitly flagged
+  that `p139_c0`'s precondition-mismatch shape was NOT caught by any of
+  the 5 mechanical patterns used -- a second, uncatalogued defect class.
+
+### This turn's decision: Option Z -- drop palm reading from V1 entirely
+Design chat weighed the accumulated evidence against continuing to
+pursue Ring 3 pass 6 (already queued as a carry-forward item from the
+reversal) and ruled: palm reading fails V1's accuracy bar, and the
+failure mode is not a bug the architecture can be patched around.
+
+**Why this is a model-fit problem, not an architecture problem**: the
+F-H two-stage extract-then-voice redesign (S69) is real, shipped, and
+demonstrably works as designed -- the S70 pass-5 dogfood runs showed the
+F-G retry wiring visibly catching and clearing real first-draft
+doctrine_guard/jargon/self_help failures, exactly as built. What it
+cannot do is make Stage 1 (GPT-4o-mini, temp=0, LOCKED per the S69
+`fh_stage1_probe_S69.md` extraction-quality probe) correctly judge
+VALENCE on classical prose that is inherently hedged, disjunctive, and
+conditional by genre convention (Cheiro's own "strength or weakness",
+"either... or...", "when X, it is a sign of Y" phrasing is NORMAL for a
+19th/20th-century palmistry text, not an edge case). Three consecutive
+Ring 3 passes hitting the IDENTICAL chunk with the IDENTICAL defect,
+plus a second defect class surfacing the moment the ledger was checked
+more carefully, plus a 25-chunk candidate list for the first defect
+class alone (with the second class's true prevalence still unmeasured),
+together read as a structural mismatch between what Stage 1 is asked to
+judge and what the corpus's prose actually supports judging -- not a
+threshold to retune or a prompt tweak away.
+
+**Why the user's stated V1 objective doesn't rescue this**: the
+underlying interest (layman palm Q&A, and a combined palm+astrology
+reading) is independently out of V1 scope on TWO separate prior locks,
+neither opened by this decision: LLM-generated interpretive Q&A was
+excluded from V1 at the S23 path (c) verdict (re-affirmed S65), and
+kundali×palm cross-verification was deferred to V1.1 at S65 with a
+logged Parashara dissent. Relocating palm interpretation from its
+current T4 upload-time surface to a query-time Q&A surface would not
+fix the Stage-1 valence defect -- it would carry the SAME defect into a
+currently-unscoped, currently-unbuilt surface, compounding rather than
+resolving it.
+
+### Decision recorded (see CLAUDE.md's new V1 PALM DROPPED entry for the full text)
+V1 palm-side user flow DROPPED: no palm upload UI, no T4 palm reading
+generation, no palm citations in Q&A routing. All palm-side code STAYS
+in the repository untouched -- `palm_processor.py`, `agent/interpretive/
+palm_reading.py`, `claim_extraction.py`, `claim_voicing.py`, the Cheiro
+RAG chunks in ChromaDB, the Ring 3 harness, and all palm tests are
+preserved intact for V1.1, not deleted or rewritten. V1 ships T1/T2/T3
+deterministic chart answers plus the AstroSage paragraph display --
+chart-only.
+
+**This is a scope decision, not a technical failure.** Recorded
+explicitly because it would be easy to read five ratification attempts
+and a reversal as "the team couldn't make it work" -- the two-stage
+architecture DOES work, on its own terms (S69's probe evidence, S70's
+retry-wiring evidence). What doesn't work is asking that architecture
+to extract reliable positive/negative valence judgments from a genre of
+prose that is genre-typically neutral, hedged, and conditional. That is
+a task-model-fit ceiling, not an implementation defect -- no amount of
+further prompt engineering on the SAME model class was demonstrated to
+close it across S66-S71's five passes.
+
+### CLAUDE.md updated this turn
+Current Session Focus rewritten to the drop. `V1 scope` entry corrected
+(palm removed from the interpretive-surface description -- a direct
+internal-consistency conflict with the new drop decision, fixed
+proactively, not requested verbatim in the instructing prompt). New
+Locked Decision **V1 PALM DROPPED (S71, 2026-07-24)** added with the
+full rationale, inserted immediately after the T4 RATIFICATION REVERSED
+entry. That entry's own "T4 status reverts to SCORED NOT RATIFIED"
+sentence updated in place to "OUT OF V1 SCOPE -- palm reading dropped,
+S71", with the interim SCORED NOT RATIFIED read preserved parenthetically
+for chronology rather than silently overwritten. The "pass 6 is next"
+cross-reference corrected to point at this addendum instead of a
+Carry-Forward item that no longer exists. Carry-Forward's **Ring 3 pass
+6** item REMOVED (resolved by the drop, not superseded by new evidence
+-- resolution recorded here per this file's own "Carry-Forward holds
+OPEN items only" convention). Three other standalone palm-related
+Carry-Forward bullets (`palm_reading.py` S65 flags, F-D retrieval
+instability, `palm_processor.py` rider) MOVED into the existing V1.1
+register mega-bullet, content preserved verbatim, not deleted -- all
+palm-side follow-up work is now consolidated under V1.1, matching the
+drop decision's own framing. V1.1 register gains one new item: revisit
+palm reading with the full S65-S71 findings, considering a structured-
+display fallback (verbatim Cheiro citations, no LLM valence judgment)
+or a hand-curated whitelist mode as candidate remedies -- neither
+designed nor decided here.
+
+### No production code touched this session
+Docs only, this turn: CLAUDE.md, SESSION_LOG.md (this entry),
+`diagnostics/latest_run.md` (completion note, overwritten). No test,
+config, or production module edited. Feature-flag wiring to formally
+gate the palm UI path off in `frontend/app.py` is explicitly a SEPARATE
+follow-up prompt, not attempted here. No RATIFIED token required
+(Working Style #14's docs/diagnostics exemption).
+
+### Carry-forward resolved this session
+- **Ring 3 pass 6** (S71 reversal's own carry-forward, added earlier
+  this same session) -- RESOLVED by the Option Z drop: no further Ring
+  3 passes are needed once palm reading is out of V1 scope. Not a
+  technical resolution of the `p145_c0`/`p139_c0` defects themselves --
+  those remain open findings, now living in the V1.1 register instead
+  of an active pass-cap countdown.
+
+### Carry-forward added this session
+See CLAUDE.md's V1.1 register (Carry-Forward section) for the
+consolidated palm-side follow-up list: `palm_reading.py` S65 flags,
+F-D retrieval instability, `palm_processor.py` rider, needle-inventory
+audit, Stage-1 call parallelization, V-5 `[FLOW]` residual, and the new
+"revisit palm reading" item added this session -- not duplicated here
+per this file's own compression convention.
