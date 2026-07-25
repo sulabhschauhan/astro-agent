@@ -69,6 +69,30 @@ PATH as of this branch landing: chart_profile.build_muhurta_profile() is
 a standalone builder (Session 64 step 1), not yet wired into
 build_domain_profile()'s dispatch or this project's _VALID_DOMAINS lists
 -- same staged-rollout precedent as every prior new-domain landing above.
+
+Session 73 (Prompt 5) adds the 9th domain, "yogini_dasha" -- closes this
+domain's staged rollout (router: Session 72/Commit A; chart_profile
+builder+dispatch+both _VALID_DOMAINS: Session 73/Commit B; this file's
+own branch: Commit C). Always TIER_2_RANGE (payload-property principle,
+same as current_dasha/av_transit -- the payload carries dated MD
+claims, so it always carries drift language). demotion_reason=None
+here; calc_router.py's own _YOGINI_DEMOTION_REASON is the sole owner of
+this domain's demotion string (DEMOTION LOCK, same precedent as
+av_transit). Two departures from this domain's original prompt spec,
+both verified against the actually-committed code before writing, not
+guessed: (1) Commit B's real payload is
+{"current_md": {"lord", "yogini_name", "start_jd", "end_jd"}} only --
+no "years" key, no "all_periods" key, no "sources" key anywhere in the
+payload; (2) current_md is never None by the time it reaches this file
+-- chart_profile.py's own branch fails closed with a RuntimeError
+before ever constructing a profile with a None current_md, so this
+branch has no defensive None-handling (would be dead code otherwise --
+see _format_yogini_dasha()'s own docstring). Uses _format_jd()
+(day-level), NOT _jd_to_utc_str() (muhurta's minute-level helper,
+above) -- Yogini MD periods are year-scale, matching current_dasha/
+sade_sati/av_transit's own day-level JD rendering; _jd_to_utc_str()'s
+minute precision is scoped by its own docstring to Muhurta's intra-day
+electional-timing need, which does not apply here.
 """
 
 from __future__ import annotations
@@ -232,6 +256,8 @@ def format_answer(profile: DomainChartProfile) -> DomainAnswer:
         return _format_career(profile)
     if profile.domain == "current_dasha":
         return _format_dasha(profile)
+    if profile.domain == "yogini_dasha":
+        return _format_yogini_dasha(profile)
     if profile.domain == "sade_sati":
         return _format_sade_sati(profile)
     if profile.domain == "av_transit":
@@ -540,6 +566,76 @@ def _format_dasha(profile: DomainChartProfile) -> DomainAnswer:
         uncertainty_virupa=profile.uncertainty_virupa,
         demotion_reason=demotion_reason,
         sources=sources,
+        uncertainty_days=profile.uncertainty_days,
+    )
+
+
+def _format_yogini_dasha(profile: DomainChartProfile) -> DomainAnswer:
+    """Always TIER_2_RANGE -- payload-property principle (same as
+    current_dasha/av_transit above): the payload carries dated MD claims,
+    so it always carries drift language. Distinct from sade_sati/
+    arudha_lagna/upapada_lagna, which are T1 (no dated claims at all).
+
+    demotion_reason=None here -- Yogini's demotion string is owned
+    entirely by calc_router.py's _YOGINI_DEMOTION_REASON (Session 72/
+    Commit A router wiring): same DEMOTION LOCK precedent as
+    _format_av_transit() above (this branch contributes nothing
+    router-side; there, the router owns the demotion reason
+    exclusively). _merge_router_demotion() needs no change for this
+    domain: the router's non-None reason always overrides this branch's
+    None, per that function's own contract.
+
+    current_md is NOT defended against a None value -- verified directly
+    against chart_profile.py's committed yogini_dasha branch (Commit B,
+    f2d7cc4) before writing this branch: current_yogini_md() returning
+    None is caught and re-raised as RuntimeError THERE, before a
+    DomainChartProfile is ever constructed, so format_answer() can never
+    receive a yogini_dasha profile with a None current_md. A defensive
+    branch for that input would be dead code (CLAUDE.md: don't add error
+    handling for scenarios that can't happen) -- matches this file's own
+    convention for trusted-payload domains (see _format_dasha/
+    _format_marriage/_format_av_transit above: direct dict indexing,
+    bare KeyError on a genuine contract violation, no partial render).
+
+    JD->string via _format_jd() (day-level), NOT _jd_to_utc_str()
+    (minute-level, muhurta_window's own helper) -- Yogini MD periods
+    span 1-8 years; _jd_to_utc_str()'s minute precision is scoped by its
+    own docstring to Muhurta's intra-day electional-timing need, which
+    does not apply here. _format_jd() matches this branch's real
+    structural cousins (current_dasha/sade_sati/av_transit's own
+    year/day-scale JD boundaries), all of which use it.
+
+    sources=("yogini",) is hardcoded here, NOT read from profile.payload
+    (which carries no "sources" key at all -- verified against Commit
+    B's actual payload shape before writing) -- matches
+    _format_arudha_lagna()/_format_upapada()'s formatter-local-literal
+    convention, NOT _format_muhurta_window()'s payload-read departure
+    (that one is the documented exception, not the rule).
+
+    Missing payload keys are NOT defended against here (existing module
+    convention, see _format_dasha/_format_marriage/_format_av_transit
+    above): direct dict indexing raises KeyError with the offending key
+    name, never a partial render.
+    """
+    current_md = profile.payload["current_md"]
+
+    answer_payload = {
+        "current_md": {
+            "lord": current_md["lord"],
+            "yogini_name": current_md["yogini_name"],
+            "start": _format_jd(current_md["start_jd"]),
+            "end": _format_jd(current_md["end_jd"]),
+        },
+    }
+
+    return DomainAnswer(
+        domain=profile.domain,
+        tier=AnswerTier.TIER_2_RANGE,
+        answer_payload=answer_payload,
+        stub_caveats=profile.stub_caveats,
+        uncertainty_virupa=profile.uncertainty_virupa,
+        demotion_reason=None,
+        sources=("yogini",),
         uncertainty_days=profile.uncertainty_days,
     )
 
