@@ -264,3 +264,51 @@ Indian layout) is deferred to the P2.6 Ashtakavarga phase.
    arithmetic; bala rupas are unitless ratios).
 4. Sections 6-8 promoted on demand (Vimshopaka in P2.5+, Yogas in P3+,
    Ashtakavarga BAV per-planet grids at P2.6+).
+
+---
+
+## Vimshottari Dasha (JHora v8, Sulabh)
+
+Source: JHora v8 GUI, Sulabh chart, Vimshottari Dasha panel,
+fetched Session 74. Same panel and format as the existing Yogini
+section. Ayanamsa: Lahiri (23-40-39.08). Balance at birth:
+JUP, remaining ~15y 8m (JHora convention: MD 1 shown from
+notional full-period start 1973-07-28, effective from birth
+1988-04-06 with truncated balance).
+
+**S74 PROBE NOTE on the column header below:** this section's table is
+labeled "Start (UT)"/"End (UT)" per the Session 74 instructing prompt
+that produced it. The values are byte-identical to the pre-existing
+Section 3 "Vimsottari Maha Dasa" table above (captured earlier,
+unlabeled). This file's own Yogini section, and the Session 72
+diagnostic that consumed it, both treat JHora's displayed dasha
+timestamps as **local (IST, UT+5:30)** wall-clock, not UT -- JHora's
+GUI displays local birth-zone time throughout, not UT. The S74 probe
+script therefore parses this table as IST, matching Section 3 and the
+Yogini convention, and flags this apparent header/reality mismatch
+rather than silently treating the values as UT (which would introduce
+a systematic 5.5-hour, ~0.229-day offset into the delta analysis).
+See `diagnostics/vimshottari_year_length_S74.md` section 1 for detail.
+
+### 9-Mahadasha table
+
+| Lord | Start (UT) | End (UT) |
+|---|---|---|
+| Jup  | 1973-07-28 09:15:03 | 1989-07-28 11:39:57 |
+| Sat  | 1989-07-28 11:39:57 | 2008-07-28 08:30:35 |
+| Merc | 2008-07-28 08:30:35 | 2025-07-28 16:55:08 |
+| Ket  | 2025-07-28 16:55:08 | 2032-07-28 12:07:52 |
+| Ven  | 2032-07-28 12:07:52 | 2052-07-28 15:02:51 |
+| Sun  | 2052-07-28 15:02:51 | 2058-07-29 03:48:03 |
+| Moon | 2058-07-29 03:48:03 | 2068-07-28 17:23:57 |
+| Mars | 2068-07-28 17:23:57 | 2075-07-29 12:30:30 |
+| Rah  | 2075-07-29 12:30:30 | 2093-07-29 03:07:36 |
+
+Note: JHora row 1 (Jup) begins 1973-07-28, before birth
+(1988-04-06). This is JHora's notional-full-period display
+convention for a birth-straddling MD, same as the Yogini
+fixture note. chart_calculator.py's `_calc_dasha()` starts
+period 1 at birth with truncated duration = balance_years.
+Diagnostic comparison MUST skip row-1 `begin_jd` (mismatched
+convention by design) and compare row-1 `end_jd` + rows 2..9
+both boundaries.
