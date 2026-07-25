@@ -270,3 +270,281 @@ an internally-inconsistent baseline AD calculation as a SEPARATE finding
 (not affected by this diagnostic). A future constant swap would make
 this row's ±37d framing stale and require it to be re-worded to whatever
 tighter number design chat eventually ratifies — not done here.
+
+---
+
+## §7. Multi-chart extension (S74 continuation)
+
+Method: identical to §1-§5 above, reapplied to Surbhi/Sheridan/David.
+Probe script `scripts/probe_vimshottari_multichart_S74.py` (temporary,
+deleted before commit) reuses `DASHA_ORDER`/`DASHA_YEARS`/`NAKSHATRAS`/
+`_NAK_LORDS`/`_nakshatra`/`resolve_timezone_offset` from
+`agent/chart_calculator.py` and `sidereal_longitude` from
+`helpers/ephemeris.py` — none redefined. As a self-check, the script was
+first re-run against Sulabh: it reproduced the existing §2-§5 Julian/
+Sidereal row-0 offsets to within 0.003d (+4.2496d vs the recorded
++4.2515d; +4.2580d vs +4.2599d) — the small residual traces to the
+script's `sidereal_longitude()` call landing on a natal Moon longitude
+that differs from §1's recorded value in the 5th decimal
+(212.231999001° vs 212.23199465°), not a methodology divergence.
+Confirms the forward-chain method itself is sound before trusting it on
+new charts. Sulabh's own §1-§6 numbers are NOT overwritten by this
+re-run; §8's Sulabh row below is the original, already-locked §3/§6
+values, unchanged.
+
+Row-0 `begin_jd` is skipped for every chart (birth-straddling convention
+mismatch, same rule as §2). Fixture tables sourced from the newly
+created `tests/fixtures/jhora_<name>.md` files (this session's Prompt 1),
+parsed directly by the probe script — not retyped by hand.
+
+### §7.1. Surbhi
+
+Birth inputs: `Surbhi, "11 Sep 1992", "10:30", "Patna, India"` — verified
+canonical at `tests/calculations/strength/test_drik_bala.py:221`
+(`_CHART_ARGS["surbhi"]`), byte-identical to ~14 other call sites (e.g.
+`tests/calculations/core/test_combustion.py:80`,
+`tests/infra/test_orchestrator_e2e.py:82`).
+
+`birth_jd_ut = 2448876.708333`, geocoded `lat=25.6093, lon=85.1235`,
+natal Moon sidereal longitude `315.201430°` (Uttara Bhadrapada,
+nakshatra #24 per `_nakshatra()`), starting Vimshottari lord Rahu
+(18y period, remaining_frac=0.3599, balance ≈6.478y).
+
+**Julian drift table (year_days=365.25):**
+
+| Row | Lord | Computed end_jd | JHora end_jd | Delta (days) | Elapsed yrs |
+|---|---|---|---|---|---|
+| 0 | Rahu    | 2451242.823131 | 2451231.669352 | +11.1538 | 6.4781 |
+| 1 | Jupiter | 2457086.823131 | 2457075.771377 | +11.0518 | 22.4781 |
+| 2 | Saturn  | 2464026.573131 | 2464015.644549 | +10.9286 | 41.4781 |
+| 3 | Mercury | 2470235.823131 | 2470225.000000 | +10.8231 | 58.4781 |
+| 4 | Ketu    | 2472792.573131 | 2472781.801528 | +10.7716 | 65.4781 |
+| 5 | Venus   | 2480097.573131 | 2480086.921736 | +10.6514 | 85.4781 |
+| 6 | Sun     | 2482289.073131 | 2482278.465833 | +10.6073 | 91.4781 |
+| 7 | Moon    | 2485941.573131 | 2485931.029479 | +10.5437 | 101.4781 |
+| 8 | Mars    | 2488498.323131 | 2488487.823125 | +10.5000 | 108.4781 |
+
+**Sidereal drift table (year_days=365.256363):**
+
+| Row | Lord | Computed end_jd | JHora end_jd | Delta (days) | Elapsed yrs |
+|---|---|---|---|---|---|
+| 0 | Rahu    | 2451242.864351 | 2451231.669352 | +11.1950 | 6.4782 |
+| 1 | Jupiter | 2457086.966159 | 2457075.771377 | +11.1948 | 22.4785 |
+| 2 | Saturn  | 2464026.837056 | 2464015.644549 | +11.1925 | 41.4788 |
+| 3 | Mercury | 2470236.195227 | 2470225.000000 | +11.1952 | 58.4791 |
+| 4 | Ketu    | 2472792.989768 | 2472781.801528 | +11.1882 | 65.4792 |
+| 5 | Venus   | 2480098.117028 | 2480086.921736 | +11.1953 | 85.4796 |
+| 6 | Sun     | 2482289.655206 | 2482278.465833 | +11.1894 | 91.4797 |
+| 7 | Moon    | 2485942.218836 | 2485931.029479 | +11.1894 | 101.4798 |
+| 8 | Mars    | 2488499.013377 | 2488487.823125 | +11.1903 | 108.4800 |
+
+Regressions: Julian slope = -0.006412 d/yr, intercept = +11.195416 d.
+Sidereal slope = -0.000049 d/yr, intercept = +11.195416 d (flat,
+compounding eliminated, same as Sulabh).
+
+Row-0 fixed offset (Julian): **+11.1538 d** (Sidereal: +11.1950 d).
+
+### §7.2. Sheridan
+
+Birth inputs: `Sheridan, "27 May 1984", "08:00", "Durban, South Africa"`
+— verified canonical at
+`tests/calculations/strength/test_drik_bala.py:219` (`_CHART_ARGS["sheridan"]`),
+byte-identical to ~12 other call sites (e.g.
+`tests/calculations/strength/test_ishta_kashta.py:124`).
+
+`birth_jd_ut = 2445847.75`, geocoded `lat=-29.8618, lon=31.0099`, natal
+Moon sidereal longitude `2.159852°` (Ashwini, nakshatra #1), starting
+Vimshottari lord Ketu (7y period, remaining_frac=0.8380, balance
+≈5.866y).
+
+**Julian drift table (year_days=365.25):**
+
+| Row | Lord | Computed end_jd | JHora end_jd | Delta (days) | Elapsed yrs |
+|---|---|---|---|---|---|
+| 0 | Ketu    | 2447990.334813 | 2447986.534780 | +3.8000 | 5.8661 |
+| 1 | Venus   | 2455295.334813 | 2455291.664838 | +3.6700 | 25.8661 |
+| 2 | Sun     | 2457486.834813 | 2457483.200602 | +3.6342 | 31.8661 |
+| 3 | Moon    | 2461139.334813 | 2461135.770301 | +3.5645 | 41.8661 |
+| 4 | Mars    | 2463696.084813 | 2463692.555359 | +3.5295 | 48.8661 |
+| 5 | Rahu    | 2470270.584813 | 2470267.173264 | +3.4115 | 66.8661 |
+| 6 | Jupiter | 2476114.584813 | 2476111.270914 | +3.3139 | 82.8661 |
+| 7 | Saturn  | 2483054.334813 | 2483051.149016 | +3.1858 | 101.8661 |
+| 8 | Mercury | 2489263.584813 | 2489260.501435 | +3.0834 | 118.8661 |
+
+**Sidereal drift table (year_days=365.256363):**
+
+| Row | Lord | Computed end_jd | JHora end_jd | Delta (days) | Elapsed yrs |
+|---|---|---|---|---|---|
+| 0 | Ketu    | 2447990.372139 | 2447986.534780 | +3.8374 | 5.8662 |
+| 1 | Venus   | 2455295.499399 | 2455291.664838 | +3.8346 | 25.8665 |
+| 2 | Sun     | 2457487.037577 | 2457483.200602 | +3.8370 | 31.8666 |
+| 3 | Moon    | 2461139.601207 | 2461135.770301 | +3.8309 | 41.8668 |
+| 4 | Mars    | 2463696.395748 | 2463692.555359 | +3.8404 | 48.8669 |
+| 5 | Rahu    | 2470271.010282 | 2470267.173264 | +3.8370 | 66.8672 |
+| 6 | Jupiter | 2476115.112090 | 2476111.270914 | +3.8412 | 82.8675 |
+| 7 | Saturn  | 2483054.982987 | 2483051.149016 | +3.8340 | 101.8679 |
+| 8 | Mercury | 2489264.341158 | 2489260.501435 | +3.8397 | 118.8681 |
+
+Regressions: Julian slope = -0.006339 d/yr, intercept = +3.835507 d.
+Sidereal slope = +0.000024 d/yr, intercept = +3.835507 d (flat).
+
+Row-0 fixed offset (Julian): **+3.8000 d** (Sidereal: +3.8374 d).
+
+### §7.3. David
+
+Birth inputs: `David, "19 Jan 1976", "22:00", "London, UK"` — verified
+canonical at `tests/calculations/strength/test_drik_bala.py:222`
+(`_CHART_ARGS["david"]`), byte-identical to ~14 other call sites (e.g.
+`tests/calculations/core/test_combustion.py:66`,
+`tests/calculations/helpers/test_ephemeris.py:46`). London's UTC offset
+is DST-variable (BST/GMT) unlike the other 3 charts' fixed-offset zones
+— the probe script resolves each fixture timestamp's offset individually
+via `resolve_timezone_offset(lat, lon, naive_dt)` (imported, not
+reimplemented) rather than assuming a fixed UT+0 or UT+1, so each MD
+boundary's local→UT conversion is historically DST-correct.
+
+`birth_jd_ut = 2442797.416667`, geocoded `lat=51.5074, lon=-0.1278`,
+natal Moon sidereal longitude `131.657906°` (Magha, nakshatra #10),
+starting Vimshottari lord Ketu (7y period, remaining_frac=0.1256,
+balance ≈0.880y).
+
+**Julian drift table (year_days=365.25):**
+
+| Row | Lord | Computed end_jd | JHora end_jd | Delta (days) | Elapsed yrs |
+|---|---|---|---|---|---|
+| 0 | Ketu    | 2443118.690352 | 2443117.223565 | +1.4668 | 0.8796 |
+| 1 | Venus   | 2450423.690352 | 2450422.353785 | +1.3366 | 20.8796 |
+| 2 | Sun     | 2452615.190352 | 2452613.890278 | +1.3001 | 26.8796 |
+| 3 | Moon    | 2456267.690352 | 2456266.455162 | +1.2352 | 36.8796 |
+| 4 | Mars    | 2458824.440352 | 2458823.250671 | +1.1897 | 43.8796 |
+| 5 | Rahu    | 2465398.940352 | 2465397.865903 | +1.0744 | 61.8796 |
+| 6 | Jupiter | 2471242.940352 | 2471241.966678 | +0.9737 | 77.8796 |
+| 7 | Saturn  | 2478182.690352 | 2478181.841644 | +0.8487 | 96.8796 |
+| 8 | Mercury | 2484391.940352 | 2484391.193762 | +0.7466 | 113.8796 |
+
+**Sidereal drift table (year_days=365.256363):**
+
+| Row | Lord | Computed end_jd | JHora end_jd | Delta (days) | Elapsed yrs |
+|---|---|---|---|---|---|
+| 0 | Ketu    | 2443118.695949 | 2443117.223565 | +1.4724 | 0.8796 |
+| 1 | Venus   | 2450423.823209 | 2450422.353785 | +1.4694 | 20.8800 |
+| 2 | Sun     | 2452615.361387 | 2452613.890278 | +1.4711 | 26.8801 |
+| 3 | Moon    | 2456267.925017 | 2456266.455162 | +1.4699 | 36.8802 |
+| 4 | Mars    | 2458824.719558 | 2458823.250671 | +1.4689 | 43.8804 |
+| 5 | Rahu    | 2465399.334092 | 2465397.865903 | +1.4682 | 61.8807 |
+| 6 | Jupiter | 2471243.435900 | 2471241.966678 | +1.4692 | 77.8810 |
+| 7 | Saturn  | 2478183.306797 | 2478181.841644 | +1.4652 | 96.8813 |
+| 8 | Mercury | 2484392.664968 | 2484391.193762 | +1.4712 | 113.8816 |
+
+Regressions: Julian slope = -0.006390 d/yr, intercept = +1.470911 d.
+Sidereal slope = -0.000027 d/yr, intercept = +1.470911 d (flat).
+
+Row-0 fixed offset (Julian): **+1.4668 d** (Sidereal: +1.4724 d).
+
+## §8. Multi-chart summary
+
+| Chart    | Julian slope | Sidereal slope | Row-0 offset (Julian) | Row-0 offset (Sidereal) |
+|---|---|---|---|---|
+| Sulabh   | -0.0062      | +0.0002        | +4.2515               | +4.2599                 |
+| Surbhi   | -0.0064      | -0.00005       | +11.1538              | +11.1950                |
+| Sheridan | -0.0063      | +0.00002       | +3.8000               | +3.8374                 |
+| David    | -0.0064      | -0.00003       | +1.4668               | +1.4724                 |
+
+**Axis 1 — compounding mechanism:** Julian→Sidereal is a slope-flattening
+move for ALL 4 charts, no exceptions. Julian slopes cluster tightly at
+-0.0062 to -0.0064 d/yr across all 4 (the -0.006363 = 365.256363 -
+365.25 signature, same as §3's finding); sidereal slopes drop to
+±0.00005 d/yr or smaller (essentially measurement noise) for all 4. This
+part of the S74-Prompt-1 finding generalizes cleanly — it is chart-
+independent.
+
+**Axis 2 — Row-0 fixed offset structure:** all 4 signs are POSITIVE
+(uniform), ruling out the "mixed signs" half of verdict (c) on its own.
+But magnitude does NOT cluster near a single band the way axis 1's
+slopes do — it ranges from +1.4668d (David) to +11.1538d (Surbhi), a
+~7.6x spread, so verdict (a) ("same sign and close magnitude") is
+falsified by this data.
+
+Verdict (b) ("magnitude scales with a chart property") was tested
+against every candidate property available from this probe, per §4's
+own scaling hypothesis (offset ∝ starting lord's `total_years`, since
+`balance_years = total_years * (1 - fraction_traversed)` and the offset
+is theorized to originate in a `fraction_traversed` ephemeris-precision
+delta):
+
+- **Starting lord `total_years` alone:** Sheridan and David share the
+  IDENTICAL starting lord (Ketu, 7y total period) — if offset scaled
+  with `total_years` alone, they should show similar offsets. They do
+  not: +3.8000d vs +1.4668d, a 2.6x difference on the same total_years
+  value. This single comparison falsifies "`total_years` alone" as a
+  sufficient explanatory variable.
+- **`balance_years` (period-0's actual duration, `total_years *
+  remaining_frac`):** Sulabh 1.32y→4.25d, Surbhi 6.48y→11.15d, Sheridan
+  5.87y→3.80d, David 0.88y→1.47d. Offset/balance_years ratio: 3.22,
+  1.72, 0.65, 1.67 respectively — no consistent ratio.
+- **`elapsed_frac` (nakshatra-fraction traversed at birth):** Sulabh
+  0.917→4.25d, David 0.874→1.47d — similar `elapsed_frac`, ~2.9x
+  different offset. No clean fit.
+- **Birth epoch:** birth years 1976 (David, smallest offset)/1984
+  (Sheridan)/1988 (Sulabh)/1992 (Surbhi, largest offset) are not
+  monotonic with offset magnitude either (David earliest, smallest;
+  Surbhi latest of the four, largest — but Sheridan/Sulabh don't fall
+  in between in date order the way their offsets do).
+
+None of the single-variable candidates checked here produce a clean
+scaling fit. **Verdict: (c) — high variance, unresolved.** Not "mixed
+signs" (all 4 are positive), but the magnitude spread and the falsified
+Ketu/Ketu same-total_years comparison mean no mechanism from this
+4-chart sample explains the row-0 offset's size. Per the instructing
+prompt's own criterion, this is called as measured, not rationalized
+toward (a) or (b) despite the uniform sign being suggestive.
+
+## §9. Yogini formula cross-check (informational)
+
+| Chart    | Nakshatra # | Formula (n+2)%8 | Predicted lord | JHora row-1 lord | Match? |
+|---|---|---|---|---|---|
+| Sulabh   | 16          | 2               | Jupiter        | Jupiter          | ✓      |
+| Surbhi   | 24          | 2               | Jupiter        | Jupiter          | ✓      |
+| Sheridan | 1           | 3               | Mars           | Mars             | ✓      |
+| David    | 10          | 4               | Mercury        | Mercury          | ✓      |
+
+All 4 charts PASS. Predicted lord was read directly from
+`compute_yogini_dasha()`'s own `periods[0].lord` (the module's public
+entry point) — not from a reimplemented formula; `nakshatra_number` and
+`(n+2)%8` are reported alongside for audit-trail purposes only, derived
+via the same `_nakshatra()` helper the module itself calls internally.
+
+Per the instructing prompt: all 4 pass → the `(nakshatra_number + 2) %
+8` starting-lord formula in `agent/calculations/dashas/yogini.py` is
+validated across the full 4-chart reference set. The 3 xfails in
+`tests/test_yogini_dasha.py` (`test_starting_lord_surbhi/sheridan/david`)
+are candidates to flip in a future S74 prompt — NOT done here, per the
+instructing prompt's explicit scope limit.
+
+## §10. Revised recommendation for design-chat review
+
+Multi-chart evidence CONFIRMS axis 1 (compounding mechanism — the
+sidereal-year swap flattens drift slope from ≈-0.0064 d/yr to ≈0 for
+all 4 charts, chart-independent) but does NOT resolve axis 2 (row-0
+fixed offset — same sign across all 4, but magnitude varies 7.6x with
+no mechanism found among the candidates tested, verdict (c)).
+
+Per the instructing prompt's own decision framework, verdict (c) means:
+**recommendation UNCHANGED from the existing §6 Recommendation above —
+do NOT authorize the year-length constant swap in `_calc_dasha`/
+`_add_years` yet.** (Note: the instructing prompt for this diagnostic
+refers to "§5" for the prior recommendation; this file's actual
+recommendation section is numbered §6 — the multi-chart evidence above
+is assessed against §6's content, not a renumbering of this file.) The
+compounding-fix case is now stronger (4-chart-confirmed, not
+1-chart), but shipping it alongside a still-unexplained, non-constant
+row-0 offset is premature — same rationale as §6, now with broader
+(and more puzzling) supporting data rather than resolving evidence.
+
+Follow-up candidates for a future dedicated session (not started here):
+isolate whether the offset correlates with a property NOT tested above
+(e.g. natal Moon's exact ecliptic latitude, ayanamsa-rounding behavior
+specific to JHora's engine, or the interaction between `elapsed_frac`
+and `total_years` as a two-variable model rather than either alone);
+Antardasha-level drift was not probed for the 3 new charts (same scope
+limit as §6's own note).
