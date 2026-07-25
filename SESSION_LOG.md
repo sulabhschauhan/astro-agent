@@ -4534,3 +4534,50 @@ F-D retrieval instability, `palm_processor.py` rider, needle-inventory
 audit, Stage-1 call parallelization, V-5 `[FLOW]` residual, and the new
 "revisit palm reading" item added this session -- not duplicated here
 per this file's own compression convention.
+
+## Session 73 -- Yogini dasha P3 catch-up + P4 chart_profile/orchestrator wiring (2026-07-25)
+
+Note: Session 72's own work (Yogini dasha calc module, JHora fixture
+extension, palm UI gate S72-2a, Yogini year-constant diagnostic) never
+received its own SESSION_LOG.md close-out entry -- this session's own
+Carry-forward corrections item below traces directly to that gap: with
+no session-log entry to check against, a carry-forward claim about S72
+went unverified against the actual git history until this session
+re-derived it directly from `git log`.
+
+Two commits landed, both by direct verification against the actual
+committed state (not against the instructing prompt's assumptions --
+see the correction below):
+- `764e910` "S72 P3 (catch-up): route yogini_dasha domain -- router
+  whitelist + Stage 2 enum + unbuilt-keyword removal" --
+  `agent/infra/calc_router.py` + `tests/infra/test_calc_router_stage2.py`.
+  Verified in isolation (stashed the P4-scoped files, ran the full
+  suite against this commit's content alone): 3286 passed, 0 failed,
+  7 skipped, 3 xfailed -- exact match to the documented S72 close
+  baseline. A direct `orchestrator.answer_question()` probe confirmed
+  the fail-closed guard (orchestrator's own `_VALID_DOMAINS` check, not
+  chart_profile.py's -- it fires one layer earlier than routing
+  narrative elsewhere had assumed) raises cleanly for a yogini_dasha
+  question at this commit.
+- `f2d7cc4` "S73 P4: wire yogini_dasha into chart_profile builder+
+  dispatch and _VALID_DOMAINS on both sides; flip orchestrator xfail
+  (formatter branch lands in P5)" -- `agent/infra/chart_profile.py`,
+  `agent/infra/orchestrator.py`, plus two new test files
+  (`tests/test_yogini_routing.py`, `tests/infra/test_chart_profile_yogini.py`).
+  Full suite after this commit: 3295 passed, 0 failed, 7 skipped,
+  4 xfailed.
+
+Neither commit pushed -- batches with Prompt 5 (result_formatter.py's
+own yogini_dasha branch) per two-commit-one-push discipline, making the
+eventual push 3 commits instead of the usual 2, a one-time deviation
+flagged here as instructed.
+
+### Carry-forward corrections
+- S72's carry-forward stated the yogini_dasha router wiring (Prompt 3:
+  `calc_router.py` keyword/dispatch/Stage-2-enum changes) was
+  "committed and pushed." It was not: `git log` at the start of this
+  session showed the last commit touching Yogini was `11b9284`
+  (calc module + its own unit tests only) -- the router wiring sat
+  uncommitted in the working tree the entire time, only landing now as
+  `764e910` above. Root cause noted above (no S72 close-out entry to
+  cross-check the claim against).
