@@ -1007,4 +1007,33 @@ locked further.
 Phase 0 is dissolved; Phase 0.6 (JHora parser) runs in parallel
 time-permitting.
 
+## V1.5 — FOUNDATION PHASE (post-V1 ship, pre-V2 expansion)
+
+**Purpose:** Generalize the per-domain assembler pattern before V2 
+scales it 10x. Derive schema from shipped hand-coded domains, not 
+top-down.
+
+**Full design lock:** `playbook_export/decisions/rule-engine-v1_5-design.md`
+
+**Trigger to open V1.5.1:** ALL four prerequisites green:
+1. V1 shipped end-to-end (palm UI gate implemented, 8 routable 
+   domains stable)
+2. Ashtottari dasha wired (4th post-S19-lock hand-coded domain)
+3. D10 + D7 divisional chart modules built
+4. Palm revisit outcome decided (V1.1 register item)
+
+**Sub-phases (estimate 7-12 sessions total):**
+- V1.5.1: Retrospective analysis of shipped domain assemblers
+- V1.5.2: Two-tier engine contract (Tier A YAML + Tier B Python 
+  composite)
+- V1.5.3: Multi-chart ChartContext v2 + signal-axis validator
+- V1.5.4: Ordinal confidence derivation (source_count + 
+  oracle_agreement + exception_depth + axis_coverage)
+- V1.5.5: Retrofit migration — marriage_compat first (hardest case, 
+  documented PVR/AstroSage divergence)
+- V1.5.6: First V2 domain via YAML (progeny_gender)
+
+**Do NOT start V1.5.1 before all four prerequisites are green.** 
+Premature abstraction risk = path (c) failure mode class (S22-S23).
+
 
