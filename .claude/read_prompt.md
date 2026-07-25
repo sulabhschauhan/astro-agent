@@ -2,169 +2,105 @@
 
 #Paste your instructions here. Then tell Claude: "Read .claude/read_prompt.md and execute"
 
-
-
 Model: Sonnet 4.6
-Task: Implement Yogini MD computation in agent/calculations/dashas/
-yogini.py and its unit test in tests/test_yogini_dasha.py. Two-file
-exception to the one-file rule: module + its unit test are tightly
-coupled; splitting creates a broken red-suite intermediate state
-that would violate the never-push-red rule if committed between.
+Task: S74 Prompt 4 — pyjhora source read. Explain the row-0 fixed-
+   offset spread in Vimshottari (Sulabh +4.25d, Surbhi +11.15d,
+   Sheridan +3.80d, David +1.47d — §7-§8 of diagnostics/
+   vimshottari_year_length_S74.md, verdict (c) unresolved) by reading
+   the actual pyjhora implementation. Diagnostic markdown, no
+   production code touched.
 
-## 1. Module contract — agent/calculations/dashas/yogini.py
+## 1. Locate pyjhora
 
-Replace the current stub docstring. Implement:
+Grep the repo for pyjhora — likely at astroagent/pyjhora/ or vendored
+under a third_party/ or references/ path. Report the path and confirm
+it is a Python port/source of JHora v8's dasha calculations (as
+opposed to a stub, README-only folder, or unrelated package).
 
-    from dataclasses import dataclass
-    from typing import Sequence
+If pyjhora is NOT present, STOP and report — do not fall back to
+web sources without design-chat approval.
 
-    @dataclass(frozen=True)
-    class YoginiPeriod:
-        lord: str          # "Jup" | "Mars" | "Merc" | "Sat" | "Ven"
-                           # | "Rah" | "Moon" | "Sun" (match Vimshottari
-                           # lord string convention — verify against
-                           # chart_calculator.py:_calc_dasha() before
-                           # coding; mirror exactly, don't invent)
-        yogini_name: str   # "Dhanya" | "Bhramari" | "Bhadrika" | "Ulka"
-                           # | "Siddha" | "Sankata" | "Mangala" | "Pingala"
-        begin_jd: float    # Julian Day UT
-        end_jd: float      # Julian Day UT
-        years: int         # 1..8, integer years per Yogini rule
+## 2. Read balance-at-birth logic in pyjhora
 
-    def compute_yogini_dasha(
-        natal_moon_lon_sidereal: float,  # degrees, 0..360
-        birth_jd_ut: float,
-        n_cycles: int = 3,               # 3 × 36 = 108 years coverage
-    ) -> list[YoginiPeriod]:
-        ...
+Locate pyjhora's Vimshottari Mahadasha calculation. Identify:
 
-    def current_yogini_md(
-        periods: Sequence[YoginiPeriod],
-        query_jd_ut: float,
-    ) -> YoginiPeriod | None:
-        ...
+- Which Moon longitude value it uses (which ayanamsa, which
+  ephemeris precision, whether it applies a mean-vs-true correction).
+- How it computes fraction_traversed within the natal nakshatra.
+- How it converts fraction_traversed to balance_years / balance_days.
+- Which year-length constant it uses (365.25 / 365.2422 / 365.256363
+  / other).
+- Whether the balance-at-birth calculation differs between the
+  Vimshottari and Yogini panels within pyjhora itself (§4 of our
+  diagnostic hypothesized independence; pyjhora will either confirm
+  or refute).
 
-## 2. Locked constants
+Cite file:line for every claim.
 
-Yogini cycle in order (index 0..7):
+## 3. Compare against our _calc_dasha
 
-    _YOGINIS = [
-        ("Mangala",  "Moon",  1),
-        ("Pingala",  "Sun",   2),
-        ("Dhanya",   "Jup",   3),
-        ("Bhramari", "Mars",  4),
-        ("Bhadrika", "Merc",  5),
-        ("Ulka",     "Sat",   6),
-        ("Siddha",   "Ven",   7),
-        ("Sankata",  "Rah",   8),
-    ]
-    # Sum of years = 36. Full cycle = 36y. Source: PVR
-    # "Vedic Astrology: An Integrated Approach", Yogini Dasa section.
+For each of the 4 mechanism-level questions in §2 above, produce a
+side-by-side table:
 
-Year length: 365.25 days (Julian year). Match Vimshottari convention
-in chart_calculator.py; do NOT introduce a new year-length constant.
+    | Aspect          | Our code (file:line) | pyjhora (file:line) | Match? |
+    | Moon longitude  |                      |                     |        |
+    | Ayanamsa flag   |                      |                     |        |
+    | fraction calc   |                      |                     |        |
+    | year constant   |                      |                     |        |
+    | Yogini shares?  |                      |                     |        |
 
-## 3. Starting-lord formula (validated against ONE chart only)
+## 4. Apply pyjhora's logic to Sulabh row-0 by hand
 
-    starting_index = (nakshatra_number + 2) % 8
-    # nakshatra_number is 1-indexed from Ashwini (1) to Revati (27).
-    # Sulabh's Vishakha (16) → (16 + 2) % 8 = 2 → Dhanya (Jupiter). ✓
-    # Validated against jhora_sulabh.md Yogini MD sequence
-    # (Session 72 fixture extension).
+Using pyjhora's exact formulae, compute Sulabh's Vimshottari MD1
+end_jd. Compare to:
+- Our code's output: 2447740.008403 (Julian) / 2447740.016817 (sidereal)
+- JHora GUI fixture: 2447735.756910
 
-Docstring on the function MUST include this caveat verbatim:
+If pyjhora's computed value matches the JHora GUI to within seconds,
+we've located the mechanism — report which specific difference from
+our _calc_dasha accounts for the +4.25d gap.
 
-    # CAVEAT: The (nakshatra_number + 2) % 8 formula is validated
-    # against ONE reference chart (Sulabh, Vishakha → Dhanya).
-    # Alternative formulations exist in classical sources (Saravali,
-    # Muhurtha Chinthamani variants). Surbhi/Sheridan/David
-    # validation pending external JHora fetch. If any of those
-    # charts fails this formula, revisit before treating it as
-    # locked.
+If pyjhora's computed value matches OUR code (not the GUI), then the
+JHora GUI's Vimshottari panel is using a different engine than
+pyjhora — report that as a finding (surprising, and would explain
+the "two black boxes" §4 hypothesis).
 
-## 4. Balance-at-birth
+## 5. Diagnostic markdown extension
 
-Use existing _nakshatra(lon) helper from agent/chart_calculator.py:140
-(import it — do not duplicate). It returns nakshatra_number and pada.
-For fraction traversed:
+File: diagnostics/vimshottari_year_length_S74.md
 
-    nak_span_deg = 360.0 / 27.0            # 13°20'
-    nak_start_deg = (nakshatra_number - 1) * nak_span_deg
-    fraction_traversed = (
-        (natal_moon_lon_sidereal - nak_start_deg) / nak_span_deg
-    )
-    balance_years = (1.0 - fraction_traversed) * starting_lord_years
-    balance_days = balance_years * 365.25
+Append §11 — "pyjhora source audit":
+- Path to pyjhora, confirmation it is the JHora reference source.
+- Mechanism side-by-side table from §3.
+- Sulabh row-0 hand-computation result from §4.
+- Verdict: mechanism located / partially located / not located.
+- If located: recommended fix for _calc_dasha (do NOT implement here).
+  Include estimated blast radius (files touched, golden fixtures
+  affected, envelope tightening candidate).
 
-## 5. Cycle emission
+## 6. What NOT to touch
 
-- Period 1: starting lord, begin = birth_jd_ut,
-  end = birth_jd_ut + balance_days.
-- Periods 2..N: next lord in cycle, duration = lord_years * 365.25.
-- Emit until n_cycles × 8 = 24 periods (default).
+- agent/chart_calculator.py — read-only.
+- agent/calculations/dashas/*.py — read-only.
+- pyjhora source — read-only (do not modify vendored code).
+- Any test file — read-only.
+- Any production module — read-only.
 
-## 6. Test file — tests/test_yogini_dasha.py
+## 7. Commit
 
-Use existing chart-fixture pattern from tests/. Import Sulabh birth
-data from wherever it's canonically defined (grep for "1988-04-06"
-or "Calcutta" in existing test files to find the canonical fixture;
-do NOT re-transcribe birth data).
+Single commit:
+   diagnostic: S74 pyjhora source audit — Vimshottari balance-at-birth
+               mechanism
 
-Tests:
+Files staged: diagnostics/vimshottari_year_length_S74.md only.
 
-  def test_starting_lord_sulabh_vishakha_to_dhanya():
-      # Vishakha (16) must map to Dhanya (Jup).
+No RATIFIED token — diagnostic append.
 
-  def test_first_md_balance_at_birth():
-      # First MD end date within ±1 day of 1988-07-06 (JHora fixture).
+## 8. Report back
 
-  def test_md_sequence_matches_jhora_fixture():
-      # Parse jhora_sulabh.md Yogini section. Compare all 24 MDs:
-      # lord match exact; begin/end JDs within ±1 day.
-      # Load fixture path: tests/fixtures/jhora_sulabh.md.
-      # Simple markdown table parser (no new dependency).
-
-  def test_cycle_order_repeats():
-      # Assert period[i].lord == period[i+8].lord for i in range(16).
-
-  def test_current_md_lookup_today():
-      # As of 2026-07-24, current MD lord must be "Mars"
-      # (2024-07-06 → 2028-07-06 per fixture).
-
-  @pytest.mark.xfail(
-      reason="Formula validated against Sulabh only; "
-             "external Yogini fetch pending for other charts."
-  )
-  def test_starting_lord_surbhi(): ...
-  @pytest.mark.xfail(reason="same")
-  def test_starting_lord_sheridan(): ...
-  @pytest.mark.xfail(reason="same")
-  def test_starting_lord_david(): ...
-
-## 7. What NOT to touch
-
-- calc_router.py: leave _UNBUILT_MODULE_KEYWORDS untouched (Yogini
-  stays refused at routing layer until Prompts 3 and 4 wire it).
-- chart_profile.py, result_formatter.py: no changes.
-- orchestrator.py: no changes.
-- chart_calculator.py: no changes (Vimshottari stays where it is;
-  migration is out of scope for V1.1).
-- CLAUDE.md: no docs changes in this commit (documentation-drift
-  note about dashas/ stubs deferred to a separate docs commit).
-
-## 8. Verification
-
-- pytest tests/test_yogini_dasha.py -x — must be 5 passed, 3 xfailed.
-- pytest -x — full suite must be baseline + 5 = 3286 passed, 0 failed,
-  7 skipped, 3 xfailed. Any deviation = STOP, report, no commit.
-- Import check: python -c "from agent.calculations.dashas.yogini
-  import compute_yogini_dasha, current_yogini_md, YoginiPeriod".
-
-## 9. Commit
-
-Two files touched: agent/calculations/dashas/yogini.py +
-tests/test_yogini_dasha.py. Single commit.
-Message: "S72: Yogini dasha module + unit tests (formula validated
-against Sulabh only; xfail markers for other charts)"
-Do NOT push. Report diff before committing. Ratification token
-required: send "RATIFIED: commit authorized" after diff review.
+1. pyjhora path + confirmation
+2. Mechanism side-by-side table verbatim
+3. Sulabh row-0 hand-computation result
+4. Verdict (located / partial / not located)
+5. If located: proposed fix summary + blast radius
+6. git status + git log origin/main..HEAD --oneline
