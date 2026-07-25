@@ -274,7 +274,8 @@ fetched Session 74. Same panel and format as the existing Yogini
 section. Ayanamsa: Lahiri (23-40-39.08). Balance at birth:
 JUP, remaining ~15y 8m (JHora convention: MD 1 shown from
 notional full-period start 1973-07-28, effective from birth
-1988-04-06 with truncated balance).
+1988-04-06 with truncated balance). All timestamps IST (UT+5:30),
+matching the Yogini section convention above.
 
 **S74 PROBE NOTE on the column header below:** this section's table is
 labeled "Start (UT)"/"End (UT)" per the Session 74 instructing prompt
@@ -292,7 +293,7 @@ See `diagnostics/vimshottari_year_length_S74.md` section 1 for detail.
 
 ### 9-Mahadasha table
 
-| Lord | Start (UT) | End (UT) |
+| Lord | Start (IST) | End (IST) |
 |---|---|---|
 | Jup  | 1973-07-28 09:15:03 | 1989-07-28 11:39:57 |
 | Sat  | 1989-07-28 11:39:57 | 2008-07-28 08:30:35 |
