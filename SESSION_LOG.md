@@ -4581,3 +4581,99 @@ flagged here as instructed.
   uncommitted in the working tree the entire time, only landing now as
   `764e910` above. Root cause noted above (no S72 close-out entry to
   cross-check the claim against).
+
+## S73 close -- Commit B + Commit C landed and pushed, session-close audit (2026-07-25)
+
+This entry closes the yogini_dasha staged rollout begun above: router
+(Commit A, already landed by the time this entry's own predecessor was
+written) -> chart_profile builder + dispatch + both _VALID_DOMAINS
+(Commit B) -> result_formatter.py's own render branch (Commit C). All
+four commits (A, this file's own docs commit, B, C) pushed together in
+ONE push -- a one-time deviation from the project's usual two-commit-
+one-push discipline, flagged per instruction: it exists because S72's
+own Prompt 3 work never got a session-close push at the time (see the
+Carry-forward corrections section above), so this session's own A/B/C
+sequence absorbed that backlog rather than leaving it stranded another
+session.
+
+### Three spec deviations accepted at Commit B review
+Each verified against the actually-committed code before being accepted,
+not against the instructing prompt's assumptions -- all three are
+documented in place (chart_profile.py's own module docstring/branch
+comment) as well as here:
+1. **Inlined yogini_dasha branch, no standalone `build_yogini_dasha_
+   profile()` helper.** Unlike arudha_lagna/upapada_lagna (which compose
+   several existing calculation modules together and so justify their own
+   builder function), Yogini's branch is a thin call site onto
+   `agent/calculations/dashas/yogini.py`'s already-complete
+   `compute_yogini_dasha()`/`current_yogini_md()` -- there is no bespoke
+   composition here to justify extracting a separate helper.
+2. **`uncertainty_days=0.0`, not the prompt's suggested `1.0`
+   placeholder.** Matches the established `sade_sati`/`arudha_lagna`/
+   `upapada_lagna` convention: `0.0` means "no envelope documented yet,"
+   not "verified exact" (same semantics, not to be confused with
+   `current_dasha`'s genuinely-measured `37.0`). The domain's real,
+   actually-known provisional-accuracy caveat is carried entirely by
+   calc_router.py's `_YOGINI_DEMOTION_REASON` (Commit A) via the
+   router-side demotion_reason -- this file does not need to duplicate it
+   on a fabricated day axis. Fabricating a `1.0` placeholder would itself
+   have violated THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4 --
+   every numeric threshold needs justification; "a bit more than the one
+   observed drift number" is not one).
+3. **The xfail on `test_yogini_orchestrator_returns_current_md` was
+   retained with a corrected reason string, not flipped to a
+   `pytest.raises` assertion.** Of the two patterns the instructing
+   prompt offered, this is a third, cleaner option: it needs no further
+   edit when Commit C lands (which it now has) -- the same assertion
+   just starts passing on its own. Confirmed safe before relying on it:
+   `xfail_strict` defaults to `False` at both the global level (no
+   `pyproject.toml`/`setup.cfg`/`tox.ini` in this repo; `pytest.ini` has
+   neither `addopts` nor `xfail_strict`) and the decorator level (only
+   `reason=` was ever passed, no explicit `strict=`) -- so Commit C's
+   landing correctly produced an `XPASS`, informational only, not a
+   suite break.
+
+**xfail_strict global default = False** is hereby the documented
+convention for this project (verified, not assumed, per the audit
+above) -- future dasha-family staged rollouts (Ashtottari, Chara,
+Kalachakra all remain unbuilt, see CLAUDE.md's P2-order lock and
+`_UNBUILT_MODULE_KEYWORDS`) can rely on the same non-strict-xfail
+pattern for their own "lands at router before formatter" staging window,
+without re-verifying this each time.
+
+### Test count trajectory
+- 3286 (S72 close baseline, and this session's own Commit A verified in
+  isolation against it -- exact match, 0 regressions from the router-only
+  change).
+- 3295 after Commit B (+9: two new test files, `tests/test_yogini_
+  routing.py` 6 passed + 1 xfailed, `tests/infra/test_chart_profile_
+  yogini.py` 3 passed).
+- 3299 after Commit C (+4 from the new `tests/infra/test_result_
+  formatter_yogini.py`; the routing xfail flipped to xpassed
+  informationally, so passed count also absorbs that +1 while xfailed
+  drops by 1 for the same reason).
+
+**Final suite: 3299 passed / 0 failed / 7 skipped / 3 xfailed / 1
+xpassed.** Re-verified directly on HEAD at session close (Working Style
+#12), not carried forward from an earlier in-session number.
+
+### CLAUDE.md updated this turn
+New `## Carry-forward corrections` section added (did not exist before
+this session) with the single S72-Prompt-3 correction bullet -- see that
+section for the exact wording; not duplicated here. No other CLAUDE.md
+edit this turn (Locked Decisions/Carry-Forward content otherwise
+untouched) -- the instructing prompt's own §3 also suggested recording
+the xfail_strict convention "in the Locked Decisions section," which
+this entry reads as referring to this SESSION_LOG entry's own
+documentation of it (immediately above), not a second CLAUDE.md Locked
+Decisions bullet: the same prompt's §1 explicitly capped CLAUDE.md to
+"no functional edits; add ONE bullet," and a new Locked Decisions entry
+would exceed that cap. Flagged here rather than silently picking one
+reading -- if a durable CLAUDE.md Locked Decisions entry for xfail_strict
+is actually wanted, that's a follow-up prompt, not assumed here.
+
+### No source code touched this session
+Docs only, this turn and its predecessor: CLAUDE.md, SESSION_LOG.md.
+Commits A/B/C (source + tests) were reviewed, ratified, and landed in
+prior turns of this same session -- ratification tokens for those are
+recorded against their own commits, not re-litigated here.
