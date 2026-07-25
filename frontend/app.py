@@ -36,6 +36,11 @@ logger = logging.getLogger(__name__)
 # hashes, pdf_context, and any AstroSage content are deliberately EXCLUDED
 # (no-storage lock ruling 2026-07-12).
 _DOGFOOD_CAPTURE  = os.environ.get("ASTRO_DOGFOOD_CAPTURE") == "1"
+# Option Z (S71) / S72 gate: palm-side user flow disabled by
+# default in V1. All palm-side modules remain imported and
+# testable; only UI render blocks in this file are gated. V1.1
+# re-enable is a config flip (ASTRO_PALM_ENABLED=1).
+_PALM_ENABLED = os.environ.get("ASTRO_PALM_ENABLED", "0") == "1"
 _DOGFOOD_LOG_PATH = _ROOT / "diagnostics" / "dogfood_capture.md"
 
 
@@ -505,7 +510,11 @@ def _split_astrosage_sections(pdf_context: str) -> list[tuple[str, str]]:
 
 st.title("Parashara — Vedic Astrology")
 
-with st.expander("Upload context (PDF + palms)", expanded=False):
+_upload_expander_title = (
+    "Upload context (PDF + palms)" if _PALM_ENABLED
+    else "Upload context (PDF)"
+)
+with st.expander(_upload_expander_title, expanded=False):
     # ── PDF ───────────────────────────────────────────────────────────────────
     uploaded_pdf = st.file_uploader("AstroSage PDF (optional)", type=["pdf"])
     if uploaded_pdf is not None:
@@ -523,355 +532,356 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
         st.session_state.pdf_context = None
         st.session_state["_astrosage_pdf_name"] = None
 
-    # ── Left palm ─────────────────────────────────────────────────────────────
-    uploaded_left = st.file_uploader(
-        "Left hand (innate potential)", type=["jpg", "jpeg", "png"], key="palm_left_uploader",
-    )
-    if uploaded_left is not None:
-        if st.session_state["_palm_left_image_name"] != uploaded_left.name:
-            _lb = uploaded_left.read()
-            _lh = hashlib.md5(_lb).hexdigest()
+    if _PALM_ENABLED:
+        # ── Left palm ─────────────────────────────────────────────────────────────
+        uploaded_left = st.file_uploader(
+            "Left hand (innate potential)", type=["jpg", "jpeg", "png"], key="palm_left_uploader",
+        )
+        if uploaded_left is not None:
+            if st.session_state["_palm_left_image_name"] != uploaded_left.name:
+                _lb = uploaded_left.read()
+                _lh = hashlib.md5(_lb).hexdigest()
+                st.session_state.palm_left_needs_reupload = False
+                st.session_state.palm_left_regen_warning  = None
+                with st.spinner("Validating left palm…"):
+                    _vr = validate_palm_image(_lb, "left")
+                if _vr["hard_reject"]:
+                    st.error(_vr["reject_message"])
+                    st.session_state.palm_left_str       = None
+                    st.session_state.palm_left_hash      = None
+                    st.session_state.palm_left_status    = None
+                    st.session_state.palm_left_bytes     = None
+                    st.session_state.palm_reading_result = None
+                    st.session_state.palm_prep           = None
+                elif st.session_state.palm_right_hash == _lh:
+                    st.error("Same image uploaded for both hands — please upload each hand separately")
+                    st.session_state.palm_left_str       = None
+                    st.session_state.palm_left_hash      = None
+                    st.session_state.palm_left_status    = None
+                    st.session_state.palm_left_bytes     = None
+                    st.session_state.palm_reading_result = None
+                    st.session_state.palm_prep           = None
+                else:
+                    if _vr["warn"]:
+                        st.warning(_vr["warn_message"])
+                    st.session_state.palm_left_hash           = _lh
+                    st.session_state.palm_left_status         = _vr
+                    st.session_state.palm_left_bytes          = _lb
+                    st.session_state.palm_left_hand_confirmed = False
+                    try:
+                        with st.spinner("Reading palm…"):
+                            _desc = describe_palm_image(_lb, "left")
+                        st.session_state.palm_left_str            = _desc
+                        st.session_state["_palm_left_image_name"] = uploaded_left.name
+                        st.session_state.palm_left_confirmed      = False
+                        st.success("Left palm described — review below")
+                    except RuntimeError as e:
+                        st.error(f"Could not read palm image: {e}")
+                        st.session_state.palm_left_str       = None
+                        st.session_state.palm_reading_result = None
+                        st.session_state.palm_prep           = None
+        elif st.session_state.palm_left_hash is not None or st.session_state.palm_left_needs_reupload:
+            st.session_state.palm_left_str            = None
+            st.session_state.palm_left_hash           = None
+            st.session_state.palm_left_status         = None
+            st.session_state.palm_left_bytes          = None
+            st.session_state.palm_left_confirmed      = False
+            st.session_state.palm_left_hand_confirmed = False
             st.session_state.palm_left_needs_reupload = False
             st.session_state.palm_left_regen_warning  = None
-            with st.spinner("Validating left palm…"):
-                _vr = validate_palm_image(_lb, "left")
-            if _vr["hard_reject"]:
-                st.error(_vr["reject_message"])
-                st.session_state.palm_left_str       = None
-                st.session_state.palm_left_hash      = None
-                st.session_state.palm_left_status    = None
-                st.session_state.palm_left_bytes     = None
-                st.session_state.palm_reading_result = None
-                st.session_state.palm_prep           = None
-            elif st.session_state.palm_right_hash == _lh:
-                st.error("Same image uploaded for both hands — please upload each hand separately")
-                st.session_state.palm_left_str       = None
-                st.session_state.palm_left_hash      = None
-                st.session_state.palm_left_status    = None
-                st.session_state.palm_left_bytes     = None
-                st.session_state.palm_reading_result = None
-                st.session_state.palm_prep           = None
+            st.session_state["_palm_left_image_name"] = None
+            st.session_state.palm_reading_result      = None
+            st.session_state.palm_prep                = None
+
+        # ── Left palm: preview, tips, hand confirmation ─────────────────────────────
+        if uploaded_left is not None and st.session_state.palm_left_bytes is not None:
+            st.image(st.session_state.palm_left_bytes, caption="Left palm", width=150)
+            for _tip in (st.session_state.palm_left_status or {}).get("geometry_tips", []):
+                st.caption(_tip)
+            if st.session_state.palm_left_regen_warning:
+                st.warning(st.session_state.palm_left_regen_warning)
+            if not st.session_state.palm_left_hand_confirmed:
+                st.write("Is this your **Left** hand?")
+                _lcy, _lcn = st.columns(2)
+                with _lcy:
+                    if st.button("Yes", key="left_hand_yes"):
+                        st.session_state.palm_left_hand_confirmed = True
+                        st.rerun()
+                with _lcn:
+                    if st.button("No (swap)", key="left_hand_no"):
+                        try:
+                            if st.session_state.palm_right_hash is not None:
+                                (st.session_state.palm_left_str, st.session_state.palm_right_str) = \
+                                    (st.session_state.palm_right_str, st.session_state.palm_left_str)
+                                (st.session_state.palm_left_hash, st.session_state.palm_right_hash) = \
+                                    (st.session_state.palm_right_hash, st.session_state.palm_left_hash)
+                                (st.session_state.palm_left_status, st.session_state.palm_right_status) = \
+                                    (st.session_state.palm_right_status, st.session_state.palm_left_status)
+                                (st.session_state.palm_left_bytes, st.session_state.palm_right_bytes) = \
+                                    (st.session_state.palm_right_bytes, st.session_state.palm_left_bytes)
+                                (st.session_state.palm_left_confirmed, st.session_state.palm_right_confirmed) = \
+                                    (st.session_state.palm_right_confirmed, st.session_state.palm_left_confirmed)
+                                st.session_state.palm_left_hand_confirmed  = True
+                                st.session_state.palm_right_hand_confirmed = True
+
+                                # Regenerate descriptions so hand-framing matches each
+                                # slot's new (post-swap) image. On failure, the swapped
+                                # string above stays as a fallback — it describes these
+                                # bytes already, just with the original hand's framing.
+                                with st.spinner("Updating palm readings…"):
+                                    try:
+                                        st.session_state.palm_left_str = describe_palm_image(
+                                            st.session_state.palm_left_bytes, "left"
+                                        )
+                                        st.session_state.palm_left_regen_warning = None
+                                        st.session_state.palm_left_confirmed     = False
+                                        st.session_state.palm_reading_result     = None
+                                        st.session_state.palm_prep               = None
+                                    except RuntimeError:
+                                        st.session_state.palm_left_regen_warning = (
+                                            "Could not regenerate the left palm reading after "
+                                            "swapping — it may reference the wrong hand. "
+                                            "Consider re-uploading this image."
+                                        )
+                                        st.session_state.palm_reading_result = None
+                                        st.session_state.palm_prep           = None
+                                    try:
+                                        st.session_state.palm_right_str = describe_palm_image(
+                                            st.session_state.palm_right_bytes, "right"
+                                        )
+                                        st.session_state.palm_right_regen_warning = None
+                                        st.session_state.palm_right_confirmed     = False
+                                        st.session_state.palm_reading_result      = None
+                                        st.session_state.palm_prep                = None
+                                    except RuntimeError:
+                                        st.session_state.palm_right_regen_warning = (
+                                            "Could not regenerate the right palm reading after "
+                                            "swapping — it may reference the wrong hand. "
+                                            "Consider re-uploading this image."
+                                        )
+                                        st.session_state.palm_reading_result = None
+                                        st.session_state.palm_prep           = None
+                            else:
+                                st.session_state.palm_left_str            = None
+                                st.session_state.palm_left_hash           = None
+                                st.session_state.palm_left_status         = None
+                                st.session_state.palm_left_bytes          = None
+                                st.session_state.palm_left_confirmed      = False
+                                st.session_state.palm_left_hand_confirmed = False
+                                st.session_state.palm_left_needs_reupload = True
+                                st.session_state.palm_reading_result      = None
+                                st.session_state.palm_prep                = None
+                        except Exception as e:
+                            st.error(f"Could not update palm state: {e}")
+                        st.rerun()
+            elif not st.session_state.palm_left_confirmed:
+                with st.container():
+                    st.markdown("**Review left palm description**")
+                    st.markdown(st.session_state.palm_left_str)
+                _lky, _lkn = st.columns(2)
+                with _lky:
+                    if st.button("Looks right — use this description", key="left_desc_confirm"):
+                        st.session_state.palm_left_confirmed = True
+                        st.rerun()
+                with _lkn:
+                    if st.button("Discard — re-upload", key="left_desc_discard"):
+                        st.session_state.palm_left_str            = None
+                        st.session_state.palm_left_hash           = None
+                        st.session_state.palm_left_status         = None
+                        st.session_state.palm_left_bytes          = None
+                        st.session_state.palm_left_confirmed      = False
+                        st.session_state.palm_left_hand_confirmed = False
+                        st.session_state.palm_left_needs_reupload = False
+                        st.session_state.palm_left_regen_warning  = None
+                        st.session_state["_palm_left_image_name"] = None
+                        st.session_state.palm_reading_result      = None
+                        st.session_state.palm_prep                = None
+                        st.rerun()
             else:
-                if _vr["warn"]:
-                    st.warning(_vr["warn_message"])
-                st.session_state.palm_left_hash           = _lh
-                st.session_state.palm_left_status         = _vr
-                st.session_state.palm_left_bytes          = _lb
-                st.session_state.palm_left_hand_confirmed = False
-                try:
-                    with st.spinner("Reading palm…"):
-                        _desc = describe_palm_image(_lb, "left")
-                    st.session_state.palm_left_str            = _desc
-                    st.session_state["_palm_left_image_name"] = uploaded_left.name
-                    st.session_state.palm_left_confirmed      = False
-                    st.success("Left palm described — review below")
-                except RuntimeError as e:
-                    st.error(f"Could not read palm image: {e}")
-                    st.session_state.palm_left_str       = None
+                st.caption("✓ Description confirmed")
+                with st.container():
+                    st.markdown("**Left palm description**")
+                    st.markdown(st.session_state.palm_left_str)
+        elif st.session_state.palm_left_needs_reupload and uploaded_left is not None:
+            st.warning(
+                "This image doesn't belong in the Left hand slot — please remove it "
+                "(✕ above) and upload it using the Right hand uploader instead."
+            )
+
+        # ── Right palm ────────────────────────────────────────────────────────────
+        uploaded_right = st.file_uploader(
+            "Right hand (current trajectory)", type=["jpg", "jpeg", "png"], key="palm_right_uploader",
+        )
+        if uploaded_right is not None:
+            if st.session_state["_palm_right_image_name"] != uploaded_right.name:
+                _rb = uploaded_right.read()
+                _rh = hashlib.md5(_rb).hexdigest()
+                st.session_state.palm_right_needs_reupload = False
+                st.session_state.palm_right_regen_warning  = None
+                with st.spinner("Validating right palm…"):
+                    _vr = validate_palm_image(_rb, "right")
+                if _vr["hard_reject"]:
+                    st.error(_vr["reject_message"])
+                    st.session_state.palm_right_str      = None
+                    st.session_state.palm_right_hash     = None
+                    st.session_state.palm_right_status   = None
+                    st.session_state.palm_right_bytes    = None
                     st.session_state.palm_reading_result = None
                     st.session_state.palm_prep           = None
-    elif st.session_state.palm_left_hash is not None or st.session_state.palm_left_needs_reupload:
-        st.session_state.palm_left_str            = None
-        st.session_state.palm_left_hash           = None
-        st.session_state.palm_left_status         = None
-        st.session_state.palm_left_bytes          = None
-        st.session_state.palm_left_confirmed      = False
-        st.session_state.palm_left_hand_confirmed = False
-        st.session_state.palm_left_needs_reupload = False
-        st.session_state.palm_left_regen_warning  = None
-        st.session_state["_palm_left_image_name"] = None
-        st.session_state.palm_reading_result      = None
-        st.session_state.palm_prep                = None
-
-    # ── Left palm: preview, tips, hand confirmation ─────────────────────────────
-    if uploaded_left is not None and st.session_state.palm_left_bytes is not None:
-        st.image(st.session_state.palm_left_bytes, caption="Left palm", width=150)
-        for _tip in (st.session_state.palm_left_status or {}).get("geometry_tips", []):
-            st.caption(_tip)
-        if st.session_state.palm_left_regen_warning:
-            st.warning(st.session_state.palm_left_regen_warning)
-        if not st.session_state.palm_left_hand_confirmed:
-            st.write("Is this your **Left** hand?")
-            _lcy, _lcn = st.columns(2)
-            with _lcy:
-                if st.button("Yes", key="left_hand_yes"):
-                    st.session_state.palm_left_hand_confirmed = True
-                    st.rerun()
-            with _lcn:
-                if st.button("No (swap)", key="left_hand_no"):
+                elif st.session_state.palm_left_hash == _rh:
+                    st.error("Same image uploaded for both hands — please upload each hand separately")
+                    st.session_state.palm_right_str      = None
+                    st.session_state.palm_right_hash     = None
+                    st.session_state.palm_right_status   = None
+                    st.session_state.palm_right_bytes    = None
+                    st.session_state.palm_reading_result = None
+                    st.session_state.palm_prep           = None
+                else:
+                    if _vr["warn"]:
+                        st.warning(_vr["warn_message"])
+                    st.session_state.palm_right_hash           = _rh
+                    st.session_state.palm_right_status         = _vr
+                    st.session_state.palm_right_bytes          = _rb
+                    st.session_state.palm_right_hand_confirmed = False
                     try:
-                        if st.session_state.palm_right_hash is not None:
-                            (st.session_state.palm_left_str, st.session_state.palm_right_str) = \
-                                (st.session_state.palm_right_str, st.session_state.palm_left_str)
-                            (st.session_state.palm_left_hash, st.session_state.palm_right_hash) = \
-                                (st.session_state.palm_right_hash, st.session_state.palm_left_hash)
-                            (st.session_state.palm_left_status, st.session_state.palm_right_status) = \
-                                (st.session_state.palm_right_status, st.session_state.palm_left_status)
-                            (st.session_state.palm_left_bytes, st.session_state.palm_right_bytes) = \
-                                (st.session_state.palm_right_bytes, st.session_state.palm_left_bytes)
-                            (st.session_state.palm_left_confirmed, st.session_state.palm_right_confirmed) = \
-                                (st.session_state.palm_right_confirmed, st.session_state.palm_left_confirmed)
-                            st.session_state.palm_left_hand_confirmed  = True
-                            st.session_state.palm_right_hand_confirmed = True
-
-                            # Regenerate descriptions so hand-framing matches each
-                            # slot's new (post-swap) image. On failure, the swapped
-                            # string above stays as a fallback — it describes these
-                            # bytes already, just with the original hand's framing.
-                            with st.spinner("Updating palm readings…"):
-                                try:
-                                    st.session_state.palm_left_str = describe_palm_image(
-                                        st.session_state.palm_left_bytes, "left"
-                                    )
-                                    st.session_state.palm_left_regen_warning = None
-                                    st.session_state.palm_left_confirmed     = False
-                                    st.session_state.palm_reading_result     = None
-                                    st.session_state.palm_prep               = None
-                                except RuntimeError:
-                                    st.session_state.palm_left_regen_warning = (
-                                        "Could not regenerate the left palm reading after "
-                                        "swapping — it may reference the wrong hand. "
-                                        "Consider re-uploading this image."
-                                    )
-                                    st.session_state.palm_reading_result = None
-                                    st.session_state.palm_prep           = None
-                                try:
-                                    st.session_state.palm_right_str = describe_palm_image(
-                                        st.session_state.palm_right_bytes, "right"
-                                    )
-                                    st.session_state.palm_right_regen_warning = None
-                                    st.session_state.palm_right_confirmed     = False
-                                    st.session_state.palm_reading_result      = None
-                                    st.session_state.palm_prep                = None
-                                except RuntimeError:
-                                    st.session_state.palm_right_regen_warning = (
-                                        "Could not regenerate the right palm reading after "
-                                        "swapping — it may reference the wrong hand. "
-                                        "Consider re-uploading this image."
-                                    )
-                                    st.session_state.palm_reading_result = None
-                                    st.session_state.palm_prep           = None
-                        else:
-                            st.session_state.palm_left_str            = None
-                            st.session_state.palm_left_hash           = None
-                            st.session_state.palm_left_status         = None
-                            st.session_state.palm_left_bytes          = None
-                            st.session_state.palm_left_confirmed      = False
-                            st.session_state.palm_left_hand_confirmed = False
-                            st.session_state.palm_left_needs_reupload = True
-                            st.session_state.palm_reading_result      = None
-                            st.session_state.palm_prep                = None
-                    except Exception as e:
-                        st.error(f"Could not update palm state: {e}")
-                    st.rerun()
-        elif not st.session_state.palm_left_confirmed:
-            with st.container():
-                st.markdown("**Review left palm description**")
-                st.markdown(st.session_state.palm_left_str)
-            _lky, _lkn = st.columns(2)
-            with _lky:
-                if st.button("Looks right — use this description", key="left_desc_confirm"):
-                    st.session_state.palm_left_confirmed = True
-                    st.rerun()
-            with _lkn:
-                if st.button("Discard — re-upload", key="left_desc_discard"):
-                    st.session_state.palm_left_str            = None
-                    st.session_state.palm_left_hash           = None
-                    st.session_state.palm_left_status         = None
-                    st.session_state.palm_left_bytes          = None
-                    st.session_state.palm_left_confirmed      = False
-                    st.session_state.palm_left_hand_confirmed = False
-                    st.session_state.palm_left_needs_reupload = False
-                    st.session_state.palm_left_regen_warning  = None
-                    st.session_state["_palm_left_image_name"] = None
-                    st.session_state.palm_reading_result      = None
-                    st.session_state.palm_prep                = None
-                    st.rerun()
-        else:
-            st.caption("✓ Description confirmed")
-            with st.container():
-                st.markdown("**Left palm description**")
-                st.markdown(st.session_state.palm_left_str)
-    elif st.session_state.palm_left_needs_reupload and uploaded_left is not None:
-        st.warning(
-            "This image doesn't belong in the Left hand slot — please remove it "
-            "(✕ above) and upload it using the Right hand uploader instead."
-        )
-
-    # ── Right palm ────────────────────────────────────────────────────────────
-    uploaded_right = st.file_uploader(
-        "Right hand (current trajectory)", type=["jpg", "jpeg", "png"], key="palm_right_uploader",
-    )
-    if uploaded_right is not None:
-        if st.session_state["_palm_right_image_name"] != uploaded_right.name:
-            _rb = uploaded_right.read()
-            _rh = hashlib.md5(_rb).hexdigest()
+                        with st.spinner("Reading palm…"):
+                            _desc = describe_palm_image(_rb, "right")
+                        st.session_state.palm_right_str            = _desc
+                        st.session_state["_palm_right_image_name"] = uploaded_right.name
+                        st.session_state.palm_right_confirmed      = False
+                        st.success("Right palm described — review below")
+                    except RuntimeError as e:
+                        st.error(f"Could not read palm image: {e}")
+                        st.session_state.palm_right_str      = None
+                        st.session_state.palm_reading_result = None
+                        st.session_state.palm_prep           = None
+        elif st.session_state.palm_right_hash is not None or st.session_state.palm_right_needs_reupload:
+            st.session_state.palm_right_str            = None
+            st.session_state.palm_right_hash           = None
+            st.session_state.palm_right_status         = None
+            st.session_state.palm_right_bytes          = None
+            st.session_state.palm_right_confirmed      = False
+            st.session_state.palm_right_hand_confirmed = False
             st.session_state.palm_right_needs_reupload = False
             st.session_state.palm_right_regen_warning  = None
-            with st.spinner("Validating right palm…"):
-                _vr = validate_palm_image(_rb, "right")
-            if _vr["hard_reject"]:
-                st.error(_vr["reject_message"])
-                st.session_state.palm_right_str      = None
-                st.session_state.palm_right_hash     = None
-                st.session_state.palm_right_status   = None
-                st.session_state.palm_right_bytes    = None
-                st.session_state.palm_reading_result = None
-                st.session_state.palm_prep           = None
-            elif st.session_state.palm_left_hash == _rh:
-                st.error("Same image uploaded for both hands — please upload each hand separately")
-                st.session_state.palm_right_str      = None
-                st.session_state.palm_right_hash     = None
-                st.session_state.palm_right_status   = None
-                st.session_state.palm_right_bytes    = None
-                st.session_state.palm_reading_result = None
-                st.session_state.palm_prep           = None
+            st.session_state["_palm_right_image_name"] = None
+            st.session_state.palm_reading_result       = None
+            st.session_state.palm_prep                 = None
+
+        # ── Right palm: preview, tips, hand confirmation ────────────────────────────
+        if uploaded_right is not None and st.session_state.palm_right_bytes is not None:
+            st.image(st.session_state.palm_right_bytes, caption="Right palm", width=150)
+            for _tip in (st.session_state.palm_right_status or {}).get("geometry_tips", []):
+                st.caption(_tip)
+            if st.session_state.palm_right_regen_warning:
+                st.warning(st.session_state.palm_right_regen_warning)
+            if not st.session_state.palm_right_hand_confirmed:
+                st.write("Is this your **Right** hand?")
+                _rcy, _rcn = st.columns(2)
+                with _rcy:
+                    if st.button("Yes", key="right_hand_yes"):
+                        st.session_state.palm_right_hand_confirmed = True
+                        st.rerun()
+                with _rcn:
+                    if st.button("No (swap)", key="right_hand_no"):
+                        try:
+                            if st.session_state.palm_left_hash is not None:
+                                (st.session_state.palm_left_str, st.session_state.palm_right_str) = \
+                                    (st.session_state.palm_right_str, st.session_state.palm_left_str)
+                                (st.session_state.palm_left_hash, st.session_state.palm_right_hash) = \
+                                    (st.session_state.palm_right_hash, st.session_state.palm_left_hash)
+                                (st.session_state.palm_left_status, st.session_state.palm_right_status) = \
+                                    (st.session_state.palm_right_status, st.session_state.palm_left_status)
+                                (st.session_state.palm_left_bytes, st.session_state.palm_right_bytes) = \
+                                    (st.session_state.palm_right_bytes, st.session_state.palm_left_bytes)
+                                (st.session_state.palm_left_confirmed, st.session_state.palm_right_confirmed) = \
+                                    (st.session_state.palm_right_confirmed, st.session_state.palm_left_confirmed)
+                                st.session_state.palm_left_hand_confirmed  = True
+                                st.session_state.palm_right_hand_confirmed = True
+
+                                # Regenerate descriptions so hand-framing matches each
+                                # slot's new (post-swap) image. On failure, the swapped
+                                # string above stays as a fallback — it describes these
+                                # bytes already, just with the original hand's framing.
+                                with st.spinner("Updating palm readings…"):
+                                    try:
+                                        st.session_state.palm_left_str = describe_palm_image(
+                                            st.session_state.palm_left_bytes, "left"
+                                        )
+                                        st.session_state.palm_left_regen_warning = None
+                                        st.session_state.palm_left_confirmed     = False
+                                        st.session_state.palm_reading_result     = None
+                                        st.session_state.palm_prep               = None
+                                    except RuntimeError:
+                                        st.session_state.palm_left_regen_warning = (
+                                            "Could not regenerate the left palm reading after "
+                                            "swapping — it may reference the wrong hand. "
+                                            "Consider re-uploading this image."
+                                        )
+                                        st.session_state.palm_reading_result = None
+                                        st.session_state.palm_prep           = None
+                                    try:
+                                        st.session_state.palm_right_str = describe_palm_image(
+                                            st.session_state.palm_right_bytes, "right"
+                                        )
+                                        st.session_state.palm_right_regen_warning = None
+                                        st.session_state.palm_right_confirmed     = False
+                                        st.session_state.palm_reading_result      = None
+                                        st.session_state.palm_prep                = None
+                                    except RuntimeError:
+                                        st.session_state.palm_right_regen_warning = (
+                                            "Could not regenerate the right palm reading after "
+                                            "swapping — it may reference the wrong hand. "
+                                            "Consider re-uploading this image."
+                                        )
+                                        st.session_state.palm_reading_result = None
+                                        st.session_state.palm_prep           = None
+                            else:
+                                st.session_state.palm_right_str            = None
+                                st.session_state.palm_right_hash           = None
+                                st.session_state.palm_right_status         = None
+                                st.session_state.palm_right_bytes          = None
+                                st.session_state.palm_right_confirmed      = False
+                                st.session_state.palm_right_hand_confirmed = False
+                                st.session_state.palm_right_needs_reupload = True
+                                st.session_state.palm_reading_result       = None
+                                st.session_state.palm_prep                 = None
+                        except Exception as e:
+                            st.error(f"Could not update palm state: {e}")
+                        st.rerun()
+            elif not st.session_state.palm_right_confirmed:
+                with st.container():
+                    st.markdown("**Review right palm description**")
+                    st.markdown(st.session_state.palm_right_str)
+                _rky, _rkn = st.columns(2)
+                with _rky:
+                    if st.button("Looks right — use this description", key="right_desc_confirm"):
+                        st.session_state.palm_right_confirmed = True
+                        st.rerun()
+                with _rkn:
+                    if st.button("Discard — re-upload", key="right_desc_discard"):
+                        st.session_state.palm_right_str            = None
+                        st.session_state.palm_right_hash           = None
+                        st.session_state.palm_right_status         = None
+                        st.session_state.palm_right_bytes          = None
+                        st.session_state.palm_right_confirmed      = False
+                        st.session_state.palm_right_hand_confirmed = False
+                        st.session_state.palm_right_needs_reupload = False
+                        st.session_state.palm_right_regen_warning  = None
+                        st.session_state["_palm_right_image_name"] = None
+                        st.session_state.palm_reading_result       = None
+                        st.session_state.palm_prep                 = None
+                        st.rerun()
             else:
-                if _vr["warn"]:
-                    st.warning(_vr["warn_message"])
-                st.session_state.palm_right_hash           = _rh
-                st.session_state.palm_right_status         = _vr
-                st.session_state.palm_right_bytes          = _rb
-                st.session_state.palm_right_hand_confirmed = False
-                try:
-                    with st.spinner("Reading palm…"):
-                        _desc = describe_palm_image(_rb, "right")
-                    st.session_state.palm_right_str            = _desc
-                    st.session_state["_palm_right_image_name"] = uploaded_right.name
-                    st.session_state.palm_right_confirmed      = False
-                    st.success("Right palm described — review below")
-                except RuntimeError as e:
-                    st.error(f"Could not read palm image: {e}")
-                    st.session_state.palm_right_str      = None
-                    st.session_state.palm_reading_result = None
-                    st.session_state.palm_prep           = None
-    elif st.session_state.palm_right_hash is not None or st.session_state.palm_right_needs_reupload:
-        st.session_state.palm_right_str            = None
-        st.session_state.palm_right_hash           = None
-        st.session_state.palm_right_status         = None
-        st.session_state.palm_right_bytes          = None
-        st.session_state.palm_right_confirmed      = False
-        st.session_state.palm_right_hand_confirmed = False
-        st.session_state.palm_right_needs_reupload = False
-        st.session_state.palm_right_regen_warning  = None
-        st.session_state["_palm_right_image_name"] = None
-        st.session_state.palm_reading_result       = None
-        st.session_state.palm_prep                 = None
-
-    # ── Right palm: preview, tips, hand confirmation ────────────────────────────
-    if uploaded_right is not None and st.session_state.palm_right_bytes is not None:
-        st.image(st.session_state.palm_right_bytes, caption="Right palm", width=150)
-        for _tip in (st.session_state.palm_right_status or {}).get("geometry_tips", []):
-            st.caption(_tip)
-        if st.session_state.palm_right_regen_warning:
-            st.warning(st.session_state.palm_right_regen_warning)
-        if not st.session_state.palm_right_hand_confirmed:
-            st.write("Is this your **Right** hand?")
-            _rcy, _rcn = st.columns(2)
-            with _rcy:
-                if st.button("Yes", key="right_hand_yes"):
-                    st.session_state.palm_right_hand_confirmed = True
-                    st.rerun()
-            with _rcn:
-                if st.button("No (swap)", key="right_hand_no"):
-                    try:
-                        if st.session_state.palm_left_hash is not None:
-                            (st.session_state.palm_left_str, st.session_state.palm_right_str) = \
-                                (st.session_state.palm_right_str, st.session_state.palm_left_str)
-                            (st.session_state.palm_left_hash, st.session_state.palm_right_hash) = \
-                                (st.session_state.palm_right_hash, st.session_state.palm_left_hash)
-                            (st.session_state.palm_left_status, st.session_state.palm_right_status) = \
-                                (st.session_state.palm_right_status, st.session_state.palm_left_status)
-                            (st.session_state.palm_left_bytes, st.session_state.palm_right_bytes) = \
-                                (st.session_state.palm_right_bytes, st.session_state.palm_left_bytes)
-                            (st.session_state.palm_left_confirmed, st.session_state.palm_right_confirmed) = \
-                                (st.session_state.palm_right_confirmed, st.session_state.palm_left_confirmed)
-                            st.session_state.palm_left_hand_confirmed  = True
-                            st.session_state.palm_right_hand_confirmed = True
-
-                            # Regenerate descriptions so hand-framing matches each
-                            # slot's new (post-swap) image. On failure, the swapped
-                            # string above stays as a fallback — it describes these
-                            # bytes already, just with the original hand's framing.
-                            with st.spinner("Updating palm readings…"):
-                                try:
-                                    st.session_state.palm_left_str = describe_palm_image(
-                                        st.session_state.palm_left_bytes, "left"
-                                    )
-                                    st.session_state.palm_left_regen_warning = None
-                                    st.session_state.palm_left_confirmed     = False
-                                    st.session_state.palm_reading_result     = None
-                                    st.session_state.palm_prep               = None
-                                except RuntimeError:
-                                    st.session_state.palm_left_regen_warning = (
-                                        "Could not regenerate the left palm reading after "
-                                        "swapping — it may reference the wrong hand. "
-                                        "Consider re-uploading this image."
-                                    )
-                                    st.session_state.palm_reading_result = None
-                                    st.session_state.palm_prep           = None
-                                try:
-                                    st.session_state.palm_right_str = describe_palm_image(
-                                        st.session_state.palm_right_bytes, "right"
-                                    )
-                                    st.session_state.palm_right_regen_warning = None
-                                    st.session_state.palm_right_confirmed     = False
-                                    st.session_state.palm_reading_result      = None
-                                    st.session_state.palm_prep                = None
-                                except RuntimeError:
-                                    st.session_state.palm_right_regen_warning = (
-                                        "Could not regenerate the right palm reading after "
-                                        "swapping — it may reference the wrong hand. "
-                                        "Consider re-uploading this image."
-                                    )
-                                    st.session_state.palm_reading_result = None
-                                    st.session_state.palm_prep           = None
-                        else:
-                            st.session_state.palm_right_str            = None
-                            st.session_state.palm_right_hash           = None
-                            st.session_state.palm_right_status         = None
-                            st.session_state.palm_right_bytes          = None
-                            st.session_state.palm_right_confirmed      = False
-                            st.session_state.palm_right_hand_confirmed = False
-                            st.session_state.palm_right_needs_reupload = True
-                            st.session_state.palm_reading_result       = None
-                            st.session_state.palm_prep                 = None
-                    except Exception as e:
-                        st.error(f"Could not update palm state: {e}")
-                    st.rerun()
-        elif not st.session_state.palm_right_confirmed:
-            with st.container():
-                st.markdown("**Review right palm description**")
-                st.markdown(st.session_state.palm_right_str)
-            _rky, _rkn = st.columns(2)
-            with _rky:
-                if st.button("Looks right — use this description", key="right_desc_confirm"):
-                    st.session_state.palm_right_confirmed = True
-                    st.rerun()
-            with _rkn:
-                if st.button("Discard — re-upload", key="right_desc_discard"):
-                    st.session_state.palm_right_str            = None
-                    st.session_state.palm_right_hash           = None
-                    st.session_state.palm_right_status         = None
-                    st.session_state.palm_right_bytes          = None
-                    st.session_state.palm_right_confirmed      = False
-                    st.session_state.palm_right_hand_confirmed = False
-                    st.session_state.palm_right_needs_reupload = False
-                    st.session_state.palm_right_regen_warning  = None
-                    st.session_state["_palm_right_image_name"] = None
-                    st.session_state.palm_reading_result       = None
-                    st.session_state.palm_prep                 = None
-                    st.rerun()
-        else:
-            st.caption("✓ Description confirmed")
-            with st.container():
-                st.markdown("**Right palm description**")
-                st.markdown(st.session_state.palm_right_str)
-    elif st.session_state.palm_right_needs_reupload and uploaded_right is not None:
-        st.warning(
-            "This image doesn't belong in the Right hand slot — please remove it "
-            "(✕ above) and upload it using the Left hand uploader instead."
-        )
+                st.caption("✓ Description confirmed")
+                with st.container():
+                    st.markdown("**Right palm description**")
+                    st.markdown(st.session_state.palm_right_str)
+        elif st.session_state.palm_right_needs_reupload and uploaded_right is not None:
+            st.warning(
+                "This image doesn't belong in the Right hand slot — please remove it "
+                "(✕ above) and upload it using the Left hand uploader instead."
+            )
 
     # ── Spouse AstroSage PDF ──────────────────────────────────────────────────
     uploaded_spouse_pdf = st.file_uploader(
@@ -892,126 +902,127 @@ with st.expander("Upload context (PDF + palms)", expanded=False):
         st.session_state.spouse_pdf_context = None
         st.session_state["_spouse_pdf_name"] = None
 
-    # ── Hand detail photo ─────────────────────────────────────────────────────
-    uploaded_hand_detail = st.file_uploader(
-        "Hand detail photo (optional — for detailed palm analysis)",
-        type=["jpg", "jpeg", "png"], key="hand_detail_uploader",
-    )
-    if uploaded_hand_detail is not None:
-        if st.session_state["_hand_detail_image_name"] != uploaded_hand_detail.name:
-            _hdb = uploaded_hand_detail.read()
-            _hdh = hashlib.md5(_hdb).hexdigest()
-            try:
-                with st.spinner("Analysing hand detail…"):
-                    import io as _io
-                    _hd_img = Image.open(_io.BytesIO(_hdb))
-                    _hd_desc = describe_hand_detail_image(_hd_img)
-                st.session_state.hand_detail_str       = _hd_desc
-                st.session_state.hand_detail_hash      = _hdh
-                st.session_state.hand_detail_bytes     = _hdb
-                st.session_state.hand_detail_confirmed = False
-                st.session_state["_hand_detail_image_name"] = uploaded_hand_detail.name
-                st.session_state.palm_reading_result   = None
-                st.session_state.palm_prep             = None
-                st.success("Hand detail analysed — review below")
-            except ValueError as e:
-                st.error(f"Could not analyse hand detail image: {e}")
-                st.session_state.hand_detail_str       = None
-                st.session_state.hand_detail_hash      = None
-                st.session_state.hand_detail_bytes     = None
-                st.session_state.hand_detail_confirmed = False
-                st.session_state.palm_reading_result   = None
-                st.session_state.palm_prep             = None
-    elif st.session_state["_hand_detail_image_name"] is not None:
-        st.session_state.hand_detail_str       = None
-        st.session_state.hand_detail_hash      = None
-        st.session_state.hand_detail_bytes     = None
-        st.session_state.hand_detail_confirmed = False
-        st.session_state["_hand_detail_image_name"] = None
-        st.session_state.palm_reading_result   = None
-        st.session_state.palm_prep             = None
-
-    # ── Hand detail: review, confirm/discard (mirrors palm checkpoint) ────────
-    if uploaded_hand_detail is not None and st.session_state.hand_detail_bytes is not None:
-        st.image(st.session_state.hand_detail_bytes, caption="Hand detail", width=150)
-        if not st.session_state.hand_detail_confirmed:
-            with st.container():
-                st.markdown("**Review hand detail description**")
-                st.markdown(st.session_state.hand_detail_str)
-            _hdky, _hdkn = st.columns(2)
-            with _hdky:
-                if st.button("Looks right — use this description", key="hand_detail_confirm"):
-                    st.session_state.hand_detail_confirmed = True
-                    st.rerun()
-            with _hdkn:
-                if st.button("Discard — re-upload", key="hand_detail_discard"):
+    if _PALM_ENABLED:
+        # ── Hand detail photo ─────────────────────────────────────────────────────
+        uploaded_hand_detail = st.file_uploader(
+            "Hand detail photo (optional — for detailed palm analysis)",
+            type=["jpg", "jpeg", "png"], key="hand_detail_uploader",
+        )
+        if uploaded_hand_detail is not None:
+            if st.session_state["_hand_detail_image_name"] != uploaded_hand_detail.name:
+                _hdb = uploaded_hand_detail.read()
+                _hdh = hashlib.md5(_hdb).hexdigest()
+                try:
+                    with st.spinner("Analysing hand detail…"):
+                        import io as _io
+                        _hd_img = Image.open(_io.BytesIO(_hdb))
+                        _hd_desc = describe_hand_detail_image(_hd_img)
+                    st.session_state.hand_detail_str       = _hd_desc
+                    st.session_state.hand_detail_hash      = _hdh
+                    st.session_state.hand_detail_bytes     = _hdb
+                    st.session_state.hand_detail_confirmed = False
+                    st.session_state["_hand_detail_image_name"] = uploaded_hand_detail.name
+                    st.session_state.palm_reading_result   = None
+                    st.session_state.palm_prep             = None
+                    st.success("Hand detail analysed — review below")
+                except ValueError as e:
+                    st.error(f"Could not analyse hand detail image: {e}")
                     st.session_state.hand_detail_str       = None
                     st.session_state.hand_detail_hash      = None
                     st.session_state.hand_detail_bytes     = None
                     st.session_state.hand_detail_confirmed = False
-                    st.session_state["_hand_detail_image_name"] = None
                     st.session_state.palm_reading_result   = None
                     st.session_state.palm_prep             = None
-                    st.rerun()
-        else:
-            st.caption("✓ Description confirmed")
-            with st.container():
-                st.markdown("**Hand detail description**")
-                st.markdown(st.session_state.hand_detail_str)
+        elif st.session_state["_hand_detail_image_name"] is not None:
+            st.session_state.hand_detail_str       = None
+            st.session_state.hand_detail_hash      = None
+            st.session_state.hand_detail_bytes     = None
+            st.session_state.hand_detail_confirmed = False
+            st.session_state["_hand_detail_image_name"] = None
+            st.session_state.palm_reading_result   = None
+            st.session_state.palm_prep             = None
 
-    # ── Palm reading generation (Session 65 T4 upload-triggered artifact) ─────
-    # Upload-triggered, never question-routed (CLAUDE.md "T4 architecture"
-    # lock) — only confirmed vision-derived descriptions are ever passed
-    # through (palm_left, palm_right, hand_detail alike, CLAUDE.md "Palm
-    # human checkpoint" lock); an unconfirmed description is withheld even
-    # if it exists.
-    _any_hand_confirmed = (
-        st.session_state.palm_left_confirmed and st.session_state.palm_left_str
-    ) or (
-        st.session_state.palm_right_confirmed and st.session_state.palm_right_str
-    )
-    if _any_hand_confirmed:
-        if st.button("Generate Palm Reading", key="generate_palm_reading_btn"):
-            _confirmed_left = (
-                st.session_state.palm_left_str if st.session_state.palm_left_confirmed else None
-            )
-            _confirmed_right = (
-                st.session_state.palm_right_str if st.session_state.palm_right_confirmed else None
-            )
-            _confirmed_hand_detail = (
-                st.session_state.hand_detail_str if st.session_state.hand_detail_confirmed else None
-            )
-            if _DOGFOOD_CAPTURE:
-                # S70 P6b: DOGFOOD path stops at Stage 1 only -- no
-                # voicing call yet. The blocking claims-inventory
-                # checkpoint (main area, below) gates the Stage-2
-                # complete_palm_reading() call behind an explicit human
-                # ack, same AI-reviewing-AI discipline as the CLAUDE.md
-                # "Palm human checkpoint" lock. A new click here while a
-                # checkpoint is already pending simply replaces palm_prep.
-                try:
-                    with st.spinner("Extracting claims (Stage 1)…"):
-                        st.session_state.palm_prep = prepare_palm_reading(
-                            palm_left=_confirmed_left,
-                            palm_right=_confirmed_right,
-                            hand_detail=_confirmed_hand_detail,
-                        )
-                    st.session_state.palm_reading_result = None
-                    st.rerun()
-                except (ValueError, RuntimeError) as e:
-                    st.error(str(e))
+        # ── Hand detail: review, confirm/discard (mirrors palm checkpoint) ────────
+        if uploaded_hand_detail is not None and st.session_state.hand_detail_bytes is not None:
+            st.image(st.session_state.hand_detail_bytes, caption="Hand detail", width=150)
+            if not st.session_state.hand_detail_confirmed:
+                with st.container():
+                    st.markdown("**Review hand detail description**")
+                    st.markdown(st.session_state.hand_detail_str)
+                _hdky, _hdkn = st.columns(2)
+                with _hdky:
+                    if st.button("Looks right — use this description", key="hand_detail_confirm"):
+                        st.session_state.hand_detail_confirmed = True
+                        st.rerun()
+                with _hdkn:
+                    if st.button("Discard — re-upload", key="hand_detail_discard"):
+                        st.session_state.hand_detail_str       = None
+                        st.session_state.hand_detail_hash      = None
+                        st.session_state.hand_detail_bytes     = None
+                        st.session_state.hand_detail_confirmed = False
+                        st.session_state["_hand_detail_image_name"] = None
+                        st.session_state.palm_reading_result   = None
+                        st.session_state.palm_prep             = None
+                        st.rerun()
             else:
-                # END-USER path: unchanged -- synchronous one-shot call,
-                # no checkpoint.
-                try:
-                    with st.spinner("Generating your palm reading…"):
-                        st.session_state.palm_reading_result = generate_palm_reading(
-                            palm_left=_confirmed_left,
-                            palm_right=_confirmed_right,
-                            hand_detail=_confirmed_hand_detail,
-                        )
-                except (ValueError, RuntimeError) as e:
-                    st.error(str(e))
+                st.caption("✓ Description confirmed")
+                with st.container():
+                    st.markdown("**Hand detail description**")
+                    st.markdown(st.session_state.hand_detail_str)
+
+        # ── Palm reading generation (Session 65 T4 upload-triggered artifact) ─────
+        # Upload-triggered, never question-routed (CLAUDE.md "T4 architecture"
+        # lock) — only confirmed vision-derived descriptions are ever passed
+        # through (palm_left, palm_right, hand_detail alike, CLAUDE.md "Palm
+        # human checkpoint" lock); an unconfirmed description is withheld even
+        # if it exists.
+        _any_hand_confirmed = (
+            st.session_state.palm_left_confirmed and st.session_state.palm_left_str
+        ) or (
+            st.session_state.palm_right_confirmed and st.session_state.palm_right_str
+        )
+        if _any_hand_confirmed:
+            if st.button("Generate Palm Reading", key="generate_palm_reading_btn"):
+                _confirmed_left = (
+                    st.session_state.palm_left_str if st.session_state.palm_left_confirmed else None
+                )
+                _confirmed_right = (
+                    st.session_state.palm_right_str if st.session_state.palm_right_confirmed else None
+                )
+                _confirmed_hand_detail = (
+                    st.session_state.hand_detail_str if st.session_state.hand_detail_confirmed else None
+                )
+                if _DOGFOOD_CAPTURE:
+                    # S70 P6b: DOGFOOD path stops at Stage 1 only -- no
+                    # voicing call yet. The blocking claims-inventory
+                    # checkpoint (main area, below) gates the Stage-2
+                    # complete_palm_reading() call behind an explicit human
+                    # ack, same AI-reviewing-AI discipline as the CLAUDE.md
+                    # "Palm human checkpoint" lock. A new click here while a
+                    # checkpoint is already pending simply replaces palm_prep.
+                    try:
+                        with st.spinner("Extracting claims (Stage 1)…"):
+                            st.session_state.palm_prep = prepare_palm_reading(
+                                palm_left=_confirmed_left,
+                                palm_right=_confirmed_right,
+                                hand_detail=_confirmed_hand_detail,
+                            )
+                        st.session_state.palm_reading_result = None
+                        st.rerun()
+                    except (ValueError, RuntimeError) as e:
+                        st.error(str(e))
+                else:
+                    # END-USER path: unchanged -- synchronous one-shot call,
+                    # no checkpoint.
+                    try:
+                        with st.spinner("Generating your palm reading…"):
+                            st.session_state.palm_reading_result = generate_palm_reading(
+                                palm_left=_confirmed_left,
+                                palm_right=_confirmed_right,
+                                hand_detail=_confirmed_hand_detail,
+                            )
+                    except (ValueError, RuntimeError) as e:
+                        st.error(str(e))
 
 if st.session_state.get("pdf_context"):
     _astrosage_sections = _split_astrosage_sections(st.session_state.pdf_context)
@@ -1022,118 +1033,119 @@ if st.session_state.get("pdf_context"):
             st.subheader(_section_name)
             st.text(_section_content)
 
-# S70 P6b: DOGFOOD-path blocking checkpoint -- only ever populated on the
-# _DOGFOOD_CAPTURE-on path (see the button block above), so this panel
-# never shows on the END-USER path. ACK-ONLY: claims render read-only,
-# no edit widgets of any kind. Gated on palm_reading_result being None so
-# the panel disappears the instant Ack (or a fresh Generate click, or any
-# of the confirmed-input clear sites above) resolves it.
-if st.session_state.palm_prep is not None and st.session_state.palm_reading_result is None:
-    _prep = st.session_state.palm_prep
-    st.subheader("Review extracted claims (Stage 1)")
-    st.caption(
-        "Every claim extracted from your confirmed hand descriptions, "
-        "including any excluded from voicing. Nothing here is editable — "
-        "ack to proceed to voicing, or decline to discard these claims."
-    )
-    if _prep.claims:
-        for _claim in _prep.claims:
-            _excl = (
-                f"excluded ({_claim.exclusion_reason})"
-                if _claim.excluded_from_voice
-                else "included"
-            )
-            st.caption(
-                f"{_claim.claim_id} | {_claim.feature} | {_claim.chunk_id} | "
-                f"{_claim.valence} | {_excl}"
-            )
-    else:
-        st.caption("No claims extracted.")
-    _stage1_retry_features = _prep.diagnostics.get("stage1_retry_features", ())
-    _stage1_failed_features = _prep.diagnostics.get("stage1_failed_features", ())
-    st.caption(
-        f"stage1_retry_features: "
-        f"{', '.join(_stage1_retry_features) if _stage1_retry_features else 'NONE'}"
-    )
-    st.caption(
-        f"stage1_failed_features: "
-        f"{', '.join(_stage1_failed_features) if _stage1_failed_features else 'NONE'}"
-    )
-
-    _ack_col, _decline_col = st.columns(2)
-    with _ack_col:
-        if st.button("Ack — proceed to voicing", key="checkpoint_ack_btn"):
-            try:
-                with st.spinner("Voicing your palm reading (Stage 2)…"):
-                    st.session_state.palm_reading_result = complete_palm_reading(_prep)
-                st.session_state.palm_prep = None
-                if _DOGFOOD_CAPTURE:
-                    # Fail-soft, same pattern as the END-USER path's
-                    # capture call: a capture error must never block or
-                    # alter generation/display.
-                    _ack_confirmed_left = (
-                        st.session_state.palm_left_str if st.session_state.palm_left_confirmed else None
-                    )
-                    _ack_confirmed_right = (
-                        st.session_state.palm_right_str if st.session_state.palm_right_confirmed else None
-                    )
-                    _ack_confirmed_hand_detail = (
-                        st.session_state.hand_detail_str if st.session_state.hand_detail_confirmed else None
-                    )
-                    try:
-                        _capture_dogfood_run(
-                            _ack_confirmed_left,
-                            _ack_confirmed_right,
-                            _ack_confirmed_hand_detail,
-                            st.session_state.palm_reading_result,
-                        )
-                        st.caption("captured to dogfood log")
-                    except Exception:
-                        logger.warning("app.py: dogfood capture failed", exc_info=True)
-                st.rerun()
-            except RuntimeError as e:
-                st.error(str(e))
-                # palm_prep is retained on failure -- user may retry ack
-                # or decline.
-    with _decline_col:
-        if st.button("Decline — discard claims", key="checkpoint_decline_btn"):
-            if _DOGFOOD_CAPTURE:
-                try:
-                    _capture_checkpoint_declined(_prep)
-                except Exception:
-                    logger.warning("app.py: checkpoint-declined capture failed", exc_info=True)
-            st.session_state.palm_prep = None
-            st.rerun()
-
-if st.session_state.palm_reading_result is not None:
-    _reading = st.session_state.palm_reading_result
-    if not _reading.validation.passed:
-        st.error(
-            "Palm reading failed validation and cannot be shown: "
-            + "; ".join(_reading.validation.failures)
+if _PALM_ENABLED:
+    # S70 P6b: DOGFOOD-path blocking checkpoint -- only ever populated on the
+    # _DOGFOOD_CAPTURE-on path (see the button block above), so this panel
+    # never shows on the END-USER path. ACK-ONLY: claims render read-only,
+    # no edit widgets of any kind. Gated on palm_reading_result being None so
+    # the panel disappears the instant Ack (or a fresh Generate click, or any
+    # of the confirmed-input clear sites above) resolves it.
+    if st.session_state.palm_prep is not None and st.session_state.palm_reading_result is None:
+        _prep = st.session_state.palm_prep
+        st.subheader("Review extracted claims (Stage 1)")
+        st.caption(
+            "Every claim extracted from your confirmed hand descriptions, "
+            "including any excluded from voicing. Nothing here is editable — "
+            "ack to proceed to voicing, or decline to discard these claims."
         )
-    else:
-        st.markdown(_reading.reading_text)
-        with st.expander("Classical sources"):
-            for _src in _reading.sources:
-                st.caption(f"{_src['book']}, p.{_src['page']} (score: {_src['score']})")
-        # S70 P6b: non-blocking, display-only, never gates the reading --
-        # the full Stage-1 inventory (incl. excluded_from_voice claims),
-        # collapsed by default.
-        with st.expander("Claims inventory"):
-            if _reading.claims:
-                for _claim in _reading.claims:
-                    _excl = (
-                        f"excluded ({_claim.exclusion_reason})"
-                        if _claim.excluded_from_voice
-                        else "included"
-                    )
-                    st.caption(
-                        f"{_claim.claim_id} | {_claim.feature} | {_claim.chunk_id} | "
-                        f"{_claim.valence} | {_excl}"
-                    )
-            else:
-                st.caption("No claims extracted.")
+        if _prep.claims:
+            for _claim in _prep.claims:
+                _excl = (
+                    f"excluded ({_claim.exclusion_reason})"
+                    if _claim.excluded_from_voice
+                    else "included"
+                )
+                st.caption(
+                    f"{_claim.claim_id} | {_claim.feature} | {_claim.chunk_id} | "
+                    f"{_claim.valence} | {_excl}"
+                )
+        else:
+            st.caption("No claims extracted.")
+        _stage1_retry_features = _prep.diagnostics.get("stage1_retry_features", ())
+        _stage1_failed_features = _prep.diagnostics.get("stage1_failed_features", ())
+        st.caption(
+            f"stage1_retry_features: "
+            f"{', '.join(_stage1_retry_features) if _stage1_retry_features else 'NONE'}"
+        )
+        st.caption(
+            f"stage1_failed_features: "
+            f"{', '.join(_stage1_failed_features) if _stage1_failed_features else 'NONE'}"
+        )
+
+        _ack_col, _decline_col = st.columns(2)
+        with _ack_col:
+            if st.button("Ack — proceed to voicing", key="checkpoint_ack_btn"):
+                try:
+                    with st.spinner("Voicing your palm reading (Stage 2)…"):
+                        st.session_state.palm_reading_result = complete_palm_reading(_prep)
+                    st.session_state.palm_prep = None
+                    if _DOGFOOD_CAPTURE:
+                        # Fail-soft, same pattern as the END-USER path's
+                        # capture call: a capture error must never block or
+                        # alter generation/display.
+                        _ack_confirmed_left = (
+                            st.session_state.palm_left_str if st.session_state.palm_left_confirmed else None
+                        )
+                        _ack_confirmed_right = (
+                            st.session_state.palm_right_str if st.session_state.palm_right_confirmed else None
+                        )
+                        _ack_confirmed_hand_detail = (
+                            st.session_state.hand_detail_str if st.session_state.hand_detail_confirmed else None
+                        )
+                        try:
+                            _capture_dogfood_run(
+                                _ack_confirmed_left,
+                                _ack_confirmed_right,
+                                _ack_confirmed_hand_detail,
+                                st.session_state.palm_reading_result,
+                            )
+                            st.caption("captured to dogfood log")
+                        except Exception:
+                            logger.warning("app.py: dogfood capture failed", exc_info=True)
+                    st.rerun()
+                except RuntimeError as e:
+                    st.error(str(e))
+                    # palm_prep is retained on failure -- user may retry ack
+                    # or decline.
+        with _decline_col:
+            if st.button("Decline — discard claims", key="checkpoint_decline_btn"):
+                if _DOGFOOD_CAPTURE:
+                    try:
+                        _capture_checkpoint_declined(_prep)
+                    except Exception:
+                        logger.warning("app.py: checkpoint-declined capture failed", exc_info=True)
+                st.session_state.palm_prep = None
+                st.rerun()
+
+    if st.session_state.palm_reading_result is not None:
+        _reading = st.session_state.palm_reading_result
+        if not _reading.validation.passed:
+            st.error(
+                "Palm reading failed validation and cannot be shown: "
+                + "; ".join(_reading.validation.failures)
+            )
+        else:
+            st.markdown(_reading.reading_text)
+            with st.expander("Classical sources"):
+                for _src in _reading.sources:
+                    st.caption(f"{_src['book']}, p.{_src['page']} (score: {_src['score']})")
+            # S70 P6b: non-blocking, display-only, never gates the reading --
+            # the full Stage-1 inventory (incl. excluded_from_voice claims),
+            # collapsed by default.
+            with st.expander("Claims inventory"):
+                if _reading.claims:
+                    for _claim in _reading.claims:
+                        _excl = (
+                            f"excluded ({_claim.exclusion_reason})"
+                            if _claim.excluded_from_voice
+                            else "included"
+                        )
+                        st.caption(
+                            f"{_claim.claim_id} | {_claim.feature} | {_claim.chunk_id} | "
+                            f"{_claim.valence} | {_excl}"
+                        )
+                else:
+                    st.caption("No claims extracted.")
 
 if not st.session_state.chart_ready:
     st.info("Enter your birth details in the sidebar to begin.")
