@@ -132,6 +132,26 @@ _MUHURTA_WINDOW_KEYWORDS: tuple[str, ...] = (
     "muhurta", "mahurat", "auspicious", "shubh", "electional",
 )
 
+# yogini_dasha (Session 72 router wiring). The Sanskrit term itself plus
+# its natural bigrams ("yogini dasha"/"yogini dasa"/"yogini period"), and
+# the 8 individual Yogini lord names (agent/calculations/dashas/yogini.py's
+# _YOGINIS) as single-word keywords -- "dhanya", "bhramari", "bhadrika",
+# "ulka", "siddha", "sankata" are unambiguous Sanskrit terms with zero
+# collision risk. "mangala"/"pingala" are DELIBERATELY EXCLUDED as bare
+# single-word keywords: "mangala" collides with _MARRIAGE_KEYWORDS'
+# "mangal dosha" (Mangal Dosha, marriage domain) and "pingala" collides
+# with Pingala nadi references (a different classical-text context
+# entirely, unrelated to any domain this router serves) -- only the
+# qualified bigram forms ("mangala yogini"/"pingala yogini") are added,
+# mirroring upapada_lagna's own bigram-for-disambiguation precedent
+# above. A bare "mangala"/"pingala" mention still falls through to
+# Stage 2, same as any other single ambiguous term.
+_YOGINI_DASHA_KEYWORDS: tuple[str, ...] = (
+    "yogini", "yogini dasha", "yogini dasa", "yogini period",
+    "dhanya", "bhramari", "bhadrika", "ulka", "siddha", "sankata",
+    "mangala yogini", "pingala yogini",
+)
+
 _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "marriage_compatibility": _MARRIAGE_KEYWORDS,
     "career_strength": _CAREER_KEYWORDS,
@@ -140,6 +160,7 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
     "arudha_lagna": _ARUDHA_LAGNA_KEYWORDS,
     "upapada_lagna": _UPAPADA_LAGNA_KEYWORDS,
     "muhurta_window": _MUHURTA_WINDOW_KEYWORDS,
+    "yogini_dasha": _YOGINI_DASHA_KEYWORDS,
 }
 
 # Calculation modules referenced in a question but NOT in the routable
@@ -160,6 +181,11 @@ _DOMAIN_KEYWORDS: dict[str, tuple[str, ...]] = {
 # via _DOMAIN_KEYWORDS/_score_domain like any other keyword-scored domain
 # (NOT a deterministic fast-path like sade_sati -- see
 # _MUHURTA_WINDOW_KEYWORDS's own comment, below, for why).
+# Session 72 (Yogini router wiring): "yogini" REMOVED -- the Yogini dasha
+# module (agent/calculations/dashas/yogini.py) is now built and routed via
+# _DOMAIN_KEYWORDS/_YOGINI_DASHA_KEYWORDS above, same precedent as
+# muhurta/sade_sati/jaimini removals above. "ashtottari" (next line)
+# remains genuinely unbuilt -- NOT touched by this change.
 _UNBUILT_MODULE_KEYWORDS: dict[str, str] = {
     "yoga": "yoga detection",
     "transit": "transit engine (gochara)",
@@ -170,7 +196,6 @@ _UNBUILT_MODULE_KEYWORDS: dict[str, str] = {
     "d9": "D9 (Navamsa) divisional chart",
     "varga": "divisional charts (vargas)",
     "chara": "Chara dasha",
-    "yogini": "Yogini dasha",
     "ashtottari": "Ashtottari dasha",
     "varshaphal": "Varshaphal annual chart",
 }
@@ -256,6 +281,12 @@ _DASHA_DEMOTION_REASON_NEAR_BOUNDARY = (
     "current -- both the current lord's identity and its dates should be "
     "treated as approximate"
 )
+_YOGINI_DEMOTION_REASON = (
+    "Yogini dasha formula validated against one reference chart only "
+    "(Sulabh); cross-chart validation for the other 3 canonical charts "
+    "(Surbhi, Sheridan, David) is pending external JHora fetch -- treat "
+    "the current lord and its date range as provisional"
+)
 
 # ─── Stage 2: LLM-constrained-classification fallback (Session 49+/P7.1) ──
 
@@ -299,6 +330,19 @@ _STAGE2_TIMEOUT_SECONDS = 8.0
 # only route to Stage 2 is through this set + the system prompt's own
 # gloss/negative-instruction below (same mechanism as every other
 # keyword-scored domain).
+# "yogini_dasha" added Session 72 -- membership only, NOT accompanied by a
+# _STAGE2_SYSTEM_PROMPT gloss or a _STAGE2_TOOL_SCHEMA description update
+# in this change (out of this prompt's scope; router-keyword wiring only,
+# see calc_router.py's own module history). Same "dead entry until its
+# system-prompt gloss lands" posture av_transit's own _VALID_DOMAINS entry
+# had before its Session 55 router wiring -- Stage 2 cannot practically
+# select an enum member the system prompt never describes to it, so this
+# is inert (not reachable via live Stage 2 classification) until a future
+# prompt adds the matching gloss. Flagged, not fixed here: this also
+# means the system prompt's own "exactly 8 domains" / tool schema's
+# "8 routable domains" text is now stale by one -- same class of
+# pre-existing staleness this file's _STAGE2_TOOL_SCHEMA comment already
+# documents (Session 58 "3 routable domains" drift), not remedied here.
 _STAGE2_VALID_DOMAINS: frozenset[str] = frozenset(
     {
         "marriage_compatibility",
@@ -309,6 +353,7 @@ _STAGE2_VALID_DOMAINS: frozenset[str] = frozenset(
         "arudha_lagna",
         "upapada_lagna",
         "muhurta_window",
+        "yogini_dasha",
         "none",
     }
 )
@@ -817,6 +862,47 @@ def _route_to_domain(
             tier=AnswerTier.TIER_3_MUHURTA,
             confidence=confidence,
             demotion_reason=None,
+            requires_partner=False,
+            route=route,
+        )
+
+    if domain == "yogini_dasha":
+        # TIER_2_RANGE, requires_partner=False -- Session 72 router wiring.
+        # Deliberately NOT reusing _near_dasha_boundary()/
+        # _DASHA_DEMOTION_REASON(_NEAR_BOUNDARY) here even though the task
+        # instruction says "mirror the Vimshottari routing pattern exactly":
+        # that helper reads chart_data["dasha"]["current_antardasha"], a
+        # Vimshottari-specific shape (chart_calculator.py's _calc_dasha()
+        # output) that has nothing to do with Yogini's own MD sequence --
+        # reusing it here would silently evaluate the WRONG dasha system's
+        # boundary dates. "Mirror exactly" is honored at the level of
+        # RETURN SHAPE (TIER_2_RANGE, single demotion_reason, no partner)
+        # matching current_dasha's own return statement below, not at the
+        # level of reusing a helper built for a different data shape.
+        # Demotion reason cites what is actually known today (agent/
+        # calculations/dashas/yogini.py's own module docstring CAVEAT):
+        # the MD formula is validated against ONE reference chart (Sulabh)
+        # only; Surbhi/Sheridan/David are still xfail pending external
+        # JHora fetch (tests/test_yogini_dasha.py). No measured day-count
+        # drift figure exists for this dasha system the way Vimshottari's
+        # documented +/-37 days does (chart_calculator.py DASHA ACCURACY
+        # NOTE) -- THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4) rules
+        # out fabricating one, so _DASHA_DEMOTION_REASON's specific wording
+        # is not reused either.
+        # UNREACHABLE VIA ORCHESTRATOR UNTIL PROMPT 4 (staged rollout, same
+        # precedent as arudha_lagna/upapada_lagna/muhurta_window's own
+        # landings): chart_profile.py's build_domain_profile() does not yet
+        # admit "yogini_dasha" in its own _VALID_DOMAINS, so a question
+        # routed here today fails closed with orchestrator's defensive
+        # ValueError once orchestrator._VALID_DOMAINS admits this domain
+        # (Prompt 3's own Section 2a) -- payload assembly (compute_yogini_
+        # dasha/current_yogini_md dispatch) and any tier re-justification
+        # against the real payload are deferred to Prompt 4.
+        return RouteResult(
+            domain="yogini_dasha",
+            tier=AnswerTier.TIER_2_RANGE,
+            confidence=confidence,
+            demotion_reason=_YOGINI_DEMOTION_REASON,
             requires_partner=False,
             route=route,
         )

@@ -254,18 +254,25 @@ def test_stage2_never_fires_when_stage1_routes():
 def test_stage2_never_fires_on_unbuilt_module_refusal():
     # "ashtakavarga" retired from this test Session 55 when the av_transit
     # domain went live (router carry-forward closure) -- it is no longer
-    # in _UNBUILT_MODULE_KEYWORDS. Substituted "yogini" (Yogini dasha):
-    # still present in _UNBUILT_MODULE_KEYWORDS, genuinely unbuilt (no
-    # dasha submodule for it), and unrelated to any _DOMAIN_KEYWORDS list
-    # (marriage/career/current_dasha/av_transit) or av_transit's own new
-    # keywords, so the substitution can't accidentally collide with a
-    # different routing path.
+    # in _UNBUILT_MODULE_KEYWORDS. Substituted "yogini" (Yogini dasha) at
+    # that point; Session 72 retired THAT substitution in turn -- "yogini"
+    # is now BUILT (agent/calculations/dashas/yogini.py + router wiring),
+    # so it no longer belongs in this REFUSAL test at all (see the
+    # dedicated test_yogini_keyword_routes()/test_yogini_yogini_name_
+    # routes() coverage in tests/test_yogini_routing.py instead). Re-
+    # substituted "ashtottari" (Ashtottari dasha): still present in
+    # _UNBUILT_MODULE_KEYWORDS, genuinely unbuilt (no dasha submodule for
+    # it, per CLAUDE.md's own P2-order lock), and unrelated to any
+    # _DOMAIN_KEYWORDS list (marriage/career/current_dasha/av_transit/
+    # arudha_lagna/upapada_lagna/muhurta_window/yogini_dasha) or any of
+    # those domains' own keywords, so the substitution can't accidentally
+    # collide with a different routing path.
     client = _explosive_client()
-    result = route_question("Tell me about my yogini dasha", _stage2_client=client)
+    result = route_question("Tell me about my ashtottari dasha", _stage2_client=client)
     assert client.completions.calls == []
     assert result.tier == AnswerTier.REFUSAL
     assert result.domain is None
-    assert "Yogini" in result.demotion_reason
+    assert "Ashtottari" in result.demotion_reason
 
 
 # ─── Group F: Stage 2 marriage routing respects has_partner_data (item 7) ──
