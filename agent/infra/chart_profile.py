@@ -59,6 +59,7 @@ from agent.calculations.ashtakavarga.ashtakavarga import (
 from agent.calculations.compatibility.ashtakoot import compute_ashtakoot_compatibility
 from agent.calculations.compatibility.koota_types import AshtakootResult, KootaNatalInfo
 from agent.calculations.compatibility.mangal_dosha import compute_mangal_dosha
+from agent.calculations.dashas.yogini import compute_yogini_dasha, current_yogini_md
 from agent.calculations.helpers import ephemeris
 from agent.calculations.helpers.discrete_scan import find_state_segments
 from agent.calculations.jaimini.padas import compute_bhava_padas
@@ -118,6 +119,18 @@ _VALID_DOMAINS = {
     # orchestrator.answer_question()'s own defensive ValueError, not a
     # silent misroute.
     "muhurta_window",
+    # yogini_dasha (Session 73, Prompt 4): INVERTED staged-rollout order vs.
+    # every domain above -- calc_router.py and orchestrator.py's own
+    # _VALID_DOMAINS already admit "yogini_dasha" (Session 72/Prompt 3,
+    # landed first), so this entry is the domain's SECOND gate to open, not
+    # its first. This entry lands in the SAME change as build_domain_
+    # profile()'s own yogini_dasha dispatch branch below. result_formatter.py
+    # does NOT yet admit "yogini_dasha" in its own format_answer() dispatch
+    # (a separate, later prompt -- Prompt 5) -- until it lands, a live
+    # "yogini_dasha" route still fails closed, now via result_formatter's
+    # own defensive ValueError instead of this module's (same fail-closed
+    # posture, one layer further along the pipeline).
+    "yogini_dasha",
 }
 
 # career_strength's compute_bhava_bala_totals() call needs planet_lons
@@ -501,12 +514,13 @@ def build_domain_profile(
     Args:
         domain: one of "marriage_compatibility", "career_strength",
             "current_dasha", "sade_sati", "av_transit", "arudha_lagna",
-            "upapada_lagna", "muhurta_window". (NOTE: this Args entry
-            previously fell out of sync with _VALID_DOMAINS when
+            "upapada_lagna", "muhurta_window", "yogini_dasha". (NOTE: this
+            Args entry previously fell out of sync with _VALID_DOMAINS when
             "upapada_lagna" landed at Session 62 without a matching docstring
             update -- flagged here rather than silently perpetuated further,
             not otherwise backfilled; ride-along candidate, not a standalone
-            prompt.)
+            prompt. "yogini_dasha" added here directly, Session 73, so as
+            not to introduce a second instance of the same drift.)
         chart_data: calculate_chart() output for the primary native.
         evaluated_at_jd: JD (UT) instant this profile is evaluated as-of.
             Caller-supplied, not sampled here -- must be the SAME instant the
@@ -537,7 +551,11 @@ def build_domain_profile(
             contract, stated above, requires: the SAME caller-supplied
             instant must drive both this DomainChartProfile's own
             evaluated_at_jd field and the actual muhurta scan window, or the
-            two would silently diverge.
+            two would silently diverge. For domain="yogini_dasha" (Session
+            73), this instant IS used directly again, same reasoning as
+            sade_sati/muhurta_window just above -- passed straight through
+            to yogini.current_yogini_md() as its query_jd_ut, the instant
+            at which the active Yogini MD lord is determined.
         partner_chart_data: calculate_chart() output for the second native.
             Required (and only accepted) for domain="marriage_compatibility" --
             Ashtakoot (compute_ashtakoot_compatibility) needs two natives.
@@ -572,7 +590,10 @@ def build_domain_profile(
             UNMODIFIED from build_muhurta_profile() ->
             muhurta_scorer.find_muhurta_windows()'s own input validation
             (should not occur in practice -- see build_muhurta_profile()'s
-            own docstring for why).
+            own docstring for why); or, for yogini_dasha, evaluated_at_jd
+            falling outside the computed 3-cycle (108-year) Yogini MD
+            sequence -- should not occur for any realistic human-lifetime
+            query (see the yogini_dasha branch's own comment for why).
         RuntimeError: a wrapped, module-named failure from any underlying
             calculation call (ashtakoot, mangal_dosha, shadbala_totals,
             compute_porphyry_house_cusps, bhava_bala_totals, sade_sati.
@@ -583,7 +604,8 @@ def build_domain_profile(
             muhurta_window's own EphemerisError-wrapping failure inside
             build_muhurta_profile() -> muhurta_scorer.find_muhurta_windows()
             (one of the three sub-limb finders' own Moon/Saturn calc_ut
-            call)).
+            call), or yogini_dasha's own wrapped failure from yogini.
+            compute_yogini_dasha()).
     """
     if domain not in _VALID_DOMAINS:
         raise ValueError(f"domain must be one of {sorted(_VALID_DOMAINS)}, got {domain!r}")
@@ -931,6 +953,99 @@ def build_domain_profile(
         # those two) -- the JDs ARE the answer (window boundaries), not a
         # drift-prone derived claim about some OTHER dated event, so they
         # carry no uncertainty_days envelope of their own.
+        uncertainty_days = 0.0
+
+    elif domain == "yogini_dasha":
+        # Session 73 (Prompt 4). Like sade_sati/muhurta_window below,
+        # unlike arudha_lagna/upapada_lagna above: evaluated_at_jd is
+        # genuinely consumed (current_yogini_md()'s query instant), so this
+        # is inlined directly rather than delegated to a chart_profile.py-
+        # local build_X_profile() helper -- there is no bespoke Jaimini-
+        # style composition to do here (unlike build_arudha_lagna_profile()/
+        # build_upapada_profile(), which assemble several existing calc
+        # modules together); agent/calculations/dashas/yogini.py's
+        # compute_yogini_dasha()/current_yogini_md() are already the
+        # complete, ready-made calculation, so this branch is a thin call
+        # site, same shape as the sade_sati branch below.
+        #
+        # chart_data does NOT expose raw planetary longitudes (calculate_
+        # chart()'s public output strips them down to house/sign/dignity/
+        # retrograde -- see _koota_natal_info_from_chart()'s own comment,
+        # above, for the identical constraint) -- natal Moon longitude is
+        # re-derived via helpers/ephemeris.py's sidereal_longitude(), the
+        # same bridge this file already uses in _koota_natal_info_from_
+        # chart()/_saturn_sidereal_sign() above, at chart_data["meta"]
+        # ["jd_ut"] (birth_jd_ut, the same key tests/test_yogini_dasha.py's
+        # own _natal_inputs() helper reads).
+        birth_jd_ut = chart_data["meta"]["jd_ut"]
+        natal_moon_lon_sidereal = ephemeris.sidereal_longitude(birth_jd_ut, swe.MOON)
+
+        try:
+            periods = compute_yogini_dasha(natal_moon_lon_sidereal, birth_jd_ut)
+        except Exception as exc:
+            raise RuntimeError(f"yogini.compute_yogini_dasha failed: {exc}") from exc
+
+        current = current_yogini_md(periods, query_jd_ut=evaluated_at_jd)
+        # current_yogini_md() returns None only if evaluated_at_jd falls
+        # outside every computed period. compute_yogini_dasha()'s own
+        # n_cycles=3 default (108 years from birth) covers any realistic
+        # human-lifetime query, so this should not occur in practice --
+        # fail loudly rather than emit a payload with a missing current_md,
+        # mirroring this file's existing fail-closed posture elsewhere
+        # (_build_av_timing_block's current_antardasha None guard above).
+        if current is None:
+            raise RuntimeError(
+                "yogini.current_yogini_md: no Yogini MD period covers "
+                f"evaluated_at_jd={evaluated_at_jd} within the computed "
+                f"{len(periods)}-period sequence (birth_jd_ut={birth_jd_ut})"
+            )
+
+        # MD-ONLY payload, deliberately: agent/calculations/dashas/yogini.py
+        # has no Antardasha-level computation yet (S72 carry-forward item 5
+        # -- "MD-only for now, sufficient for current-dasha domain
+        # routing"), so this does NOT mirror current_dasha's own
+        # current_mahadasha+current_antardasha two-level shape; there is no
+        # AD data to put in a second key. "start_jd"/"end_jd" (not
+        # YoginiPeriod's own "begin_jd" field name) to match this file's
+        # existing payload-key convention for every other JD-carrying
+        # domain (sade_sati/av_transit/muhurta_window above all use "start_
+        # jd"/"end_jd") -- a deliberate one-line rename at this call site,
+        # not a YoginiPeriod schema change. Raw JD floats, not pre-formatted
+        # date strings: matches this file's own convention for every domain
+        # it assembles directly (sade_sati/av_transit/muhurta_window) --
+        # string formatting is result_formatter.py's job (Prompt 5), NOT
+        # this file's; current_dasha is the one domain that looks different
+        # only because ITS formatting happens further upstream, inside
+        # chart_calculator.py's own _calc_dasha(), before chart_data ever
+        # reaches this function.
+        payload = {
+            "current_md": {
+                "lord": current.lord,
+                "yogini_name": current.yogini_name,
+                "start_jd": current.begin_jd,
+                "end_jd": current.end_jd,
+            },
+        }
+        stub_caveats = ()
+        # No virupa-axis strength score exists for a dasha-lord
+        # identification (same reasoning as current_dasha/sade_sati/
+        # muhurta_window's own uncertainty_virupa=0.0 above -- that axis is
+        # Shadbala/career_strength-specific).
+        uncertainty_virupa = 0.0
+        # Deliberately 0.0, NOT current_dasha's 37.0: no measured cross-
+        # oracle (AstroSage/JHora) day-count drift study exists for this
+        # dasha system the way chart_calculator.py's DASHA ACCURACY NOTE
+        # documents for Vimshottari -- THRESHOLD DISCIPLINE (CLAUDE.md
+        # Working Style #4) rules out fabricating one. The domain's real,
+        # actually-known caveat (formula validated against one reference
+        # chart only) is carried entirely by calc_router.py's own
+        # _YOGINI_DEMOTION_REASON (Session 72/Prompt 3) via the router-
+        # side demotion_reason -- orchestrator._merge_router_demotion()
+        # surfaces it without this file needing to duplicate it on a
+        # fabricated day axis. Same "0.0 is 'no envelope documented yet',
+        # NOT 'verified zero-error'" semantics as sade_sati's own
+        # uncertainty_days=0.0 comment above -- not to be conflated with
+        # current_dasha's genuinely-measured 37.0.
         uncertainty_days = 0.0
 
     else:  # sade_sati (Session 50/P7.2a) -- NO mahadasha/antardasha fields

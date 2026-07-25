@@ -67,6 +67,7 @@ _VALID_DOMAINS = {
     "arudha_lagna",
     "upapada_lagna",
     "muhurta_window",
+    "yogini_dasha",
 }
 # "arudha_lagna" added Session 59 -- closes the av_transit-precedent staged
 # rollout (router S58 -> formatter S59 -> chart_profile.py's own dispatch/
@@ -112,6 +113,26 @@ _VALID_DOMAINS = {
 # for free -- the same call shape that was previously "accepted uniformly
 # but unused" for av_transit/arudha_lagna/upapada_lagna becomes load-bearing
 # here without needing to change.
+#
+# "yogini_dasha" added Session 72 -- INVERTED staged-rollout order vs. every
+# domain above: this is the FIRST gate to land, not the last. calc_router.py
+# routes "yogini_dasha" as of this same commit, but chart_profile.py's own
+# _VALID_DOMAINS/build_domain_profile() dispatch branch and result_formatter.py's
+# render branch are BOTH deferred to Prompt 4 (design-chat decision: dispatch
+# without a profile builder would special-case Yogini against the domain
+# contract every other domain here follows). Consequence: a question that
+# clears route_question() and this whitelist check today still fails closed
+# one level deeper, inside build_domain_profile()'s own domain-not-in-
+# _VALID_DOMAINS ValueError (chart_profile.py) -- NOT a bug, the same
+# fail-closed posture as every prior staged rollout, just tripped at a
+# different layer because this domain's landing order is reversed. Do not
+# "fix" this by adding a dispatch branch here -- that was the exact bypass
+# explicitly rejected when this domain was scoped (see calc_router.py's own
+# yogini_dasha branch comment). SENSITIVE_TO chart_profile.py's own
+# _VALID_DOMAINS constant (see incident note above): the two are OUT OF SYNC
+# by design until Prompt 4 lands both chart_profile.py's and result_
+# formatter.py's Yogini branches -- do not treat this as the usual "keep in
+# sync by hand" drift to close reflexively.
 
 # DEMOTION LOCK (Session 55, av_transit): route_question() will set
 # demotion_reason=None for this domain once router wiring lands --
