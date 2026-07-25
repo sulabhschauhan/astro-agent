@@ -1,221 +1,164 @@
-# S74 Vimshottari Year-Length Audit — Full Report
+Surbhi ::
 
-**Report type:** Read-only diagnostic (no production code touched).
-**Related commit:** `60d054b` — "fixture: append JHora Vimshottari Sulabh
-MDs (S74) / diagnostic: S74 Vimshottari year-length probe" (2 files:
-`tests/fixtures/jhora_sulabh.md` append, `diagnostics/
-vimshottari_year_length_S74.md` new). Not yet pushed to origin.
-**Full detail:** `diagnostics/vimshottari_year_length_S74.md` (this file
-is the chat-facing report; that file is the durable diagnostic record).
-**Probe script:** `scripts/probe_vimshottari_year_length_S74.py` —
-temporary, deleted before commit, never tracked in git.
 
----
 
-## 0. What this audit did
+Vimsottari Dasa:
 
-Mirrored `diagnostics/yogini_year_length_S72.md`'s method exactly,
-applied to `chart_calculator.py`'s Vimshottari `_calc_dasha()` /
-`_add_years()` (both read-only this session; no source file edited).
-Appended a 9-row JHora v8 Vimshottari Mahadasha fixture for Sulabh to
-`tests/fixtures/jhora_sulabh.md`, wrote a temporary probe script that
-reimplements `_calc_dasha()`'s balance-at-birth + forward-chain MD
-arithmetic locally with `year_days` as a parameter (Julian 365.25 vs
-sidereal 365.256363), compared against the fixture, and recorded the
-result.
+ Maha Dasas:
 
-**Flag raised before proceeding (Working Style #1):** the appended
-fixture table's column headers read "Start (UT)"/"End (UT)" per the
-instructing prompt, but the values are byte-identical to this same
-file's pre-existing (unlabeled) Section 3 "Vimsottari Maha Dasa" table.
-This file's own Yogini section, and the S72 diagnostic that consumed
-it, both established that JHora v8's GUI displays dasha timestamps in
-**local birth-zone time (IST, UT+5:30)**, not UT. Treating the new
-table's values as literal UT would introduce a systematic 5.5-hour
-(~0.229-day) offset into every delta measurement. This audit parsed the
-fixture as **IST**, consistent with the rest of the file, and flags the
-header text as a likely mislabeling rather than silently complying with
-it — quantified in section 4 below (does not change the compounding
-finding; is a non-negligible fraction of the fixed-offset finding).
+ Rah: 1981-02-21 (18:41:58) - 1999-02-22 (9:33:52)
+ Jup: 1999-02-22 (9:33:52) - 2015-02-22 (12:00:47)
+ Sat: 2015-02-22 (12:00:47) - 2034-02-22 (8:58:09)
+ Merc: 2034-02-22 (8:58:09) - 2051-02-22 (17:30:00)
+ Ket: 2051-02-22 (17:30:00) - 2058-02-22 (12:44:12)
+ Ven: 2058-02-22 (12:44:12) - 2078-02-22 (15:37:18)
+ Sun: 2078-02-22 (15:37:18) - 2084-02-23 (4:40:48)
+ Moon: 2084-02-23 (4:40:48) - 2094-02-22 (18:12:27)
+ Mars: 2094-02-22 (18:12:27) - 2101-02-23 (13:15:18)
 
-Birth inputs used (verified against `calculate_chart("Sulabh", "6 April
-1988", "00:30", "Calcutta, India")`):
-- `birth_jd_ut = 2447257.291667`
-- `birth_local = 1988-04-06T00:30:00+05:30`
-- Natal Moon sidereal longitude (independently computed via
-  `helpers/ephemeris.sidereal_longitude()`): `212.23199465°` — matches
-  the S72 diagnostic's independently-computed value
-  (212.23199900092°) to 5 decimal places.
-- Nakshatra: Vishakha (index 15), lord Jupiter — matches
-  `chart_calculator.calculate_chart()`'s own reported nakshatra/pada/lord.
 
-## 1. Drift table — Julian year (365.25d)
+Yogini Dasa (with planets replacing Yoginis):
+ Maha Dasas:
+ Jup: 1990-10-09 (20:35:40) - 1993-10-09 (15:03:11)
+ Mars: 1993-10-09 (15:03:11) - 1997-10-09 (15:41:55)
 
-Row-0 (Jup) `begin_jd` is skipped per the fixture note (JHora shows the
-notional full-period start for a birth-straddling MD; `_calc_dasha()`'s
-period 1 is birth-anchored by design, same divergence class as Yogini's
-row-0). All 9 rows' `end_jd` are compared.
+ Merc: 1997-10-09 (15:41:55) - 2002-10-09 (22:22:13)
 
-| Row | Lord | Computed end_jd | JHora end_jd | Delta (days) | Elapsed yrs from birth |
-|---|---|---|---|---|---|
-| 0 | Jupiter | 2447740.008403 | 2447735.756910 | +4.2515 | 1.3100 |
-| 1 | Saturn  | 2454679.758403 | 2454675.625405 | +4.1330 | 20.3103 |
-| 2 | Mercury | 2460889.008403 | 2460884.975787 | +4.0326 | 37.3106 |
-| 3 | Ketu    | 2463445.758403 | 2463441.776296 | +3.9821 | 44.3107 |
-| 4 | Venus   | 2470750.758403 | 2470746.897813 | +3.8606 | 64.3110 |
-| 5 | Sun     | 2472942.258403 | 2472938.429201 | +3.8292 | 70.3111 |
-| 6 | Moon    | 2476594.758403 | 2476590.995799 | +3.7626 | 80.3113 |
-| 7 | Mars    | 2479151.508403 | 2479147.792014 | +3.7164 | 87.3114 |
-| 8 | Rahu    | 2485726.008403 | 2485722.401111 | +3.6073 | 105.3117 |
+ Sat: 2002-10-09 (22:22:13) - 2008-10-09 (11:24:00)
 
-## 2. Drift table — Sidereal year (365.256363d)
+ Ven: 2008-10-09 (11:24:00) - 2015-10-10 (6:27:10)
 
-| Row | Lord | Computed end_jd | JHora end_jd | Delta (days) | Elapsed yrs from birth |
-|---|---|---|---|---|---|
-| 0 | Jupiter | 2447740.016817 | 2447735.756910 | +4.2599 | 1.3100 |
-| 1 | Saturn  | 2454679.887708 | 2454675.625405 | +4.2623 | 20.3103 |
-| 2 | Mercury | 2460889.245880 | 2460884.975787 | +4.2701 | 37.3106 |
-| 3 | Ketu    | 2463446.040428 | 2463441.776296 | +4.2641 | 44.3107 |
-| 4 | Venus   | 2470751.167685 | 2470746.897813 | +4.2699 | 64.3110 |
-| 5 | Sun     | 2472942.705856 | 2472938.429201 | +4.2767 | 70.3111 |
-| 6 | Moon    | 2476595.269491 | 2476590.995799 | +4.2737 | 80.3113 |
-| 7 | Mars    | 2479152.064028 | 2479147.792014 | +4.2720 | 87.3114 |
-| 8 | Rahu    | 2485726.678565 | 2485722.401111 | +4.2775 | 105.3117 |
+ Rah: 2015-10-10 (6:27:10) - 2023-10-10 (7:40:06)
 
-## 3. Regressions (delta vs elapsed years from birth)
+ Moon: 2023-10-10 (7:40:06) - 2024-10-09 (13:46:52)
 
-- **Julian (365.25d):** slope = **-0.006195 days/elapsed-year**,
-  intercept = **+4.259987 days**.
-- **Sidereal (365.256363d):** slope = **+0.000167 days/elapsed-year**
-  (flat), intercept = **+4.260064 days**.
+ Sun: 2024-10-09 (13:46:52) - 2026-10-10 (2:00:59)
 
-**Compounding mechanism CONFIRMED:** the Julian slope matches, in both
-magnitude and sign-of-effect, S72's Yogini finding (≈ -0.0064 d/yr), and
-is explained by the same arithmetic identity:
+ Jup: 2026-10-10 (2:00:59) - 2029-10-09 (20:33:36)
 
-    365.256363 (sidereal year, days) - 365.25 (Julian year, days) = 0.006363
+ Mars: 2029-10-09 (20:33:36) - 2033-10-09 (21:07:35)
 
-Switching to the sidereal year drops the slope to ~zero (flat), exactly
-as it did for Yogini. **JHora v8's Vimshottari Mahadasha engine adds
-sidereal years, not Julian years, per period — same mechanism, same
-magnitude, as the already-fixed Yogini case.**
+ Merc: 2033-10-09 (21:07:35) - 2038-10-10 (3:48:21)
 
-## 4. Row-1 fixed offset (natal Moon precision) — DOES NOT MATCH S72
+ Sat: 2038-10-10 (3:48:21) - 2044-10-09 (16:51:33)
 
-Isolating the non-compounding component (row 0's delta, before any
-compounding has accrued): **+4.2515 days** (Julian) / **+4.2599 days**
-(sidereal) — both hypotheses agree closely on this baseline, as
-expected (the offset originates in the balance-at-birth calculation,
-before year-length choice has had time to matter).
+ Ven: 2044-10-09 (16:51:33) - 2051-10-10 (11:50:10)
 
-**This does NOT match the S72 Yogini fixed offset (≈ -0.68d) in either
-magnitude or sign.** The instructing prompt's stated expectation —
-"Expect the SAME offset here, since it's an ephemeris/ayanamsa property
-of the natal chart, not of the dasha system" — is **falsified** by this
-measurement.
+ Rah: 2051-10-10 (11:50:10) - 2059-10-10 (13:05:05)
 
-Investigation, using the same natal Moon longitude for both systems
-(confirmed identical formula shape: `agent/calculations/dashas/
-yogini.py`'s `fraction_traversed = (natal_moon_lon_sidereal -
-nak_start_deg) / nak_span_deg` is mathematically identical to
-`_calc_dasha()`'s `elapsed_frac = (moon_lon % nak_size) / nak_size`):
+ Moon: 2059-10-10 (13:05:05) - 2060-10-09 (19:12:17)
 
-- **Magnitude:** Vimshottari's starting lord (Jupiter) carries a
-  16-year period; Yogini's starting lord for this chart (Dhanya/
-  Jupiter, per `yogini.py`'s `_YOGINIS` table) carries a 3-year period.
-  Since `balance_years = total_years * (1 - fraction_traversed)`, the
-  same small ephemeris-driven error in `fraction_traversed` produces a
-  balance-day error that scales with `total_years`. Naively scaling
-  S72's -0.68d by (16/3) predicts ≈ -3.63d — same order of magnitude as
-  the +4.25d actually measured, but NOT a match.
-- **Sign:** back-solving each system's `fraction_traversed` from its
-  own measured offset shows JHora's *implied* Vimshottari fraction
-  (≈0.91814) is LARGER than this codebase's computed value (0.917400).
-  JHora's *implied* Yogini fraction, back-solved the same way from the
-  S72 data, is ≈0.916773 — SMALLER than this codebase's value. Same
-  natal Moon, same nominal formula, opposite-direction implied
-  discrepancy in JHora's two separate dasha panels.
-- **Conclusion:** the two JHora dasha engines (Vimshottari panel,
-  Yogini panel) are not evidenced to share a single internally-
-  consistent balance-at-birth calculation the way this codebase's two
-  modules do. They are independent oracle black boxes; the "ephemeris
-  precision is a natal-chart property, not a dasha-system property"
-  framing assumes implementation-sharing that has no supporting
-  evidence here.
-- **IST/UT labeling checked and ruled insufficient as the explanation:**
-  re-deriving row-0 delta under the (rejected) literal-UT reading of
-  the fixture shifts every JHora `end_jd` later by +0.229167d (5.5h),
-  reducing the measured +4.2515d Julian offset to +4.0223d — still
-  nowhere near -0.68d in sign or magnitude.
+ Sun: 2060-10-09 (19:12:17) - 2062-10-10 (7:27:07)
 
-**This is flagged as further investigation needed, per the instructing
-prompt's own fallback clause, rather than asserted as a settled finding.**
+ Jup: 2062-10-10 (7:27:07) - 2065-10-10 (1:55:41)
 
-## 5. Recommendation (UNRATIFIED — for design-chat review)
+ Mars: 2065-10-10 (1:55:41) - 2069-10-10 (2:35:23)
 
-- **Compounding mechanism:** confirmed for Vimshottari, same as Yogini.
-  Slope drops from -0.0062 d/yr to ~+0.0002 d/yr (flat) when 365.25 is
-  swapped for 365.256363. Solid finding.
-- **Fixed offset:** does NOT match Yogini's -0.68d — it is +4.26d here,
-  opposite sign, larger magnitude, and only partially explained (period-
-  length scaling predicts the right order of magnitude but the wrong
-  sign). This is the "residual has a different structure" stop
-  condition the instructing prompt itself calls out.
-- **Recommendation: do NOT authorize the year-length constant swap in
-  `_calc_dasha`/`_add_years` in this session.** The compounding-fix case
-  is as strong as Yogini's was, but shipping it alongside an
-  unexplained 4.26-day fixed-offset anomaly — on a function with a much
-  wider blast radius than the Yogini module (section 6) — is premature.
-  Recommend a follow-up probe: (a) check whether JHora's Vimshottari/
-  Yogini panels are documented to share an ephemeris engine internally;
-  (b) test a second reference chart's Vimshottari MD1 to see whether
-  the +4.26d offset's sign/magnitude is chart-specific or systematic.
-- **If** the fixed offset is eventually confirmed as a stable, chart-
-  independent constant (not shown here — only one chart tested), the
-  ±37-day Antardasha drift envelope (CLAUDE.md Locked Decisions,
-  `tests/fixtures/golden_qa_sulabh.py:391` `sulabh_dasha_q11`
-  MISMATCH_ENVELOPE note) could in principle tighten to roughly ±5-6
-  days at Mahadasha granularity post-fix — not proposed as final; depends
-  on resolving the sign anomaly first, and on Antardasha-level testing
-  (out of scope this session — only the 9-row MD table was audited).
+ Merc: 2069-10-10 (2:35:23) - 2074-10-10 (9:18:16)
 
-## 6. Carry-forward — blast radius for design chat to evaluate
+ Sat: 2074-10-10 (9:18:16) - 2080-10-09 (22:22:15)
 
-**`_add_years()` call sites** (`chart_calculator.py:165`): exactly 3,
-all inside `_calc_dasha()` itself (lines 524/546/571 — MD, AD, and
-Pratyantar loops). No other production module calls it. One reference
-outside production code: `tests/manual/dasha_timezone_check.py:130`
-(manual script, not pytest-collected). **A year-length change scoped to
-`_add_years()` would be naturally narrow** — no collateral callers.
+ Ven: 2080-10-09 (22:22:15) - 2087-10-10 (17:15:20)
 
-**Downstream consumers of `_calc_dasha()`'s output**
-(`chart_data["dasha"]`):
-- `agent/infra/chart_profile.py` — builds the `current_dasha` domain
-  payload; `av_transit`'s domain build fail-closed-requires
-  `chart_data['dasha']['current_antardasha']` non-None, so Antardasha-
-  boundary shifts propagate into av_transit's scan window.
-- `agent/infra/calc_router.py:588` — reads
-  `(chart_data.get("dasha") or {}).get("current_antardasha")` directly
-  at routing time.
-- `agent/infra/result_formatter.py` — renders current_dasha's
-  mahadasha/antardasha strings; carries ±37-day drift language into
-  sade_sati/av_transit's own presentation via cross-references.
-- `agent/interpretive/answer_renderer.py:_render_current_dasha()` —
-  T4 display surface.
-- `agent/eval/golden_harness.py` — maps `"dasha"` domain name to
-  `"current_dasha"`; `sulabh_dasha_q11`-q15's match/mismatch
-  classification depends on `_calc_dasha()`'s actual output values.
-- **sade_sati:** confirmed NO dependency (`chart_profile.py` line 1051
-  comment: "sade_sati -- NO mahadasha/antardasha fields"; independent
-  Saturn-transit calculation).
-- **timing_enrichment:** inherits the dependency only transitively, via
-  av_transit's own `current_antardasha` requirement, not directly.
+ Rah: 2087-10-10 (17:15:20) - 2095-10-10 (18:31:33)
 
-**Golden fixture rows currently asserting MISMATCH_ENVELOPE under the
-±37d note:** `sulabh_dasha_q11` (`tests/fixtures/golden_qa_sulabh.py:391`,
-general policy at lines 13-18). Would go stale if the envelope tightens
-in a future session — not edited here.
+ Moon: 2095-10-10 (18:31:33) - 2096-10-10 (0:45:05)
 
----
-*Test suite:* not re-run — no source/test file touched this session
-(read-only diagnostic; fixture append + new diagnostics file only).
+ Sun: 2096-10-10 (0:45:05) - 2098-10-10 (12:53:33)
+
+
+
+David::
+Yogini Dasa (with planets replacing Yoginis):
+
+ Maha Dasas:
+
+ Merc: 1971-09-06 (5:53:21) - 1976-09-05 (12:34:21)
+ Sat: 1976-09-05 (12:34:21) - 1982-09-06 (1:30:53)
+ Ven: 1982-09-06 (1:30:53) - 1989-09-05 (20:30:06)
+ Rah: 1989-09-05 (20:30:06) - 1997-09-05 (21:45:34)
+ Moon: 1997-09-05 (21:45:34) - 1998-09-06 (3:49:33)
+ Sun: 1998-09-06 (3:49:33) - 2000-09-05 (16:12:01)
+ Jup: 2000-09-05 (16:12:01) - 2003-09-06 (10:35:50)
+ Mars: 2003-09-06 (10:35:50) - 2007-09-06 (11:17:23)
+ Merc: 2007-09-06 (11:17:23) - 2012-09-05 (18:02:59)
+ Sat: 2012-09-05 (18:02:59) - 2018-09-06 (6:56:51)
+ Ven: 2018-09-06 (6:56:51) - 2025-09-06 (1:49:52)
+ Rah: 2025-09-06 (1:49:52) - 2033-09-06 (3:04:10)
+ Moon: 2033-09-06 (3:04:10) - 2034-09-06 (9:16:49)
+ Sun: 2034-09-06 (9:16:49) - 2036-09-05 (21:34:01)
+ Jup: 2036-09-05 (21:34:01) - 2039-09-06 (16:03:31)
+ Mars: 2039-09-06 (16:03:31) - 2043-09-06 (16:39:58)
+ Merc: 2043-09-06 (16:39:58) - 2048-09-05 (23:28:44)
+ Sat: 2048-09-05 (23:28:44) - 2054-09-06 (12:13:08)
+ Ven: 2054-09-06 (12:13:08) - 2061-09-06 (7:23:29)
+ Rah: 2061-09-06 (7:23:29) - 2069-09-06 (8:33:01)
+ Moon: 2069-09-06 (8:33:01) - 2070-09-06 (14:35:11)
+ Sun: 2070-09-06 (14:35:11) - 2072-09-06 (3:02:57)
+ Jup: 2072-09-06 (3:02:57) - 2075-09-06 (21:29:49)
+ Mars: 2075-09-06 (21:29:49) - 2079-09-06 (22:02:46)
+
+
+
+Vimsottari Dasa:
+
+ Maha Dasas:
+
+ Ket: 1969-12-04 (22:13:43) - 1976-12-04 (17:21:56)
+ Ven: 1976-12-04 (17:21:56) - 1996-12-04 (20:29:27)
+ Sun: 1996-12-04 (20:29:27) - 2002-12-05 (9:22:00)
+ Moon: 2002-12-05 (9:22:00) - 2012-12-04 (22:55:26)
+ Mars: 2012-12-04 (22:55:26) - 2019-12-05 (18:00:58)
+ Rah: 2019-12-05 (18:00:58) - 2037-12-05 (8:46:54)
+ Jup: 2037-12-05 (8:46:54) - 2053-12-05 (11:12:01)
+ Sat: 2053-12-05 (11:12:01) - 2072-12-05 (8:11:58)
+ Merc: 2072-12-05 (8:11:58) - 2089-12-05 (16:39:01)
+
+
+
+
+
+Sheridan::
+Vimsottari Dasa:
+
+ Maha Dasas:
+
+ Ket: 1983-04-05 (7:46:36) - 1990-04-05 (2:50:05)
+ Ven: 1990-04-05 (2:50:05) - 2010-04-05 (5:57:22)
+ Sun: 2010-04-05 (5:57:22) - 2016-04-04 (18:48:52)
+ Moon: 2016-04-04 (18:48:52) - 2026-04-05 (8:29:14)
+ Mars: 2026-04-05 (8:29:14) - 2033-04-05 (3:19:43)
+ Rah: 2033-04-05 (3:19:43) - 2051-04-05 (18:09:30)
+ Jup: 2051-04-05 (18:09:30) - 2067-04-05 (20:30:07)
+ Sat: 2067-04-05 (20:30:07) - 2086-04-05 (17:34:35)
+ Merc: 2086-04-05 (17:34:35) - 2103-04-07 (2:02:04)
+
+Yogini Dasa (with planets replacing Yoginis):
+
+ Maha Dasas:
+
+ Mars: 1983-10-05 (0:39:49) - 1987-10-05 (1:11:48)
+ Merc: 1987-10-05 (1:11:48) - 1992-10-04 (7:54:21)
+ Sat: 1992-10-04 (7:54:21) - 1998-10-04 (20:48:10)
+ Ven: 1998-10-04 (20:48:10) - 2005-10-04 (15:54:33)
+ Rah: 2005-10-04 (15:54:33) - 2013-10-04 (17:08:34)
+ Moon: 2013-10-04 (17:08:34) - 2014-10-04 (23:12:00)
+ Sun: 2014-10-04 (23:12:00) - 2016-10-04 (11:37:09)
+ Jup: 2016-10-04 (11:37:09) - 2019-10-05 (6:04:18)
+ Mars: 2019-10-05 (6:04:18) - 2023-10-05 (6:39:56)
+ Merc: 2023-10-05 (6:39:56) - 2028-10-04 (13:22:47)
+ Sat: 2028-10-04 (13:22:47) - 2034-10-05 (2:17:37)
+ Ven: 2034-10-05 (2:17:37) - 2041-10-04 (21:15:06)
+ Rah: 2041-10-04 (21:15:06) - 2049-10-04 (22:26:30)
+ Moon: 2049-10-04 (22:26:30) - 2050-10-05 (4:40:54)
+ Sun: 2050-10-05 (4:40:54) - 2052-10-04 (16:56:19)
+ Jup: 2052-10-04 (16:56:19) - 2055-10-05 (11:29:54)
+ Mars: 2055-10-05 (11:29:54) - 2059-10-05 (12:06:23)
+ Merc: 2059-10-05 (12:06:23) - 2064-10-04 (18:55:48)
+ Sat: 2064-10-04 (18:55:48) - 2070-10-05 (7:40:10)
+ Ven: 2070-10-05 (7:40:10) - 2077-10-05 (2:50:34)
+ Rah: 2077-10-05 (2:50:34) - 2085-10-05 (3:55:46)
+ Moon: 2085-10-05 (3:55:46) - 2086-10-05 (10:04:30)
+ Sun: 2086-10-05 (10:04:30) - 2088-10-04 (22:30:11)
+ Jup: 2088-10-04 (22:30:11) - 2091-10-05 (16:59:54)
+
