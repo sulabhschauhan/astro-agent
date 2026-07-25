@@ -1,9 +1,13 @@
 """
 tests/test_yogini_dasha.py
 Unit tests for agent/calculations/dashas/yogini.py (Yogini dasha MD
-computation). Formula validated against ONE reference chart (Sulabh);
-Surbhi/Sheridan/David coverage is xfail pending external JHora fetch
-(see yogini.py's module docstring CAVEAT).
+computation). Starting-lord formula ((nakshatra_number + 2) % 8)
+validated across the full 4-chart reference set (Sulabh/Surbhi/
+Sheridan/David) per S74 diagnostic §9 -- xfails flipped S74 Prompt 3.
+MD-boundary-level (start_jd/end_jd) coverage for Surbhi/Sheridan/David
+is NOT part of this file; only Sulabh's boundaries are tested here
+(see yogini.py's module docstring CAVEAT for the still-open Vimshottari-
+class fixed-offset question at the boundary level).
 """
 
 import sys
@@ -167,28 +171,31 @@ def test_current_md_lookup_today():
     assert current.lord == "Mars"
 
 
-@pytest.mark.xfail(
-    reason="Formula validated against Sulabh only; "
-           "external Yogini fetch pending for other charts."
-)
 def test_starting_lord_surbhi():
-    pytest.fail(
-        "No JHora Yogini ground truth captured for Surbhi yet -- "
-        "external fetch required before this assertion can be written."
+    # S74 diagnostic §9: nakshatra #24 -> (24+2)%8=2 -> Dhanya/Jup. PASS.
+    natal_moon_lon, birth_jd_ut = _natal_inputs(
+        "Surbhi", "11 Sep 1992", "10:30", "Patna, India"
     )
+    periods = compute_yogini_dasha(natal_moon_lon, birth_jd_ut)
+    assert periods[0].lord == "Jup"
+    assert periods[0].yogini_name == "Dhanya"
 
 
-@pytest.mark.xfail(reason="same")
 def test_starting_lord_sheridan():
-    pytest.fail(
-        "No JHora Yogini ground truth captured for Sheridan yet -- "
-        "external fetch required before this assertion can be written."
+    # S74 diagnostic §9: nakshatra #1 -> (1+2)%8=3 -> Bhramari/Mars. PASS.
+    natal_moon_lon, birth_jd_ut = _natal_inputs(
+        "Sheridan", "27 May 1984", "08:00", "Durban, South Africa"
     )
+    periods = compute_yogini_dasha(natal_moon_lon, birth_jd_ut)
+    assert periods[0].lord == "Mars"
+    assert periods[0].yogini_name == "Bhramari"
 
 
-@pytest.mark.xfail(reason="same")
 def test_starting_lord_david():
-    pytest.fail(
-        "No JHora Yogini ground truth captured for David yet -- "
-        "external fetch required before this assertion can be written."
+    # S74 diagnostic §9: nakshatra #10 -> (10+2)%8=4 -> Bhadrika/Merc. PASS.
+    natal_moon_lon, birth_jd_ut = _natal_inputs(
+        "David", "19 Jan 1976", "22:00", "London, UK"
     )
+    periods = compute_yogini_dasha(natal_moon_lon, birth_jd_ut)
+    assert periods[0].lord == "Merc"
+    assert periods[0].yogini_name == "Bhadrika"
