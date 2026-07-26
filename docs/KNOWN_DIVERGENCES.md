@@ -26,13 +26,21 @@ or V2 scope expansion makes the gap user-visible.
   have not been independently verified against any fixture in this
   repository as of this entry — see the diagnostics `latest_run.md`
   companion to this commit for the verification trail.)*
-- **Root cause hypothesis:** pyswisseph produces true apparent Moon
-  (default with light-time + aberration + nutation). Drik/AstroSage/JHora
-  apparently use a Moon variant with different apparent-position
-  handling — likely aberration removal or a traditional
-  lunar-table-derived Moon. Confirmed via `FLG_NOABERR` test: closes
-  68.6% of Sulabh's gap (against the JHora oracle) but sign varies by
-  birth month.
+- **Root cause:** Camp Y (formal mathematical astrology, Kapoor
+  Institute of Astrology textbook Ch IX pp 115-117) vs Camp X
+  (commercial software JHora/AstroSage/Drik applying an undocumented
+  Moon correction). Production aligns with Camp Y. Reopen if evidence
+  of classical primary-source correction surfaces.
+  *(Prior working hypothesis, preserved for its diagnostic value:
+  pyswisseph produces true apparent Moon — default with light-time +
+  aberration + nutation — while Drik/AstroSage/JHora apparently apply a
+  different apparent-position handling, likely aberration removal or a
+  traditional lunar-table-derived Moon. Confirmed via `FLG_NOABERR`
+  test: closes 68.6% of Sulabh's gap against the JHora oracle, but sign
+  varies by birth month — consistent with Camp X applying a correction
+  not derivable from a single flag toggle.)*
+- **Reference:** `data/pdfs/[Deepak Kapoor] Astronomy and Mathematical
+  Astrology_text.pdf`, Ch IX (Vimshottari).
 - **Amplification:** fixed offset, does NOT compound through
   Antardasha/Pratyantar (ratio math preserves durations).
 - **Impact on V1:** zero for range-based answers, palm reading,
