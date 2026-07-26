@@ -4677,3 +4677,70 @@ Docs only, this turn and its predecessor: CLAUDE.md, SESSION_LOG.md.
 Commits A/B/C (source + tests) were reviewed, ratified, and landed in
 prior turns of this same session -- ratification tokens for those are
 recorded against their own commits, not re-litigated here.
+
+## S75 -- Vimshottari row-0 gap investigation + Ayanamsa lead closure (2026-07-26)
+
+**Note:** no S74 close block was ever logged in this file, though commit
+`2e34788` ("diagnostic: S74 pyjhora source audit -- Vimshottari
+balance-at-birth mechanism") landed and is referenced elsewhere in
+CLAUDE.md/diagnostics. Left open rather than backfilled here --
+recorded as a carry-forward gap, not expanded into this session's scope.
+
+- Ayanamsa lead (S74 §11 0.94 arcmin gap) FALSIFIED. Root cause: S27
+  Sulabh capture was under True Chitrapaksha mode, compared against
+  production SIDM_LAHIRI. Cross-mode ~56" delta misdiagnosed as
+  precession divergence. pyswisseph SIDM_LAHIRI ≡ JHora Traditional
+  Lahiri to 0.14" at both epochs tested (Sulabh 1988, Sheridan 1984).
+- Vimshottari year_days = 365.256363 (sidereal) CONFIRMED via new
+  method: JHora fixture-internal arithmetic (end-start ÷ years)
+  yields 365.2558-365.2572 across all 9 rows. Ready for production
+  but NOT SHIPPED this session pending V1.1 batching decision.
+- Row-0 residual under matched-mode Drik oracle (Traditional Lahiri):
+  Sulabh -2.67d, Sheridan -1.93d, Surbhi -0.33d, David -0.54d.
+  Non-linear scaling -> falsifies both linear-reference-frame and
+  fixed-angular-offset hypotheses. Seasonal pattern (spring births
+  higher residual) suggests apparent-Moon convention divergence.
+- Camp Y / Camp X split identified:
+  Camp Y (formal math): Kapoor textbook, Prokerala, our production
+  Camp X (commercial):  JHora GUI, AstroSage, Drik Panchang
+- Accepted gap D1 logged (`docs/KNOWN_DIVERGENCES.md`). V1 ship
+  decision: RATIFIED (range-based answers unaffected, day-precision
+  predictions excluded from V1 scope).
+- Kapoor book already present at `data/pdfs/[Deepak Kapoor] Astronomy
+  and Mathematical Astrology_text.pdf` (not moved to a new
+  `project_files/classical_references/` path -- that directory doesn't
+  exist anywhere else in the repo; `data/pdfs/` is the established
+  convention, same directory as the PVR book). Format: plaintext OCR
+  (7385 lines). Highest priority sections: Ch IX (Vimshottari), Ch
+  XVI-XIX (Shadbala/Bhava Bala), Ch IV (ayanamsa table).
+- Canonical oracle reclassification: JHora primary for non-dasha
+  (Ashtakavarga, karakas, D-charts, Panchanga); Drik primary for
+  dasha row-0/AD boundaries going forward. AstroSage secondary parity.
+- Fixtures NOT re-captured under Traditional Lahiri this session --
+  tracked as S76 open item.
+
+Ratifications:
+1. Camp Y alignment as V1 position (Kapoor as anchor citation)
+2. Kapoor book citation path corrected to its actual repo location
+   (`data/pdfs/`), CLAUDE.md Reference Materials section updated
+3. Accepted gap register (`docs/KNOWN_DIVERGENCES.md`) Gap D1 reframed
+   with Camp Y/Camp X citation
+4. JHora -> Drik oracle reclassification for dasha
+
+Open items S76:
+- Ship year_days = 365.256363 to production (surgical, ratified twice)
+- Re-capture Traditional Lahiri Vimshottari MD tables to
+  tests/fixtures/jhora_{surbhi,sheridan,david}.md (Sulabh already
+  captured this session)
+- Kapoor RAG indexing (extend ChromaDB corpus 14 -> 15 texts)
+- Kapoor-based Shadbala refactor evaluation (may resolve S1/S2 gaps)
+- Backfill or formally drop the missing S74 close block (see note above)
+
+Carry-forward (unchanged from S74/S75 open):
+- _keyword_hits word-boundary regex refactor
+- .claude/read_prompt.md working-tree drift (this session's own prompt
+  carried a stale prerequisite hash and a stale Kapoor file path --
+  both surfaced and corrected before executing, not silently followed)
+- scripts/probe_neutral_chunk_valence.py untracked
+- ~0.68d Yogini row-0 offset (S72 origin) -- same class as Vimshottari
+  row-0 residual, likely folds into Camp Y position
