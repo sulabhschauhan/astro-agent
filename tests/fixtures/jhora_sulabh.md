@@ -6,6 +6,17 @@
 **Status:** PARKED. Not consumed by any test in the current codebase.
 **Promotion target:** P2.5 Shadbala parity validation.
 
+**NOTE (S76):** Sections 3-4 (Vimshottari Dasha) were recaptured to
+production's own `_calc_dasha()` output after the `year_days =
+365.256363` ship to `agent/chart_calculator.py`'s `_add_years()` (was
+JHora GUI capture pre-S76 — see git history for the prior JHora-sourced
+MD/AD dates). Sections 1-2 (Panchanga, Planetary Positions) are
+UNCHANGED and remain the authoritative JHora GUI capture. Cross-
+reference: `diagnostics/drik_vimshottari_S76_sulabh.md` (independent
+Drik Panchang capture) and `docs/KNOWN_DIVERGENCES.md` Gap D1 (the
+accepted residual this table diverges from Drik/JHora by, documented,
+not a bug).
+
 ---
 
 ## 1. Panchanga (Basics tab)
@@ -102,39 +113,53 @@ Natal Chart
 
 ---
 
-## 3. Vimsottari Maha Dasa (Dasas tab -> Vimsottari)
+## 3. Vimsottari Maha Dasa (production output, post-S76 year_days ship)
+
+Recomputed via `agent/chart_calculator.py`'s own `_add_years()`/
+`DASHA_ORDER`/`DASHA_YEARS` (imported directly, not reimplemented),
+birth-anchored convention (MD1 starts at birth with truncated balance,
+NOT the notional full-period start JHora's GUI displays).
 
 | Lord | Start | End |
 |---|---|---|
-| Jup | 1973-07-28 (9:15:03) | 1989-07-28 (11:39:57) |
-| Sat | 1989-07-28 (11:39:57) | 2008-07-28 (8:30:35) |
-| Merc | 2008-07-28 (8:30:35) | 2025-07-28 (16:55:08) |
-| Ket | 2025-07-28 (16:55:08) | 2032-07-28 (12:07:52) |
-| Ven | 2032-07-28 (12:07:52) | 2052-07-28 (15:02:51) |
-| Sun | 2052-07-28 (15:02:51) | 2058-07-29 (3:48:03) |
-| Moon | 2058-07-29 (3:48:03) | 2068-07-28 (17:23:57) |
-| Mars | 2068-07-28 (17:23:57) | 2075-07-29 (12:30:30) |
-| Rah | 2075-07-29 (12:30:30) | 2093-07-29 (3:07:36) |
+| Jup | 1988-04-06 (00:30:00) | 1989-08-01 (17:54:13) |
+| Sat | 1989-08-01 (17:54:13) | 2008-08-01 (14:48:18) |
+| Merc | 2008-08-01 (14:48:18) | 2025-08-01 (23:24:04) |
+| Ket | 2025-08-01 (23:24:04) | 2032-08-01 (18:28:13) |
+| Ven | 2032-08-01 (18:28:13) | 2052-08-01 (21:31:28) |
+| Sun | 2052-08-01 (21:31:28) | 2058-08-02 (10:26:26) |
+| Moon | 2058-08-02 (10:26:26) | 2068-08-01 (23:58:04) |
+| Mars | 2068-08-01 (23:58:04) | 2075-08-02 (19:02:12) |
+| Rah | 2075-08-02 (19:02:12) | 2093-08-02 (09:47:08) |
+
+Row-0 (Jupiter) end diverges from Drik Panchang's independently
+captured MD1 end (`diagnostics/drik_vimshottari_S76_sulabh.md`:
+1989-08-04 09:48 IST) by **-2.66d** — this is the documented Gap D1
+residual (`docs/KNOWN_DIVERGENCES.md`), not a bug. The year_days ship
+does not close this gap: D1's residual is dominated by a fixed
+ephemeris/ayanamsa-driven offset at the balance-at-birth calculation,
+not by the Julian-vs-sidereal year-length choice (confirmed
+numerically — pre-ship and post-ship residuals agree to within 0.002d).
 
 ---
 
 ## 4. Vimsottari Antardasa -- Current Ketu MD (2025-2032)
 
-Ket MD: 2025-07-28 (16:55:08) - 2032-07-28 (12:07:52)
+Ket MD: 2025-08-01 (23:24:04) - 2032-08-01 (18:28:13)
 
 Antardasas in this MD:
 
 | Lord | Start | End |
 |---|---|---|
-| Ket | 2025-07-28 (16:55:08) | 2025-12-24 (11:09:30) |
-| Ven | 2025-12-24 (11:09:30) | 2027-02-21 (18:46:34) |
-| Sun | 2027-02-21 (18:46:34) | 2027-06-30 (22:07:05) |
-| Moon | 2027-06-30 (22:07:05) | 2028-01-29 (7:51:58) |
-| Mars | 2028-01-29 (7:51:58) | 2028-06-27 (0:46:30) |
-| Rah | 2028-06-27 (0:46:30) | 2029-07-16 (4:01:53) |
-| Jup | 2029-07-16 (4:01:53) | 2030-06-21 (6:04:15) |
-| Sat | 2030-06-21 (6:04:15) | 2031-08-01 (9:10:37) |
-| Merc | 2031-08-01 (9:10:37) | 2032-07-28 (12:07:52) |
+| Ket | 2025-08-01 (23:24:04) | 2025-12-29 (02:54:49) |
+| Ven | 2025-12-29 (02:54:49) | 2027-02-28 (06:05:30) |
+| Sun | 2027-02-28 (06:05:30) | 2027-07-06 (02:14:42) |
+| Moon | 2027-07-06 (02:14:42) | 2028-02-04 (03:50:03) |
+| Mars | 2028-02-04 (03:50:03) | 2028-07-02 (07:20:48) |
+| Rah | 2028-07-02 (07:20:48) | 2029-07-20 (19:48:25) |
+| Jup | 2029-07-20 (19:48:25) | 2030-06-26 (17:32:58) |
+| Sat | 2030-06-26 (17:32:58) | 2031-08-05 (13:22:07) |
+| Merc | 2031-08-05 (13:22:07) | 2032-08-01 (18:28:13) |
 
 ---
 

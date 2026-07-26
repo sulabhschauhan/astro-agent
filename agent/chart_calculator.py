@@ -163,7 +163,9 @@ def _dignity(planet: str, sign: str) -> str:
 
 
 def _add_years(dt: datetime, years: float) -> datetime:
-    return dt + timedelta(days=years * 365.25)
+    # sidereal year. Ratified S74 (regression), S75 (JHora fixture-internal
+    # arithmetic, 9 rows x 4 charts). Was 365.25 Julian pre-S76. Kapoor Ch IX.
+    return dt + timedelta(days=years * 365.256363)
 
 
 def _fmt(dt: datetime) -> str:

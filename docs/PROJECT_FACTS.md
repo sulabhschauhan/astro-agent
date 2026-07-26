@@ -94,26 +94,41 @@ capture gap, same disposition as the ayanamsa gap above.
 
 ---
 
-## 3. Drik Panchang Matched-Mode Vimshottari Captures — OPEN
+## 3. Drik Panchang Matched-Mode Vimshottari Captures
 
-**Status: NOT YET IN REPO.** Referenced in `docs/KNOWN_DIVERGENCES.md`
-Gap D1 with an explicit provenance flag. The capture exists only in
-design-chat/session history (S75) and has never been persisted as a
-fixture or diagnostic file — verified this session: no file, diagnostic,
-or git commit anywhere in this repo contains the specific IST/UT/JD
-timestamps or residual figures that have been quoted for this gap across
-multiple sessions (and those quoted figures have themselves varied
-slightly release to release — e.g. Sheridan's residual has been stated
-as both -1.93d and -1.78d, Surbhi's as both -0.33d and -0.32d, in two
-different prompts referencing the "same" S75 capture). **Do not treat
-cross-session numeric quotes of these residuals as authoritative until a
-capture file lands under `diagnostics/` or `tests/fixtures/`.**
+**Status: LANDED (S76).** Sulabh manually captured all 4 charts from
+drikpanchang.com's Vimshottari Dasha calculator (Lahiri/Traditional
+ayanamsa, site default); each chart's verbatim table + conversion +
+residual arithmetic is now committed to its own diagnostic file (see
+"Required to close this gap" below) — the previous OPEN placeholder's
+concern (numeric quotes with no backing file) is resolved for these 4
+specific figures. All 4 residuals recomputed independently via
+`swe.julday()` this session, shown inline in each file.
+
+| Chart | Starting lord | MD1 years | Drik MD1 end (local / UT / JD) | Prod row-0 (days) | Drik row-0 (days) | Residual (prod − drik) | Source |
+|---|---|---|---|---|---|---|---|
+| Sulabh | Guru (Jupiter) | 16y | 1989-08-04 09:48 IST → 1989-08-04 04:18 UT → JD 2447742.679167 | 482.7232 | 485.387500 | **-2.6643d** | `diagnostics/drik_vimshottari_S76_sulabh.md` |
+| Surbhi | Rahu | 18y | 1999-03-05 22:04 IST → 1999-03-05 16:34 UT → JD 2451243.190278 | 2366.1560 | 2366.481945 | **-0.3259d** | `diagnostics/drik_vimshottari_S76_surbhi.md` |
+| Sheridan | Ketu | 7y | 1990-04-10 21:06 SAST → 1990-04-10 19:06 UT → JD 2447992.295833 | 2142.6221 | 2144.545833 | **-1.9237d** | `diagnostics/drik_vimshottari_S76_sheridan.md` |
+| David | Ketu | 7y | 1976-12-06 17:47 GMT → 1976-12-06 17:47 UT → JD 2443119.240972 | 321.2793 | 321.824305 | **-0.5450d** | `diagnostics/drik_vimshottari_S76_david.md` |
+
+All 4 residuals are negative (production's MD1 boundary lands earlier
+than Drik's in every case) and all fall well under the 5-day
+STOP-and-flag threshold — no TZ/JD arithmetic anomaly triggered.
+
+**Provenance correction, caught during this landing:** Sheridan's
+residual is **-1.9237d**, matching the -1.93d figure quoted two sessions
+ago — NOT the -1.78d figure quoted in the immediately preceding prompt
+for the "same" claim. Direct confirmation that -1.78d was a
+transcription drift, not a distinct re-measurement; the now-committed
+-1.9237d figure is the one to cite going forward.
 
 **Related, already-verified data (NOT the same thing as a Drik Panchang
 capture — do not conflate):** `diagnostics/ayanamsa_mode_investigation_
-S75.md` (lines 119-124) has a real, traceable table of production row-0
-day-counts compared against the **JHora GUI fixture** (not Drik
-Panchang) under Traditional-Lahiri vs. True-Chitrapaksha modes:
+S75.md` (lines 119-124) has a separate, independently traceable table of
+production row-0 day-counts compared against the **JHora GUI fixture**
+(not Drik Panchang) under Traditional-Lahiri vs. True-Chitrapaksha
+modes:
 
 | Chart | Row0 days (Traditional Lahiri) | Row0 days (True Chitrapaksha) |
 |---|---|---|
@@ -122,27 +137,21 @@ Panchang) under Traditional-Lahiri vs. True-Chitrapaksha modes:
 | Sheridan | 2142.6221 | 2140.4425 |
 | David | 321.2793 | 318.4175 |
 
-These row-0 day-counts happen to match the figures that have been quoted
-elsewhere as "production row-0 (days from birth)" for the Drik comparison
-— but the residual/comparison side of that table is against JHora's GUI
-oracle, not Drik Panchang, and its residual values (+1.17d, +1.66d, etc.)
-do NOT match the residuals quoted for the (unverified) Drik claim above.
-Do not merge these two tables.
+The "Row0 days (Traditional Lahiri)" column is the same "Prod row-0"
+figure used in this section's table above (single source, cited
+consistently) — but that file's own residual/comparison side is against
+JHora's GUI oracle, not Drik Panchang, and its residual values (+1.17d,
++1.66d, etc.) are a DIFFERENT comparison than this section's Drik
+residuals. Do not merge the two residual columns.
 
-**Required to close this gap:**
-- `diagnostics/drik_vimshottari_S<xx>_sulabh.md`
-- `diagnostics/drik_vimshottari_S<xx>_surbhi.md`
-- `diagnostics/drik_vimshottari_S<xx>_sheridan.md`
-- `diagnostics/drik_vimshottari_S<xx>_david.md`
+**Required to close this gap — all 4 landed:**
+- ✅ `diagnostics/drik_vimshottari_S76_sulabh.md`
+- ✅ `diagnostics/drik_vimshottari_S76_surbhi.md`
+- ✅ `diagnostics/drik_vimshottari_S76_sheridan.md`
+- ✅ `diagnostics/drik_vimshottari_S76_david.md`
 
-Format per file: verbatim Drik table screenshot or copy, source URL,
-capture timestamp, ayanamsa setting confirmed = Lahiri (Traditional /
-Chitrapaksha — state which), MD end (IST + UT + JD), residual vs.
-production row-0.
-
-Once captured, populate this section from those files (not from chat
-history) and update Gap D1's provenance flag in
-`docs/KNOWN_DIVERGENCES.md`.
+See `docs/KNOWN_DIVERGENCES.md` Gap D1 for the updated provenance note
+reflecting these files.
 
 ---
 
@@ -167,7 +176,15 @@ numbers tracing back to the unverified §3 Drik claim have been excluded
   365.2558-365.2572 across all 9 rows, 4-chart-confirmed
   (`vimshottari_year_length_S74.md` §8 — Julian→sidereal swap flattens
   drift slope from ≈-0.0064 d/yr to ≈0 for all 4 charts, chart-
-  independent). **Not yet shipped to production** (see §5's open item).
+  independent). **Shipped S76** — `agent/chart_calculator.py`'s
+  `_add_years()` now uses `365.256363`; full suite verified clean
+  (3302 passed / 0 failed / 7 skipped / 1 xpassed, identical to the
+  pre-ship baseline). Confirmed the Gap D1 row-0 residual is NOT
+  affected by this change (dominated by a fixed ephemeris/ayanamsa
+  offset, not year-length — pre/post-ship residuals agree to within
+  0.002d across all 4 charts). `tests/fixtures/jhora_{sulabh,surbhi,
+  sheridan,david}.md`'s Vimshottari MD/AD tables recaptured to match
+  (see §3 for the updated residuals against Drik).
 - `FLG_NOABERR` closes 68.6% of Sulabh's row-0 gap (against the JHora
   GUI oracle) but the sign of the residual varies by birth month across
   the 4-chart set — ruled DO NOT SHIP on this basis

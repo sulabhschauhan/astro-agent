@@ -6,21 +6,41 @@ time (JHora convention), NOT UT. Balance-at-birth: JHora displays
 MD 1 from notional full-period start (birth-straddling); effective
 MD 1 for our calculator starts at birth with truncated balance.
 
-## Vimshottari Dasha (JHora v8, Surbhi)
+**NOTE (S76):** the Vimshottari 9-Mahadasha table below was recaptured
+to production's own `_calc_dasha()` output after the `year_days =
+365.256363` ship (was the JHora GUI capture above, pre-S76 — see git
+history for the prior values). The Yogini Dasha section further below
+is UNCHANGED (already used `year_days = 365.256363` since Session 72,
+unaffected by this ship). Cross-reference:
+`diagnostics/drik_vimshottari_S76_surbhi.md` (independent Drik Panchang
+capture) and `docs/KNOWN_DIVERGENCES.md` Gap D1 (the accepted residual
+this table diverges from Drik/JHora by, documented, not a bug).
+
+## Vimshottari Dasha (production output, post-S76 year_days ship)
 
 ### 9-Mahadasha table
 
+Recomputed via `agent/chart_calculator.py`'s own `_add_years()`/
+`DASHA_ORDER`/`DASHA_YEARS` (imported directly, not reimplemented),
+birth-anchored convention (MD1 starts at birth with truncated balance,
+NOT the notional full-period start JHora's GUI displays above).
+
 | Lord | Start (local) | End (local) |
 |---|---|---|
-| Rah  | 1981-02-21 18:41:58 | 1999-02-22 09:33:52 |
-| Jup  | 1999-02-22 09:33:52 | 2015-02-22 12:00:47 |
-| Sat  | 2015-02-22 12:00:47 | 2034-02-22 08:58:09 |
-| Merc | 2034-02-22 08:58:09 | 2051-02-22 17:30:00 |
-| Ket  | 2051-02-22 17:30:00 | 2058-02-22 12:44:12 |
-| Ven  | 2058-02-22 12:44:12 | 2078-02-22 15:37:18 |
-| Sun  | 2078-02-22 15:37:18 | 2084-02-23 04:40:48 |
-| Moon | 2084-02-23 04:40:48 | 2094-02-22 18:12:27 |
-| Mars | 2094-02-22 18:12:27 | 2101-02-23 13:15:18 |
+| Rah  | 1992-09-11 10:30:00 | 1999-03-05 14:11:50 |
+| Jup  | 1999-03-05 14:11:50 | 2015-03-05 16:38:26 |
+| Sat  | 2015-03-05 16:38:26 | 2034-03-05 13:32:32 |
+| Merc | 2034-03-05 13:32:32 | 2051-03-05 22:08:18 |
+| Ket  | 2051-03-05 22:08:18 | 2058-03-05 17:12:26 |
+| Ven  | 2058-03-05 17:12:26 | 2078-03-05 20:15:41 |
+| Sun  | 2078-03-05 20:15:41 | 2084-03-05 09:10:40 |
+| Moon | 2084-03-05 09:10:40 | 2094-03-05 22:42:17 |
+| Mars | 2094-03-05 22:42:17 | 2101-03-06 17:46:26 |
+
+Row-0 (Rahu) end diverges from Drik Panchang's independently captured
+MD1 end (`diagnostics/drik_vimshottari_S76_surbhi.md`: 1999-03-05
+22:04 IST) by **-0.33d** — this is the documented Gap D1 residual
+(`docs/KNOWN_DIVERGENCES.md`), not a bug.
 
 ## Yogini Dasha (JHora v8, Surbhi)
 

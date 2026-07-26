@@ -19,13 +19,21 @@ or V2 scope expansion makes the gap user-visible.
 - **Symptom:** production row-0 (Mahadasha-1) end date differs from
   Drik/AstroSage/JHora by 0.3-2.8 days.
 - **Measured residuals** (matched Traditional Lahiri mode, Drik as
-  oracle): Sulabh -2.67d, Sheridan -1.93d, Surbhi -0.33d, David -0.54d.
-  *(Provenance flag: Sulabh's number is close to but not identical to
-  this session's own JHora-oracle measurement of -2.7726d/-2.7642d;
-  the Sheridan/Surbhi/David figures and the Drik-Panchang comparison
-  have not been independently verified against any fixture in this
-  repository as of this entry — see the diagnostics `latest_run.md`
-  companion to this commit for the verification trail.)*
+  oracle): Sulabh -2.66d, Sheridan -1.92d, Surbhi -0.33d, David -0.55d.
+  *(Provenance closed, S76: all 4 figures independently recomputed via
+  `swe.julday()` from Sulabh's verbatim drikpanchang.com capture and
+  committed as diagnostic files — `diagnostics/drik_vimshottari_S76_
+  {sulabh,surbhi,sheridan,david}.md`, cross-referenced from
+  `docs/PROJECT_FACTS.md` §3. Prior provenance flag on this entry — "the
+  Sheridan/Surbhi/David figures and the Drik-Panchang comparison have not
+  been independently verified against any fixture in this repository" —
+  is RESOLVED for these 4 numbers. En route, a stale intermediate quote
+  of Sheridan's residual as -1.78d (one prompt prior) was traced and
+  ruled a transcription drift, not a re-measurement; -1.92d is the
+  verified figure. Sulabh's number remains close to but not identical to
+  an earlier same-session JHora-oracle measurement of -2.7726d/-2.7642d
+  — expected, since that comparison is against JHora's GUI, a different
+  oracle than Drik Panchang; the two are not required to match.)*
 - **Root cause:** Camp Y (formal mathematical astrology, Kapoor
   Institute of Astrology textbook Ch IX pp 115-117) vs Camp X
   (commercial software JHora/AstroSage/Drik applying an undocumented
