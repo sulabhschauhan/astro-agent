@@ -117,6 +117,10 @@ Every new calculation module lives in its `calculations/` subpackage; never add 
 
 Ayana Bala Kranti (RESOLVED Session 47), Sun Ayana Bala doubling (RESOLVED Session 47), and Bhava Dig Bala (resolved Session 42, 48/48 exact match) — full validation detail archived to SESSION_LOG.md's compression section. Older/narrower divergences (Saptavargaja scoring, Drekkana Bala, Ayana Bala Moon/Venus edge case, PDF-tooling gap, Sequencing lock violation) also archived there.
 
+## Known Divergences
+
+Production maintains documented divergences from commercial Vedic oracles (Drik Panchang, AstroSage, JHora) and classical primary sources where either (a) sources genuinely fragment, or (b) mechanism is unresolved but impact on V1 scope is bounded. Full register in docs/KNOWN_DIVERGENCES.md. Reopen individual gaps when: expert consultation clarifies mechanism, or V2 scope expansion makes gap user-visible.
+
 ## Carry-Forward / Open Items
 Resolved entries are archived in SESSION_LOG.md (see each session's "Carry-forward resolved" blocks) — this list holds OPEN items only.
 - **Misc small ride-along fixes** (not standalone prompts) — (a) `av_transit_scorer.py`'s generic "unknown transit_planet" ValueError needs its own design-reason text for Rahu/Ketu specifically, currently folded into the generic path (Session 54); (b) Session 56 logged a 2948-passed close but the verified pre-Session-57 baseline (commit `3993d79`) was 2972 — 24-test gap, root cause not investigated, not blocking, reconcile before trusting any future absolute baseline delta (Session 57); (c) `strength.py`'s D2 docstring worked example ("2022-23 Saturn+Rahu-in-Aquarius") doesn't hold empirically — a 1900-2030 scan found no real overlap; the D2 fail-closed MECHANISM is unaffected, only the illustrative citation is wrong, fix opportunistically next `strength.py` touch (Session 58).
