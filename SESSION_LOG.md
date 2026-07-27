@@ -4745,137 +4745,66 @@ Carry-forward (unchanged from S74/S75 open):
 - ~0.68d Yogini row-0 offset (S72 origin) -- same class as Vimshottari
   row-0 residual, likely folds into Camp Y position
 
-## S76 -- Drik Panchang captures landed, D1 provenance closed, year_days shipped (2026-07-26)
+## S76 — D1 provenance closure + year_days sidereal ship + PROJECT_FACTS registry
 
-Three prompts landed this session, across two commits:
+Shipped (3 items, 2 commits, single push):
 
-1. **`docs/PROJECT_FACTS.md` created** -- session-agnostic registry of
-   captured external data/fixtures/findings (Locked Decisions/CLAUDE.md
-   pointer not added this session; the file speaks for itself). Built
-   from a verification pass, not transcribed blind: found the Kapoor/
-   PVR book path, 3 of 4 reference-chart PDF filenames, and the
-   SESSION_LOG "S74-S75" source claim were all stale (same class of
-   drift as S75's own findings). Section 3 (Drik Panchang captures) was
-   left as an explicit OPEN placeholder after `git grep` across full
-   history found NO file or commit anywhere backing the IST/UT/JD
-   timestamps that had been quoted for this gap across multiple
-   sessions -- user confirmed via `AskUserQuestion` rather than
-   assumed. **Committed separately, earlier this session**
-   (`b125297`/`76a82a1`) -- NOT part of this entry's atomic commit
-   (item below); listed here only for the session's own narrative
-   continuity.
+1. **Gap D1 provenance closed.** 4 Drik Panchang Vimshottari captures
+   landed as committed diagnostics (diagnostics/drik_vimshottari_S76_
+   {sulabh,surbhi,sheridan,david}.md). Verbatim tables + local→UT→JD
+   arithmetic + residuals vs production row-0. Matched-mode residuals:
+   Sulabh -2.6643d, Surbhi -0.3259d, Sheridan -1.9237d, David -0.5450d.
+   Sheridan's prior -1.78d quote confirmed as transcription drift, not
+   re-measurement. docs/KNOWN_DIVERGENCES.md D1 provenance flag replaced
+   with S76 closure note; accepted-gap disposition unchanged.
 
-2. **Drik Panchang captures landed** (this entry's own atomic commit,
-   items 2-4, one commit): Sulabh manually captured all 4
-   charts from drikpanchang.com and pasted verbatim into
-   `diagnostics/latest_run.md`. Each chart's row-0 (MD1) identified by
-   matching the starting lord already established in
-   `vimshottari_year_length_S74.md` (Sulabh=Jupiter/16y, Surbhi=Rahu/
-   18y, Sheridan=Ketu/7y, David=Ketu/7y); local->UT->JD conversion done
-   via actual `swe.julday()` calls (not hand arithmetic), cross-checked
-   independently per chart. Committed as 4 new diagnostic files
-   (`diagnostics/drik_vimshottari_S76_{sulabh,surbhi,sheridan,david}.md`).
-   Residuals vs. production (pre-ship, Julian 365.25): Sulabh -2.66d,
-   Surbhi -0.33d, Sheridan -1.92d, David -0.55d -- all within the 5-day
-   anomaly threshold, no STOP triggered. **Provenance correction caught
-   in this pass:** Sheridan's residual recomputes to -1.9237d, matching
-   the -1.93d figure quoted two sessions ago, NOT the -1.78d quoted in
-   the immediately preceding prompt for the "same" claim -- confirmed
-   -1.78d was a transcription drift, not a re-measurement.
-   `docs/PROJECT_FACTS.md` §3 populated from these 4 files (not from
-   chat history); `docs/KNOWN_DIVERGENCES.md` Gap D1's provenance flag
-   replaced with an S76-dated closure note citing them. Disposition
-   (accepted gap, Camp Y alignment) unchanged -- this was provenance
-   closure, not a stance change.
+2. **year_days = 365.256363 sidereal shipped to production.**
+   agent/chart_calculator.py::_add_years() — the sole flow-through
+   site. Blast radius verified empirically: sade_sati.py and
+   av_transit_scanner.py 365.25 constants are independent (Saturn
+   transit math + scan-window divisor, not year-length).
+   golden_qa_sulabh.py ±37d envelope analytically clear of the ~0.006
+   d/yr compounding drift. Fixtures tests/fixtures/jhora_{sulabh,
+   surbhi,sheridan,david}.md recaptured from real production output
+   (imported production functions, not hand-reimplemented); Panchanga /
+   planetary-position / Yogini sections untouched. Pre/post-ship D1
+   residuals agree within 0.002d — row-0 gap is fixed ephemeris/
+   ayanamsa offset, not year-length. Ratified twice pre-ship (S74
+   regression + S75 fixture-internal arithmetic 9 rows × 4 charts).
 
-3. **`year_days = 365.256363` shipped to production**
-   (`agent/chart_calculator.py`'s `_add_years()`, was `365.25` Julian).
-   Ratified explicitly this session (RATIFIED: commit authorized) after
-   a blocking check: the instructing prompt's own premise ("fixtures
-   reflect production output post-ship") assumed this constant was
-   already live in production, but it was still `365.25` at session
-   start -- surfaced via `AskUserQuestion` before touching anything,
-   user chose to ship it now rather than leave the fixture-update
-   request unresolvable. Blast-radius check (per
-   `vimshottari_year_length_S74.md` §7's own inventory): only
-   `_add_years()`'s 3 call sites inside `_calc_dasha()` are affected;
-   `sade_sati.py`/`av_transit_scanner.py`'s own independent
-   `_YEAR_DAYS = 365.25` constants are UNRELATED (Saturn-transit scan
-   math and a scan-window sanity-check divisor respectively, neither
-   consumes `_add_years()` or models dasha period length) -- confirmed
-   by reading both call sites, not assumed from the name match.
-   `calc_router.py`/`result_formatter.py`/`answer_renderer.py` have no
-   hardcoded year constant at all (grep-confirmed) -- they only consume
-   `_calc_dasha()`'s output fields, so no change needed there.
-   `golden_qa_sulabh.py`'s ±37-day Antardasha drift envelope checked
-   analytically (not tightened, per instruction): the shift this
-   constant introduces is a compounding drift of ~0.006d/elapsed-year,
-   i.e. a fraction of a day over Sulabh's ~37-38 elapsed years -- nowhere
-   close to challenging a 37-DAY envelope. Full suite re-run after the
-   change: **3302 passed / 0 failed / 7 skipped / 1 xpassed** -- byte-
-   identical to the pre-ship baseline confirmed at this same session's
-   start. Recomputed the Gap D1 residual under the new constant to
-   confirm it doesn't silently change the accepted-gap framing: pre-ship
-   and post-ship row-0 residuals agree to within 0.002d across all 4
-   charts (e.g. Sulabh -2.6643d pre-ship vs. -2.6623d post-ship) --
-   confirms D1's residual is dominated by a fixed ephemeris/ayanamsa
-   offset at the balance-at-birth calculation, not by the Julian-vs-
-   sidereal year-length choice itself.
+3. **docs/PROJECT_FACTS.md registry established.** Session-agnostic
+   persistent-facts file. Sections: canonical charts, JHora fixtures,
+   Drik captures (S76 landed), settled empirical findings, external-
+   data-do-not-re-request register, append protocol. Hard provenance
+   rule: no entry accepted unless traceable to a committed file.
+   Design-chat/session-log assertions insufficient.
 
-4. **`tests/fixtures/jhora_{sulabh,surbhi,sheridan,david}.md`
-   recaptured.** Vimshottari 9-Mahadasha tables (and Sulabh's current-MD
-   9-Antardasha table) replaced with actual production output --
-   computed by importing `agent/chart_calculator.py`'s own
-   `_add_years()`/`DASHA_ORDER`/`DASHA_YEARS`/`_nakshatra` directly (not
-   reimplemented), same method `vimshottari_year_length_S74.md`'s own
-   probe scripts used. Each file's header now carries an S76 note
-   explaining the provenance shift (was JHora GUI capture, now
-   production output) and cross-references the matching
-   `diagnostics/drik_vimshottari_S76_<chart>.md` file. Sulabh's
-   Panchanga + planetary-position sections (1-2) and all 3 charts'
-   Yogini Dasha sections are UNCHANGED -- JHora was NOT recaptured, per
-   instruction; Yogini already used `365.256363` since Session 72 and
-   is unaffected by this ship. `docs/PROJECT_FACTS.md` §4's year_days
-   finding updated from "not yet shipped" to "Shipped S76," citing the
-   clean full-suite re-run.
+Test baseline: 3302 pass / 0 fail / 7 skip / 1 xpassed. Byte-identical
+pre/post-ship.
 
-**Known staleness flagged, not fixed this session (out of ratified
-scope):** `docs/PROJECT_FACTS.md` §2's "Current MD (/ AD)" column for
-all 4 charts was sourced from the pre-S76 JHora-GUI fixture dates and
-is now stale relative to the recaptured fixtures in item 4 above (e.g.
-Sulabh's Venus AD window shifted from 2025-12-24/2027-02-21 to
-2025-12-29/2027-02-28). Not corrected here because the ratifying
-instruction's file list for this commit did not include §2 -- flagged
-here rather than silently left inconsistent or silently expanded past
-the ratified scope. Candidate for the next `PROJECT_FACTS.md` touch.
+Carry-forward to S77:
+- PROJECT_FACTS §2 "Current MD/AD" column stale relative to recaptured
+  fixtures. Refresh at next docs touch (out of S76 ratified scope).
+- Surbhi/Sheridan/David natal Lagna sign/nakshatra/pada not captured
+  in any fixture — jhora_{surbhi,sheridan,david}.md are MD-tables-only.
+  Open capture gap, same class as the ayanamsa-boilerplate gap.
+- jhora_{surbhi,sheridan,david}.md ayanamsa lines are template
+  boilerplate (23-40-39.08 identical across 3 different birth epochs,
+  should differ ~13-14 arcmin across 1976-1992). Open capture gap.
+- S74 diagnostic file mislabels Surbhi Moon as "Uttara Bhadrapada
+  nakshatra #24" — astronomically Shatabhisha. Non-blocking, fix at
+  next S74 file touch.
 
-### Test count
+S77 candidate tasks (agents deliberate before choosing):
+D. Kapoor-anchored Shadbala refactor evaluation (Ch XVI-XIX vs
+   current agent/shadbala.py). Design-chat only, no Code work. May
+   close S1/S2 accepted gaps.
+C. Kapoor book RAG indexing (ChromaDB 14 → 15 texts). Independent of
+   chart pipeline. Chunking strategy may depend on D outcome.
+E. Palm reading V1.1 queue. Needle-inventory audit or thumb/fingers
+   retry investigation. Independent workstream.
+F. PROJECT_FACTS §2 refresh + Surbhi/Sheridan/David Lagna capture
+   (housekeeping bundle).
+G. Name your own.
 
-Full suite before this session's changes and after: **3302 passed / 0
-failed / 7 skipped / 1 xpassed** -- both runs, byte-identical, confirmed
-by direct re-run (Working Style #12), not carried forward from a stated
-baseline.
-
-### Commit (single, atomic, covering items 2-4 above)
-
-Covers: `agent/chart_calculator.py`; 4 new
-`diagnostics/drik_vimshottari_S76_*.md`; `docs/PROJECT_FACTS.md` (§3
-populated + §4 updated -- file itself already existed from the earlier,
-separately-committed creation, item 1 above); `docs/KNOWN_DIVERGENCES.md`
-(Gap D1 provenance closure); 4 updated `tests/fixtures/jhora_*.md`; this
-SESSION_LOG.md entry. `diagnostics/latest_run.md` carries the full diff
-and per-chart arithmetic trail (not duplicated here per Working Style
-#10). Ratification token ("RATIFIED: commit authorized") supplied
-explicitly for the `agent/chart_calculator.py` source-code edit, per
-CLAUDE.md Working Style #14.
-
-### Carry-forward (unchanged from S75, plus one new item)
-
-- _keyword_hits word-boundary regex refactor
-- .claude/read_prompt.md working-tree drift
-- scripts/probe_neutral_chunk_valence.py untracked
-- ~0.68d Yogini row-0 offset (S72 origin) -- same class as Vimshottari
-  row-0 residual, likely folds into Camp Y position
-- **NEW:** `docs/PROJECT_FACTS.md` §2's Current MD/AD column is stale
-  post-recapture (see "Known staleness flagged" note above) -- update
-  in the next `PROJECT_FACTS.md`-touching session.
+Recommended order: D → C → E. Housekeeping (F) opportunistic.
