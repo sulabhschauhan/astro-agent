@@ -113,23 +113,58 @@ or V2 scope expansion makes the gap user-visible.
 
 - **Symptom:** AstroSage fixture values differ from BPHS-literal Path A
   implementation.
-- **Root cause:** AstroSage may apply a post-BPHS correction
-  (Phaladeepika, Uttarakalamrita, or modern commentary tradition).
-- **Ratified:** Path A (BPHS literal); AstroSage values informational
-  only, not oracle.
-- **Impact on V1:** affects career-strength answers (10th lord
-  Shadbala) with unknown magnitude across the 4 canonical charts.
+- **Root cause:** Three-way tier divergence across classical + commercial
+  sources. BPHS 27.2-4 literal (production): Mooltrikona=45 / Own=30 /
+  Pramudita=20 / Shanta=15 / Din=10 / Duhkhita=4 / Khala=2. Kapoor Ch XIX
+  p.226-227 ready reckoner (Raman-scaled variant, Camp Y classical):
+  Mooltrikona=45 / Own=30 / Adhi mitra=22.5 / Mitra=15 / Neutral=7.5 /
+  Shatru=3.75 / Adhi shatru=1.875. AstroSage (unpublished):
+  reverse-engineering fails — Sun fits Adhimitra≈30/Sama≈7.5 but Moon does
+  not fit the same table across 4 canonical charts (S30 finding).
+- **Ratified:** BPHS literal (production); Kapoor Ch XIX cited as named
+  classical support for the Raman-scaled variant existing in Camp Y
+  literature; AstroSage values informational only, not oracle. No
+  empirical AstroSage-vs-Kapoor delta measurement performed S77 — open
+  work item if S1 is ever reopened.
+- **Impact on V1:** Expected low, not empirically measured S77. Shadbala
+  feeds Yoga detection (P3) and Trigger Naming (P7), both of which consume
+  RANKING, not absolute Virupa (see test_sthana_bala.py:263 informational
+  comment). Whether ranking is stable across BPHS / Kapoor / AstroSage tier
+  schemes for the 4 canonical charts is unverified — logged as open work
+  item, not asserted here. Suite is green under current BPHS-literal
+  scoring; no tier-swap regression has been run.
+- **Reference:** `data/pdfs/[Deepak Kapoor] Astronomy and Mathematical
+  Astrology_text.pdf`, Ch XIX p.226-227 (Graha Bala ready reckoner,
+  "Unit of strength" 7-tier table).
 - **Expert question:** does the tradition the user consults locally
   follow BPHS literal or a specific commentary variant? If
   commentary-based, which one?
 
 ### Gap S2: Drekkana Bala = 1 Virupa fixed constant
 
-- **Symptom:** classical BPHS gives a formula; both AstroSage and JHora
-  converge on a constant 1 Virupa for all planets.
-- **Ratified:** 1 Virupa (matches both oracles).
-- **Root cause hypothesis:** convergent modern simplification.
-- **Impact on V1:** minor, affects total Shadbala tallies.
+- **Symptom:** Camp Y unanimous classical (BPHS 27.6 + Kapoor Ch XVI §v +
+  Ch XIX p 227) specifies binary 15/0 by planet-gender × decanate. Camp X
+  commercial (AstroSage + JHora) converges on 1 Virupa flat for all
+  planets. Camp allegiance inconsistency with S77's Camp Y ratification
+  for Vimshottari (Gap D1) — production sides Camp X on this component.
+- **Ratified:** 1 Virupa (matches Camp X commercial oracles). Not
+  re-ratified S77; the S30 lock stands because the impact analysis below
+  shows no user-answer effect. Camp allegiance inconsistency logged, not
+  fixed.
+- **Root cause hypothesis:** Convergent modern simplification in commercial
+  software; classical binary scheme preserved in both BPHS and Kapoor
+  (mathematical-astrology tradition).
+- **Impact on V1:** Not empirically measured S77. Max delta if switched to
+  Camp Y binary: ±14 Virupa on a single planet's Sthana total. Sulabh
+  Sun-vs-Saturn Shadbala gap is 10.4 Virupa (Sun=412.74, Saturn=423.16
+  from shadbala_fixtures.py) — a swap CAN flip that adjacent-rank pair.
+  Whether the flip propagates to a user-visible answer change through
+  Yoga detection / Trigger Naming consumers is unverified. Logged as open
+  work item; the S30 1-Virupa lock is preserved pending measurement, not
+  ratified as user-answer-safe.
+- **Reference:** `data/pdfs/[Deepak Kapoor] Astronomy and Mathematical
+  Astrology_text.pdf`, Ch XVI §v p 192 (Dreshkon bala definition), Ch XIX
+  p 227 (ready reckoner).
 - **Expert question:** is the classical formula ever actually used, or
   has tradition uniformly adopted the 1-Virupa simplification?
 
