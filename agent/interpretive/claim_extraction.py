@@ -404,7 +404,10 @@ def extract_claims(
         chunks = gated_results[feature]
         chunk_map = {c["chunk_id"]: c["text"] for c in chunks}
         observation_text = texts_by_feature.get(feature, "") or ""
-        diag: dict = {"call_count": 0, "retry_used": False}
+        diag: dict = {
+            "call_count": 0, "retry_used": False,
+            "attempt_2_status": "not_attempted", "attempt_2_claim_count": None,
+        }
 
         diag["call_count"] += 1
         try:
@@ -416,10 +419,23 @@ def extract_claims(
             failed_features.append(feature)
             diag["status"] = "failed"
             diag["error"] = f"claim_extraction: API call failed for feature {feature!r}: {exc}"
+            diag["attempt_1_status"] = "error"
+            diag["attempt_1_claim_count"] = 0
+            diag["final_outcome"] = "failed_first_no_retry"
             feature_diagnostics[feature] = diag
             continue
 
         accepted, failures = _validate_response(raw, chunk_map)
+
+        if failures:
+            diag["attempt_1_status"] = "validation_failed"
+            diag["attempt_1_claim_count"] = 0
+        elif accepted:
+            diag["attempt_1_status"] = "validated"
+            diag["attempt_1_claim_count"] = len(accepted)
+        else:
+            diag["attempt_1_status"] = "validated_empty"
+            diag["attempt_1_claim_count"] = 0
 
         if failures:
             diag["retry_used"] = True
@@ -431,6 +447,9 @@ def extract_claims(
                 diag["status"] = "failed"
                 diag["error"] = f"claim_extraction: API retry failed for feature {feature!r}: {exc}"
                 diag["first_attempt_failures"] = failures
+                diag["attempt_2_status"] = "error"
+                diag["attempt_2_claim_count"] = None
+                diag["final_outcome"] = "failed_both"
                 feature_diagnostics[feature] = diag
                 continue
             accepted, failures = _validate_response(raw, chunk_map)
@@ -439,8 +458,18 @@ def extract_claims(
             failed_features.append(feature)
             diag["status"] = "failed"
             diag["failures"] = failures
+            diag["attempt_2_status"] = "validation_failed"
+            diag["attempt_2_claim_count"] = 0
+            diag["final_outcome"] = "failed_both"
             feature_diagnostics[feature] = diag
             continue
+
+        if diag["retry_used"]:
+            diag["attempt_2_status"] = "validated" if accepted else "validated_empty"
+            diag["attempt_2_claim_count"] = len(accepted)
+            diag["final_outcome"] = "success_retry" if accepted else "empty_retry"
+        else:
+            diag["final_outcome"] = "success_first" if accepted else "empty_first"
 
         claims, this_exclusion_ledger = _apply_e4(accepted, feature, observation_text, counter)
         all_claims.extend(claims)

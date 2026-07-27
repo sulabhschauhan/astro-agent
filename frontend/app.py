@@ -44,6 +44,33 @@ _PALM_ENABLED = os.environ.get("ASTRO_PALM_ENABLED", "0") == "1"
 _DOGFOOD_LOG_PATH = _ROOT / "diagnostics" / "dogfood_capture.md"
 
 
+def _format_stage1_feature_diagnostics_lines(feature_diagnostics: dict) -> list:
+    """S78 E2 step 2c: shared formatter for the `stage1_feature_diagnostics`
+    capture block -- called from both _capture_dogfood_run (happy path) and
+    _capture_checkpoint_declined (declined path) so the two capture forms
+    stay format-identical, per this prompt's parity requirement (a future
+    audit can compare RUN vs CHECKPOINT-DECLINED blocks apples-to-apples).
+    Reads every per-feature field defensively via .get() -- older captures
+    (pre-S78 step-2a) may carry `diag` dicts without the new
+    attempt_1_status/attempt_1_claim_count/attempt_2_status/
+    attempt_2_claim_count/final_outcome keys at all."""
+    if not feature_diagnostics:
+        return ["stage1_feature_diagnostics: NONE"]
+    lines = ["stage1_feature_diagnostics:"]
+    for feature in sorted(feature_diagnostics):
+        diag = feature_diagnostics[feature]
+        outcome = diag.get("final_outcome", "unknown")
+        a1_status = diag.get("attempt_1_status", "unknown")
+        a1_count = diag.get("attempt_1_claim_count", "?")
+        a2_status = diag.get("attempt_2_status", "unknown")
+        a2_count = diag.get("attempt_2_claim_count", "?")
+        lines.append(
+            f"  {feature}: outcome={outcome} attempt_1={a1_status}/{a1_count} "
+            f"attempt_2={a2_status}/{a2_count}"
+        )
+    return lines
+
+
 def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     """
     Append one markdown block to diagnostics/dogfood_capture.md for a
@@ -148,6 +175,15 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
         else "NONE"
     )
     lines.append(f"stage1_retry_features: {stage1_retry_features_str}")
+    # S78 E2 step 2c: per-feature Stage-1 diagnostic breakdown -- unblocks
+    # e2_stage1_retry_audit.md open question #1 (whether a retried feature's
+    # 2nd attempt landed in failed_features or a legitimately-empty claims
+    # list), previously only reachable via the checkpoint-declined path.
+    try:
+        lines.extend(_format_stage1_feature_diagnostics_lines(reading.stage1_feature_diagnostics))
+    except Exception as exc:
+        logger.warning("app._capture_dogfood_run: stage1_feature_diagnostics capture failed: %s", exc)
+        lines.append("stage1_feature_diagnostics: EMIT_ERROR")
     lines.append(f"stage2_retry_used: {reading.stage2_retry_used}")
     # S70: retry attribution -- WHAT drove Stage 2's retry, distinct from
     # merely knowing THAT it retried (stage2_retry_used above). Closes the
@@ -242,6 +278,18 @@ def _capture_checkpoint_declined(prep) -> None:
         f"stage1_failed_features: "
         f"{', '.join(stage1_failed_features) if stage1_failed_features else 'NONE'}"
     )
+    # S78 E2 step 2c: same field/format as _capture_dogfood_run's block --
+    # parity between the two capture paths is the point. Reads
+    # prep.diagnostics directly (matching how this function already reaches
+    # every other field here) since the declined path has no
+    # PalmReadingResult yet.
+    try:
+        lines.extend(_format_stage1_feature_diagnostics_lines(
+            prep.diagnostics.get("stage1", {}).get("features", {})
+        ))
+    except Exception as exc:
+        logger.warning("app._capture_checkpoint_declined: stage1_feature_diagnostics capture failed: %s", exc)
+        lines.append("stage1_feature_diagnostics: EMIT_ERROR")
     lines.append("")
 
     _DOGFOOD_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

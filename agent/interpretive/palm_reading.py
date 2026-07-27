@@ -1547,6 +1547,17 @@ class PalmReadingResult:
     #   new fields.
     claims: tuple[Claim, ...] = ()
     stage1_retry_features: tuple[str, ...] = ()
+    # S78 E2 step 2b: per-feature Stage-1 diagnostic dicts (call_count,
+    # retry_used, attempt_1_status/attempt_1_claim_count, attempt_2_status/
+    # attempt_2_claim_count, final_outcome, status, error/failures, etc. --
+    # verbatim claim_extraction.ExtractionResult.diagnostics["features"]),
+    # carried through so the happy-path dogfood capture can reach them --
+    # previously only reachable via the checkpoint-declined capture path
+    # (prep.diagnostics directly), never from a completed PalmReadingResult.
+    # dict, not Mapping, matching this file's existing convention (e.g.
+    # `sources: tuple[dict, ...]` above, `PalmReadingPrep.diagnostics: dict`
+    # below) -- Mapping is not imported anywhere in this module.
+    stage1_feature_diagnostics: dict[str, dict[str, object]] = field(default_factory=dict)
     stage2_retry_used: bool = False
     # S70 (retry attribution): the FIRST-attempt failure list that drove
     # Stage 2's retry -- claim_voicing.voice_claims' own diagnostics
@@ -1779,6 +1790,7 @@ def complete_palm_reading(
     )
 
     stage1_retry_features = prep.diagnostics.get("stage1_retry_features", ())
+    stage1_feature_diagnostics = prep.diagnostics.get("stage1", {}).get("features", {})
     stage2_retry_used = voice_result.retry_used
     stage2_first_attempt_failures = tuple(
         voice_result.diagnostics.get("first_attempt_failures", ())
@@ -1795,6 +1807,7 @@ def complete_palm_reading(
         unsupported_features=prep.unsupported_features,
         claims=prep.claims,
         stage1_retry_features=stage1_retry_features,
+        stage1_feature_diagnostics=stage1_feature_diagnostics,
         stage2_retry_used=stage2_retry_used,
         stage2_first_attempt_failures=stage2_first_attempt_failures,
     )
