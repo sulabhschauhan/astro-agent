@@ -4808,3 +4808,55 @@ F. PROJECT_FACTS §2 refresh + Surbhi/Sheridan/David Lagna capture
 G. Name your own.
 
 Recommended order: D → C → E. Housekeeping (F) opportunistic.
+
+## S77 — Kapoor as classical citation for Shadbala S1/S2 (docs-only)
+
+Shipped (1 commit, pushed as 886e744):
+1. docs/KNOWN_DIVERGENCES.md — Gap S1 (Saptavargaja) and Gap S2
+   (Drekkana) reframed with Kapoor Ch XIX p.226-227 (7-tier table)
+   and Ch XVI section v p.192 citations. No code refactor. Kapoor
+   confirmed as classical support, not a spec swap.
+
+D outcome: Kapoor does NOT close S1 empirically (AstroSage uses a
+third unpublished table where Adhimitra is approximately 30 -- neither
+BPHS nor Kapoor tier scheme resolves cleanly). S2 Drekkana: Camp Y
+unanimous classical (BPHS + Kapoor 15/0 binary) vs Camp X commercial
+convergence (AstroSage + JHora 1 flat) -- camp allegiance
+inconsistency vs S77 D1 Camp Y ratification, logged not fixed.
+Sulabh Sun-vs-Saturn rank gap = 10.42 Virupa vs max +/-14 Virupa swap
+delta; rank-flip is possible, propagation to user-visible answers
+unverified. S30 1-Virupa lock preserved pending measurement.
+
+C (Kapoor RAG indexing) deprioritized permanently. Kapoor is a
+mathematical-astrology manual, not interpretive doctrine. RAG feeds
+interpretive T4 answers; math-manual chunks would dilute retrieval.
+Revisit only if V2 exposes a "how is X calculated" query surface.
+
+Process finding S77: three design-chat drafting errors caught by
+Code AskUserQuestion before commit -- (a) S1 citation location
+Ch XVI vs actual Ch XIX; (b) S1 tolerance conflation ±40 vs actual
+_TOL=0.5; (c) S2 rank-gap 30-70 Virupa fabricated, actual 10.42.
+All three same failure mode: inference asserted as fact in a
+persistent register. New discipline: numeric claims into
+KNOWN_DIVERGENCES / PROJECT_FACTS / SESSION_LOG require per-claim
+fixture/grep verification, matching the pre-prompt research
+discipline already applied to Code prompts.
+
+Test baseline unchanged: 3302 pass / 0 fail / 7 skip / 1 xpassed
+(no code touched, no pytest run).
+
+Carry-forward to S78:
+- .claude/read_prompt.md working-tree drift (still shows S75 content)
+- _keyword_hits word-boundary regex refactor
+- scripts/probe_neutral_chunk_valence.py untracked
+- ~0.68d Yogini row-0 offset (S72 origin), likely folds into Camp Y
+- PROJECT_FACTS section 2 "Current MD/AD" stale
+- Surbhi/Sheridan/David natal Lagna not captured in any fixture
+- jhora_{surbhi,sheridan,david}.md ayanamsa boilerplate identical
+  across 3 different birth epochs (real capture pending)
+- S74 diagnostic file mislabels Surbhi Moon as Uttara Bhadrapada
+  (astronomically Shatabhisha)
+
+S78 candidates: E (palm V1.1 needle audit / thumb-fingers retry),
+F (housekeeping bundle -- opportunistic, bundle into E close).
+C dropped (see above).
