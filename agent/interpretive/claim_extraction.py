@@ -440,6 +440,7 @@ def extract_claims(
         if failures:
             diag["retry_used"] = True
             diag["call_count"] += 1
+            diag["first_attempt_failures"] = tuple(failures)
             try:
                 raw = _call_llm(client, _build_retry_messages(feature, observation_text, chunks, raw, failures))
             except Exception as exc:  # noqa: BLE001

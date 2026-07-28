@@ -53,7 +53,17 @@ def _format_stage1_feature_diagnostics_lines(feature_diagnostics: dict) -> list:
     Reads every per-feature field defensively via .get() -- older captures
     (pre-S78 step-2a) may carry `diag` dicts without the new
     attempt_1_status/attempt_1_claim_count/attempt_2_status/
-    attempt_2_claim_count/final_outcome keys at all."""
+    attempt_2_claim_count/final_outcome keys at all.
+
+    S78 E2 step 2d: attempt_1_failures/attempt_2_failures continuation
+    lines -- the 2026-07-27T15:04:44 dogfood run reproduced a
+    outcome=failed_both thumb row with no visible reason (attempt_1=
+    validation_failed/0 attempt_2=validation_failed/0), even though
+    claim_extraction.py's diag dict already carries the actual E-1/E-2/E-3
+    messages under first_attempt_failures/failures -- just never emitted
+    here. Only appended when the corresponding attempt's status indicates
+    a real failure (validation_failed/error) AND the message list is
+    non-empty, so success/empty outcomes stay exactly as compact as before."""
     if not feature_diagnostics:
         return ["stage1_feature_diagnostics: NONE"]
     lines = ["stage1_feature_diagnostics:"]
@@ -68,6 +78,22 @@ def _format_stage1_feature_diagnostics_lines(feature_diagnostics: dict) -> list:
             f"  {feature}: outcome={outcome} attempt_1={a1_status}/{a1_count} "
             f"attempt_2={a2_status}/{a2_count}"
         )
+        if a1_status in ("validation_failed", "error"):
+            attempt_1_failures = diag.get("first_attempt_failures", ())
+            if attempt_1_failures:
+                capped = [
+                    msg if len(msg) <= 200 else msg[:200] + "..."
+                    for msg in attempt_1_failures
+                ]
+                lines.append(f"    attempt_1_failures: {'; '.join(capped)}")
+        if a2_status in ("validation_failed", "error"):
+            attempt_2_failures = diag.get("failures", ())
+            if attempt_2_failures:
+                capped = [
+                    msg if len(msg) <= 200 else msg[:200] + "..."
+                    for msg in attempt_2_failures
+                ]
+                lines.append(f"    attempt_2_failures: {'; '.join(capped)}")
     return lines
 
 
