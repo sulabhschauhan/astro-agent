@@ -159,6 +159,17 @@ def _build_user_prompt(feature: str, observation_text: str, chunks: list[dict]) 
     )
 
 
+# E2F step 1: extracts the chunk_id an E-3 (paraphrase-overlap-floor)
+# failure names, from the exact message shape _validate_response builds
+# at lines 250-252 below (f"...for chunk {chunk_id!r}"). repr() of a str
+# quotes with '...' unless the string itself contains a single quote, so
+# this pattern assumes the former -- matching every chunk_id this corpus
+# actually produces (ingestion-generated, no apostrophes). A failure
+# string that doesn't match (E-1/E-2 failures, malformed-JSON, etc.)
+# simply contributes no chunk_id to the retry's excluded set.
+_E3_CHUNK_ID_PATTERN = re.compile(r"for chunk '([^']+)'$")
+
+
 # F2c retry correction-instruction pattern, same shape as
 # palm_reading.py's own S66 F2c retry ("Your draft failed these checks:
 # ...; Rewrite the reading correcting ONLY these issues. Same facts, same
@@ -167,20 +178,35 @@ def _build_user_prompt(feature: str, observation_text: str, chunks: list[dict]) 
 # observation to the model as a correction instruction; this is NOT
 # AI-reviewing-AI, CLAUDE.md Working Style #5/#9), same single-retry
 # shape, adapted to per-feature extraction instead of whole-reading voice.
+#
+# E2F step 1: chunks named in excluded_chunk_ids (E-3 failures from
+# attempt 1) are dropped from the retry's own chunk pool -- the model
+# can no longer re-attempt a claim against a chunk it already failed
+# the overlap floor on. When excluded_chunk_ids is empty (a non-E-3
+# failure -- E-1/E-2/malformed-JSON -- triggered the retry), the pool is
+# unchanged and the OLD "Same chunks, same feature" wording stays
+# accurate; the NEW wording only fires when a chunk was actually removed.
 def _build_retry_messages(
     feature: str, observation_text: str, chunks: list[dict],
-    prior_raw: str, failures: list[str],
+    prior_raw: str, failures: list[str], excluded_chunk_ids: set[str],
 ) -> list[dict]:
+    filtered_chunks = [c for c in chunks if c["chunk_id"] not in excluded_chunk_ids]
+    instruction = (
+        "Chunks that failed the overlap check on attempt 1 have been "
+        "removed from scope; use only the chunks now provided."
+        if excluded_chunk_ids
+        else "Same chunks, same feature."
+    )
     return [
         {"role": "system", "content": _EXTRACTION_SYSTEM_PROMPT},
-        {"role": "user", "content": _build_user_prompt(feature, observation_text, chunks)},
+        {"role": "user", "content": _build_user_prompt(feature, observation_text, filtered_chunks)},
         {"role": "assistant", "content": prior_raw},
         {
             "role": "user",
             "content": (
                 "Your extraction failed these checks: " + "; ".join(failures) + ". "
                 "Re-extract claims for this feature, correcting ONLY these issues. "
-                "Same chunks, same feature."
+                + instruction
             ),
         },
     ]
@@ -404,6 +430,16 @@ def extract_claims(
         chunks = gated_results[feature]
         chunk_map = {c["chunk_id"]: c["text"] for c in chunks}
         observation_text = texts_by_feature.get(feature, "") or ""
+        # diag enum reference (no prior enum listing existed in this module
+        # before E2F step 1 -- added here as the closest diag-initialization
+        # anchor point):
+        #   attempt_1_status / attempt_2_status: "not_attempted", "error",
+        #     "validation_failed", "validated", "validated_empty",
+        #     "skipped_no_viable_chunks" (E2F step 1, new).
+        #   final_outcome: "failed_first_no_retry", "failed_both",
+        #     "success_first", "success_retry", "empty_first", "empty_retry",
+        #     "failed_first_no_viable_retry" (E2F step 1, new).
+        # No runtime validation enforces these as a closed set.
         diag: dict = {
             "call_count": 0, "retry_used": False,
             "attempt_2_status": "not_attempted", "attempt_2_claim_count": None,
@@ -438,11 +474,44 @@ def extract_claims(
             diag["attempt_1_claim_count"] = 0
 
         if failures:
+            diag["first_attempt_failures"] = tuple(failures)
+            # E2F step 1: drop any chunk an E-3 failure already named from
+            # the retry's own pool -- the root cause this step fixes is the
+            # retry being told "same chunks" and re-attempting a claim
+            # against the SAME chunk it just failed the overlap floor on
+            # (Run 2 evidence: p.88_c0 attempt 1 overlap 0.08, attempt 2
+            # still against p.88_c0, overlap 0.20, still below floor, while
+            # a validatable chunk sat unused at rank 2). Non-E-3 failures
+            # (E-1/E-2/malformed-JSON) contribute no chunk_id here, so the
+            # pool is unchanged for those -- matches _E3_CHUNK_ID_PATTERN's
+            # own module comment.
+            excluded_chunk_ids = {
+                match.group(1)
+                for f in failures
+                if (match := _E3_CHUNK_ID_PATTERN.search(f))
+            }
+            remaining_chunks = [c for c in chunks if c["chunk_id"] not in excluded_chunk_ids]
+            if not remaining_chunks:
+                # Every attempt-1 chunk failed E-3 -- no viable chunk left
+                # to retry against. Retrying here would only repeat Run 2's
+                # exact failure mode (re-attempting against a chunk already
+                # known to fail the overlap floor), so the retry call is
+                # skipped entirely rather than burning a second LLM call on
+                # a pool that cannot pass.
+                diag["retry_used"] = False
+                diag["attempt_2_status"] = "skipped_no_viable_chunks"
+                diag["attempt_2_claim_count"] = None
+                diag["final_outcome"] = "failed_first_no_viable_retry"
+                diag["status"] = "failed"
+                failed_features.append(feature)
+                feature_diagnostics[feature] = diag
+                continue
             diag["retry_used"] = True
             diag["call_count"] += 1
-            diag["first_attempt_failures"] = tuple(failures)
             try:
-                raw = _call_llm(client, _build_retry_messages(feature, observation_text, chunks, raw, failures))
+                raw = _call_llm(client, _build_retry_messages(
+                    feature, observation_text, chunks, raw, failures, excluded_chunk_ids
+                ))
             except Exception as exc:  # noqa: BLE001
                 failed_features.append(feature)
                 diag["status"] = "failed"

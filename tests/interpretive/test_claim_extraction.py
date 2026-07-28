@@ -129,6 +129,21 @@ _E3_CLAIM_TEXT_PASS = "Alpha bravo charlie xray yankee."
 # overlap = 1 / min(5, 8) = 1/5 = 0.20 -- below the 0.40 floor.
 _E3_CLAIM_TEXT_FAIL = "Alpha xray yankee zulu whiskey."
 
+# E2F step 2: second chunk/claim pair, same 8-content-word template as
+# above but distinct words, for the partial-failure retry-pool-exclusion
+# test below -- needs a SECOND gated chunk with text that never appears
+# in the first chunk's text, so the test can assert the excluded
+# chunk's text is genuinely absent from the retry prompt (not just
+# coincidentally absent because both chunks share vocabulary).
+# Chunk text content words (8): india, juliet, kilo, lima, mike,
+# november, oscar, papa.
+_E3_CHUNK_TEXT_2 = "India juliet kilo lima mike november oscar papa."
+
+# PASS claim: content words {india, juliet, kilo, quebec, romeo} (5).
+# shared with chunk_2 = {india, juliet, kilo} = 3.
+# overlap = 3 / min(5, 8) = 3/5 = 0.60 -- above the 0.40 floor.
+_E3_CLAIM_TEXT_PASS_2 = "India juliet kilo quebec romeo."
+
 
 # ─── Happy path + E-2 duplicate-id re-key proof ─────────────────────────
 
@@ -279,7 +294,11 @@ def test_e2_missing_required_field_triggers_retry_persistent_failure():
 # ─── E-3: paraphrase overlap floor ───────────────────────────────────────
 
 
-def test_e3_overlap_below_floor_triggers_retry_persistent_failure():
+def test_e3_overlap_below_floor_skips_retry_when_no_viable_chunks():
+    """Attempt 1's only chunk fails E-3 overlap; the retry pool would be
+    empty, so retry is skipped entirely. The feature still lands in
+    failed_features (fail-closed preserved), diagnostics reflect the
+    no-viable-retry path, and only the initial call was made."""
     # "thumb" rides along, always-succeeding, so this single-feature
     # persistent failure doesn't trip the all-fail RuntimeError path.
     gated_results = {
@@ -289,13 +308,31 @@ def test_e3_overlap_below_floor_triggers_retry_persistent_failure():
     texts_by_feature = {"life line": "obs", "thumb": "obs"}
     bad_resp = _response("life line", [_raw_claim(chunk_id="p1_c0", claim_text=_E3_CLAIM_TEXT_FAIL, valence="supports")])
     thumb_resp = _response("thumb", [_raw_claim(chunk_id="p2_c0", claim_text="y", valence="supports")])
-    client = _FakeClient(responses=[(bad_resp, None), (bad_resp, None), (thumb_resp, None)])
+    # Only ONE response for "life line" -- under E2F step 1's new logic,
+    # its single chunk fails E-3 on attempt 1, exhausts the retry pool,
+    # and the retry is skipped entirely, so no second "life line" call is
+    # ever made for a second bad_resp to answer.
+    client = _FakeClient(responses=[(bad_resp, None), (thumb_resp, None)])
 
     result = extract_claims(gated_results, texts_by_feature, client=client)
 
     assert result.failed_features == ("life line",)
-    retry_messages = client.completions.calls[1]["messages"]
-    assert "overlap 0.20 below floor 0.4" in retry_messages[-1]["content"]
+
+    # Exactly 2 calls total: life line's failed attempt 1, thumb's
+    # successful (only) attempt -- proves no retry call was made for
+    # life line.
+    assert len(client.completions.calls) == 2
+    call_2_messages = client.completions.calls[1]["messages"]
+    call_2_text = " ".join(m["content"] for m in call_2_messages)
+    assert "thumb" in call_2_text
+    assert "overlap 0.20 below floor 0.4" not in call_2_text
+
+    diag = result.diagnostics["features"]["life line"]
+    assert diag["final_outcome"] == "failed_first_no_viable_retry"
+    assert diag["attempt_2_status"] == "skipped_no_viable_chunks"
+    assert diag["retry_used"] is False
+    assert diag["first_attempt_failures"]
+    assert "below floor" in diag["first_attempt_failures"][0]
 
 
 def test_e3_overlap_at_or_above_floor_passes():
@@ -312,6 +349,94 @@ def test_e3_overlap_at_or_above_floor_passes():
     assert len(client.completions.calls) == 1
     overlap_recorded = result.diagnostics["features"]["life line"]["overlap_scores"][0]["overlap"]
     assert overlap_recorded == 0.6
+
+
+def test_e3_partial_failure_excludes_failed_chunk_from_retry_pool():
+    """Attempt 1 has TWO gated chunks; the model's only claim cites the
+    chunk that fails E-3. The retry pool (E2F step 1) excludes that
+    failed chunk, the retry's response cites the OTHER, never-tried
+    chunk with a claim that passes E-3, and the feature succeeds on
+    retry -- proving exclusion doesn't just skip unwinnable retries, it
+    lets a genuinely viable chunk still recover one."""
+    # "thumb" rides along, always-succeeding, so this doesn't trip the
+    # all-fail RuntimeError path.
+    gated_results = {
+        "life line": [_chunk("p1_c0", _E3_CHUNK_TEXT), _chunk("p2_c0", _E3_CHUNK_TEXT_2)],
+        "thumb": [_chunk("p3_c0", "y")],
+    }
+    texts_by_feature = {"life line": "obs", "thumb": "obs"}
+    bad_resp = _response("life line", [_raw_claim(chunk_id="p1_c0", claim_text=_E3_CLAIM_TEXT_FAIL, valence="supports")])
+    retry_resp = _response("life line", [_raw_claim(chunk_id="p2_c0", claim_text=_E3_CLAIM_TEXT_PASS_2, valence="supports")])
+    thumb_resp = _response("thumb", [_raw_claim(chunk_id="p3_c0", claim_text="y", valence="supports")])
+    client = _FakeClient(responses=[(bad_resp, None), (retry_resp, None), (thumb_resp, None)])
+
+    result = extract_claims(gated_results, texts_by_feature, client=client)
+
+    assert result.failed_features == ()
+    assert len(client.completions.calls) == 3
+
+    retry_messages = client.completions.calls[1]["messages"]
+    retry_chunk_presentation = retry_messages[1]["content"]
+    assert "p2_c0" in retry_chunk_presentation
+    assert _E3_CHUNK_TEXT_2 in retry_chunk_presentation
+    # p1_c0 failed E-3 on attempt 1 -- its TEXT must be absent from the
+    # retry's presented-chunks section (its id still appears elsewhere,
+    # in the correction message's failure-echo text, asserted below).
+    assert _E3_CHUNK_TEXT not in retry_chunk_presentation
+
+    correction_content = retry_messages[-1]["content"]
+    assert "p1_c0" in correction_content  # failure-echo, not a chunk presentation
+    assert "Chunks that failed the overlap check on attempt 1 have been removed" in correction_content
+
+    diag = result.diagnostics["features"]["life line"]
+    assert diag["final_outcome"] == "success_retry"
+    assert diag["attempt_1_status"] == "validation_failed"
+    assert diag["attempt_2_status"] == "validated"
+    assert diag["retry_used"] is True
+
+
+def test_non_e3_failure_leaves_retry_pool_intact():
+    """Attempt 1 fails E-2 (missing required keys), NOT E-3 -- no
+    chunk_id is identifiable from that failure string, so the retry
+    pool is left completely unchanged (both original chunks still
+    offered) and the OLD "Same chunks, same feature." wording is used,
+    not the new exclusion wording. Pins that E2F step 1's pool-filtering
+    is genuinely E-3-specific, not a blanket behavior change for every
+    retry."""
+    p1_text = "A long deep life line without breaks promises long life and vitality."
+    p2_text = "A strong deep head line without breaks promises great intellect and clarity."
+    gated_results = {
+        "life line": [_chunk("p1_c0", p1_text), _chunk("p2_c0", p2_text)],
+        "thumb": [_chunk("p3_c0", "y")],
+    }
+    texts_by_feature = {"life line": "obs", "thumb": "obs"}
+    # condition_text and observation_basis are both absent -- E-2
+    # missing-keys failure, same shape as
+    # test_e2_missing_required_field_triggers_retry_persistent_failure.
+    incomplete_claim = {"claim_id": "C1", "chunk_id": "p1_c0", "claim_text": p1_text, "valence": "supports"}
+    bad_resp = json.dumps({"feature": "life line", "claims": [incomplete_claim]})
+    retry_resp = _response("life line", [_raw_claim(chunk_id="p1_c0", claim_text=p1_text, valence="supports")])
+    thumb_resp = _response("thumb", [_raw_claim(chunk_id="p3_c0", claim_text="y", valence="supports")])
+    client = _FakeClient(responses=[(bad_resp, None), (retry_resp, None), (thumb_resp, None)])
+
+    result = extract_claims(gated_results, texts_by_feature, client=client)
+
+    assert result.failed_features == ()
+    assert len(client.completions.calls) == 3
+
+    retry_messages = client.completions.calls[1]["messages"]
+    retry_chunk_presentation = retry_messages[1]["content"]
+    assert p1_text in retry_chunk_presentation
+    assert p2_text in retry_chunk_presentation
+
+    correction_content = retry_messages[-1]["content"]
+    assert "Same chunks, same feature." in correction_content
+    assert "Chunks that failed the overlap check on attempt 1 have been removed" not in correction_content
+
+    diag = result.diagnostics["features"]["life line"]
+    assert diag["final_outcome"] == "success_retry"
+    assert diag["attempt_1_status"] == "validation_failed"
+    assert diag["attempt_2_status"] == "validated"
 
 
 # ─── E-4: conditional fail-closed / corrective retained ─────────────────
