@@ -1,0 +1,3954 @@
+{
+  "generated_by": "scripts/bidirectional_corruption_census_S80.py",
+  "oracle": "nltk 3.9.1, corpus 'words' (nltk.corpus.words), 234377 lowercased entries",
+  "source_pdf_sha256": "0e3271fbd3108110bd9217e662f9064206ec2d8435a6f2768ee4786440b9ccb1",
+  "self_check_results": [
+    {
+      "assertion": "Cheiro page count == 310",
+      "expected": 310,
+      "observed": 310,
+      "status": "PASS"
+    },
+    {
+      "assertion": "Cheiro p157 native contains \"Plate XVIII\"",
+      "expected": "present",
+      "observed": "present",
+      "status": "PASS"
+    },
+    {
+      "assertion": "Cheiro p158 native char_count == 0",
+      "expected": 0,
+      "observed": 0,
+      "status": "PASS"
+    },
+    {
+      "assertion": "Cheiro p156 native contains \"CHAPTER X\"",
+      "expected": "present",
+      "observed": "present",
+      "status": "PASS"
+    }
+  ],
+  "in_scope_page_count": 245,
+  "totals": {
+    "C1": 832,
+    "C2": 210,
+    "C3": 343,
+    "C4": 276,
+    "C5": 2991
+  },
+  "grand_total_pairs": 4652,
+  "c1_c2_ratio": 3.961904761904762,
+  "roman_or_propernoun_hits": 193,
+  "rnensal_mensal_hits_p156": 1,
+  "rn_to_m_hunk_frequency": 1,
+  "minim_family_hunks": [
+    [
+      [
+        "u",
+        "n"
+      ],
+      45
+    ],
+    [
+      [
+        "n",
+        "m"
+      ],
+      43
+    ],
+    [
+      [
+        "n",
+        "u"
+      ],
+      35
+    ],
+    [
+      [
+        "in",
+        "m"
+      ],
+      33
+    ],
+    [
+      [
+        "m",
+        "n"
+      ],
+      12
+    ],
+    [
+      [
+        "ri",
+        "n"
+      ],
+      8
+    ],
+    [
+      [
+        "m",
+        "in"
+      ],
+      6
+    ],
+    [
+      [
+        "ri",
+        "m"
+      ],
+      4
+    ],
+    [
+      [
+        "rn",
+        "m"
+      ],
+      1
+    ],
+    [
+      [
+        "m",
+        "u"
+      ],
+      1
+    ],
+    [
+      [
+        "u",
+        "m"
+      ],
+      1
+    ]
+  ],
+  "minim_family_total": 189,
+  "top_hunks": [
+    [
+      [
+        "c",
+        "e"
+      ],
+      248
+    ],
+    [
+      [
+        "li",
+        "h"
+      ],
+      189
+    ],
+    [
+      [
+        "i",
+        "Ø"
+      ],
+      46
+    ],
+    [
+      [
+        "u",
+        "n"
+      ],
+      45
+    ],
+    [
+      [
+        "n",
+        "m"
+      ],
+      43
+    ],
+    [
+      [
+        "n",
+        "u"
+      ],
+      35
+    ],
+    [
+      [
+        "in",
+        "m"
+      ],
+      33
+    ],
+    [
+      [
+        "i",
+        "l"
+      ],
+      31
+    ],
+    [
+      [
+        "Ø",
+        "e"
+      ],
+      26
+    ],
+    [
+      [
+        "d",
+        "p"
+      ],
+      23
+    ],
+    [
+      [
+        "Ø",
+        "a"
+      ],
+      22
+    ],
+    [
+      [
+        "v",
+        "y"
+      ],
+      22
+    ],
+    [
+      [
+        "'s",
+        "Ø"
+      ],
+      22
+    ],
+    [
+      [
+        "y",
+        "v"
+      ],
+      19
+    ],
+    [
+      [
+        "c",
+        "Ø"
+      ],
+      17
+    ],
+    [
+      [
+        "i",
+        "t"
+      ],
+      16
+    ],
+    [
+      [
+        "m",
+        "n"
+      ],
+      12
+    ],
+    [
+      [
+        "r",
+        "v"
+      ],
+      12
+    ],
+    [
+      [
+        "i",
+        "r"
+      ],
+      12
+    ],
+    [
+      [
+        "l",
+        "i"
+      ],
+      12
+    ],
+    [
+      [
+        "e",
+        "r"
+      ],
+      11
+    ],
+    [
+      [
+        "l",
+        "Ø"
+      ],
+      10
+    ],
+    [
+      [
+        "n",
+        "Ø"
+      ],
+      10
+    ],
+    [
+      [
+        "r",
+        "Ø"
+      ],
+      9
+    ],
+    [
+      [
+        "x",
+        "n"
+      ],
+      9
+    ],
+    [
+      [
+        "Ø",
+        "n"
+      ],
+      9
+    ],
+    [
+      [
+        "ri",
+        "n"
+      ],
+      8
+    ],
+    [
+      [
+        "f",
+        "t"
+      ],
+      8
+    ],
+    [
+      [
+        "i",
+        "h"
+      ],
+      7
+    ],
+    [
+      [
+        "h",
+        "Ø"
+      ],
+      7
+    ],
+    [
+      [
+        "h",
+        "u"
+      ],
+      6
+    ],
+    [
+      [
+        "Ø",
+        "i"
+      ],
+      6
+    ],
+    [
+      [
+        "m",
+        "in"
+      ],
+      6
+    ],
+    [
+      [
+        "o",
+        "e"
+      ],
+      6
+    ],
+    [
+      [
+        "Ø",
+        "y"
+      ],
+      6
+    ],
+    [
+      [
+        "Ø",
+        "is"
+      ],
+      6
+    ],
+    [
+      [
+        "vii",
+        "Ø"
+      ],
+      6
+    ],
+    [
+      [
+        "x",
+        "Ø"
+      ],
+      5
+    ],
+    [
+      [
+        "a",
+        "Ø"
+      ],
+      5
+    ],
+    [
+      [
+        "h",
+        "l"
+      ],
+      5
+    ]
+  ],
+  "top_c1_pairs": [
+    {
+      "native": "life",
+      "corpus": "hfe",
+      "count": 34,
+      "example_page_index": 31
+    },
+    {
+      "native": "in",
+      "corpus": "im",
+      "count": 22,
+      "example_page_index": 12
+    },
+    {
+      "native": "line",
+      "corpus": "hne",
+      "count": 20,
+      "example_page_index": 39
+    },
+    {
+      "native": "line",
+      "corpus": "lne",
+      "count": 15,
+      "example_page_index": 134
+    },
+    {
+      "native": "success",
+      "corpus": "suecess",
+      "count": 14,
+      "example_page_index": 43
+    },
+    {
+      "native": "Hand",
+      "corpus": "Hanp",
+      "count": 13,
+      "example_page_index": 19
+    },
+    {
+      "native": "Mercury",
+      "corpus": "Mereury",
+      "count": 10,
+      "example_page_index": 119
+    },
+    {
+      "native": "and",
+      "corpus": "aud",
+      "count": 9,
+      "example_page_index": 28
+    },
+    {
+      "native": "little",
+      "corpus": "httle",
+      "count": 8,
+      "example_page_index": 39
+    },
+    {
+      "native": "conic",
+      "corpus": "conie",
+      "count": 8,
+      "example_page_index": 55
+    },
+    {
+      "native": "lias",
+      "corpus": "has",
+      "count": 7,
+      "example_page_index": 22
+    },
+    {
+      "native": "distinct",
+      "corpus": "distinet",
+      "count": 6,
+      "example_page_index": 10
+    },
+    {
+      "native": "like",
+      "corpus": "hke",
+      "count": 6,
+      "example_page_index": 30
+    },
+    {
+      "native": "his",
+      "corpus": "Ins",
+      "count": 5,
+      "example_page_index": 41
+    },
+    {
+      "native": "brilliancy",
+      "corpus": "brillianey",
+      "count": 5,
+      "example_page_index": 69
+    },
+    {
+      "native": "believe",
+      "corpus": "beheve",
+      "count": 4,
+      "example_page_index": 10
+    },
+    {
+      "native": "Philosophic",
+      "corpus": "Philosophie",
+      "count": 4,
+      "example_page_index": 15
+    },
+    {
+      "native": "If",
+      "corpus": "Tf",
+      "count": 4,
+      "example_page_index": 34
+    },
+    {
+      "native": "artistic",
+      "corpus": "artistie",
+      "count": 4,
+      "example_page_index": 55
+    },
+    {
+      "native": "slightly",
+      "corpus": "shghtly",
+      "count": 4,
+      "example_page_index": 68
+    },
+    {
+      "native": "f",
+      "corpus": "Af",
+      "count": 4,
+      "example_page_index": 135
+    },
+    {
+      "native": "line",
+      "corpus": "lme",
+      "count": 4,
+      "example_page_index": 144
+    },
+    {
+      "native": "you",
+      "corpus": "vou",
+      "count": 4,
+      "example_page_index": 224
+    },
+    {
+      "native": "Lady",
+      "corpus": "Lapy",
+      "count": 3,
+      "example_page_index": 13
+    },
+    {
+      "native": "like",
+      "corpus": "lke",
+      "count": 3,
+      "example_page_index": 28
+    },
+    {
+      "native": "palmistry",
+      "corpus": "palnistry",
+      "count": 3,
+      "example_page_index": 29
+    },
+    {
+      "native": "I",
+      "corpus": "Iam",
+      "count": 3,
+      "example_page_index": 31
+    },
+    {
+      "native": "convince",
+      "corpus": "convinee",
+      "count": 3,
+      "example_page_index": 33
+    },
+    {
+      "native": "psychic",
+      "corpus": "psychie",
+      "count": 3,
+      "example_page_index": 47
+    },
+    {
+      "native": "once",
+      "corpus": "onee",
+      "count": 3,
+      "example_page_index": 55
+    },
+    {
+      "native": "it",
+      "corpus": "itis",
+      "count": 3,
+      "example_page_index": 60
+    },
+    {
+      "native": "The",
+      "corpus": "Lhe",
+      "count": 3,
+      "example_page_index": 64
+    },
+    {
+      "native": "palm",
+      "corpus": "pahn",
+      "count": 3,
+      "example_page_index": 86
+    },
+    {
+      "native": "force",
+      "corpus": "foree",
+      "count": 3,
+      "example_page_index": 87
+    },
+    {
+      "native": "tendency",
+      "corpus": "tendeney",
+      "count": 3,
+      "example_page_index": 89
+    },
+    {
+      "native": "It",
+      "corpus": "Itis",
+      "count": 3,
+      "example_page_index": 186
+    },
+    {
+      "native": "Cheiromancy",
+      "corpus": "Cheiromaney",
+      "count": 2,
+      "example_page_index": 10
+    },
+    {
+      "native": "In",
+      "corpus": "Jn",
+      "count": 2,
+      "example_page_index": 10
+    },
+    {
+      "native": "John",
+      "corpus": "Joun",
+      "count": 2,
+      "example_page_index": 13
+    },
+    {
+      "native": "Conic",
+      "corpus": "Conie",
+      "count": 2,
+      "example_page_index": 15
+    }
+  ],
+  "top_c2_pairs": [
+    {
+      "native": "XVII",
+      "corpus": "X",
+      "count": 5,
+      "example_page_index": 127
+    },
+    {
+      "native": "tlie",
+      "corpus": "the",
+      "count": 4,
+      "example_page_index": 85
+    },
+    {
+      "native": "liue",
+      "corpus": "line",
+      "count": 4,
+      "example_page_index": 135
+    },
+    {
+      "native": "op",
+      "corpus": "OF",
+      "count": 3,
+      "example_page_index": 16
+    },
+    {
+      "native": "lines",
+      "corpus": "limes",
+      "count": 3,
+      "example_page_index": 39
+    },
+    {
+      "native": "bv",
+      "corpus": "by",
+      "count": 3,
+      "example_page_index": 136
+    },
+    {
+      "native": "XX",
+      "corpus": "X",
+      "count": 3,
+      "example_page_index": 162
+    },
+    {
+      "native": "liis",
+      "corpus": "his",
+      "count": 2,
+      "example_page_index": 36
+    },
+    {
+      "native": "tlieir",
+      "corpus": "their",
+      "count": 2,
+      "example_page_index": 60
+    },
+    {
+      "native": "mancy",
+      "corpus": "maney",
+      "count": 2,
+      "example_page_index": 84
+    },
+    {
+      "native": "XVIII",
+      "corpus": "X",
+      "count": 2,
+      "example_page_index": 134
+    },
+    {
+      "native": "monev",
+      "corpus": "money",
+      "count": 2,
+      "example_page_index": 135
+    },
+    {
+      "native": "XXI",
+      "corpus": "X",
+      "count": 2,
+      "example_page_index": 164
+    },
+    {
+      "native": "STAE",
+      "corpus": "STAR",
+      "count": 2,
+      "example_page_index": 187
+    },
+    {
+      "native": "tbe",
+      "corpus": "the",
+      "count": 1,
+      "example_page_index": 6
+    },
+    {
+      "native": "tbc",
+      "corpus": "the",
+      "count": 1,
+      "example_page_index": 6
+    },
+    {
+      "native": "powrer",
+      "corpus": "power",
+      "count": 1,
+      "example_page_index": 10
+    },
+    {
+      "native": "mucli",
+      "corpus": "much",
+      "count": 1,
+      "example_page_index": 12
+    },
+    {
+      "native": "TV",
+      "corpus": "W",
+      "count": 1,
+      "example_page_index": 13
+    },
+    {
+      "native": "XY",
+      "corpus": "Contents",
+      "count": 1,
+      "example_page_index": 15
+    },
+    {
+      "native": "Yenus",
+      "corpus": "Venus",
+      "count": 1,
+      "example_page_index": 15
+    },
+    {
+      "native": "IV",
+      "corpus": "ce",
+      "count": 1,
+      "example_page_index": 15
+    },
+    {
+      "native": "XIII",
+      "corpus": "i",
+      "count": 1,
+      "example_page_index": 15
+    },
+    {
+      "native": "XIV",
+      "corpus": "cee",
+      "count": 1,
+      "example_page_index": 15
+    },
+    {
+      "native": "op",
+      "corpus": "oF",
+      "count": 1,
+      "example_page_index": 16
+    },
+    {
+      "native": "XXII",
+      "corpus": "cee",
+      "count": 1,
+      "example_page_index": 19
+    },
+    {
+      "native": "XXXIII",
+      "corpus": "ce",
+      "count": 1,
+      "example_page_index": 19
+    },
+    {
+      "native": "XLYI",
+      "corpus": "Lolo",
+      "count": 1,
+      "example_page_index": 20
+    },
+    {
+      "native": "e'en",
+      "corpus": "e",
+      "count": 1,
+      "example_page_index": 22
+    },
+    {
+      "native": "wTish",
+      "corpus": "wish",
+      "count": 1,
+      "example_page_index": 23
+    },
+    {
+      "native": "cheA",
+      "corpus": "cheir",
+      "count": 1,
+      "example_page_index": 25
+    },
+    {
+      "native": "remaik",
+      "corpus": "remark",
+      "count": 1,
+      "example_page_index": 26
+    },
+    {
+      "native": "histoiy",
+      "corpus": "history",
+      "count": 1,
+      "example_page_index": 26
+    },
+    {
+      "native": "Falmistiy",
+      "corpus": "Palmistry",
+      "count": 1,
+      "example_page_index": 26
+    },
+    {
+      "native": "theiefoie",
+      "corpus": "therefore",
+      "count": 1,
+      "example_page_index": 26
+    },
+    {
+      "native": "wdio",
+      "corpus": "who",
+      "count": 1,
+      "example_page_index": 28
+    },
+    {
+      "native": "whicli",
+      "corpus": "which",
+      "count": 1,
+      "example_page_index": 29
+    },
+    {
+      "native": "jwobably",
+      "corpus": "probably",
+      "count": 1,
+      "example_page_index": 29
+    },
+    {
+      "native": "iii",
+      "corpus": "i",
+      "count": 1,
+      "example_page_index": 29
+    },
+    {
+      "native": "ei",
+      "corpus": "very",
+      "count": 1,
+      "example_page_index": 30
+    }
+  ],
+  "top_c2_pages": [
+    {
+      "page_index": 140,
+      "page_ref": 141,
+      "native_char_count": 381,
+      "corpus_char_count": 592,
+      "chunk_count": 1,
+      "C1": 11,
+      "C2": 24,
+      "C3": 25,
+      "C4": 5,
+      "C5": 33
+    },
+    {
+      "page_index": 135,
+      "page_ref": 136,
+      "native_char_count": 2404,
+      "corpus_char_count": 2408,
+      "chunk_count": 4,
+      "C1": 5,
+      "C2": 10,
+      "C3": 8,
+      "C4": 4,
+      "C5": 8
+    },
+    {
+      "page_index": 15,
+      "page_ref": 16,
+      "native_char_count": 1431,
+      "corpus_char_count": 1587,
+      "chunk_count": 3,
+      "C1": 7,
+      "C2": 5,
+      "C3": 3,
+      "C4": 2,
+      "C5": 75
+    },
+    {
+      "page_index": 112,
+      "page_ref": 113,
+      "native_char_count": 1374,
+      "corpus_char_count": 1379,
+      "chunk_count": 2,
+      "C1": 4,
+      "C2": 5,
+      "C3": 1,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 16,
+      "page_ref": 17,
+      "native_char_count": 1220,
+      "corpus_char_count": 1912,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 4,
+      "C3": 5,
+      "C4": 1,
+      "C5": 70
+    },
+    {
+      "page_index": 26,
+      "page_ref": 27,
+      "native_char_count": 2473,
+      "corpus_char_count": 2473,
+      "chunk_count": 2,
+      "C1": 1,
+      "C2": 4,
+      "C3": 4,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 126,
+      "page_ref": 127,
+      "native_char_count": 2347,
+      "corpus_char_count": 2337,
+      "chunk_count": 3,
+      "C1": 2,
+      "C2": 4,
+      "C3": 0,
+      "C4": 1,
+      "C5": 4
+    },
+    {
+      "page_index": 29,
+      "page_ref": 30,
+      "native_char_count": 2307,
+      "corpus_char_count": 2305,
+      "chunk_count": 2,
+      "C1": 4,
+      "C2": 3,
+      "C3": 2,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 30,
+      "page_ref": 31,
+      "native_char_count": 2393,
+      "corpus_char_count": 2390,
+      "chunk_count": 3,
+      "C1": 8,
+      "C2": 3,
+      "C3": 2,
+      "C4": 1,
+      "C5": 3
+    },
+    {
+      "page_index": 34,
+      "page_ref": 35,
+      "native_char_count": 2391,
+      "corpus_char_count": 2389,
+      "chunk_count": 3,
+      "C1": 10,
+      "C2": 3,
+      "C3": 1,
+      "C4": 3,
+      "C5": 0
+    }
+  ],
+  "page_rows": [
+    {
+      "page_index": 1,
+      "page_ref": 2,
+      "native_char_count": 1345,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 225
+    },
+    {
+      "page_index": 2,
+      "page_ref": 3,
+      "native_char_count": 2274,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 376
+    },
+    {
+      "page_index": 6,
+      "page_ref": 7,
+      "native_char_count": 1370,
+      "corpus_char_count": 1410,
+      "chunk_count": 2,
+      "C1": 4,
+      "C2": 2,
+      "C3": 3,
+      "C4": 2,
+      "C5": 13
+    },
+    {
+      "page_index": 7,
+      "page_ref": 8,
+      "native_char_count": 177,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 22
+    },
+    {
+      "page_index": 8,
+      "page_ref": 9,
+      "native_char_count": 207,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 38
+    },
+    {
+      "page_index": 10,
+      "page_ref": 11,
+      "native_char_count": 1882,
+      "corpus_char_count": 1879,
+      "chunk_count": 3,
+      "C1": 10,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 11,
+      "page_ref": 12,
+      "native_char_count": 2461,
+      "corpus_char_count": 2461,
+      "chunk_count": 4,
+      "C1": 1,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 12,
+      "page_ref": 13,
+      "native_char_count": 2217,
+      "corpus_char_count": 2224,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 1,
+      "C3": 2,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 13,
+      "page_ref": 14,
+      "native_char_count": 1479,
+      "corpus_char_count": 1508,
+      "chunk_count": 3,
+      "C1": 8,
+      "C2": 1,
+      "C3": 5,
+      "C4": 1,
+      "C5": 7
+    },
+    {
+      "page_index": 14,
+      "page_ref": 15,
+      "native_char_count": 962,
+      "corpus_char_count": 1447,
+      "chunk_count": 2,
+      "C1": 8,
+      "C2": 0,
+      "C3": 3,
+      "C4": 0,
+      "C5": 50
+    },
+    {
+      "page_index": 15,
+      "page_ref": 16,
+      "native_char_count": 1431,
+      "corpus_char_count": 1587,
+      "chunk_count": 3,
+      "C1": 7,
+      "C2": 5,
+      "C3": 3,
+      "C4": 2,
+      "C5": 75
+    },
+    {
+      "page_index": 16,
+      "page_ref": 17,
+      "native_char_count": 1220,
+      "corpus_char_count": 1912,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 4,
+      "C3": 5,
+      "C4": 1,
+      "C5": 70
+    },
+    {
+      "page_index": 18,
+      "page_ref": 19,
+      "native_char_count": 991,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 142
+    },
+    {
+      "page_index": 19,
+      "page_ref": 20,
+      "native_char_count": 1549,
+      "corpus_char_count": 2622,
+      "chunk_count": 5,
+      "C1": 11,
+      "C2": 2,
+      "C3": 11,
+      "C4": 9,
+      "C5": 130
+    },
+    {
+      "page_index": 20,
+      "page_ref": 21,
+      "native_char_count": 493,
+      "corpus_char_count": 737,
+      "chunk_count": 2,
+      "C1": 12,
+      "C2": 1,
+      "C3": 5,
+      "C4": 5,
+      "C5": 24
+    },
+    {
+      "page_index": 22,
+      "page_ref": 23,
+      "native_char_count": 1678,
+      "corpus_char_count": 1680,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 1,
+      "C3": 1,
+      "C4": 1,
+      "C5": 3
+    },
+    {
+      "page_index": 23,
+      "page_ref": 24,
+      "native_char_count": 2537,
+      "corpus_char_count": 2532,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 3
+    },
+    {
+      "page_index": 24,
+      "page_ref": 25,
+      "native_char_count": 2374,
+      "corpus_char_count": 2374,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 0,
+      "C3": 3,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 25,
+      "page_ref": 26,
+      "native_char_count": 2452,
+      "corpus_char_count": 2458,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 26,
+      "page_ref": 27,
+      "native_char_count": 2473,
+      "corpus_char_count": 2473,
+      "chunk_count": 2,
+      "C1": 1,
+      "C2": 4,
+      "C3": 4,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 27,
+      "page_ref": 28,
+      "native_char_count": 2451,
+      "corpus_char_count": 2446,
+      "chunk_count": 3,
+      "C1": 4,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 3
+    },
+    {
+      "page_index": 28,
+      "page_ref": 29,
+      "native_char_count": 2472,
+      "corpus_char_count": 2470,
+      "chunk_count": 1,
+      "C1": 7,
+      "C2": 1,
+      "C3": 4,
+      "C4": 2,
+      "C5": 0
+    },
+    {
+      "page_index": 29,
+      "page_ref": 30,
+      "native_char_count": 2307,
+      "corpus_char_count": 2305,
+      "chunk_count": 2,
+      "C1": 4,
+      "C2": 3,
+      "C3": 2,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 30,
+      "page_ref": 31,
+      "native_char_count": 2393,
+      "corpus_char_count": 2390,
+      "chunk_count": 3,
+      "C1": 8,
+      "C2": 3,
+      "C3": 2,
+      "C4": 1,
+      "C5": 3
+    },
+    {
+      "page_index": 31,
+      "page_ref": 32,
+      "native_char_count": 2416,
+      "corpus_char_count": 2411,
+      "chunk_count": 3,
+      "C1": 7,
+      "C2": 1,
+      "C3": 3,
+      "C4": 4,
+      "C5": 5
+    },
+    {
+      "page_index": 32,
+      "page_ref": 33,
+      "native_char_count": 2796,
+      "corpus_char_count": 2799,
+      "chunk_count": 4,
+      "C1": 7,
+      "C2": 1,
+      "C3": 2,
+      "C4": 2,
+      "C5": 4
+    },
+    {
+      "page_index": 33,
+      "page_ref": 34,
+      "native_char_count": 3154,
+      "corpus_char_count": 3159,
+      "chunk_count": 3,
+      "C1": 6,
+      "C2": 0,
+      "C3": 4,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 34,
+      "page_ref": 35,
+      "native_char_count": 2391,
+      "corpus_char_count": 2389,
+      "chunk_count": 3,
+      "C1": 10,
+      "C2": 3,
+      "C3": 1,
+      "C4": 3,
+      "C5": 0
+    },
+    {
+      "page_index": 35,
+      "page_ref": 36,
+      "native_char_count": 2407,
+      "corpus_char_count": 2406,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 1,
+      "C3": 2,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 36,
+      "page_ref": 37,
+      "native_char_count": 2535,
+      "corpus_char_count": 2528,
+      "chunk_count": 3,
+      "C1": 7,
+      "C2": 1,
+      "C3": 1,
+      "C4": 3,
+      "C5": 0
+    },
+    {
+      "page_index": 37,
+      "page_ref": 38,
+      "native_char_count": 2410,
+      "corpus_char_count": 2405,
+      "chunk_count": 3,
+      "C1": 8,
+      "C2": 0,
+      "C3": 1,
+      "C4": 1,
+      "C5": 7
+    },
+    {
+      "page_index": 38,
+      "page_ref": 39,
+      "native_char_count": 2430,
+      "corpus_char_count": 2426,
+      "chunk_count": 2,
+      "C1": 7,
+      "C2": 1,
+      "C3": 3,
+      "C4": 4,
+      "C5": 5
+    },
+    {
+      "page_index": 39,
+      "page_ref": 40,
+      "native_char_count": 2490,
+      "corpus_char_count": 2479,
+      "chunk_count": 3,
+      "C1": 5,
+      "C2": 1,
+      "C3": 5,
+      "C4": 2,
+      "C5": 2
+    },
+    {
+      "page_index": 40,
+      "page_ref": 41,
+      "native_char_count": 2618,
+      "corpus_char_count": 2612,
+      "chunk_count": 1,
+      "C1": 6,
+      "C2": 2,
+      "C3": 2,
+      "C4": 2,
+      "C5": 0
+    },
+    {
+      "page_index": 41,
+      "page_ref": 42,
+      "native_char_count": 2558,
+      "corpus_char_count": 2553,
+      "chunk_count": 3,
+      "C1": 11,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 42,
+      "page_ref": 43,
+      "native_char_count": 2464,
+      "corpus_char_count": 2463,
+      "chunk_count": 4,
+      "C1": 6,
+      "C2": 0,
+      "C3": 1,
+      "C4": 2,
+      "C5": 3
+    },
+    {
+      "page_index": 43,
+      "page_ref": 44,
+      "native_char_count": 2502,
+      "corpus_char_count": 2497,
+      "chunk_count": 3,
+      "C1": 8,
+      "C2": 3,
+      "C3": 1,
+      "C4": 4,
+      "C5": 4
+    },
+    {
+      "page_index": 44,
+      "page_ref": 45,
+      "native_char_count": 1145,
+      "corpus_char_count": 1142,
+      "chunk_count": 1,
+      "C1": 2,
+      "C2": 0,
+      "C3": 0,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 46,
+      "page_ref": 47,
+      "native_char_count": 1404,
+      "corpus_char_count": 1409,
+      "chunk_count": 2,
+      "C1": 3,
+      "C2": 2,
+      "C3": 1,
+      "C4": 4,
+      "C5": 1
+    },
+    {
+      "page_index": 47,
+      "page_ref": 48,
+      "native_char_count": 1797,
+      "corpus_char_count": 1803,
+      "chunk_count": 2,
+      "C1": 4,
+      "C2": 1,
+      "C3": 1,
+      "C4": 1,
+      "C5": 3
+    },
+    {
+      "page_index": 49,
+      "page_ref": 50,
+      "native_char_count": 16,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 50,
+      "page_ref": 51,
+      "native_char_count": 1961,
+      "corpus_char_count": 1960,
+      "chunk_count": 2,
+      "C1": 4,
+      "C2": 1,
+      "C3": 1,
+      "C4": 4,
+      "C5": 0
+    },
+    {
+      "page_index": 51,
+      "page_ref": 52,
+      "native_char_count": 1808,
+      "corpus_char_count": 1808,
+      "chunk_count": 2,
+      "C1": 4,
+      "C2": 0,
+      "C3": 2,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 52,
+      "page_ref": 53,
+      "native_char_count": 37,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 6
+    },
+    {
+      "page_index": 54,
+      "page_ref": 55,
+      "native_char_count": 1992,
+      "corpus_char_count": 1996,
+      "chunk_count": 3,
+      "C1": 5,
+      "C2": 1,
+      "C3": 3,
+      "C4": 1,
+      "C5": 3
+    },
+    {
+      "page_index": 55,
+      "page_ref": 56,
+      "native_char_count": 2431,
+      "corpus_char_count": 2427,
+      "chunk_count": 2,
+      "C1": 13,
+      "C2": 1,
+      "C3": 3,
+      "C4": 4,
+      "C5": 4
+    },
+    {
+      "page_index": 56,
+      "page_ref": 57,
+      "native_char_count": 1959,
+      "corpus_char_count": 1963,
+      "chunk_count": 3,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 57,
+      "page_ref": 58,
+      "native_char_count": 1958,
+      "corpus_char_count": 1957,
+      "chunk_count": 3,
+      "C1": 4,
+      "C2": 0,
+      "C3": 2,
+      "C4": 1,
+      "C5": 0
+    },
+    {
+      "page_index": 58,
+      "page_ref": 59,
+      "native_char_count": 41,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 7
+    },
+    {
+      "page_index": 60,
+      "page_ref": 61,
+      "native_char_count": 1867,
+      "corpus_char_count": 1863,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 2,
+      "C3": 1,
+      "C4": 0,
+      "C5": 3
+    },
+    {
+      "page_index": 61,
+      "page_ref": 62,
+      "native_char_count": 2013,
+      "corpus_char_count": 2005,
+      "chunk_count": 2,
+      "C1": 5,
+      "C2": 0,
+      "C3": 1,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 62,
+      "page_ref": 63,
+      "native_char_count": 42,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 7
+    },
+    {
+      "page_index": 64,
+      "page_ref": 65,
+      "native_char_count": 2565,
+      "corpus_char_count": 2564,
+      "chunk_count": 2,
+      "C1": 6,
+      "C2": 2,
+      "C3": 0,
+      "C4": 3,
+      "C5": 3
+    },
+    {
+      "page_index": 65,
+      "page_ref": 66,
+      "native_char_count": 703,
+      "corpus_char_count": 705,
+      "chunk_count": 1,
+      "C1": 0,
+      "C2": 2,
+      "C3": 1,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 67,
+      "page_ref": 68,
+      "native_char_count": 37,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 7
+    },
+    {
+      "page_index": 68,
+      "page_ref": 69,
+      "native_char_count": 1922,
+      "corpus_char_count": 1925,
+      "chunk_count": 2,
+      "C1": 9,
+      "C2": 0,
+      "C3": 1,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 69,
+      "page_ref": 70,
+      "native_char_count": 2557,
+      "corpus_char_count": 2559,
+      "chunk_count": 3,
+      "C1": 6,
+      "C2": 0,
+      "C3": 2,
+      "C4": 3,
+      "C5": 1
+    },
+    {
+      "page_index": 70,
+      "page_ref": 71,
+      "native_char_count": 1607,
+      "corpus_char_count": 1600,
+      "chunk_count": 2,
+      "C1": 4,
+      "C2": 0,
+      "C3": 0,
+      "C4": 2,
+      "C5": 1
+    },
+    {
+      "page_index": 71,
+      "page_ref": 72,
+      "native_char_count": 1952,
+      "corpus_char_count": 1948,
+      "chunk_count": 2,
+      "C1": 7,
+      "C2": 1,
+      "C3": 3,
+      "C4": 0,
+      "C5": 3
+    },
+    {
+      "page_index": 74,
+      "page_ref": 75,
+      "native_char_count": 2522,
+      "corpus_char_count": 2521,
+      "chunk_count": 3,
+      "C1": 7,
+      "C2": 0,
+      "C3": 1,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 75,
+      "page_ref": 76,
+      "native_char_count": 1721,
+      "corpus_char_count": 1715,
+      "chunk_count": 1,
+      "C1": 2,
+      "C2": 0,
+      "C3": 4,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 77,
+      "page_ref": 78,
+      "native_char_count": 26,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 5
+    },
+    {
+      "page_index": 78,
+      "page_ref": 79,
+      "native_char_count": 1,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 80,
+      "page_ref": 81,
+      "native_char_count": 1870,
+      "corpus_char_count": 1868,
+      "chunk_count": 2,
+      "C1": 11,
+      "C2": 1,
+      "C3": 4,
+      "C4": 4,
+      "C5": 0
+    },
+    {
+      "page_index": 81,
+      "page_ref": 82,
+      "native_char_count": 616,
+      "corpus_char_count": 616,
+      "chunk_count": 1,
+      "C1": 1,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 83,
+      "page_ref": 84,
+      "native_char_count": 64,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 11
+    },
+    {
+      "page_index": 84,
+      "page_ref": 85,
+      "native_char_count": 1939,
+      "corpus_char_count": 1938,
+      "chunk_count": 2,
+      "C1": 3,
+      "C2": 2,
+      "C3": 0,
+      "C4": 2,
+      "C5": 1
+    },
+    {
+      "page_index": 85,
+      "page_ref": 86,
+      "native_char_count": 2571,
+      "corpus_char_count": 2568,
+      "chunk_count": 1,
+      "C1": 5,
+      "C2": 1,
+      "C3": 4,
+      "C4": 1,
+      "C5": 3
+    },
+    {
+      "page_index": 86,
+      "page_ref": 87,
+      "native_char_count": 2578,
+      "corpus_char_count": 2571,
+      "chunk_count": 2,
+      "C1": 13,
+      "C2": 1,
+      "C3": 0,
+      "C4": 6,
+      "C5": 2
+    },
+    {
+      "page_index": 87,
+      "page_ref": 88,
+      "native_char_count": 2117,
+      "corpus_char_count": 2117,
+      "chunk_count": 3,
+      "C1": 6,
+      "C2": 2,
+      "C3": 1,
+      "C4": 3,
+      "C5": 3
+    },
+    {
+      "page_index": 88,
+      "page_ref": 89,
+      "native_char_count": 2203,
+      "corpus_char_count": 2205,
+      "chunk_count": 3,
+      "C1": 6,
+      "C2": 0,
+      "C3": 1,
+      "C4": 3,
+      "C5": 3
+    },
+    {
+      "page_index": 89,
+      "page_ref": 90,
+      "native_char_count": 2450,
+      "corpus_char_count": 2448,
+      "chunk_count": 3,
+      "C1": 10,
+      "C2": 0,
+      "C3": 4,
+      "C4": 2,
+      "C5": 4
+    },
+    {
+      "page_index": 91,
+      "page_ref": 92,
+      "native_char_count": 82,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 12
+    },
+    {
+      "page_index": 92,
+      "page_ref": 93,
+      "native_char_count": 1953,
+      "corpus_char_count": 1950,
+      "chunk_count": 2,
+      "C1": 3,
+      "C2": 2,
+      "C3": 3,
+      "C4": 1,
+      "C5": 4
+    },
+    {
+      "page_index": 93,
+      "page_ref": 94,
+      "native_char_count": 1870,
+      "corpus_char_count": 1869,
+      "chunk_count": 1,
+      "C1": 6,
+      "C2": 2,
+      "C3": 1,
+      "C4": 2,
+      "C5": 5
+    },
+    {
+      "page_index": 94,
+      "page_ref": 95,
+      "native_char_count": 1609,
+      "corpus_char_count": 1616,
+      "chunk_count": 3,
+      "C1": 6,
+      "C2": 1,
+      "C3": 3,
+      "C4": 1,
+      "C5": 3
+    },
+    {
+      "page_index": 95,
+      "page_ref": 96,
+      "native_char_count": 2116,
+      "corpus_char_count": 2120,
+      "chunk_count": 4,
+      "C1": 3,
+      "C2": 0,
+      "C3": 1,
+      "C4": 1,
+      "C5": 2
+    },
+    {
+      "page_index": 96,
+      "page_ref": 97,
+      "native_char_count": 605,
+      "corpus_char_count": 604,
+      "chunk_count": 1,
+      "C1": 0,
+      "C2": 1,
+      "C3": 0,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 97,
+      "page_ref": 98,
+      "native_char_count": 1586,
+      "corpus_char_count": 1582,
+      "chunk_count": 2,
+      "C1": 6,
+      "C2": 3,
+      "C3": 1,
+      "C4": 3,
+      "C5": 2
+    },
+    {
+      "page_index": 98,
+      "page_ref": 99,
+      "native_char_count": 960,
+      "corpus_char_count": 964,
+      "chunk_count": 2,
+      "C1": 3,
+      "C2": 1,
+      "C3": 0,
+      "C4": 3,
+      "C5": 1
+    },
+    {
+      "page_index": 99,
+      "page_ref": 100,
+      "native_char_count": 1647,
+      "corpus_char_count": 1648,
+      "chunk_count": 3,
+      "C1": 5,
+      "C2": 1,
+      "C3": 3,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 100,
+      "page_ref": 101,
+      "native_char_count": 17,
+      "corpus_char_count": 266,
+      "chunk_count": 1,
+      "C1": 0,
+      "C2": 0,
+      "C3": 1,
+      "C4": 0,
+      "C5": 42
+    },
+    {
+      "page_index": 103,
+      "page_ref": 104,
+      "native_char_count": 21,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 5
+    },
+    {
+      "page_index": 104,
+      "page_ref": 105,
+      "native_char_count": 1754,
+      "corpus_char_count": 1763,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 1,
+      "C3": 0,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 105,
+      "page_ref": 106,
+      "native_char_count": 1295,
+      "corpus_char_count": 1299,
+      "chunk_count": 2,
+      "C1": 0,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 106,
+      "page_ref": 107,
+      "native_char_count": 1817,
+      "corpus_char_count": 1820,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 0,
+      "C3": 0,
+      "C4": 1,
+      "C5": 2
+    },
+    {
+      "page_index": 107,
+      "page_ref": 108,
+      "native_char_count": 2249,
+      "corpus_char_count": 2243,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 1,
+      "C3": 1,
+      "C4": 5,
+      "C5": 1
+    },
+    {
+      "page_index": 109,
+      "page_ref": 110,
+      "native_char_count": 33,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 7
+    },
+    {
+      "page_index": 110,
+      "page_ref": 111,
+      "native_char_count": 1830,
+      "corpus_char_count": 1884,
+      "chunk_count": 2,
+      "C1": 10,
+      "C2": 3,
+      "C3": 5,
+      "C4": 3,
+      "C5": 7
+    },
+    {
+      "page_index": 111,
+      "page_ref": 112,
+      "native_char_count": 1675,
+      "corpus_char_count": 1675,
+      "chunk_count": 3,
+      "C1": 2,
+      "C2": 1,
+      "C3": 4,
+      "C4": 4,
+      "C5": 4
+    },
+    {
+      "page_index": 112,
+      "page_ref": 113,
+      "native_char_count": 1374,
+      "corpus_char_count": 1379,
+      "chunk_count": 2,
+      "C1": 4,
+      "C2": 5,
+      "C3": 1,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 113,
+      "page_ref": 114,
+      "native_char_count": 1610,
+      "corpus_char_count": 1608,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 0,
+      "C3": 1,
+      "C4": 1,
+      "C5": 0
+    },
+    {
+      "page_index": 114,
+      "page_ref": 115,
+      "native_char_count": 2020,
+      "corpus_char_count": 2026,
+      "chunk_count": 3,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 115,
+      "page_ref": 116,
+      "native_char_count": 2351,
+      "corpus_char_count": 2353,
+      "chunk_count": 2,
+      "C1": 1,
+      "C2": 0,
+      "C3": 1,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 116,
+      "page_ref": 117,
+      "native_char_count": 1689,
+      "corpus_char_count": 1698,
+      "chunk_count": 2,
+      "C1": 8,
+      "C2": 0,
+      "C3": 0,
+      "C4": 2,
+      "C5": 1
+    },
+    {
+      "page_index": 117,
+      "page_ref": 118,
+      "native_char_count": 2458,
+      "corpus_char_count": 2453,
+      "chunk_count": 3,
+      "C1": 9,
+      "C2": 1,
+      "C3": 3,
+      "C4": 2,
+      "C5": 2
+    },
+    {
+      "page_index": 118,
+      "page_ref": 119,
+      "native_char_count": 1010,
+      "corpus_char_count": 1013,
+      "chunk_count": 2,
+      "C1": 1,
+      "C2": 1,
+      "C3": 0,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 119,
+      "page_ref": 120,
+      "native_char_count": 1189,
+      "corpus_char_count": 1195,
+      "chunk_count": 3,
+      "C1": 7,
+      "C2": 0,
+      "C3": 9,
+      "C4": 2,
+      "C5": 4
+    },
+    {
+      "page_index": 120,
+      "page_ref": 121,
+      "native_char_count": 34,
+      "corpus_char_count": 204,
+      "chunk_count": 1,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 38
+    },
+    {
+      "page_index": 122,
+      "page_ref": 123,
+      "native_char_count": 1100,
+      "corpus_char_count": 1108,
+      "chunk_count": 1,
+      "C1": 3,
+      "C2": 0,
+      "C3": 1,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 123,
+      "page_ref": 124,
+      "native_char_count": 1847,
+      "corpus_char_count": 1855,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 124,
+      "page_ref": 125,
+      "native_char_count": 114,
+      "corpus_char_count": 219,
+      "chunk_count": 1,
+      "C1": 4,
+      "C2": 1,
+      "C3": 0,
+      "C4": 1,
+      "C5": 38
+    },
+    {
+      "page_index": 126,
+      "page_ref": 127,
+      "native_char_count": 2347,
+      "corpus_char_count": 2337,
+      "chunk_count": 3,
+      "C1": 2,
+      "C2": 4,
+      "C3": 0,
+      "C4": 1,
+      "C5": 4
+    },
+    {
+      "page_index": 127,
+      "page_ref": 128,
+      "native_char_count": 1737,
+      "corpus_char_count": 1740,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 1,
+      "C3": 3,
+      "C4": 3,
+      "C5": 10
+    },
+    {
+      "page_index": 128,
+      "page_ref": 129,
+      "native_char_count": 1885,
+      "corpus_char_count": 1890,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 2,
+      "C3": 0,
+      "C4": 2,
+      "C5": 1
+    },
+    {
+      "page_index": 129,
+      "page_ref": 130,
+      "native_char_count": 962,
+      "corpus_char_count": 964,
+      "chunk_count": 1,
+      "C1": 0,
+      "C2": 0,
+      "C3": 2,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 131,
+      "page_ref": 132,
+      "native_char_count": 10,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 132,
+      "page_ref": 133,
+      "native_char_count": 1785,
+      "corpus_char_count": 1784,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 2,
+      "C3": 0,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 133,
+      "page_ref": 134,
+      "native_char_count": 2197,
+      "corpus_char_count": 2197,
+      "chunk_count": 4,
+      "C1": 6,
+      "C2": 3,
+      "C3": 0,
+      "C4": 1,
+      "C5": 7
+    },
+    {
+      "page_index": 134,
+      "page_ref": 135,
+      "native_char_count": 2400,
+      "corpus_char_count": 2395,
+      "chunk_count": 3,
+      "C1": 4,
+      "C2": 1,
+      "C3": 2,
+      "C4": 3,
+      "C5": 5
+    },
+    {
+      "page_index": 135,
+      "page_ref": 136,
+      "native_char_count": 2404,
+      "corpus_char_count": 2408,
+      "chunk_count": 4,
+      "C1": 5,
+      "C2": 10,
+      "C3": 8,
+      "C4": 4,
+      "C5": 8
+    },
+    {
+      "page_index": 136,
+      "page_ref": 137,
+      "native_char_count": 2156,
+      "corpus_char_count": 2148,
+      "chunk_count": 4,
+      "C1": 11,
+      "C2": 2,
+      "C3": 4,
+      "C4": 0,
+      "C5": 8
+    },
+    {
+      "page_index": 137,
+      "page_ref": 138,
+      "native_char_count": 2260,
+      "corpus_char_count": 2260,
+      "chunk_count": 3,
+      "C1": 6,
+      "C2": 1,
+      "C3": 2,
+      "C4": 3,
+      "C5": 5
+    },
+    {
+      "page_index": 138,
+      "page_ref": 139,
+      "native_char_count": 2238,
+      "corpus_char_count": 2239,
+      "chunk_count": 3,
+      "C1": 5,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 139,
+      "page_ref": 140,
+      "native_char_count": 1562,
+      "corpus_char_count": 1565,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 140,
+      "page_ref": 141,
+      "native_char_count": 381,
+      "corpus_char_count": 592,
+      "chunk_count": 1,
+      "C1": 11,
+      "C2": 24,
+      "C3": 25,
+      "C4": 5,
+      "C5": 33
+    },
+    {
+      "page_index": 143,
+      "page_ref": 144,
+      "native_char_count": 11,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 144,
+      "page_ref": 145,
+      "native_char_count": 1698,
+      "corpus_char_count": 1699,
+      "chunk_count": 3,
+      "C1": 2,
+      "C2": 2,
+      "C3": 0,
+      "C4": 3,
+      "C5": 2
+    },
+    {
+      "page_index": 145,
+      "page_ref": 146,
+      "native_char_count": 2307,
+      "corpus_char_count": 2311,
+      "chunk_count": 3,
+      "C1": 6,
+      "C2": 3,
+      "C3": 1,
+      "C4": 1,
+      "C5": 7
+    },
+    {
+      "page_index": 146,
+      "page_ref": 147,
+      "native_char_count": 2075,
+      "corpus_char_count": 2092,
+      "chunk_count": 4,
+      "C1": 5,
+      "C2": 0,
+      "C3": 2,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 147,
+      "page_ref": 148,
+      "native_char_count": 1639,
+      "corpus_char_count": 1648,
+      "chunk_count": 3,
+      "C1": 4,
+      "C2": 1,
+      "C3": 2,
+      "C4": 3,
+      "C5": 3
+    },
+    {
+      "page_index": 148,
+      "page_ref": 149,
+      "native_char_count": 1785,
+      "corpus_char_count": 1779,
+      "chunk_count": 2,
+      "C1": 9,
+      "C2": 1,
+      "C3": 2,
+      "C4": 1,
+      "C5": 2
+    },
+    {
+      "page_index": 149,
+      "page_ref": 150,
+      "native_char_count": 2078,
+      "corpus_char_count": 2080,
+      "chunk_count": 3,
+      "C1": 6,
+      "C2": 1,
+      "C3": 2,
+      "C4": 4,
+      "C5": 4
+    },
+    {
+      "page_index": 150,
+      "page_ref": 151,
+      "native_char_count": 2289,
+      "corpus_char_count": 2290,
+      "chunk_count": 3,
+      "C1": 2,
+      "C2": 2,
+      "C3": 0,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 151,
+      "page_ref": 152,
+      "native_char_count": 903,
+      "corpus_char_count": 902,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 0,
+      "C3": 1,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 152,
+      "page_ref": 153,
+      "native_char_count": 1823,
+      "corpus_char_count": 1818,
+      "chunk_count": 3,
+      "C1": 4,
+      "C2": 1,
+      "C3": 2,
+      "C4": 1,
+      "C5": 5
+    },
+    {
+      "page_index": 153,
+      "page_ref": 154,
+      "native_char_count": 2266,
+      "corpus_char_count": 2260,
+      "chunk_count": 2,
+      "C1": 10,
+      "C2": 0,
+      "C3": 2,
+      "C4": 2,
+      "C5": 3
+    },
+    {
+      "page_index": 154,
+      "page_ref": 155,
+      "native_char_count": 1051,
+      "corpus_char_count": 1050,
+      "chunk_count": 2,
+      "C1": 1,
+      "C2": 0,
+      "C3": 4,
+      "C4": 2,
+      "C5": 0
+    },
+    {
+      "page_index": 155,
+      "page_ref": 156,
+      "native_char_count": 1719,
+      "corpus_char_count": 1710,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 2,
+      "C3": 0,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 156,
+      "page_ref": 157,
+      "native_char_count": 12,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 158,
+      "page_ref": 159,
+      "native_char_count": 2312,
+      "corpus_char_count": 2316,
+      "chunk_count": 4,
+      "C1": 2,
+      "C2": 0,
+      "C3": 0,
+      "C4": 1,
+      "C5": 3
+    },
+    {
+      "page_index": 159,
+      "page_ref": 160,
+      "native_char_count": 2130,
+      "corpus_char_count": 2136,
+      "chunk_count": 4,
+      "C1": 4,
+      "C2": 0,
+      "C3": 1,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 160,
+      "page_ref": 161,
+      "native_char_count": 369,
+      "corpus_char_count": 370,
+      "chunk_count": 1,
+      "C1": 0,
+      "C2": 0,
+      "C3": 1,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 161,
+      "page_ref": 162,
+      "native_char_count": 1757,
+      "corpus_char_count": 1745,
+      "chunk_count": 3,
+      "C1": 12,
+      "C2": 2,
+      "C3": 0,
+      "C4": 4,
+      "C5": 1
+    },
+    {
+      "page_index": 162,
+      "page_ref": 163,
+      "native_char_count": 2293,
+      "corpus_char_count": 2298,
+      "chunk_count": 4,
+      "C1": 9,
+      "C2": 1,
+      "C3": 0,
+      "C4": 1,
+      "C5": 3
+    },
+    {
+      "page_index": 163,
+      "page_ref": 164,
+      "native_char_count": 2281,
+      "corpus_char_count": 2284,
+      "chunk_count": 4,
+      "C1": 9,
+      "C2": 0,
+      "C3": 2,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 164,
+      "page_ref": 165,
+      "native_char_count": 1885,
+      "corpus_char_count": 1886,
+      "chunk_count": 3,
+      "C1": 4,
+      "C2": 2,
+      "C3": 3,
+      "C4": 3,
+      "C5": 8
+    },
+    {
+      "page_index": 165,
+      "page_ref": 166,
+      "native_char_count": 1652,
+      "corpus_char_count": 1657,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 1,
+      "C3": 2,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 166,
+      "page_ref": 167,
+      "native_char_count": 48,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 7
+    },
+    {
+      "page_index": 167,
+      "page_ref": 168,
+      "native_char_count": 2,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 168,
+      "page_ref": 169,
+      "native_char_count": 2157,
+      "corpus_char_count": 2166,
+      "chunk_count": 4,
+      "C1": 0,
+      "C2": 0,
+      "C3": 1,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 169,
+      "page_ref": 170,
+      "native_char_count": 895,
+      "corpus_char_count": 899,
+      "chunk_count": 1,
+      "C1": 3,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 170,
+      "page_ref": 171,
+      "native_char_count": 1725,
+      "corpus_char_count": 1736,
+      "chunk_count": 2,
+      "C1": 5,
+      "C2": 1,
+      "C3": 2,
+      "C4": 2,
+      "C5": 6
+    },
+    {
+      "page_index": 171,
+      "page_ref": 172,
+      "native_char_count": 1536,
+      "corpus_char_count": 1535,
+      "chunk_count": 2,
+      "C1": 8,
+      "C2": 0,
+      "C3": 2,
+      "C4": 1,
+      "C5": 4
+    },
+    {
+      "page_index": 172,
+      "page_ref": 173,
+      "native_char_count": 1178,
+      "corpus_char_count": 1181,
+      "chunk_count": 2,
+      "C1": 1,
+      "C2": 1,
+      "C3": 2,
+      "C4": 1,
+      "C5": 2
+    },
+    {
+      "page_index": 173,
+      "page_ref": 174,
+      "native_char_count": 1744,
+      "corpus_char_count": 1745,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 0,
+      "C3": 0,
+      "C4": 3,
+      "C5": 3
+    },
+    {
+      "page_index": 174,
+      "page_ref": 175,
+      "native_char_count": 9,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 176,
+      "page_ref": 177,
+      "native_char_count": 1718,
+      "corpus_char_count": 1716,
+      "chunk_count": 2,
+      "C1": 1,
+      "C2": 1,
+      "C3": 0,
+      "C4": 2,
+      "C5": 2
+    },
+    {
+      "page_index": 177,
+      "page_ref": 178,
+      "native_char_count": 1771,
+      "corpus_char_count": 1775,
+      "chunk_count": 2,
+      "C1": 6,
+      "C2": 0,
+      "C3": 2,
+      "C4": 2,
+      "C5": 1
+    },
+    {
+      "page_index": 178,
+      "page_ref": 179,
+      "native_char_count": 2285,
+      "corpus_char_count": 2286,
+      "chunk_count": 4,
+      "C1": 2,
+      "C2": 2,
+      "C3": 0,
+      "C4": 1,
+      "C5": 2
+    },
+    {
+      "page_index": 179,
+      "page_ref": 180,
+      "native_char_count": 2032,
+      "corpus_char_count": 2049,
+      "chunk_count": 4,
+      "C1": 2,
+      "C2": 1,
+      "C3": 0,
+      "C4": 2,
+      "C5": 6
+    },
+    {
+      "page_index": 180,
+      "page_ref": 181,
+      "native_char_count": 2436,
+      "corpus_char_count": 2436,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 1,
+      "C3": 3,
+      "C4": 4,
+      "C5": 3
+    },
+    {
+      "page_index": 181,
+      "page_ref": 182,
+      "native_char_count": 1345,
+      "corpus_char_count": 1344,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 0,
+      "C3": 0,
+      "C4": 1,
+      "C5": 0
+    },
+    {
+      "page_index": 182,
+      "page_ref": 183,
+      "native_char_count": 1654,
+      "corpus_char_count": 1653,
+      "chunk_count": 3,
+      "C1": 2,
+      "C2": 2,
+      "C3": 0,
+      "C4": 1,
+      "C5": 0
+    },
+    {
+      "page_index": 183,
+      "page_ref": 184,
+      "native_char_count": 1202,
+      "corpus_char_count": 1212,
+      "chunk_count": 2,
+      "C1": 0,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 185,
+      "page_ref": 186,
+      "native_char_count": 47,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 7
+    },
+    {
+      "page_index": 186,
+      "page_ref": 187,
+      "native_char_count": 1741,
+      "corpus_char_count": 1738,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 0,
+      "C3": 2,
+      "C4": 2,
+      "C5": 8
+    },
+    {
+      "page_index": 187,
+      "page_ref": 188,
+      "native_char_count": 2071,
+      "corpus_char_count": 2074,
+      "chunk_count": 3,
+      "C1": 4,
+      "C2": 1,
+      "C3": 2,
+      "C4": 1,
+      "C5": 3
+    },
+    {
+      "page_index": 188,
+      "page_ref": 189,
+      "native_char_count": 1775,
+      "corpus_char_count": 1777,
+      "chunk_count": 2,
+      "C1": 3,
+      "C2": 0,
+      "C3": 1,
+      "C4": 2,
+      "C5": 7
+    },
+    {
+      "page_index": 189,
+      "page_ref": 190,
+      "native_char_count": 934,
+      "corpus_char_count": 938,
+      "chunk_count": 1,
+      "C1": 1,
+      "C2": 1,
+      "C3": 2,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 190,
+      "page_ref": 191,
+      "native_char_count": 1706,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 315
+    },
+    {
+      "page_index": 191,
+      "page_ref": 192,
+      "native_char_count": 722,
+      "corpus_char_count": 725,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 192,
+      "page_ref": 193,
+      "native_char_count": 1759,
+      "corpus_char_count": 1767,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 1,
+      "C3": 3,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 193,
+      "page_ref": 194,
+      "native_char_count": 584,
+      "corpus_char_count": 590,
+      "chunk_count": 1,
+      "C1": 1,
+      "C2": 0,
+      "C3": 0,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 195,
+      "page_ref": 196,
+      "native_char_count": 10,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 196,
+      "page_ref": 197,
+      "native_char_count": 1695,
+      "corpus_char_count": 1698,
+      "chunk_count": 3,
+      "C1": 0,
+      "C2": 2,
+      "C3": 2,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 197,
+      "page_ref": 198,
+      "native_char_count": 1445,
+      "corpus_char_count": 1461,
+      "chunk_count": 3,
+      "C1": 2,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 3
+    },
+    {
+      "page_index": 198,
+      "page_ref": 199,
+      "native_char_count": 1339,
+      "corpus_char_count": 1348,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 199,
+      "page_ref": 200,
+      "native_char_count": 1900,
+      "corpus_char_count": 1906,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 2,
+      "C3": 2,
+      "C4": 2,
+      "C5": 1
+    },
+    {
+      "page_index": 200,
+      "page_ref": 201,
+      "native_char_count": 711,
+      "corpus_char_count": 716,
+      "chunk_count": 1,
+      "C1": 2,
+      "C2": 0,
+      "C3": 1,
+      "C4": 2,
+      "C5": 1
+    },
+    {
+      "page_index": 201,
+      "page_ref": 202,
+      "native_char_count": 1543,
+      "corpus_char_count": 1544,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 202,
+      "page_ref": 203,
+      "native_char_count": 1721,
+      "corpus_char_count": 1723,
+      "chunk_count": 2,
+      "C1": 7,
+      "C2": 0,
+      "C3": 2,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 203,
+      "page_ref": 204,
+      "native_char_count": 1818,
+      "corpus_char_count": 1818,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 1,
+      "C3": 1,
+      "C4": 1,
+      "C5": 4
+    },
+    {
+      "page_index": 204,
+      "page_ref": 205,
+      "native_char_count": 1720,
+      "corpus_char_count": 1729,
+      "chunk_count": 3,
+      "C1": 2,
+      "C2": 2,
+      "C3": 2,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 205,
+      "page_ref": 206,
+      "native_char_count": 1763,
+      "corpus_char_count": 1764,
+      "chunk_count": 3,
+      "C1": 4,
+      "C2": 0,
+      "C3": 1,
+      "C4": 0,
+      "C5": 3
+    },
+    {
+      "page_index": 206,
+      "page_ref": 207,
+      "native_char_count": 1707,
+      "corpus_char_count": 1705,
+      "chunk_count": 2,
+      "C1": 3,
+      "C2": 0,
+      "C3": 3,
+      "C4": 2,
+      "C5": 3
+    },
+    {
+      "page_index": 207,
+      "page_ref": 208,
+      "native_char_count": 1917,
+      "corpus_char_count": 1923,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 0,
+      "C3": 1,
+      "C4": 0,
+      "C5": 8
+    },
+    {
+      "page_index": 208,
+      "page_ref": 209,
+      "native_char_count": 889,
+      "corpus_char_count": 892,
+      "chunk_count": 1,
+      "C1": 2,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 209,
+      "page_ref": 210,
+      "native_char_count": 1977,
+      "corpus_char_count": 1974,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 1,
+      "C3": 0,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 210,
+      "page_ref": 211,
+      "native_char_count": 38,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 7
+    },
+    {
+      "page_index": 212,
+      "page_ref": 213,
+      "native_char_count": 1705,
+      "corpus_char_count": 1704,
+      "chunk_count": 2,
+      "C1": 5,
+      "C2": 0,
+      "C3": 3,
+      "C4": 3,
+      "C5": 1
+    },
+    {
+      "page_index": 213,
+      "page_ref": 214,
+      "native_char_count": 1733,
+      "corpus_char_count": 1729,
+      "chunk_count": 3,
+      "C1": 1,
+      "C2": 1,
+      "C3": 4,
+      "C4": 2,
+      "C5": 2
+    },
+    {
+      "page_index": 214,
+      "page_ref": 215,
+      "native_char_count": 2533,
+      "corpus_char_count": 2540,
+      "chunk_count": 3,
+      "C1": 6,
+      "C2": 0,
+      "C3": 3,
+      "C4": 3,
+      "C5": 28
+    },
+    {
+      "page_index": 215,
+      "page_ref": 216,
+      "native_char_count": 1667,
+      "corpus_char_count": 1654,
+      "chunk_count": 2,
+      "C1": 9,
+      "C2": 1,
+      "C3": 1,
+      "C4": 2,
+      "C5": 3
+    },
+    {
+      "page_index": 216,
+      "page_ref": 217,
+      "native_char_count": 1969,
+      "corpus_char_count": 1968,
+      "chunk_count": 3,
+      "C1": 9,
+      "C2": 3,
+      "C3": 5,
+      "C4": 4,
+      "C5": 1
+    },
+    {
+      "page_index": 217,
+      "page_ref": 218,
+      "native_char_count": 606,
+      "corpus_char_count": 605,
+      "chunk_count": 1,
+      "C1": 1,
+      "C2": 1,
+      "C3": 1,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 218,
+      "page_ref": 219,
+      "native_char_count": 1892,
+      "corpus_char_count": 1888,
+      "chunk_count": 2,
+      "C1": 3,
+      "C2": 1,
+      "C3": 1,
+      "C4": 1,
+      "C5": 2
+    },
+    {
+      "page_index": 219,
+      "page_ref": 220,
+      "native_char_count": 2303,
+      "corpus_char_count": 2300,
+      "chunk_count": 3,
+      "C1": 5,
+      "C2": 2,
+      "C3": 6,
+      "C4": 2,
+      "C5": 1
+    },
+    {
+      "page_index": 220,
+      "page_ref": 221,
+      "native_char_count": 2141,
+      "corpus_char_count": 2138,
+      "chunk_count": 4,
+      "C1": 6,
+      "C2": 1,
+      "C3": 3,
+      "C4": 1,
+      "C5": 0
+    },
+    {
+      "page_index": 221,
+      "page_ref": 222,
+      "native_char_count": 1482,
+      "corpus_char_count": 1484,
+      "chunk_count": 2,
+      "C1": 5,
+      "C2": 0,
+      "C3": 1,
+      "C4": 4,
+      "C5": 0
+    },
+    {
+      "page_index": 222,
+      "page_ref": 223,
+      "native_char_count": 2258,
+      "corpus_char_count": 2266,
+      "chunk_count": 2,
+      "C1": 14,
+      "C2": 1,
+      "C3": 5,
+      "C4": 0,
+      "C5": 5
+    },
+    {
+      "page_index": 223,
+      "page_ref": 224,
+      "native_char_count": 1272,
+      "corpus_char_count": 1275,
+      "chunk_count": 2,
+      "C1": 5,
+      "C2": 0,
+      "C3": 0,
+      "C4": 2,
+      "C5": 0
+    },
+    {
+      "page_index": 224,
+      "page_ref": 225,
+      "native_char_count": 1854,
+      "corpus_char_count": 1855,
+      "chunk_count": 3,
+      "C1": 14,
+      "C2": 1,
+      "C3": 2,
+      "C4": 4,
+      "C5": 0
+    },
+    {
+      "page_index": 225,
+      "page_ref": 226,
+      "native_char_count": 2495,
+      "corpus_char_count": 2490,
+      "chunk_count": 4,
+      "C1": 12,
+      "C2": 1,
+      "C3": 0,
+      "C4": 2,
+      "C5": 3
+    },
+    {
+      "page_index": 226,
+      "page_ref": 227,
+      "native_char_count": 434,
+      "corpus_char_count": 435,
+      "chunk_count": 1,
+      "C1": 0,
+      "C2": 0,
+      "C3": 1,
+      "C4": 0,
+      "C5": 1
+    },
+    {
+      "page_index": 227,
+      "page_ref": 228,
+      "native_char_count": 1605,
+      "corpus_char_count": 1606,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 0,
+      "C3": 0,
+      "C4": 2,
+      "C5": 3
+    },
+    {
+      "page_index": 228,
+      "page_ref": 229,
+      "native_char_count": 2117,
+      "corpus_char_count": 2114,
+      "chunk_count": 4,
+      "C1": 2,
+      "C2": 1,
+      "C3": 2,
+      "C4": 3,
+      "C5": 3
+    },
+    {
+      "page_index": 229,
+      "page_ref": 230,
+      "native_char_count": 2222,
+      "corpus_char_count": 2219,
+      "chunk_count": 4,
+      "C1": 5,
+      "C2": 0,
+      "C3": 2,
+      "C4": 4,
+      "C5": 3
+    },
+    {
+      "page_index": 230,
+      "page_ref": 231,
+      "native_char_count": 2088,
+      "corpus_char_count": 2086,
+      "chunk_count": 3,
+      "C1": 4,
+      "C2": 1,
+      "C3": 2,
+      "C4": 3,
+      "C5": 2
+    },
+    {
+      "page_index": 231,
+      "page_ref": 232,
+      "native_char_count": 1944,
+      "corpus_char_count": 1956,
+      "chunk_count": 3,
+      "C1": 3,
+      "C2": 1,
+      "C3": 3,
+      "C4": 4,
+      "C5": 3
+    },
+    {
+      "page_index": 234,
+      "page_ref": 235,
+      "native_char_count": 71,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 12
+    },
+    {
+      "page_index": 236,
+      "page_ref": 237,
+      "native_char_count": 36,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 8
+    },
+    {
+      "page_index": 238,
+      "page_ref": 239,
+      "native_char_count": 26,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 5
+    },
+    {
+      "page_index": 240,
+      "page_ref": 241,
+      "native_char_count": 44,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 7
+    },
+    {
+      "page_index": 242,
+      "page_ref": 243,
+      "native_char_count": 40,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 8
+    },
+    {
+      "page_index": 244,
+      "page_ref": 245,
+      "native_char_count": 44,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 9
+    },
+    {
+      "page_index": 245,
+      "page_ref": 246,
+      "native_char_count": 7,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 2
+    },
+    {
+      "page_index": 246,
+      "page_ref": 247,
+      "native_char_count": 82,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 15
+    },
+    {
+      "page_index": 248,
+      "page_ref": 249,
+      "native_char_count": 49,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 9
+    },
+    {
+      "page_index": 249,
+      "page_ref": 250,
+      "native_char_count": 12,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 4
+    },
+    {
+      "page_index": 250,
+      "page_ref": 251,
+      "native_char_count": 85,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 15
+    },
+    {
+      "page_index": 252,
+      "page_ref": 253,
+      "native_char_count": 64,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 15
+    },
+    {
+      "page_index": 254,
+      "page_ref": 255,
+      "native_char_count": 49,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 11
+    },
+    {
+      "page_index": 256,
+      "page_ref": 257,
+      "native_char_count": 93,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 15
+    },
+    {
+      "page_index": 258,
+      "page_ref": 259,
+      "native_char_count": 20,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 4
+    },
+    {
+      "page_index": 260,
+      "page_ref": 261,
+      "native_char_count": 43,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 9
+    },
+    {
+      "page_index": 261,
+      "page_ref": 262,
+      "native_char_count": 1,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 262,
+      "page_ref": 263,
+      "native_char_count": 53,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 13
+    },
+    {
+      "page_index": 264,
+      "page_ref": 265,
+      "native_char_count": 40,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 8
+    },
+    {
+      "page_index": 266,
+      "page_ref": 267,
+      "native_char_count": 49,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 9
+    },
+    {
+      "page_index": 267,
+      "page_ref": 268,
+      "native_char_count": 2,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 268,
+      "page_ref": 269,
+      "native_char_count": 49,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 9
+    },
+    {
+      "page_index": 270,
+      "page_ref": 271,
+      "native_char_count": 73,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 14
+    },
+    {
+      "page_index": 272,
+      "page_ref": 273,
+      "native_char_count": 42,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 8
+    },
+    {
+      "page_index": 274,
+      "page_ref": 275,
+      "native_char_count": 48,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 8
+    },
+    {
+      "page_index": 276,
+      "page_ref": 277,
+      "native_char_count": 39,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 8
+    },
+    {
+      "page_index": 278,
+      "page_ref": 279,
+      "native_char_count": 37,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 8
+    },
+    {
+      "page_index": 280,
+      "page_ref": 281,
+      "native_char_count": 63,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 12
+    },
+    {
+      "page_index": 281,
+      "page_ref": 282,
+      "native_char_count": 1,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 0
+    },
+    {
+      "page_index": 282,
+      "page_ref": 283,
+      "native_char_count": 132,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 21
+    },
+    {
+      "page_index": 284,
+      "page_ref": 285,
+      "native_char_count": 43,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 8
+    },
+    {
+      "page_index": 286,
+      "page_ref": 287,
+      "native_char_count": 86,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 16
+    },
+    {
+      "page_index": 288,
+      "page_ref": 289,
+      "native_char_count": 51,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 9
+    },
+    {
+      "page_index": 290,
+      "page_ref": 291,
+      "native_char_count": 54,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 13
+    },
+    {
+      "page_index": 292,
+      "page_ref": 293,
+      "native_char_count": 39,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 8
+    },
+    {
+      "page_index": 294,
+      "page_ref": 295,
+      "native_char_count": 51,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 11
+    },
+    {
+      "page_index": 296,
+      "page_ref": 297,
+      "native_char_count": 45,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 9
+    },
+    {
+      "page_index": 298,
+      "page_ref": 299,
+      "native_char_count": 1156,
+      "corpus_char_count": 1168,
+      "chunk_count": 2,
+      "C1": 2,
+      "C2": 0,
+      "C3": 4,
+      "C4": 1,
+      "C5": 3
+    },
+    {
+      "page_index": 299,
+      "page_ref": 300,
+      "native_char_count": 1961,
+      "corpus_char_count": 1969,
+      "chunk_count": 3,
+      "C1": 14,
+      "C2": 2,
+      "C3": 5,
+      "C4": 2,
+      "C5": 4
+    },
+    {
+      "page_index": 302,
+      "page_ref": 303,
+      "native_char_count": 2842,
+      "corpus_char_count": 2842,
+      "chunk_count": 4,
+      "C1": 24,
+      "C2": 2,
+      "C3": 3,
+      "C4": 3,
+      "C5": 4
+    },
+    {
+      "page_index": 303,
+      "page_ref": 304,
+      "native_char_count": 2528,
+      "corpus_char_count": 2538,
+      "chunk_count": 4,
+      "C1": 5,
+      "C2": 1,
+      "C3": 3,
+      "C4": 1,
+      "C5": 1
+    },
+    {
+      "page_index": 304,
+      "page_ref": 305,
+      "native_char_count": 2703,
+      "corpus_char_count": 2713,
+      "chunk_count": 4,
+      "C1": 7,
+      "C2": 1,
+      "C3": 0,
+      "C4": 2,
+      "C5": 7
+    },
+    {
+      "page_index": 305,
+      "page_ref": 306,
+      "native_char_count": 2366,
+      "corpus_char_count": 2370,
+      "chunk_count": 3,
+      "C1": 9,
+      "C2": 0,
+      "C3": 2,
+      "C4": 1,
+      "C5": 2
+    },
+    {
+      "page_index": 307,
+      "page_ref": 308,
+      "native_char_count": 1621,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 266
+    },
+    {
+      "page_index": 308,
+      "page_ref": 309,
+      "native_char_count": 1364,
+      "corpus_char_count": 0,
+      "chunk_count": 0,
+      "C1": 0,
+      "C2": 0,
+      "C3": 0,
+      "C4": 0,
+      "C5": 234
+    }
+  ]
+}
