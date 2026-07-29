@@ -4860,3 +4860,167 @@ Carry-forward to S78:
 S78 candidates: E (palm V1.1 needle audit / thumb-fingers retry),
 F (housekeeping bundle -- opportunistic, bundle into E close).
 C dropped (see above).
+
+## S78 close — 2026-07-29
+
+Primary: E — Palm reading V1.1
+Bundled F items: housekeeping (opportunistic)
+Not done: C (Kapoor RAG — deprioritized S77)
+
+### E scope taken: E2 (Stage-1 retry investigation for thumb/fingers)
+
+Agents chose E2 over E1 at S78 open. Rationale: E2 had an observable
+failure signal (retry flake in dogfood captures) and bounded scope;
+E1 (whole-vocabulary needle-inventory audit) had no exit rubric —
+"asymmetry" was never quantified at S70 flag time, so measure-first
+discipline required E1 to derive its own rubric mid-investigation,
+violating S77 fabrication-guard learnings.
+
+### E2 investigation arc
+
+1. Read-only audit (agent/interpretive/claim_extraction.py +
+   frontend/app.py + tests/interpretive/). Findings landed in
+   diagnostics/e2_stage1_retry_audit.md. Coverage gap surfaced:
+   fingers had zero retry-path tests, thumb had partial coverage
+   but no persistent-2-attempt-failure test. Capture gap: happy
+   path never persisted per-feature diagnostics.
+
+2. Instrumentation cycle (commits f16d52c, b5d51fb): Added
+   attempt_1/attempt_2 status enum (validated, validated_empty,
+   validation_failed, error, not_attempted, skipped_no_viable_chunks)
+   and final_outcome enum (success_first, success_retry,
+   failed_both, empty_first, empty_retry, failed_first_no_retry,
+   failed_first_no_viable_retry) to the diag dict. Wired
+   PalmReadingResult.stage1_feature_diagnostics carrier through
+   happy path. Emitted parity block in both _capture_dogfood_run
+   and _capture_checkpoint_declined via shared formatter. Later
+   extended emit to include attempt_1_failures / attempt_2_failures
+   continuation lines with truncation at 200 chars.
+
+3. Dogfood repro identified (2026-07-27T15:04:44): thumb
+   outcome=failed_both when hand_detail upload is omitted while
+   both palms are uploaded. Attempt 1 attributed to p.88_c0
+   (retrieval rank 1), overlap 0.08; attempt 2 same chunk,
+   overlap 0.20. p.87_c0 (validatable, rank 2) sat unused.
+   Heart line ALSO went empty in same run — hand_detail affects
+   extraction beyond thumb/fingers. Broader observation logged;
+   not chased in E2.
+
+4. Fix menu reset. Initial (a) top-k widening, (b) query
+   reinforcement, (c) template enrichment all ruled out or
+   deprioritized after source audit of _build_retry_messages and
+   retrieval measurement (diagnostics/e2f_retrieval_topk.md).
+   p.87_c0 was already inside n_results=3 gate — retrieval was
+   not the bottleneck. Root cause: retry prompt instructed LLM
+   "Same chunks, same feature," causing LLM to spin on the
+   E-3-failed chunk instead of switching to adjacent validatable
+   chunks.
+
+5. Fix landed as E2F commit 16f6439: parse attempt 1's E-3
+   failures for chunk_ids via regex on fixed failure string
+   format; exclude those chunk_ids from retry pool; skip retry
+   entirely if exclusion leaves no viable chunks. Non-E-3 failures
+   contribute zero chunk_ids — retry behavior unchanged. Test
+   updates: renamed persistent-failure test to reflect skip-retry
+   mechanism, added partial-failure test (genuine discriminator)
+   and non-E-3-leaves-pool-intact test (non-regression guard).
+
+6. Confirmation dogfood 2026-07-29T10:21:07 exposed incoherent-
+   history flaw: step 1's implementation filtered retry's turn 1
+   user prompt, making turn 2 (prior assistant response citing
+   excluded chunk) reference a chunk turn 1 no longer showed.
+   Incoherent history → LLM went safe → thumb outcome=empty_retry
+   with p.87_c0 sitting unused. Fix worked mechanically (chunk
+   excluded from re-citation) but not at user-visible layer
+   (thumb still declined in reading).
+
+7. E2F step 3 (commit be35a1a): preserve original chunk list in
+   retry's turn 1 (matches what attempt 1 saw); enforce exclusion
+   via explicit correction instruction in turn 3 that names failed
+   chunk_ids and forbids re-citing. Retry pool discipline moved
+   from history-rewriting to explicit instruction. Partial-failure
+   test updated to check new mechanism.
+
+8. Final confirmation dogfood 2026-07-29T11:02:48: thumb voiced
+   in reading, no decline. Fix path (step 3 retry) NOT exercised
+   in this run — vision variance produced "Medium relative size"
+   (vs prior "Medium size") which shifted extraction enough that
+   attempt 1 succeeded on p.88_c0 directly. User-visible outcome
+   confirmed at production layer; step 3 code path confidence
+   lives in unit tests (deterministic), not this run.
+
+### Commits landed on origin/main during S78
+
+- f16d52c — S78 E2: instrument Stage-1 per-feature retry diagnostics
+- df3de42 — S78 E2: Stage-1 retry audit — thumb/fingers diagnostic pass
+- b5d51fb — S78 E2: surface Stage-1 validation failure messages in
+  per-feature diagnostics
+- 16f6439 — S78 E2F: exclude E-3-failed chunks from Stage-1 retry pool
+- be35a1a — S78 E2F step 3: coherent retry history for E-3 chunk
+  exclusion
+- 212d9c6 — S78 E2F: close out — retrieval diagnostics, gitignore
+  glob, scratch prompt (single commit bundling the gitignore-glob,
+  top-k measurement report, and probe-script deletion items; actual
+  history landed these together, not as three separate commits as
+  originally assumed)
+
+Note: 95b0236 (docs(diagnostics): update latest_run.md — E2 2d+2e
+commit/push record) also sits in this range as an interim
+diagnostics-log commit; not narrated separately above.
+
+### Carry-forward to S79
+
+Palm Q&A architecture arc. Objective: route natural-language
+questions to palm-only, chart-only, hybrid, or nudge-to-upload
+responses. Cache Stage-1 output at upload time (per Sulabh S78
+close input) so per-question flow is intent → feature-subset →
+cache lookup → Stage-2 targeted voicing, no per-question Stage-1
+re-run.
+
+Palm quality gaps identified during E2F, in scope for S79 palm
+launch prep:
+- E-3 lexical rigidity: word-overlap grounding rejects legitimate
+  paraphrase; vision variance (e.g. "Medium" vs "Medium relative")
+  shifts retrieval and extraction unpredictably. Candidate fixes:
+  embedding-similarity grounding, or LLM-quoted-anchor extraction
+  with quote-only overlap check.
+- Corpus completeness: heart line pages 157-158 absent from
+  ChromaDB (S68 documented). Re-ingest required.
+- Coverage of vision-observed variants Cheiro does not cover
+  (e.g. "barely visible" fate line). Options: expand corpus, or
+  graceful "not addressed by classical text" response.
+- Silent declines that should be nudges-to-upload for missing
+  hand_detail or missing palm photos.
+- Corrective-valence surfacing bug (S71 class): Stage 2 voices
+  corrective claims as supports-style — reader cannot tell claim
+  is a correction of misconception vs claim about user.
+
+Scaffolding dismantle order (S78 ruling, Sulabh): dogfood_capture,
+ACK checkpoint UI, whole-reading generation button all get removed
+when palm Q&A ships. Dev harness only until then, behind
+ASTRO_PALM_ENABLED gate.
+
+Non-scope for S79 (queued):
+- Stage 2 doctrine_guard [FLOW] tripping on feature-noun "life"
+  (pre-existing).
+- Stage 2 self_help_blacklist tripping on "navigate" (pre-existing).
+- E2G candidate: vision-prompt enrichment for feature detail to
+  reduce hand_detail dependency at the source.
+
+### Process learnings S78
+
+- Investigation order matters: reading extract+retry prompt shape
+  before measuring retrieval would have saved ~2 turns of misdirected
+  fix menu (a)/(b)/(c). Read the code path first, measure second.
+- Schema under-specification cost turns: step 2a dropped
+  error_messages field as "redundant"; had to add back in step 2d.
+  Every observability field should be justified against the audit
+  question it answers, not against what feels non-redundant.
+- Under-delegation to grep/project_knowledge_search: several turns
+  asked Claude Code to audit files that could have been read
+  directly from the project knowledge tree. Sulabh flagged this
+  explicitly S78; corrected mid-session.
+- Confirmation runs cannot guarantee fix-path traversal when the
+  triggering condition depends on non-deterministic input (vision
+  variance). Unit tests carry the deterministic fix-verification
+  load; dogfood runs confirm production reach and non-regression.
