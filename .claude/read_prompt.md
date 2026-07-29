@@ -2,97 +2,69 @@
 
 #Paste your instructions here. Then tell Claude: Read .claude/read_prompt.md and execute
 
+MODEL: Haiku 4.5
 
-Model: Sonnet 4.6 (multiple files, structural edits)
+TASK: E2F step 3 joint commit + push covering step 3a (source) +
+step 3b (test update). One source commit, one push.
 
-READ-ONLY for session log; write access for CLAUDE.md, KNOWN_DIVERGENCES.md.
+RATIFIED: commit authorized
 
-Prerequisites:
-- Confirm git log origin/main..HEAD --oneline empty at start
-- HEAD == 2e34788
+COMMIT (source + test — RATIFIED above):
+Files:
+  agent/interpretive/claim_extraction.py
+  tests/interpretive/test_claim_extraction.py
 
-Task 1 — Update docs/KNOWN_DIVERGENCES.md (draft was prepared in previous
-Code run, saved from diagnostics/latest_run.md content):
-- Reframe Gap D1 with Kapoor citation: change root-cause framing from 
-  "mechanism unresolved" to "Camp Y (formal mathematical astrology, 
-  Kapoor Institute of Astrology textbook Ch IX pp 115-117) vs Camp X 
-  (commercial software JHora/AstroSage/Drik applying undocumented Moon 
-  correction). Production aligns with Camp Y. Reopen if evidence of 
-  classical primary-source correction surfaces."
-- Add Kapoor book reference: 
-  project_files/classical_references/_Deepak_Kapoor__Astronomy_and_
-  Mathematical_Astrology_text.pdf, Ch IX for Vimshottari, Ch XVI-XIX 
-  for Shadbala/Bhava Bala
-- All other gaps (D2 Pratyantar, A1 True Chitra, G1 Rahu/Ketu drishti, 
-  S1 Saptavargaja, S2 Drekkana Bala, N1 nakshatra reference frame) 
-  retain prior framing from earlier draft
+Message:
+  S78 E2F step 3: coherent retry history for E-3 chunk exclusion
 
-Task 2 — Update CLAUDE.md:
-- Under "Primary Spec Sources" section: add Kapoor book alongside PVR:
-  "PVR (BPHS-tradition) and Kapoor (Institute of Astrology, Bharatiya 
-  Vidya Bhavan, mathematical exposition). Kapoor for Vimshottari math, 
-  Shadbala (Ch XVI-XIX), Bhava Bala, ayanamsa 1900+ table. PVR remains 
-  authoritative for interpretive doctrine and yoga detection."
-- Under "Known Divergences": already added in previous Code run — verify
+  The 2026-07-29 dogfood confirmation run exposed a design flaw in
+  step 1's implementation: filtering the retry's turn 1 user prompt
+  made turn 2 (the prior assistant response citing the excluded
+  chunk) reference a chunk that turn 1 no longer presented.
+  Incoherent history — LLM returned zero claims to play safe,
+  producing outcome=empty_retry with p.87_c0 (validatable, adjacent
+  in the gated set) sitting unused. Fix worked mechanically (E-3
+  chunk excluded from re-citation) but not at the user-visible layer
+  (thumb still landed in the "not clearly address..." decline list).
 
-Task 3 — Update SESSION_LOG.md with S75 close block:
-  ## S75 — Vimshottari row-0 gap investigation + Ayanamsa lead closure
-  - Ayanamsa lead (S74 §11 0.94 arcmin gap) FALSIFIED. Root cause: S27 
-    Sulabh capture was under True Chitrapaksha mode, compared against 
-    production SIDM_LAHIRI. Cross-mode ~56" delta misdiagnosed as 
-    precession divergence. pyswisseph SIDM_LAHIRI ≡ JHora Traditional 
-    Lahiri to 0.14" at both epochs tested (Sulabh 1988, Sheridan 1984).
-  - Vimshottari year_days = 365.256363 (sidereal) CONFIRMED via new 
-    method: JHora fixture-internal arithmetic (end-start ÷ years) 
-    yields 365.2558-365.2572 across all 9 rows. Ready for production 
-    but NOT SHIPPED this session pending V1.1 batching decision.
-  - Row-0 residual under matched-mode Drik oracle (Traditional Lahiri):
-    Sulabh -2.67d, Sheridan -1.93d, Surbhi -0.33d, David -0.54d.
-    Non-linear scaling → falsifies both linear-reference-frame and 
-    fixed-angular-offset hypotheses. Seasonal pattern (spring births 
-    higher residual) suggests apparent-Moon convention divergence.
-  - Camp Y / Camp X split identified:
-    Camp Y (formal math): Kapoor textbook, Prokerala, our production
-    Camp X (commercial):  JHora GUI, AstroSage, Drik Panchang
-  - Accepted gap D1 logged. V1 ship decision: RATIFIED (range-based 
-    answers unaffected, day-precision predictions excluded from V1 
-    scope).
-  - Kapoor book added to project_files/classical_references/. Format: 
-    plaintext OCR (7385 lines). Highest priority additions: Ch IX 
-    (Vimshottari), Ch XVI-XIX (Shadbala/Bhava Bala), Ch IV ayanamsa 
-    table.
-  - Canonical oracle reclassification: JHora primary for non-dasha 
-    (Ashtakavarga, karakas, D-charts, Panchanga); Drik primary for 
-    dasha row-0/AD boundaries going forward. AstroSage secondary parity.
-  - Fixtures NOT re-captured under Traditional Lahiri this session — 
-    tracked as S76 open item.
+  Fix: preserve the original chunk list in the retry's turn 1
+  (matching what attempt 1 actually saw), enforce exclusion via an
+  explicit correction instruction in turn 3 that names the failed
+  chunk_id(s) and forbids re-citing them. Retry pool discipline
+  moves from history-rewriting to explicit instruction — a
+  coherent dialogue the LLM can act on.
 
-  Ratifications:
-  1. Camp Y alignment as V1 position (Kapoor as anchor citation)
-  2. Kapoor book added to project_files/classical_references
-  3. Accepted gap register (docs/KNOWN_DIVERGENCES.md) committed
-  4. JHora → Drik oracle reclassification for dasha
+  Non-E-3 retry path unchanged: empty excluded_chunk_ids still
+  produces the old "Same chunks, same feature." wording. Skip-
+  retry-when-all-excluded branch unchanged. Diag enum values
+  unchanged.
 
-  Open items S76:
-  - Ship year_days = 365.256363 to production (surgical, ratified twice)
-  - Re-capture Traditional Lahiri Vimshottari MD tables to 
-    tests/fixtures/jhora_{surbhi,sheridan,david}.md (Sulabh already 
-    captured this session)
-  - Kapoor RAG indexing (extend ChromaDB corpus 14 → 15 texts)
-  - Kapoor-based Shadbala refactor evaluation (may resolve S1/S2 gaps)
+  Test changes:
+  - test_e3_partial_failure_excludes_failed_chunk_from_retry_pool:
+    docstring and assertions updated to check the new mechanism
+    (turn 1 preserves both chunks; turn 3 names the exclusion).
+    Original invariant preserved: retry does not re-attribute to
+    the failed chunk. Diagnostic assertions unchanged.
 
-  Carry-forward (unchanged from S74/S75 open):
-  - _keyword_hits word-boundary regex refactor
-  - .claude/read_prompt.md working-tree drift
-  - scripts/probe_neutral_chunk_valence.py untracked
-  - ~0.68d Yogini row-0 offset (S72 origin) — same class as Vimshottari 
-    row-0 residual, likely folds into Camp Y position
+  Full suite 3304 pass / 0 fail / 7 skip / 1 xpass — matches
+  baseline.
 
-Task 4 — Commit sequence (three commits, ratified this session):
-  1. docs(divergences): add KNOWN_DIVERGENCES.md with S75 accepted gaps
-  2. docs(spec): add Kapoor book reference in CLAUDE.md, add book to 
-     project_files/classical_references/
-  3. docs(session): S75 close block in SESSION_LOG.md
+PROCEDURE:
+1. git add agent/interpretive/claim_extraction.py tests/interpretive/test_claim_extraction.py
+2. git status --short — verify ONLY those two files staged.
+   diagnostics/latest_run.md must be unstaged.
+   .gitignore, diagnostics/e2f_retrieval_topk.md,
+   scripts/e2f_probe_thumb_retrieval.py — if any are modified/
+   untracked, DO NOT stage. They commit separately in housekeeping.
+3. git commit with the message above.
+4. git log origin/main..HEAD --oneline — expect exactly 1 line.
+5. git push origin main.
+6. git log origin/main..HEAD --oneline — expect empty post-push.
 
-Do NOT push. Full suite run + push happens after review.
-Write full command output + git status to diagnostics/latest_run.md.
+DELIVERABLE (written to diagnostics/latest_run.md, overwriting):
+- Commit hash
+- git log origin/main..HEAD --oneline before and after push
+- Final git status --short
+
+If push fails, STOP and report — do not retry without design-chat
+approval.
