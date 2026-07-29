@@ -179,27 +179,37 @@ _E3_CHUNK_ID_PATTERN = re.compile(r"for chunk '([^']+)'$")
 # AI-reviewing-AI, CLAUDE.md Working Style #5/#9), same single-retry
 # shape, adapted to per-feature extraction instead of whole-reading voice.
 #
-# E2F step 1: chunks named in excluded_chunk_ids (E-3 failures from
-# attempt 1) are dropped from the retry's own chunk pool -- the model
-# can no longer re-attempt a claim against a chunk it already failed
-# the overlap floor on. When excluded_chunk_ids is empty (a non-E-3
-# failure -- E-1/E-2/malformed-JSON -- triggered the retry), the pool is
-# unchanged and the OLD "Same chunks, same feature" wording stays
-# accurate; the NEW wording only fires when a chunk was actually removed.
+# E2F step 3a (supersedes step 1's original approach here, which is what
+# caused the 2026-07-29 dogfood empty_retry regression): turn 1 (the
+# first user message) ALWAYS presents the full, unfiltered `chunks` list
+# -- this must match what attempt 1 actually saw, because turn 2 (the
+# prior assistant response, echoed back verbatim as `prior_raw`) may
+# cite a chunk that would otherwise vanish from turn 1's own presented
+# list, producing an incoherent conversation history (turn 2 references
+# a chunk turn 1 never showed) that reliably drove the model to decline
+# rather than resolve the contradiction. Retry-pool discipline is
+# instead enforced ONLY via turn 3's correction instruction, which names
+# any E-3-excluded chunk_ids explicitly and tells the model not to cite
+# them -- discipline by instruction, not by rewriting history. When
+# excluded_chunk_ids is empty (a non-E-3 failure -- E-1/E-2/malformed-
+# JSON -- triggered the retry), the OLD "Same chunks, same feature"
+# wording stays accurate, since nothing is actually excluded.
 def _build_retry_messages(
     feature: str, observation_text: str, chunks: list[dict],
     prior_raw: str, failures: list[str], excluded_chunk_ids: set[str],
 ) -> list[dict]:
-    filtered_chunks = [c for c in chunks if c["chunk_id"] not in excluded_chunk_ids]
-    instruction = (
-        "Chunks that failed the overlap check on attempt 1 have been "
-        "removed from scope; use only the chunks now provided."
-        if excluded_chunk_ids
-        else "Same chunks, same feature."
-    )
+    if excluded_chunk_ids:
+        quoted_ids = ", ".join(f"'{cid}'" for cid in sorted(excluded_chunk_ids))
+        instruction = (
+            "The following chunk(s) failed the overlap check on attempt 1 "
+            "and must NOT be cited on this retry: " + quoted_ids + ". "
+            "Cite only from the remaining chunks in the list above."
+        )
+    else:
+        instruction = "Same chunks, same feature."
     return [
         {"role": "system", "content": _EXTRACTION_SYSTEM_PROMPT},
-        {"role": "user", "content": _build_user_prompt(feature, observation_text, filtered_chunks)},
+        {"role": "user", "content": _build_user_prompt(feature, observation_text, chunks)},
         {"role": "assistant", "content": prior_raw},
         {
             "role": "user",

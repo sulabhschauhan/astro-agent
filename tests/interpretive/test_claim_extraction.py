@@ -352,12 +352,11 @@ def test_e3_overlap_at_or_above_floor_passes():
 
 
 def test_e3_partial_failure_excludes_failed_chunk_from_retry_pool():
-    """Attempt 1 has TWO gated chunks; the model's only claim cites the
-    chunk that fails E-3. The retry pool (E2F step 1) excludes that
-    failed chunk, the retry's response cites the OTHER, never-tried
-    chunk with a claim that passes E-3, and the feature succeeds on
-    retry -- proving exclusion doesn't just skip unwinnable retries, it
-    lets a genuinely viable chunk still recover one."""
+    """Attempt 1 fails E-3 on one of two gated chunks; the retry's turn 1
+    preserves the full original chunk list (matching what attempt 1
+    saw), and the turn 3 correction instruction names the failed chunk
+    explicitly and forbids re-citing it. Retry cites the remaining
+    chunk and validates -- final_outcome == "success_retry"."""
     # "thumb" rides along, always-succeeding, so this doesn't trip the
     # all-fail RuntimeError path.
     gated_results = {
@@ -376,17 +375,22 @@ def test_e3_partial_failure_excludes_failed_chunk_from_retry_pool():
     assert len(client.completions.calls) == 3
 
     retry_messages = client.completions.calls[1]["messages"]
+    # Turn 1 (E2F step 3a): the retry's own first user message must
+    # match what attempt 1 actually saw -- BOTH chunks' text present,
+    # never filtered. Filtering turn 1 (step 1's original mechanism) is
+    # what caused the 2026-07-29 dogfood incoherent-history regression.
     retry_chunk_presentation = retry_messages[1]["content"]
     assert "p2_c0" in retry_chunk_presentation
     assert _E3_CHUNK_TEXT_2 in retry_chunk_presentation
-    # p1_c0 failed E-3 on attempt 1 -- its TEXT must be absent from the
-    # retry's presented-chunks section (its id still appears elsewhere,
-    # in the correction message's failure-echo text, asserted below).
-    assert _E3_CHUNK_TEXT not in retry_chunk_presentation
+    assert _E3_CHUNK_TEXT in retry_chunk_presentation
 
+    # Turn 3 (E2F step 3a): retry-pool discipline is now enforced ONLY
+    # via the correction instruction, which names the failed chunk_id
+    # explicitly and forbids re-citing it -- not by hiding it from turn 1.
     correction_content = retry_messages[-1]["content"]
-    assert "p1_c0" in correction_content  # failure-echo, not a chunk presentation
-    assert "Chunks that failed the overlap check on attempt 1 have been removed" in correction_content
+    assert "must NOT be cited on this retry" in correction_content
+    assert "'p1_c0'" in correction_content
+    assert "Same chunks, same feature." not in correction_content
 
     diag = result.diagnostics["features"]["life line"]
     assert diag["final_outcome"] == "success_retry"
