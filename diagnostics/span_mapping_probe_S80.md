@@ -23,7 +23,22 @@ Read-only, diagnostics-only. Gates PATH D (re-ingest, seeding new chunk boundari
 
 ## (a) GATE 1 — Seeding viability
 
-- Pages monotonic AND overlap_token_count == 0: **166 / 245 (67.76%)**
+**CORRECTION (post-publication, docs-only, no re-run):** the figure below was
+originally stated as a fraction of all 245 in-scope pages. That denominator
+is wrong for a viability rate — 65 of the 245 were never span-mapped at all
+(zero live chunks, section (f)), so they cannot be "monotonic AND overlap-
+free" in any meaningful sense; folding them into the denominator understates
+the real seeding-viable rate among pages a boundary seeder would actually
+operate on. The corrected statement, verified directly against the
+committed sidecar (`span_mapping_probe_S80_data.json`, no recompute from
+PDFs): `mapped_page_count == 180`, confirmed equal to `len(page_records)`;
+the 4 non-monotonic pages ([19, 39, 146, 219]) are confirmed a SUBSET of the
+14 overlapping pages ([13, 19, 20, 39, 68, 135, 146, 150, 155, 187, 214, 216,
+219, 302]) — so the underlying count of 166 seeding-viable pages itself does
+not change, only which denominator it is honestly reported against.
+
+- Pages monotonic AND overlap_token_count == 0: **166 / 180 mapped pages (92.22%)**
+- Of all 245 in-scope pages, including the 65 never span-mapped: **166 / 245 (67.76%)** — the original, now-superseded-in-place figure, retained here rather than silently deleted.
 - Total gap ORDINARY-PROSE tokens across all mapped pages: **33**
 - That as a fraction of U0.6's C5a ordinary-prose total (579): **5.70%**
 
