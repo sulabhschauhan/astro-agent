@@ -3,59 +3,13 @@
 Split out of SESSION_LOG.md at S81 to cap the live files size. Content
 verbatim, unedited. Not chronologically ordered.
 
-## Session 32 — P2.5.3 Kala Bala complete
+## Sessions 0-18 — completion rollup (no per-session blocks exist)
 
-### What landed
-- agent/calculations/strength/kala_bala.py — all 9 Kala Bala
-  sub-components: Nathonnatha, Paksha, Thribhaga, Abda, Masa,
-  Vara, Hora, Ayana, Yuddha. Public API: compute_kala_bala()
-  with optional sthana_result/dig_result for Yuddha cross-deps.
-- tests/calculations/strength/test_kala_bala.py — 81 tests
-  (Layer A structural, Layer B Sulabh all-7-planets AstroSage
-  parity, Layer C Surbhi spot-checks). 81/81 passed.
-- CLAUDE.md — Ayana Bala Moon/Venus divergence documented.
-- ASTRO AGENT — MASTER BUILD PLAN.md — no changes this session.
-
-### Key decisions locked (carry forward)
-1. Paksha Bala classification (locked from 27/28 data points
-   across 4 charts): Jupiter/Venus always benefic; Sun/Mars/Saturn
-   always malefic; Moon/Mercury paksha-dependent (benefic Shukla,
-   malefic Krishna). Sheridan Moon=26.9 is a fixture PDF typo
-   (expected 46.56); converted to informational comment in test.
-2. Ayana Bala formula: PyJHora (24.0 + adj_decl) * 1.25, Sun
-   doubled. Moon/Venus diverge +5.26/+3.69 at near-max declination.
-   Raman formula (23.45 * 1.2793) tested and rejected — did not
-   resolve outliers. Gap accepted. DO NOT re-investigate.
-3. Abda/Masa Bala: BPHS-compliant (Mesha Sankranti / new moon
-   weekday lord). PyJHora's implementation uses birth weekday
-   for both — confirmed placeholder, not used.
-4. Yuddha Bala: explicit 1° war gate enforced per BPHS.
-   No war in any of 4 reference charts (yuddha=0 all fixtures).
-   Disc constants: Raman confirmed via PyJHora const.py.
-5. Test tolerance tiers: ayana Moon/Venus = 6.0; ayana others
-   = 2.0; all other sub-components = 0.5 Virupa.
-6. One prompt = one file rule locked this session. Never bundle
-   implementation + tests + docs in one Claude Code prompt.
-
-### Bugs caught mid-session
-- Paksha: Mercury initially coded always-malefic; Surbhi fixture
-  (Shukla, Mercury=56.75) disproved it. Fixed to paksha-dependent.
-- Yuddha test: all 7 planets at lon=90 fired 10 simultaneous wars.
-  Fixed by isolating non-combatants to lon=200.
-- Ayana FLG_SIDEREAL removal (attempted "fix") changed values
-  by only 0.003° — confirmed declination is tropical/sidereal
-  invariant. No impact.
-
-### Test baseline
-1213 passed, 3 skipped, 0 failures.
-
-### Next task
-P2.5.4 Chesta Bala (motional strength). Pre-prompt research
-required: search jhora_sulabh.md for Chesta Bala values;
-search shadbala_fixtures.py for chesta key; search PyJHora
-strength.py for chesta_bala implementation before drafting prompt.
-
----
+Promoted out of the Session 32 block at S81, verbatim. This is the ONLY record of
+Sessions 0-18 and is ACTIVE EVIDENCE, not dormant history: the Session 2 bullet
+(classify_page mixed detection) is F2/F4's provenance and the Session 4 bullet
+(translator.py) is F5's. NEVER archive this block.
+INCOMPLETE: Sessions 5, 6, 7, 15 and 17 are absent — do not cite as a full record.
 
 - Session 0 (2026-05-25): Repo created, folder structure, `.cursorrules`, `CLAUDE.md` — COMPLETE
 - Session 1 (2026-05-25): `pdf_processor.py` complete + validated on BPHS Vol 1 (482 pages, 155 diagram); fixed kundali misclassification via number density + planetary keyword checks; `image_extractor.py` complete; `chunker.py` complete — COMPLETE
@@ -608,6 +562,60 @@ Nathonnatha, Paksha, Thribhaga, Abda, Masa, Vara, Hora, Ayana, Yuddha.
 JHora fixture in tests/fixtures/jhora_sulabh.md; AstroSage fixture in
 tests/fixtures/shadbala_fixtures.py. Pre-prompt research required:
 search jhora_sulabh.md for Kala Bala values before drafting.
+
+## Session 32 — P2.5.3 Kala Bala complete
+
+### What landed
+- agent/calculations/strength/kala_bala.py — all 9 Kala Bala
+  sub-components: Nathonnatha, Paksha, Thribhaga, Abda, Masa,
+  Vara, Hora, Ayana, Yuddha. Public API: compute_kala_bala()
+  with optional sthana_result/dig_result for Yuddha cross-deps.
+- tests/calculations/strength/test_kala_bala.py — 81 tests
+  (Layer A structural, Layer B Sulabh all-7-planets AstroSage
+  parity, Layer C Surbhi spot-checks). 81/81 passed.
+- CLAUDE.md — Ayana Bala Moon/Venus divergence documented.
+- ASTRO AGENT — MASTER BUILD PLAN.md — no changes this session.
+
+### Key decisions locked (carry forward)
+1. Paksha Bala classification (locked from 27/28 data points
+   across 4 charts): Jupiter/Venus always benefic; Sun/Mars/Saturn
+   always malefic; Moon/Mercury paksha-dependent (benefic Shukla,
+   malefic Krishna). Sheridan Moon=26.9 is a fixture PDF typo
+   (expected 46.56); converted to informational comment in test.
+2. Ayana Bala formula: PyJHora (24.0 + adj_decl) * 1.25, Sun
+   doubled. Moon/Venus diverge +5.26/+3.69 at near-max declination.
+   Raman formula (23.45 * 1.2793) tested and rejected — did not
+   resolve outliers. Gap accepted. DO NOT re-investigate.
+3. Abda/Masa Bala: BPHS-compliant (Mesha Sankranti / new moon
+   weekday lord). PyJHora's implementation uses birth weekday
+   for both — confirmed placeholder, not used.
+4. Yuddha Bala: explicit 1° war gate enforced per BPHS.
+   No war in any of 4 reference charts (yuddha=0 all fixtures).
+   Disc constants: Raman confirmed via PyJHora const.py.
+5. Test tolerance tiers: ayana Moon/Venus = 6.0; ayana others
+   = 2.0; all other sub-components = 0.5 Virupa.
+6. One prompt = one file rule locked this session. Never bundle
+   implementation + tests + docs in one Claude Code prompt.
+
+### Bugs caught mid-session
+- Paksha: Mercury initially coded always-malefic; Surbhi fixture
+  (Shukla, Mercury=56.75) disproved it. Fixed to paksha-dependent.
+- Yuddha test: all 7 planets at lon=90 fired 10 simultaneous wars.
+  Fixed by isolating non-combatants to lon=200.
+- Ayana FLG_SIDEREAL removal (attempted "fix") changed values
+  by only 0.003° — confirmed declination is tropical/sidereal
+  invariant. No impact.
+
+### Test baseline
+1213 passed, 3 skipped, 0 failures.
+
+### Next task
+P2.5.4 Chesta Bala (motional strength). Pre-prompt research
+required: search jhora_sulabh.md for Chesta Bala values;
+search shadbala_fixtures.py for chesta key; search PyJHora
+strength.py for chesta_bala implementation before drafting prompt.
+
+---
 
 ## Session 38 — P2.5.6 Drik Bala (investigation closed) + P2.5.7 shadbala_totals (2026-06-30)
 
