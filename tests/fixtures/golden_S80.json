@@ -1,0 +1,131 @@
+{
+  "generated_by": "scripts/build_golden_fixtures_S80.py",
+  "self_check_results": [
+    {
+      "assertion": "Cheiro page count == 310",
+      "expected": 310,
+      "observed": 310,
+      "status": "PASS"
+    },
+    {
+      "assertion": "Cheiro p157 native contains \"Plate XVIII\"",
+      "expected": "present",
+      "observed": "present",
+      "status": "PASS"
+    },
+    {
+      "assertion": "Cheiro p158 native char_count == 0",
+      "expected": 0,
+      "observed": 0,
+      "status": "PASS"
+    },
+    {
+      "assertion": "Cheiro p156 native contains \"CHAPTER X\"",
+      "expected": "present",
+      "observed": "present",
+      "status": "PASS"
+    }
+  ],
+  "fixtures": {
+    "cheiro_p156_chapter_x": {
+      "page_index": 155,
+      "printed_folio_if_known": 98,
+      "source_pdf_sha256": "0e3271fbd3108110bd9217e662f9064206ec2d8435a6f2768ee4786440b9ccb1",
+      "native_text": "CHAPTER X.\nTHE LINE OF HEAKT.\n. . . Keep still, my heart,\nNor ask for peace, when care may suit thee best,\nNor ask for love, nor joy, nor even rest,\nBut be content to love, whate’er betide,\nAnd maybe love will bring thee to Love’s side.\nCheiro.\nThe line of heart is naturally an important line in the study of the hand.\nLove, or the attraction of the sexes from natural causes, plays one of the\nmost prominent parts in the drama of life, and as in the nature so in the\nhand. The line of heart, otherwise called the rnensal (Plate XIII.), is that\nline which runs across the upper portion of the hand at the base of the\nMounts^of Jupiter, Saturn, the Sun, and Mercury.\nThe line of heart should be deep, clear, and well colored. It may rise\nfrom three important positions, as follows: the middle of the Mount of\nJupiter, between the first and second fingers, and from the center of the\nMount of Saturn.\nWhen it rises from the center of Jupiter (d-d, Plate XX.), it gives the\nhighest type of love—the pride and the worship of the heart’s ideal. A man\nwith such a formation is firm, strong, and reliable in his affections; he is as\nwell ambitious that the woman of his choice shall be great, noble, and famous\n—such a man would never marry beneath his station, and will have far less\nlove-affairs than the man with the line from Saturn.\nNext we will consider the line rising from the Mount of Jupiter, even\nfrom the finger itself (e-e, Plate XX.). This denotes the excess of all the fore¬\ngoing qualities; it gives the blind enthusiast, the man so carried away by his\npride that he can see no faults, no failings in that being whom he so devotedly\nworships. Alas! such people are the sufferers in the world of affection :\n98",
+      "native_char_count": 1719,
+      "corpus_chunks": [
+        {
+          "chunk_id": "cheiroslanguageo00chei_1_p156_c0",
+          "text": "CHAPTER X.\nTHE LINE OF HEART.\n\nKeep still, my heart,\nNor ask for peace, when care may suit thee best,\nNor ask for love, nor joy, nor even rest,\nBut be content to love, whate’er betide,\nAnd maybe love will bring thee to 1,0  side.\nCHEIRO.\n\nTHE line of heart is naturally an important line in the study of the hand.\nLove, or the attraction of the sexes from natural causes, plays one of the\nmost prominent parts in the drama of life, and as in the nature so in the\nhand. The hne of heart, otherwise called the mensal (Plate XIII), is that\nline which runs across the upper portion of the hand at the base of the\nMounts of Jupiter, Saturn, the Sun, and Mercury.",
+          "char_count": 657
+        },
+        {
+          "chunk_id": "cheiroslanguageo00chei_1_p156_c1",
+          "text": "The hne of heart should be deep, clear, and well colored. It may rise\nfrom three important positions, as follows: the middle of the Mount of\nJupiter, between the first and second fingers, and from the center of the\nMount of Saturn.\n\nWhen it rises from the center of Jupiter (d-d, Plate XX.), it gives the\nhighest type of love—the pride and the worship of the heart’s ideal. A man\nwith such a formation is firm, strong, and rehable in his affections; he is as\nwell ambitious that the woman of his choice shall be great, noble, and famous\n—such a man would never marry beneath his station, and will have far less\nlove-affairs than the man with the line from Saturn.",
+          "char_count": 663
+        },
+        {
+          "chunk_id": "cheiroslanguageo00chei_1_p156_c2",
+          "text": "Next we will consider the line rising from the Mount of Jupiter, even\nfrom the finger itself (e-e, Plate XX.). This denotes the excess of all the fore-\ngoing qualities; it gives the blind enthusiast, the man so carried away by his\npride that he can see no faults, no failings in that being whom he so devotedly\n\nworships. Alas! such people are the sufferers in the world of affection :\n98",
+          "char_count": 388
+        }
+      ],
+      "classify_page_label": "text",
+      "notes": "Clean native chapter opening. Corpus (Tesseract OCR) corrupts \"heart\" -> \"hne\" in at least one sub-chunk (see corpus_chunks). Native text itself contains \"rnensal\" (NOT \"mensal\") for the word Cheiro spells \"mensal\" downstream in the corpus -- a real archive.org-native ligature artifact, independently verified; see module docstring deviation (2)."
+    },
+    "cheiro_p157_plate_xviii": {
+      "page_index": 156,
+      "printed_folio_if_known": null,
+      "source_pdf_sha256": "0e3271fbd3108110bd9217e662f9064206ec2d8435a6f2768ee4786440b9ccb1",
+      "native_text": "Plate XVIII.",
+      "native_char_count": 12,
+      "corpus_chunks": [],
+      "classify_page_label": "diagram",
+      "notes": "Plate page, minimal native text, label only."
+    },
+    "cheiro_p158_plate_verso": {
+      "page_index": 157,
+      "printed_folio_if_known": null,
+      "source_pdf_sha256": "0e3271fbd3108110bd9217e662f9064206ec2d8435a6f2768ee4786440b9ccb1",
+      "native_text": "",
+      "native_char_count": 0,
+      "corpus_chunks": [],
+      "classify_page_label": "diagram",
+      "notes": "Plate verso, zero native text (genuinely blank page image)."
+    },
+    "cheiro_p191_mixed_empty_corpus": {
+      "page_index": 190,
+      "printed_folio_if_known": 125,
+      "source_pdf_sha256": "0e3271fbd3108110bd9217e662f9064206ec2d8435a6f2768ee4786440b9ccb1",
+      "native_text": "CHAPTER XIX.\nTHE CKOSS.\nThe cross is the opposite to the star, and is seldom found as a favorable\nsign. It indicates trouble, disappointment, danger, and sometimes a chauge\nin the position or life, but one brought about by trouble. There is, however,\none position in which it is a good sign to have it, namely, on the Mount of\nJupiter (m, Plate XVIII.). In this position it indicates that at least one great\naffection will come into the life. This is especially the case when the line of\nfate rises from the Mount of Luna. A strange feature with this cross on\nJupiter is that it denotes roughly about the time in life when the affection\nwill influence the individual. Whemclose to the commencement of the line\nof life and toward the side of the hand, it will be early ; on the summit of the\nmount, in middle life; and down at the base, late in life.\nOn the Mount of Saturn (n, Plate XVIII.), when touching the line of fate,\nit denotes danger of violent death by accident; but when by itself in the cen¬\nter of this mount, it increases the evil, fatalistic tendencies of the life.\nOn the Mount of the Sun it is a terrible sign of disappointment in the\npursuit of fame, art, or riches.\nThe cross on the Mount of Mercury, as a rule, indicates a dishonest\nnature, and one inclined to duplicity.\nOn the Mount of Mars under Mercury it denotes the dangerous opposi¬\ntion of enemies ; and on the Mount of Mars under Jupiter force, violence, and\neven death from quarrels.\nv A cross on the Mount of the Moon under the line of head denotes a fatal\ninfluence of the imagination. The man with such a sign will deceive even\nhimself (/, Plate XVI.).\nOn the Mount of Venus, when heavily marked, it indicates some great\n125",
+      "native_char_count": 1706,
+      "corpus_chunks": [],
+      "classify_page_label": "mixed",
+      "notes": "SUBSTITUTED for the originally-specified p90 -- see module docstring deviation (3). page_type='mixed' at ingestion time; pdf_processor.py discards OCR text for mixed pages by construction (text='' regardless of what Tesseract read), so this page has zero live corpus chunks despite 1706 chars of clean native prose (CHAPTER XIX, THE CROSS)."
+    },
+    "path_c_boundary_page": {
+      "book_name": "Deva-keralam",
+      "page_index": 101,
+      "printed_folio_if_known": null,
+      "source_pdf_sha256": "6e97b59cdd03a6b256053f67a8e2c4d08030c8c2b949a51d8ba1dab4cf55fe94",
+      "native_text": "",
+      "native_char_count": 0,
+      "corpus_chunks": [
+        {
+          "chunk_id": "Deva-keralam_p102_c0",
+          "text": "Deva Keralam 85\n\n72-78. Jupiter’s Navamsa Positions: (a)Should\n\nJupiter be in the 10th or 6th with benefic Navamsa,\n-the person will be virtuous and highly intelligent.\n\n(b) Jupiter in Sagittarius with Cancer Navamsa,\nor in Capricorn with Leo Navamsa, or in Pisces with\nLibra Navamsa will cause grief, and deprive the\nnative of learning and happiness.\n\n(c) Jupiter in the 2nd house obtaining 8th Nav-\namsa while the Moon is in Scorpio Navamsa will\nfrom the age of sixteen cause the effects of “one\nyoga”. (This part in sloka 74 is not clear, and is\ndefective in composition. The meaning is - it will\ngive effects of one yoga. Obviously this position of\nJupiter is mixed up with the Moon’s Navamsa. The\ntext wants apparently to suggest that Jupiter inthe 8th\nNavamsa, placed in the 2nd is not welcome, which\nwill be clear from “b” above and “d” below.)",
+          "char_count": 851
+        },
+        {
+          "chunk_id": "Deva-keralam_p102_c1",
+          "text": "(0) Avoiding the 8th Navamsa, Jupiter placed in\nthe 2nd will give happiness, education, sweet speech,\nmodesty and fondness for religious merits.\n\n(e) Jupiter in the 2nd house or in the 8th house\nwith a benefic’s Navamsa will grant learning, clev-\nemess in royal circles, and intelligence.\n\n(f) Jupiter placed in an angle or ina trine, with\nPushkara Navamsa will bestow great prosperity. Ifin\nthe process the planet is weak, or is in 6th/8th/12th\nsign from Navamsa ascendant, he will cause grief on\naccount of a son (or progeny) following the 21st or\n31st year. The trinal signs {rom Aries to Pisces (i.e.\ntrina] signs counted from the ascendant) should simi-\nlarly be estimated.",
+          "char_count": 678
+        },
+        {
+          "chunk_id": "Deva-keralam_p102_c2",
+          "text": "Notes: Here the text describes Jupiter in certain\nNavamsas.\n\n(a) Being in the 6th or 100 in Rasi, be should\noccupy his own Navamsa, or that of Mercury/Venus.\nHe can also be in exaltation Navamsa if the Moon is\nfull. As a result, the subject will be endowed with\n\nvirtues and a high degree of intelligence.\n\n(b) Jupiter in his Moolatrikona sign - Sagittarius\n- (from 10° 0' to 13° 20') with exalted Navamsa is not\nwelcome for happiness and Icarning. So also his\nposition in the sign Pisces (13° 2010 16° 40)’ with\nLibra Navamsa, and the sign Capricorn - debilitation\nsign - (23 deg 20' to 26 40') with Leo Navamsa.",
+          "char_count": 613
+        },
+        {
+          "chunk_id": "Deva-keralam_p102_c3",
+          "text": "Interestingly, Jupiter in the sign Cancer (23°20'\nto 26° 40') with Aquarius Navamsa (the 8th Nav-\namsa) is excluded. Obviously this does not stand in\nthe way of one’s learning and happiness unless the\nMoon is in debility in Navamsa. Please see notes in\n“c” below.\n\nSee slokas 546 - 553 for effects of Jupiter in\nPisces with Libra Navamsa.\n\n(c) Jupiterin the 2nd house with eighth Navamsa\n(23° 2010 26° 40') while the Moon is in debilitation\nNavamsa will from the age of 16 till the end cause\nsuch effects as to lead to unhappiness and deprival of\nlearning. The mention of “one yoga” seems to be\nwrong and the above interpretation makes sense\nkeeping the earlier sloka, No.73, in mind while the\n8th Navamsa of Cancer (i.e. Aquarius Navamsa) is\nnot included. In the present context, the Moon in\nspecified Navamsa position is an additional require-\nment.",
+          "char_count": 851
+        },
+        {
+          "chunk_id": "Deva-keralam_p102_c4",
+          "text": "(d) Should Jupiter be in the 2nd (in any sign) he\nshould not be between 23° 20' and 26° 40'. Then he\nwill grant the specified results. That is, if Jupiter is\nin the 2nd with eighth Navamsa, happiness, educa-\ntion, speech etc. will be affected adversely.\n\n() If Jupiter in the 2nd/8th house gets his own\nNavamsa or that of Mercury or Venus, or Cancer\n(while the Moon is full in case of Jupiter in Cancer\nNavamsa), the person will be well-educated, intelli-\ngent, clever enough to enter into high societies.\n\n(f) For Pushkaramasa, see page 239 of Book 1,\nDeva Keralam.",
+          "char_count": 566
+        },
+        {
+          "chunk_id": "Deva-keralam_p102_c5",
+          "text": "~ 79, Pushkaramsa: If all the planets from Sun\nonwards are in Pushkara Navamsas the person will\nenjoy the blessings of Goddess Lakshmi (i.e. be\nopulent), and will enjoy pleasures, fame and happi-\nness.",
+          "char_count": 201
+        }
+      ],
+      "classify_page_label": "text",
+      "book_native_chars_per_page_mean": 0.0,
+      "book_path_c_eligible": 0.0,
+      "notes": "PATH-C-BOUNDARY case (replaces the falsified Devanagari fixture 5 -- see module docstring deviation (4)/(5)). book='Deva-keralam' tied at the corpus-wide lowest native_chars_per_page_mean (0.0); this specific page has native_char_count==0 but 3760 live corpus chars (Tesseract OCR only, no native text to align against -- Path C is structurally inapplicable to this page)."
+    }
+  }
+}
