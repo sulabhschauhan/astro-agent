@@ -64,6 +64,8 @@ pdf_processor → image_extractor → chunker → translator → embedder → Ch
 query_engine + chart_calculator → astrologer → session_manager
 ```
 
+**SESSION_LOG split (S81)** — `SESSION_LOG.md` holds head-matter + S67 onward; Sessions 19-66 are in `SESSION_LOG_ARCHIVE_S19-S66.md`, verbatim. Any citation above to `SESSION_LOG.md S<n>` with n<67 resolves to the archive. Boundary derived from the lowest body session still cited here (S67) — SCOPE GUARD: never split above a live citation; the file is not chronologically ordered and 34 sessions lack headers, so boundaries are byte offsets of exact-matched header strings, never session arithmetic. TUNING NOTE: re-derive by re-grepping this file's `SESSION_LOG.md S<n>` citations; re-split past ~150 KB live.
+
 ## Reference Files (load only when relevant)
 | File | Load when |
 |---|---|
