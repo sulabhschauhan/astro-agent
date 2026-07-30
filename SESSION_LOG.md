@@ -2278,3 +2278,111 @@ HOUSEKEEPING STILL OPEN. Sessions 0-18 rollup remains in SESSION_LOG_ARCHIVE_S19
 under a heading that reads "NEVER archive this block" — the repair prompt was never run.
 data/test_images/ holds three real hand photos, tracked, public repo. Suite baseline
 3341/0/7/1xp.
+
+## S82 — One-call contract resolved, palm page-range gate SHIPPED ON (2026-07-30)
+
+Commits (5, all pushed): b85999e DATA range-map correction + page_ref range support in
+_build_where · 5d258e2 RETRIEVAL one-call Chroma where-clause gate, post-filter/candidate
+pool/fallback dropped · a69549a census script + report · 0334038 three-arm OFF/ON/WIDE probe ·
+0dee13f flag ON. Suite 3354/0/7/1xp. Plus a history rewrite (force-push, no commit object).
+
+BLOCKER CLOSED. The S81 one-call-per-feature blocker is resolved by pushing the page range into
+the SAME search() call as a Chroma where-clause. Both S81 assumptions were verified in source
+before any code changed, and one was WRONG.
+- (a) FALSIFIED AS PROPOSED. $gte/$lte do accept int operands (chromadb 1.5.9
+  api/types.py:1229-1233), but the proposed single-dict form page_ref={"$gte":s,"$lte":e} is
+  rejected: an operator expression must hold EXACTLY ONE operator (api/types.py:1221-1225, and
+  independently execution/expression/operator.py:155-158). A range must be TWO clauses under
+  $and. Compounding it, _build_where wrapped values in {"$eq": v} unconditionally, so a
+  passed-through dict would have been invalid a second time on the $eq operand type check.
+- (b) CONFIRMED. Removing the unfiltered fallback is safe: per-feature empty retrieval was
+  already a ratified graceful path (1 search call, ZERO LLM calls, validation.passed True,
+  sources == (), feature routed to _build_decline_block) —
+  tests/interpretive/test_palm_reading.py:410-432.
+- The three one-call contract tests were NOT edited and pass. _FakeSearch absorbs arbitrary
+  filters via **filters and the contract tests assert only the book_name and n_results KEYS, so
+  an added page_ref kwarg is invisible to them. Verified before the change, not after.
+
+DATA DEFECT CAUGHT BEFORE SHIP. data/cheiro_feature_pages.json still held the PRE-correction
+split: thumb 85-94 (absorbing all of Chapter X) and fingers 95-97 (excluding it). S81 logged the
+correction but never applied it to the file. Re-verified independently against the page-level
+Cheiro export: p85 CHAPTER IX THE THUMB, p93 CHAPTER X THE JOINTS OF THE FINGERS, p95 CHAPTER XI
+THE FINGERS, p98 CHAPTER XII THE PALM. Corrected to thumb 85-92, fingers 93-97. Under the old
+post-filter a wrong boundary degraded to unfiltered search; under a hard gate with no fallback
+p93-94 would have become ABSOLUTELY unreachable for fingers. Caught by checking the map before
+flipping, not by a failing test.
+
+CENSUS BEFORE MEASUREMENT (diagnostics/census_feature_page_ranges_S82.md, a69549a). page_ref
+confirmed int in live metadata — a str would have made every $gte match nothing and read as a
+retrieval defect. All 9 non-null ranges censused THROUGH the production _build_where against the
+live DB: counts 7-30, minimum 7 against a gate of _N_RESULTS_PER_FEATURE=3, zero blocking, zero
+thin, zero failures. Interior zero-chunk pages at heart 157-158 and sun 167-168 are the already-
+registered plate/blank spread, not new. All 6 named chunk_ids found by DIRECT id lookup.
+
+THREE-ARM DECISION (diagnostics/onoff_range_gate_S82.md, 0334038). OFF / ON / WIDE(n=10) over
+8 of 10 features (sun line and markings resolved no quality in the LRH fixture — both UNMEASURED).
+Inputs reused from scripts/probe_pass3_chunks.py via the retrieval_rank_probe_S81.py pattern,
+with its three query-precondition assertions ported. 24 embedding calls, 0 failures.
+- Gate is a NO-OP on 6 of 8 (ON n OFF = 3, identical sets) and CORRECTIVE on exactly 2:
+  head line (2 of 3 OFF results out-of-chapter) and fingers (1 of 3).
+- Head line is the deciding case. OFF rank 1 was p123_c0 at 0.6090, the highest score in any
+  arm — the NOMENCLATURE table ("The Line of Life is also called the Vital..."), zero
+  interpretive doctrine, outranking every real head-line passage because it names every line.
+  OFF rank 3 was p135_c2, LIFE-line doctrine. ON returned three genuine head-line passages
+  (p151_c2, p146_c2, p147_c0).
+- "LET THE LLM CHOOSE FROM A DEEPER WINDOW" REFUTED, on text not argument. Head line's WIDE n=10
+  held only 2 in-range chunks; the 8 out-of-range ones are other lines' doctrine that never names
+  its own subject — "If the line leave the line of life..." (p135, life), "When the line is quite
+  bare of branches..." (p160, heart). Chapter provenance is metadata; it is not recoverable from
+  the text an LLM sees, and the embedding cannot recover it either, which is why they rank high.
+  Also 3.3x token cost per reading.
+- Earlier worry REFUTED: the gate does not exclude displaced head-line doctrine. The out-of-range
+  chunks are OTHER lines' doctrine. No range widening needed.
+
+OCR CORRUPTION — RE-DISCOVERED, NOT NEW. A fresh count of line-family corruption in the Cheiro
+corpus (hne 20, lne 15, lme 4) reproduces diagnostics/bidirectional_corruption_census_S80.md
+EXACTLY, and that census also carries the larger life->hfe at 34 which the fresh count missed.
+S79 already established the cause (pipeline discards native text, re-OCRs with Tesseract); S80
+established C1:C2 = 3.962, retiring PATH C and locking PATH D; S81's layer table already assigned
+fate line to RETRIEVAL and head line to PROMPT and stated corpus repair fixes NEITHER. No new
+census was written.
+- NEW AND ACTIONABLE: 32 of the 51 line-family corruptions fall INSIDE ranges the gate now
+  enforces, head line worst (p149 has more corrupted "line" tokens than clean; p154 is 4-and-4).
+  The gate RAISES exposure to corrupted text: a corrupted in-range chunk previously had to
+  outrank 460 competitors to reach the LLM, and now competes only against 7-30 chapter-mates for
+  3 slots. Direction certain, MAGNITUDE UNMEASURED. Not grounds to revert — corruption cuts
+  against out-of-range chunks equally and the gate's doctrine benefit is demonstrated.
+- Page indexing pinned: census page_index is 0-based, page_ref = page_index + 1 (cross-checked on
+  three examples). Relevant to S79's superseded off-by-one.
+
+REPO HYGIENE. History purged of data/pdfs/ (5 PDFs, ~76 MB committed in 7277832, deleted in
+5d0e0a4, blobs permanent until rewritten). git-filter-repo on a throwaway mirror, never the
+working clone, so gitignored local assets (data/pdfs/, data/chroma_db/, PyJHora-main/) survived.
+Pack 85.35 MiB -> 10.84 MiB, 523 commits and 405 HEAD files unchanged, force-pushed. Residual is
+data/all_chunks.json revision history (11.88 + 7.20 + 3.47 MiB), a GENERATED artifact re-committed
+whole on every re-ingest — the ongoing growth vector, purge candidate for a later pass along with
+data/chunked_chunks.json (gitignored yet present in history). PyJHora-main/ was never committed.
+No .env or secret ever committed.
+
+CARRY-FORWARD OPENED.
+- p123_c0 nomenclature attractor (DATA) — ranks 1 for head line, 7 for heart line; a table-of-
+  names chunk polluting any line query not gated away from it. Now LATENT for the 9 ranged
+  features, LIVE for any future feature without a range. Census structural chunks (contents,
+  plate lists, running heads) before choosing between a page_type exclusion and a chunking change.
+- Gate/corruption interaction above — magnitude unmeasured.
+- _build_where bool hole — isinstance(v, int) accepts bool, so page_ref=(False, True) becomes a
+  0-1 range silently; chromadb's own validator accepts it too. Unreachable by current callers.
+  Fix: type(v) is int.
+- Shipped default no longer pinned — the flip replaced test S82e's `assert
+  _FEATURE_PAGE_FILTER_ENABLED is False` precondition with a monkeypatch, so nothing now asserts
+  what the module ships with. Add a one-line test. Also rename
+  test_page_range_gate_off_by_default_omits_page_ref_key — it is no longer "by default".
+- sun line gate behaviour UNMEASURED (no quality resolved in the LRH fixture). Inferred safe from
+  the a69549a census (range holds >= 3 chunks, cannot starve). Inference, not measurement.
+- requirements.txt is a one-line stub (timezonefinder) with a comment saying so. The repo is
+  public and is now the distribution artifact; nobody can reproduce the environment from it.
+- PRIVACY, DEFERRED BY EXPLICIT DECISION: data/default_user/kundali_summary.txt (name, DOB, birth
+  time, place) and 5 data/sessions/*.json remain tracked in a PUBLIC repo, against the locked
+  "no PDF/palm storage, fresh upload every session" decision. data/sessions/ is gitignored but
+  ignore rules do not untrack. A second history rewrite is cheap now and gets more expensive as
+  commits accumulate.
