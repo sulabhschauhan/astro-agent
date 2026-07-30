@@ -17,7 +17,7 @@ CHROMA_DIR = "data/chroma_db"
 COLLECTION_NAME = "astro_chunks"
 EMBEDDING_MODEL = "text-embedding-3-small"
 DEFAULT_N_RESULTS = 5
-VALID_FILTER_KEYS = {"book_name", "topic", "page_type"}
+VALID_FILTER_KEYS = {"book_name", "topic", "page_type", "page_ref"}
 
 
 def get_collection(persist_dir: str = CHROMA_DIR) -> chromadb.Collection:
@@ -33,7 +33,20 @@ def _build_where(filters: dict) -> dict | None:
     invalid = set(filters) - VALID_FILTER_KEYS
     if invalid:
         raise ValueError(f"Invalid filter keys: {invalid}. Allowed: {VALID_FILTER_KEYS}")
-    clauses = [{k: {"$eq": v}} for k, v in filters.items()]
+    clauses = []
+    for key, value in filters.items():
+        if isinstance(value, (tuple, list)):
+            if key != "page_ref":
+                raise ValueError(f"Tuple/list values are only valid for page_ref, got key: {key}")
+            if len(value) != 2 or not all(isinstance(v, int) for v in value):
+                raise ValueError(f"page_ref range must be exactly 2 ints (start, end), got: {value}")
+            start, end = value
+            if start > end:
+                raise ValueError(f"page_ref range start must be <= end, got: {value}")
+            clauses.append({"page_ref": {"$gte": start}})
+            clauses.append({"page_ref": {"$lte": end}})
+        else:
+            clauses.append({key: {"$eq": value}})
     if not clauses:
         return None
     if len(clauses) == 1:
@@ -54,7 +67,9 @@ def search(
         question: User question string (must be non-empty).
         n_results: Max results to return; clamped to collection size.
         persist_dir: ChromaDB persist directory path.
-        **filters: Metadata filters — allowed keys: book_name, topic, page_type.
+        **filters: Metadata filters — allowed keys: book_name, topic, page_type,
+            page_ref (bare int for exact match, or a 2-int (start, end) tuple/list
+            for an inclusive range).
 
     Returns:
         List of dicts with keys: chunk_id, text, score, book_name, topic,
