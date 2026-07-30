@@ -2171,3 +2171,110 @@ RESOLVED BY 162539e. Every file held untracked at S80 close is now on origin/mai
 scripts/corpus_loss_attribution_S80.py, scripts/build_golden_fixtures_S80.py,
 tests/test_golden_fixtures_S80.py, tests/fixtures/golden_S80.json,
 tests/fixtures/native_coverage_S80.json, diagnostics/corpus_export_cheiro_S79.jsonl.
+
+## S81 — Palm retrieval: corpus exonerated, page-range filter built, one-call contract blocks ship (2026-07-30)
+
+HEAD at close 55d88a8. Flag _FEATURE_PAGE_FILTER_ENABLED currently False (reverted).
+Commits: 947e6d8 F4 census (VOID) · b1f7a79 retrieval baseline (verdicts VOID) · 32b5125
+p165_c2 root cause · 99486aa existence-vs-rank reconcile · b51049e production-query rank
+probe + committed script · fa9ee8b n_results sweep · d017543 page filter v1 (post-filter) ·
+55d88a8 pool=463 + thumb/fingers ranges. Docs: af39327, fc30177, b46424f, 162539e.
+
+ROOT CAUSE, ESTABLISHED. Palm retrieval searched all 463 Cheiro chunks per feature. Score
+gaps between adjacent ranks are 0.016-0.034 with no cliff, so near-miss chunks from
+unrelated chapters filled the gate of 3. Measured (b51049e, deterministic): fate p163_c1=3
+p165_c2=14; head p145_c0=>20; heart p159_c2=5 p160_c1=6 p160_c3=>20. Sweep (fa9ee8b):
+min_n_all fate=15, head=NEVER, heart=NEVER — no value of n fixes it. Not a threshold problem.
+
+FIX: PAGE-RANGE PRE-FILTER. Cheiro chapter map extracted from the page-level export (52
+headings) and written to data/cheiro_feature_pages.json. With pool = full collection:
+p145_c0 6, p165_c2 8, p160_c3 8, p163_c1 3. Head top3 p151_c2/p146_c2/p147_c0 and fate top3
+p165_c1/p165_c0/p163_c1 are all in-chapter and human-verified as correct doctrine.
+
+CORPUS EXONERATED FOR PALM — no repair warranted. 463 chunks, all 6 target chunks exist by
+direct id lookup. Across the whole doctrine range p133-182, ZERO text pages are empty; all 9
+empty pages are page_type='diagram' (plates). S79's p157/p158 plate-spread ruling is
+CONFIRMED independently. Path D is not required for palm.
+
+TARGET LIST WAS STALE, NOT THE SYSTEM. The S68-era "correct chunks" were never validated.
+Heart top3 (p159_c3, p160_c2, p161_c0) is dense correct doctrine — breaks under
+Saturn/Sun/Mercury, fork on Jupiter, high vs low origin, faded line. p145_c0 at rank 6 is
+CORRECT behaviour: it is the chapter-opening page (epigraph + preamble); p146/p147 carry the
+sign doctrine. Retrieval now ranks better than the rubric asked for.
+
+BLOCKER CARRIED TO S82. The filter makes TWO search() calls per feature (widened candidate
+query, then a fallback re-query). The codebase pins ONE call per feature at
+_N_RESULTS_PER_FEATURE=3 — asserted independently by
+test_query_template_two_hand_merged_quality_literal_shape (len(calls)==1, n_results==3),
+test_search_filters_to_canonical_cheiro_book (n_results==3), and
+test_one_feature_search_failure_does_not_kill_reading_other_feature_succeeds (2 features ->
+2 calls, no retry). These tests encode design intent and MUST NOT be edited.
+PROPOSED, NOT VERIFIED: push the range into the Chroma where clause —
+search(q, n_results=3, book_name=_CHEIRO_BOOK, page_ref={"$gte":s,"$lte":e}). Requires
+adding "page_ref" to query_engine.VALID_FILTER_KEYS and letting _build_where pass a
+pre-built operator dict through (currently $eq-only; no existing caller passes a dict, so
+the change is a no-op for them). page_ref is stored as int (confirmed by live metadata read).
+UNVERIFIED: (a) this ChromaDB version's $gte/$lte support on int metadata, (b) whether
+removing the fallback is safe — a zero-match range would yield empty results for that
+feature; test_empty_retrieval_yields_zero_llm_calls_and_full_decline suggests the empty path
+is graceful, but that was not confirmed. Verify both before committing.
+
+RANGE MAP CORRECTIONS. thumb 85-92 (was 85-94, wrongly absorbed the Joints chapter);
+fingers 93-97 (adds THE JOINTS OF THE FINGERS p93-94). p98 opens "THE PALM, AND LARGE AND
+SMALL HANDS" and holds no fingers doctrine, so S68's flagging of p98_c1 as the fingers
+target was WRONG and excluding it is correct. Earlier map versions omitted 6 chapters and
+had 4 wrong boundaries — the 52-heading extraction is authoritative.
+
+F4 CENSUS (947e6d8) IS VOID. data/progress/*.json covers 14 of 22 books, 5,219 of 7,357
+pages, and has NO native_text_present field. The 75.9% (947/1248) figure is over an
+unknown-completeness subset with a broken exclusion term; both sub-totals were zero
+artifacts. The pre-registered cut (>=70% dominant / 40-70% second pass / <40% re-open) DID
+NOT FIRE. F4 is unmeasured, not disproven. progress.json is an incomplete census surface —
+corpus-wide sizing must read PDF page counts directly.
+
+RETRACTIONS — do not re-inherit the originals.
+1. "S79's fate-line ruling is falsified" — WITHDRAWN. S79 was right: p165_c2 exists and
+   p163_c1 outranks it. Exactly as measured.
+2. "The query template changed without ratification" — WITHDRAWN. Production unchanged since
+   S68. The ungrammatical "a 3 {feature}" string came from an ephemeral probe script
+   (_N_RESULTS_PER_FEATURE int landing in the quality slot), never from production.
+3. "_N_RESULTS_PER_FEATURE=3 is unjustified" — WITHDRAWN. It is justified at
+   palm_reading.py:168-175. BUT the comment OVERSTATES its evidence: it cites "worst
+   doctrine-first-hit rank 2 across all 8 provable features"; S67 (0a738c3 section 4)
+   measured only 2 of 10 features against their own doctrine page. Also: first-hit rank is
+   not all-relevant-doctrine coverage, which is what it is now relied on for.
+4. "Hasta Samudrika noise competes in palm queries" — WITHDRAWN. Every search call in
+   palm_reading.py passes book_name=_CHEIRO_BOOK (lines 542, 571, 574, 583, 591).
+5. b1f7a79's Q1=DATA verdict and ALL ranks in b1f7a79 / 99486aa — VOID. b1f7a79 conflated
+   "absent from top 10 results" with "missing from corpus"; the ranks came from the
+   int-in-query script. b51049e onward are the valid numbers.
+6. "The 3 failing tests hardcode stale values" — WITHDRAWN. They pin a real contract.
+
+BOOK MEASUREMENTS (from page-level exports, this session).
+Hasta Samudrika: 449 pages, only 4 with >=50 alphabetic words, 19 with >=20, ZERO Devanagari
+codepoints; typical page is OCR noise. Unusable as an artifact. S80's "effectively lost" is
+confirmed. The DOCTRINAL gap is real and separate — Cheiro is Western palmistry; the Indian
+tradition (mounts tied to grahas, different rekha nomenclature, linkage to Vedic houses) is
+absent by accident. Fix path: re-source an English edition, or Devanagari OCR + translate.
+Deva-keralam: 684 pages, 605 with substantial English, 12 empty, zero Devanagari — HEALTHY.
+The F9 two-column alarm is overstated for this book.
+Cheiro: 310 pages, 178 text / 127 diagram / 5 mixed; 132 empty = exactly the diagram+mixed
+set. F3 vision fill produced zero entries for this book.
+
+HEAD LINE HAS A SECOND, SEPARATE DEFECT. Retrieval now delivers correct head-line doctrine,
+but the S71 Stage-1 valence defect is untouched: neutral disjunctive text ("intellectual
+strength OR weakness") is labelled valence="supports". PROMPT layer, not retrieval. No
+amount of retrieval work fixes it. Belongs to the S71 arc.
+
+CARRY-FORWARD TO S82, gated, in order. (1) Resolve the one-call contract blocker; ship the
+filter ON. (2) Add a fixture with an in-range page_ref — every one of the 9 first-round
+failures logged "0 of N candidates in range", so no test exercises the filter's SUCCESS
+path. (3) Rewrite accepted gap (c) — the "never rank" framing is obsolete. (4) Correct the
+_N_RESULTS_PER_FEATURE justification comment. (5) F4 remediation, re-sized off PDF page
+counts not progress.json. (6) Head-line valence (S71 arc). (7) Hasta re-sourcing decision.
+Parked: Path D, F3, F9, F10, provider agnosticism, vision-citation policy.
+
+HOUSEKEEPING STILL OPEN. Sessions 0-18 rollup remains in SESSION_LOG_ARCHIVE_S19-S66.md
+under a heading that reads "NEVER archive this block" — the repair prompt was never run.
+data/test_images/ holds three real hand photos, tracked, public repo. Suite baseline
+3341/0/7/1xp.
