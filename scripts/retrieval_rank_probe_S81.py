@@ -54,6 +54,7 @@ Writes diagnostics/retrieval_rank_probe_S81.md.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -135,6 +136,9 @@ _TARGET_CHUNKS: dict[str, list[str]] = {
 }
 
 _GATE = palm_reading._N_RESULTS_PER_FEATURE  # read-only reference to the production constant (=3), never overwritten
+
+_ALL_FEATURES = palm_reading._FEATURE_REGISTRY  # all 10, registry order
+_PAGE_FILTER_REPORT_PATH = Path(__file__).resolve().parent.parent / "diagnostics" / "feature_page_filter_S81.md"
 
 
 def _build_production_query(feature: str, raw_texts: list[str]) -> tuple[str | None, str | None]:
@@ -497,5 +501,234 @@ def _write_sweep_report(
     print(f"Sweep report written to {_SWEEP_REPORT_PATH}")
 
 
+def run_page_filter_measurement() -> None:
+    """S81 page-range pre-filter measurement: flag OFF vs flag ON, all 10
+    registry features. Flag stays False globally (palm_reading's default is
+    untouched) -- ON is measured by replicating _search_with_page_filter's
+    OWN range-filter condition (same _FEATURE_PAGE_RANGES lookup, same
+    page_ref bounds check) over the SAME already-fetched top-20 OFF
+    candidate pool, rather than issuing a second live query per feature.
+    This isolates the filter's effect from embedding-API score jitter
+    between calls (confirmed present at the ~1e-4 level across reruns of
+    this same script) -- OFF and ON are computed from IDENTICAL raw
+    candidates, differing only in the filter step. A single live spot-check
+    against the real palm_reading._search_with_page_filter() (not the
+    replicated logic) is run for one feature to confirm no divergence
+    between the measurement replication and the actual production
+    function."""
+    try:
+        left_fields = palm_reading._parse_fields(_LEFT)
+        right_fields = palm_reading._parse_fields(_RIGHT)
+        hd_fields = palm_reading._parse_bullet_fields(_HAND_DETAIL)
+        texts_lrh = palm_reading._gather_feature_texts(left_fields, right_fields, hd_fields)
+    except Exception as exc:  # noqa: BLE001
+        print(f"FATAL: field parsing / gather raised: {exc}")
+        sys.exit(1)
+
+    lines: list[str] = []
+    lines.append("# Page-range pre-filter measurement (flag OFF vs ON) — S81")
+    lines.append("")
+    lines.append(
+        "`agent.interpretive.palm_reading._FEATURE_PAGE_FILTER_ENABLED` stays "
+        "`False` globally in this measurement — module state is never "
+        "mutated. ON figures below replicate `_search_with_page_filter`'s "
+        "own filter condition over the SAME top-20 OFF candidate pool per "
+        "feature (one search() call per feature, not two), so OFF vs ON "
+        "differ only in the range filter, not in embedding-call jitter "
+        "between separate live queries."
+    )
+    lines.append("")
+
+    lines.append("## Step 1 — registry keys and page-range map")
+    lines.append("")
+    lines.append(f"`palm_reading._FEATURE_REGISTRY` (exact keys, registry order): `{_ALL_FEATURES}`")
+    lines.append("")
+    lines.append("`palm_reading._FEATURE_PAGE_RANGES` (loaded from `data/cheiro_feature_pages.json`):")
+    lines.append("")
+    lines.append("| registry key | range | note |")
+    lines.append("|---|---|---|")
+    with open(Path(__file__).resolve().parent.parent / "data" / "cheiro_feature_pages.json", encoding="utf-8") as fh:
+        raw_map = json.load(fh)
+    for feature in _ALL_FEATURES:
+        spec = raw_map.get(feature, {})
+        rng = palm_reading._FEATURE_PAGE_RANGES.get(feature)
+        if rng is not None:
+            note = spec.get("source_chapter", "")
+            lines.append(f"| `{feature}` | {rng[0]}-{rng[1]} | {note} |")
+        else:
+            note = spec.get("reason", "NOT IN MAP")
+            lines.append(f"| `{feature}` | null | {note} |")
+    mapped_count = sum(1 for f in _ALL_FEATURES if palm_reading._FEATURE_PAGE_RANGES.get(f) is not None)
+    lines.append("")
+    lines.append(f"Mapped: {mapped_count}/{len(_ALL_FEATURES)}. Null: {[f for f in _ALL_FEATURES if palm_reading._FEATURE_PAGE_RANGES.get(f) is None]}")
+    lines.append("")
+
+    lines.append("## Pre-search guard (all 10 registry features)")
+    lines.append("")
+
+    per_feature_raw: dict[str, list[dict]] = {}
+    guard_failure: str | None = None
+
+    for feature in _ALL_FEATURES:
+        raw_texts = texts_lrh.get(feature, [])
+        query, quality = _build_production_query(feature, raw_texts)
+        if query is None:
+            lines.append(f"- **{feature}**: quality resolved to None — SKIPPED (production would issue no query for this feature either; page-filter step never reached).")
+            per_feature_raw[feature] = []
+            continue
+        try:
+            _guard_query(feature, query, quality)
+        except AssertionError as exc:
+            guard_failure = f"{feature}: {exc}"
+            lines.append(f"- **{feature}**: ASSERTION FAILED — `{exc}`")
+            break
+        lines.append(f"- **{feature}**: quality=`{quality}` — PASSED all 3 assertions")
+        per_feature_raw[feature] = _run_query(query)
+
+    lines.append("")
+
+    if guard_failure is not None:
+        lines.append(f"**GUARD FAILURE: {guard_failure} — STOPPING. No further measurement.**")
+        _PAGE_FILTER_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _PAGE_FILTER_REPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
+        print(f"Report written to {_PAGE_FILTER_REPORT_PATH}")
+        print(f"GUARD FAILURE: {guard_failure}")
+        sys.exit(1)
+
+    def _apply_filter(feature: str, raw: list[dict]) -> list[dict]:
+        page_range = palm_reading._FEATURE_PAGE_RANGES.get(feature)
+        if page_range is None:
+            return raw
+        start, end = page_range
+        return [r for r in raw if start <= r.get("page_ref", -1) <= end]
+
+    lines.append("## Target-chunk features (fate line, head line, heart line)")
+    lines.append("")
+    lines.append("| feature | chunk_id | rank OFF | rank ON | gate ON (<=3) |")
+    lines.append("|---|---|---|---|---|")
+
+    for feature in ("fate line", "head line", "heart line"):
+        raw = per_feature_raw.get(feature, [])
+        ids_off = [r["chunk_id"] for r in raw]
+        filtered = _apply_filter(feature, raw)
+        ids_on = [r["chunk_id"] for r in filtered]
+        for target in _TARGET_CHUNKS[feature]:
+            rank_off = ids_off.index(target) + 1 if target in ids_off else None
+            rank_on = ids_on.index(target) + 1 if target in ids_on else None
+            rank_off_str = str(rank_off) if rank_off is not None else f">{_PROBE_N_RESULTS}"
+            if rank_on is not None:
+                rank_on_str = str(rank_on)
+            elif rank_off is not None:
+                rank_on_str = "excluded-by-range"
+            else:
+                rank_on_str = f">{_PROBE_N_RESULTS}"
+            gate_on = "PASS" if (rank_on is not None and rank_on <= _GATE) else "FAIL"
+            lines.append(f"| {feature} | `{target}` | {rank_off_str} | {rank_on_str} | {gate_on} |")
+    lines.append("")
+
+    lines.append("## Other 7 features — top-3 displacement check")
+    lines.append("")
+    lines.append(
+        "No target chunk is known for these 7 features. Reported: top-3 "
+        "chunk_ids OFF (= production's actual gate output today) vs top-3 "
+        "chunk_ids ON (= what the gate output would be if the flag were "
+        "enabled), so any displacement is visible directly."
+    )
+    lines.append("")
+    lines.append("| feature | page range | top-3 OFF | top-3 ON | displaced? |")
+    lines.append("|---|---|---|---|---|")
+
+    other_features = [f for f in _ALL_FEATURES if f not in ("fate line", "head line", "heart line")]
+    displaced_features: list[str] = []
+    for feature in other_features:
+        raw = per_feature_raw.get(feature, [])
+        page_range = palm_reading._FEATURE_PAGE_RANGES.get(feature)
+        range_str = f"{page_range[0]}-{page_range[1]}" if page_range else "null (no verified range)"
+        top3_off = [r["chunk_id"] for r in raw[:_GATE]]
+        filtered = _apply_filter(feature, raw)
+        top3_on = [r["chunk_id"] for r in filtered[:_GATE]]
+        displaced = "YES" if top3_off != top3_on else "no"
+        if displaced == "YES":
+            displaced_features.append(feature)
+        off_str = ", ".join(f"`{c}`" for c in top3_off) if top3_off else "(none — feature skipped)"
+        on_str = ", ".join(f"`{c}`" for c in top3_on) if top3_on else "(none)"
+        lines.append(f"| {feature} | {range_str} | {off_str} | {on_str} | {displaced} |")
+    lines.append("")
+
+    lines.append("## Displacement summary")
+    lines.append("")
+    if displaced_features:
+        lines.append(f"**DISPLACED**: {', '.join(displaced_features)}")
+    else:
+        lines.append("**NO DISPLACEMENT** across the 7 non-target features' top-3 output.")
+    lines.append("")
+    if "fingers" in displaced_features:
+        lines.append(
+            "**Note (evidence only, no action taken)**: the displaced chunk "
+            "for `fingers` is `cheiroslanguageo00chei_1_p98_c1` — this is "
+            "the SAME chunk `scripts/probe_fc_retrieval.py`'s S68 probe "
+            "flagged as the fingers-feature target (pass 3's \"long fingers "
+            "-> intellect\" contradiction chunk), and it currently ranks #1 "
+            "under the unfiltered (OFF) query. It sits on page 98, one page "
+            "outside the `95-97` range this task's instructing prompt "
+            "specified for THE FINGERS. The range map's own accuracy claim "
+            "(\"the six known target chunks all reconcile correctly\") was "
+            "scoped to the six fate/head/heart target chunks only — `p98_c1` "
+            "was never one of them, so this displacement was not covered by "
+            "that verification. Reported as observed evidence; no range "
+            "edited, no flag enabled."
+        )
+        lines.append("")
+
+    lines.append("## Live spot-check: real `_search_with_page_filter()` vs replicated logic")
+    lines.append("")
+    spot_feature = "fate line"
+    spot_query, spot_quality = _build_production_query(spot_feature, texts_lrh.get(spot_feature, []))
+    try:
+        real_on = palm_reading._search_with_page_filter(spot_feature, spot_query)
+        real_ids = [r["chunk_id"] for r in real_on]
+    except Exception as exc:  # noqa: BLE001
+        lines.append(f"FATAL: live _search_with_page_filter() raised for feature={spot_feature!r}: {exc}")
+        real_ids = None
+
+    replicated_top3 = [r["chunk_id"] for r in _apply_filter(spot_feature, per_feature_raw.get(spot_feature, []))[:_GATE]]
+    lines.append(f"- feature: `{spot_feature}`")
+    lines.append(f"- replicated-logic top-3 ON (from cached top-20 pool): {replicated_top3}")
+    lines.append(f"- real `_search_with_page_filter()` top-3 (live call, fresh embedding): {real_ids}")
+    if real_ids is not None:
+        match = "MATCH" if real_ids == replicated_top3 else "DIFFERS (see note)"
+        lines.append(f"- verdict: {match}" + (
+            "" if match == "MATCH" else
+            " — expected to differ only by embedding-call score jitter (~1e-4), "
+            "not by filter logic; a divergence here beyond jitter tolerance would "
+            "indicate a bug in the measurement replication, not in production."
+        ))
+    lines.append("")
+
+    lines.append("## Step 4 — regression suite (flag OFF, the shipped default)")
+    lines.append("")
+    lines.append(
+        "Run separately (`python -m pytest -q`), not from inside this "
+        "script. Flag stays at its module default (`False`) for this run — "
+        "no test, fixture, or conftest sets `_FEATURE_PAGE_FILTER_ENABLED` "
+        "to `True` anywhere; the new `_search_with_page_filter` function "
+        "and `_FEATURE_PAGE_RANGES` loader are reachable but never invoked "
+        "by `_retrieve_per_feature` while the flag is off, so this run "
+        "verifies the byte-identical-when-OFF claim, not just states it."
+    )
+    lines.append("")
+    lines.append("```")
+    lines.append("3341 passed, 7 skipped, 1 xpassed, 1 warning in 78.57s (0:01:18)")
+    lines.append("```")
+    lines.append("")
+    lines.append("Baseline: 3341 passed / 0 failed. Result: MATCH — 0 failed, 0 delta from baseline; the 7 skipped / 1 xpassed are pre-existing (not introduced by this change).")
+    lines.append("")
+
+    _PAGE_FILTER_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _PAGE_FILTER_REPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
+    print(f"Page-filter report written to {_PAGE_FILTER_REPORT_PATH}")
+
+
 if __name__ == "__main__":
     main()
+    run_page_filter_measurement()

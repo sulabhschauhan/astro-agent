@@ -119,9 +119,11 @@ not silently absorbed.
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from agent.interpretive import claim_extraction, claim_voicing
@@ -180,6 +182,56 @@ _FEATURE_REGISTRY: tuple[str, ...] = (
     "thumb", "fingers", "mount of venus", "mount of jupiter",
     "markings/other features",
 )
+
+# S81 page-range pre-filter (flag-gated, default OFF -- SAMPLE before SCALE,
+# CLAUDE.md Working Style #2). When _FEATURE_PAGE_FILTER_ENABLED is False
+# (the default), _retrieve_per_feature's behavior is byte-identical to the
+# pre-S81 code path -- the same single search() call at
+# _N_RESULTS_PER_FEATURE, nothing else touched. When True,
+# _search_with_page_filter widens the candidate pool to
+# _PAGE_FILTER_CANDIDATE_N and keeps only chunks whose page_ref falls in
+# the feature's verified chapter range (data/cheiro_feature_pages.json)
+# before truncating to the same production gate. Does NOT change
+# _N_RESULTS_PER_FEATURE or the query template -- those are separate,
+# untouched constants.
+_FEATURE_PAGE_FILTER_ENABLED = False
+
+_FEATURE_PAGE_RANGES_PATH = (
+    Path(__file__).resolve().parent.parent.parent / "data" / "cheiro_feature_pages.json"
+)
+
+# Widened candidate pool for the Python-side post-filter (see module
+# docstring above the flag). NOT a change to _N_RESULTS_PER_FEATURE -- this
+# constant only controls how many candidates the filter has to choose from
+# before truncating to the real production gate.
+_PAGE_FILTER_CANDIDATE_N = 20
+
+
+def _load_feature_page_ranges() -> dict[str, tuple[int, int] | None]:
+    """Loads data/cheiro_feature_pages.json. A missing/malformed file, or a
+    feature with a null start/end, degrades to unfiltered retrieval for
+    that feature (never a crash, never a silent empty result) -- see
+    _search_with_page_filter."""
+    try:
+        raw = json.loads(_FEATURE_PAGE_RANGES_PATH.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 -- a bad map file must not break the module import
+        logger.warning(
+            "palm_reading._load_feature_page_ranges: failed to load %s: %s "
+            "-- page-range filter will fall through to unfiltered search "
+            "for every feature.",
+            _FEATURE_PAGE_RANGES_PATH, exc,
+        )
+        return {}
+    ranges: dict[str, tuple[int, int] | None] = {}
+    for key, spec in raw.items():
+        if key.startswith("_"):  # e.g. "_comment"
+            continue
+        start, end = spec.get("start"), spec.get("end")
+        ranges[key] = (start, end) if start is not None and end is not None else None
+    return ranges
+
+
+_FEATURE_PAGE_RANGES: dict[str, tuple[int, int] | None] = _load_feature_page_ranges()
 
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
 # Justification: S67 probe-proven -- querying an absence-phrased field
@@ -484,9 +536,12 @@ def _retrieve_per_feature(
             continue
         query = _build_feature_query(feature, quality)
         try:
-            results[feature] = search(
-                query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK
-            )
+            if _FEATURE_PAGE_FILTER_ENABLED:
+                results[feature] = _search_with_page_filter(feature, query)
+            else:
+                results[feature] = search(
+                    query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK
+                )
         except Exception as exc:  # noqa: BLE001 -- one bad query must not kill the reading
             logger.warning(
                 "palm_reading._retrieve_per_feature: search failed for "
@@ -495,6 +550,45 @@ def _retrieve_per_feature(
             failed.append(feature)
             results[feature] = []
     return results, failed
+
+
+def _search_with_page_filter(feature: str, query: str) -> list[dict]:
+    """S81 page-range pre-filter (flag-gated by _FEATURE_PAGE_FILTER_ENABLED,
+    default OFF -- see that constant's own comment). Retrieves a widened
+    candidate pool (_PAGE_FILTER_CANDIDATE_N) via the SAME unmodified
+    search()/query path production always used, keeps only chunks whose
+    page_ref falls inside the feature's verified chapter range, then
+    truncates to the real production gate _N_RESULTS_PER_FEATURE.
+
+    Never returns zero chunks silently: a feature with no verified range
+    (_FEATURE_PAGE_RANGES[feature] is None) falls through to plain
+    unfiltered search immediately; a filter that matches nothing, or that
+    raises for any reason, logs a warning naming the feature and falls
+    back to the same unfiltered search rather than returning an empty
+    list."""
+    page_range = _FEATURE_PAGE_RANGES.get(feature)
+    if page_range is None:
+        return search(query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK)
+    start, end = page_range
+    try:
+        candidates = search(query, n_results=_PAGE_FILTER_CANDIDATE_N, book_name=_CHEIRO_BOOK)
+        in_range = [r for r in candidates if start <= r.get("page_ref", -1) <= end]
+        if not in_range:
+            logger.warning(
+                "palm_reading._search_with_page_filter: feature=%r page "
+                "range %d-%d matched 0 of %d candidates -- falling back "
+                "to unfiltered search.",
+                feature, start, end, len(candidates),
+            )
+            return search(query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK)
+        return in_range[:_N_RESULTS_PER_FEATURE]
+    except Exception as exc:  # noqa: BLE001 -- filter failure must not break retrieval
+        logger.warning(
+            "palm_reading._search_with_page_filter: filter raised for "
+            "feature=%r: %s -- falling back to unfiltered search.",
+            feature, exc,
+        )
+        return search(query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK)
 
 
 def _assemble_retrieved_passages(

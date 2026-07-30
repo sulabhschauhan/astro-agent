@@ -71,15 +71,15 @@ Evidence only — no relevance label, score, or n recommendation applied below. 
 
 > The Lines of the Hand. 73  The main lines are known by other names, as follows:  The Line of Life is also called the Vital.  The Line of Head, the Natural or Cerebral.  The Line of Heart, the Mensal. 
 
-**2.** `cheiroslanguageo00chei_1_p151_c2` — score 0.5898
+**2.** `cheiroslanguageo00chei_1_p151_c2` — score 0.5897
 
 > THE LINE OF HEAD IN RELATION TO THE PSYCHIC HAND.  The natural position for the line of head on this hand is extremely sloping, giving all the visionary, dreamy qualities in accordance with this type.
 
-**3.** `cheiroslanguageo00chei_1_p135_c2` — score 0.5866
+**3.** `cheiroslanguageo00chei_1_p135_c2` — score 0.5865
 
 > If the line leave the line of life and ascend to the Mount of the Sun, it denotes distinction according to the class of hand.  If it leave the line of life and cross to Mercury, it promises great succ
 
-**4.** `cheiroslanguageo00chei_1_p124_c1` — score 0.5803
+**4.** `cheiroslanguageo00chei_1_p124_c1` — score 0.5802
 
 > Lines very dark in color, almost. black, tell of a melancholy, grave tem- perament, and also indicate a haughty, distant nature, one usually very revengeful and unforgiving.  Lines may appear, diminis
 
@@ -87,7 +87,7 @@ Evidence only — no relevance label, score, or n recommendation applied below. 
 
 > The line of life should be long, narrow, and deep, without irregularities, breaks, or crosses of any kind. Such a formation promises long life, good health, and vitality.  When the line is linked (Fig
 
-**6.** `cheiroslanguageo00chei_1_p135_c0` — score 0.5730
+**6.** `cheiroslanguageo00chei_1_p135_c0` — score 0.5729
 
 > The Line of Life. 81  mencement (a-a, Plate XVIII), it is a very unfortunate sign, denoting that the subject, through a defect in temperament, rushes blindly into danger and catastrophe. This mark, as
 
@@ -95,7 +95,7 @@ Evidence only — no relevance label, score, or n recommendation applied below. 
 
 > When the line is quite bare of branches and thin, it tells of coldness of heart and want of affection.  When bare and thin toward the pereussion or side of the hand, it denotes sterility.  Fine lines 
 
-**8.** `cheiroslanguageo00chei_1_p146_c2` — score 0.5705
+**8.** `cheiroslanguageo00chei_1_p146_c2` — score 0.5704
 
 > When extremely long and straight, and going directly to the side of the hand (the percussion), it usually denotes that the subject has more than ordinary intellectual power, but is inclined to be self
 
@@ -191,7 +191,7 @@ s67_metric: FIRST_HIT — a single hardcoded page's first-occurrence rank, check
 
 ### head line — top 20 scores in order
 
-0.6090, 0.5898, 0.5866, 0.5803, 0.5744, 0.5730, 0.5728, 0.5705, 0.5688, 0.5686, 0.5606, 0.5576, 0.5564, 0.5550, 0.5548, 0.5542, 0.5488, 0.5485, 0.5455, 0.5454
+0.6090, 0.5897, 0.5865, 0.5802, 0.5744, 0.5729, 0.5728, 0.5704, 0.5688, 0.5686, 0.5606, 0.5576, 0.5564, 0.5550, 0.5548, 0.5542, 0.5488, 0.5484, 0.5455, 0.5454
 
 ### heart line — top 20 scores in order
 
@@ -202,5 +202,5 @@ s67_metric: FIRST_HIT — a single hardcoded page's first-occurrence rank, check
 | feature | largest consecutive gap | at rank (i -> i+1) |
 |---|---|---|
 | fate line | 0.0164 | rank 2 -> 3 |
-| head line | 0.0192 | rank 1 -> 2 |
+| head line | 0.0193 | rank 1 -> 2 |
 | heart line | 0.0340 | rank 5 -> 6 |

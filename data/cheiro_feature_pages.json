@@ -1,0 +1,17 @@
+{
+  "_comment": "S81 page-range pre-filter map. Ranges verified against the Cheiro page-level export (cheiroslanguageo00chei_1); the six known target chunks (p165_c2/p163_c1 fate, p145_c0 head, p160_c3/p159_c2/p160_c1 heart) all reconcile against these ranges. Keys are the EXACT palm_reading._FEATURE_REGISTRY strings, not the chapter titles supplied in the instructing prompt. Consumed by agent/interpretive/palm_reading.py's _load_feature_page_ranges(); a null start/end means no verified chapter mapping exists for that registry key -- see its own 'reason' field. Do not guess a range for a null entry without new verified evidence.",
+  "life line": {"start": 133, "end": 139, "source_chapter": "LINE OF LIFE"},
+  "head line": {"start": 145, "end": 155, "source_chapter": "LINE OF HEAD (spans chapters VII, VIII, IX -- all head-line doctrine)"},
+  "heart line": {"start": 156, "end": 161, "source_chapter": "LINE OF HEART"},
+  "fate line": {"start": 162, "end": 165, "source_chapter": "LINE OF FATE"},
+  "sun line": {"start": 166, "end": 170, "source_chapter": "LINE OF SUN"},
+  "thumb": {"start": 85, "end": 94, "source_chapter": "THE THUMB"},
+  "fingers": {"start": 95, "end": 97, "source_chapter": "THE FINGERS"},
+  "mount of venus": {"start": 111, "end": 113, "source_chapter": "THE MOUNTS (no Venus-specific sub-range provided; the mounts chapter is a single 111-113 block covering all mounts)"},
+  "mount of jupiter": {"start": 111, "end": 113, "source_chapter": "THE MOUNTS (no Jupiter-specific sub-range provided; same 111-113 block as mount of venus)"},
+  "markings/other features": {
+    "start": null,
+    "end": null,
+    "reason": "No chapter in the S81 instructing prompt's range map corresponds to marks/crosses/stars/signs doctrine. 'GENERAL LINES' (120-132) is a distinct classical category (minor lines: Via Lascivia, girdle of Venus context, travel/influence lines etc.), not signs-and-marks doctrine -- mapping 'markings/other features' onto it would be a guess, not a verified range, and the instructing prompt explicitly says not to guess. Falls through to unfiltered retrieval at runtime (see palm_reading._search_with_page_filter)."
+  }
+}

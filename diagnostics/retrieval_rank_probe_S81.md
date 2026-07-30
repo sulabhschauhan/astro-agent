@@ -52,13 +52,13 @@ For fate line and head line (this task's targets), the quality descriptor below 
 | rank | chunk_id | page_ref | score | is_target |
 |---|---|---|---|---|
 | 1 | `cheiroslanguageo00chei_1_p123_c0` | p.123 | 0.6090 |  |
-| 2 | `cheiroslanguageo00chei_1_p151_c2` | p.151 | 0.5898 |  |
-| 3 | `cheiroslanguageo00chei_1_p135_c2` | p.135 | 0.5866 |  |
-| 4 | `cheiroslanguageo00chei_1_p124_c1` | p.124 | 0.5803 |  |
+| 2 | `cheiroslanguageo00chei_1_p151_c2` | p.151 | 0.5897 |  |
+| 3 | `cheiroslanguageo00chei_1_p135_c2` | p.135 | 0.5865 |  |
+| 4 | `cheiroslanguageo00chei_1_p124_c1` | p.124 | 0.5802 |  |
 | 5 | `cheiroslanguageo00chei_1_p134_c1` | p.134 | 0.5744 |  |
-| 6 | `cheiroslanguageo00chei_1_p135_c0` | p.135 | 0.5730 |  |
+| 6 | `cheiroslanguageo00chei_1_p135_c0` | p.135 | 0.5729 |  |
 | 7 | `cheiroslanguageo00chei_1_p160_c2` | p.160 | 0.5728 |  |
-| 8 | `cheiroslanguageo00chei_1_p146_c2` | p.146 | 0.5705 |  |
+| 8 | `cheiroslanguageo00chei_1_p146_c2` | p.146 | 0.5704 |  |
 | 9 | `cheiroslanguageo00chei_1_p140_c1` | p.140 | 0.5688 |  |
 | 10 | `cheiroslanguageo00chei_1_p171_c1` | p.171 | 0.5686 |  |
 | 11 | `cheiroslanguageo00chei_1_p134_c0` | p.134 | 0.5606 |  |
@@ -68,7 +68,7 @@ For fate line and head line (this task's targets), the quality descriptor below 
 | 15 | `cheiroslanguageo00chei_1_p197_c1` | p.197 | 0.5548 |  |
 | 16 | `cheiroslanguageo00chei_1_p134_c2` | p.134 | 0.5542 |  |
 | 17 | `cheiroslanguageo00chei_1_p181_c0` | p.181 | 0.5488 |  |
-| 18 | `cheiroslanguageo00chei_1_p147_c0` | p.147 | 0.5485 |  |
+| 18 | `cheiroslanguageo00chei_1_p147_c0` | p.147 | 0.5484 |  |
 | 19 | `cheiroslanguageo00chei_1_p148_c0` | p.148 | 0.5455 |  |
 | 20 | `cheiroslanguageo00chei_1_p147_c1` | p.147 | 0.5454 |  |
 
