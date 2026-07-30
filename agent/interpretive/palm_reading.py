@@ -183,22 +183,40 @@ _FEATURE_REGISTRY: tuple[str, ...] = (
     "markings/other features",
 )
 
-# S81/S82 page-range pre-filter (flag-gated, default OFF -- SAMPLE before
-# SCALE, CLAUDE.md Working Style #2). When _FEATURE_PAGE_FILTER_ENABLED is
-# False (the default), _retrieve_per_feature's behavior is byte-identical
-# to the pre-S81 code path -- the same single search() call at
-# _N_RESULTS_PER_FEATURE, nothing else touched. When True,
-# _search_with_page_filter pushes the feature's verified chapter range
-# (data/cheiro_feature_pages.json) into the SAME single search() call as a
-# page_ref=(start, end) Chroma where-clause filter -- one call per feature,
-# satisfying the one-call-per-feature contract (CLAUDE.md Locked Decisions).
-# A range matching nothing in-chapter now yields an empty list for that
-# feature rather than a widen-then-refetch fallback; _retrieve_per_feature's
-# existing empty-result handling (feature lands in the decline block, zero
-# LLM calls, validation still passes) already covers this gracefully. Does
-# NOT change _N_RESULTS_PER_FEATURE or the query template -- those are
+# S81/S82 page-range gate -- ON. _search_with_page_filter pushes the
+# feature's verified chapter range (data/cheiro_feature_pages.json) into
+# the SAME single search() call as a page_ref=(start, end) Chroma
+# where-clause filter -- one call per feature, satisfying the
+# one-call-per-feature contract (CLAUDE.md Locked Decisions). Does NOT
+# change _N_RESULTS_PER_FEATURE or the query template -- those are
 # separate, untouched constants.
-_FEATURE_PAGE_FILTER_ENABLED = False
+#
+# EVIDENCE: diagnostics/onoff_range_gate_S82.md (commit 0334038), a
+# three-arm OFF/ON/WIDE run over 8 of 10 registry features. Identical
+# result sets on 6 of 8 (no-op there); corrective on head line (OFF
+# returned the p123_c0 nomenclature chunk at rank 1 plus p135_c2
+# life-line doctrine; ON returned three genuine head-line passages) and
+# on fingers (1 of 3 OFF results out-of-chapter).
+#
+# WHY NOT DEEPER UNFILTERED RETRIEVAL INSTEAD: head line's WIDE n=10 arm
+# held only 2 in-range chunks; the 8 out-of-range ones are other lines'
+# doctrine that does not name its own subject in the text ("If the line
+# leave the line of life...", "When the line is quite bare of
+# branches..."), so chapter provenance is not recoverable from the text
+# an LLM sees -- depth alone cannot substitute for the range gate here.
+#
+# SCOPE GUARD: palm-feature retrieval, Cheiro book only. Does not touch
+# _N_RESULTS_PER_FEATURE, the query template, or any other book's search
+# calls.
+#
+# ACCEPTED GAP: sun line resolved no quality in the onoff_range_gate_S82
+# LRH fixture, so its gate behaviour is unmeasured there. Its range holds
+# >= 3 chunks per diagnostics/census_feature_page_ranges_S82.md (commit
+# a69549a) so it cannot starve, but that is inference, not measurement.
+#
+# REVERSION: set back to False for a byte-identical pre-S81 retrieval
+# path; no other change required.
+_FEATURE_PAGE_FILTER_ENABLED = True
 
 _FEATURE_PAGE_RANGES_PATH = (
     Path(__file__).resolve().parent.parent.parent / "data" / "cheiro_feature_pages.json"

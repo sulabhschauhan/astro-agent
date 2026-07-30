@@ -780,10 +780,10 @@ def test_page_range_gate_candidate_pool_constant_removed():
 
 
 def test_page_range_gate_off_by_default_omits_page_ref_key(monkeypatch):
-    """(S82e) Flag OFF (the default) -> the OFF path is unchanged: no
-    page_ref key on the recorded call even for a feature with a verified
-    range."""
-    assert palm_reading._FEATURE_PAGE_FILTER_ENABLED is False
+    """(S82e) Flag OFF (explicit, since S82f flips the module default to
+    True) -> the OFF path is unchanged: no page_ref key on the recorded
+    call even for a feature with a verified range."""
+    monkeypatch.setattr(palm_reading, "_FEATURE_PAGE_FILTER_ENABLED", False)
     chunk = _chunk()
     fake_search = _FakeSearch([chunk])
     monkeypatch.setattr(palm_reading, "search", fake_search)
