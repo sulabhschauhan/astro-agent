@@ -183,45 +183,26 @@ _FEATURE_REGISTRY: tuple[str, ...] = (
     "markings/other features",
 )
 
-# S81 page-range pre-filter (flag-gated, default OFF -- SAMPLE before SCALE,
-# CLAUDE.md Working Style #2). When _FEATURE_PAGE_FILTER_ENABLED is False
-# (the default), _retrieve_per_feature's behavior is byte-identical to the
-# pre-S81 code path -- the same single search() call at
+# S81/S82 page-range pre-filter (flag-gated, default OFF -- SAMPLE before
+# SCALE, CLAUDE.md Working Style #2). When _FEATURE_PAGE_FILTER_ENABLED is
+# False (the default), _retrieve_per_feature's behavior is byte-identical
+# to the pre-S81 code path -- the same single search() call at
 # _N_RESULTS_PER_FEATURE, nothing else touched. When True,
-# _search_with_page_filter widens the candidate pool to
-# _PAGE_FILTER_CANDIDATE_N and keeps only chunks whose page_ref falls in
-# the feature's verified chapter range (data/cheiro_feature_pages.json)
-# before truncating to the same production gate. Does NOT change
-# _N_RESULTS_PER_FEATURE or the query template -- those are separate,
-# untouched constants.
+# _search_with_page_filter pushes the feature's verified chapter range
+# (data/cheiro_feature_pages.json) into the SAME single search() call as a
+# page_ref=(start, end) Chroma where-clause filter -- one call per feature,
+# satisfying the one-call-per-feature contract (CLAUDE.md Locked Decisions).
+# A range matching nothing in-chapter now yields an empty list for that
+# feature rather than a widen-then-refetch fallback; _retrieve_per_feature's
+# existing empty-result handling (feature lands in the decline block, zero
+# LLM calls, validation still passes) already covers this gracefully. Does
+# NOT change _N_RESULTS_PER_FEATURE or the query template -- those are
+# separate, untouched constants.
 _FEATURE_PAGE_FILTER_ENABLED = False
 
 _FEATURE_PAGE_RANGES_PATH = (
     Path(__file__).resolve().parent.parent.parent / "data" / "cheiro_feature_pages.json"
 )
-
-# Candidate pool for the Python-side post-filter (see module docstring
-# above the flag). NOT a change to _N_RESULTS_PER_FEATURE -- this constant
-# only controls how many candidates the filter has to choose from before
-# truncating to the real production gate.
-#
-# THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4) -- this REMOVES a
-# threshold rather than tuning one. A pre-window smaller than the corpus is
-# an arbitrary second gate with no derivation: a chunk ranked outside that
-# window is unreachable by the page-range filter no matter how squarely it
-# falls in range, which is exactly why p145_c0/p160_c3 stayed unreachable
-# both ON and OFF when this was 20 (diagnostics/feature_page_filter_S81.md,
-# commit d017543). The page range itself is the intended selection
-# mechanism, so the candidate pool should cover the whole set it's drawn
-# from. Set to 463, the verified live Cheiro chunk count
-# (diagnostics/chunk_existence_vs_rank_S81.md / re-verified this session --
-# `coll.get(where={"book_name": {"$eq": _CHEIRO_BOOK}})` returns exactly
-# 463 ids). Scope guard: palm-feature retrieval only, Cheiro book only --
-# does not touch _N_RESULTS_PER_FEATURE, the query template, or any other
-# book's search calls. Tuning note: revisit if the Cheiro corpus grows past
-# a few thousand chunks (cost of a full per-query scan stops being
-# negligible) -- at 463 the full scan is free.
-_PAGE_FILTER_CANDIDATE_N = 463
 
 
 def _load_feature_page_ranges() -> dict[str, tuple[int, int] | None]:
@@ -570,42 +551,34 @@ def _retrieve_per_feature(
 
 
 def _search_with_page_filter(feature: str, query: str) -> list[dict]:
-    """S81 page-range pre-filter (flag-gated by _FEATURE_PAGE_FILTER_ENABLED,
-    default OFF -- see that constant's own comment). Retrieves a widened
-    candidate pool (_PAGE_FILTER_CANDIDATE_N) via the SAME unmodified
-    search()/query path production always used, keeps only chunks whose
-    page_ref falls inside the feature's verified chapter range, then
-    truncates to the real production gate _N_RESULTS_PER_FEATURE.
+    """S82 page-range gate (flag-gated by _FEATURE_PAGE_FILTER_ENABLED,
+    default OFF -- see that constant's own comment). Makes exactly ONE
+    search() call per feature: a feature with no verified range
+    (_FEATURE_PAGE_RANGES[feature] is None) searches book_name only; a
+    feature with a verified range pushes it into the SAME call as a
+    page_ref=(start, end) Chroma where-clause filter, enforced server-side
+    rather than a Python-side post-filter over a widened pool.
 
-    Never returns zero chunks silently: a feature with no verified range
-    (_FEATURE_PAGE_RANGES[feature] is None) falls through to plain
-    unfiltered search immediately; a filter that matches nothing, or that
-    raises for any reason, logs a warning naming the feature and falls
-    back to the same unfiltered search rather than returning an empty
-    list."""
+    A range matching nothing in-chapter now yields an empty list for that
+    feature -- this is not swallowed here; _retrieve_per_feature's existing
+    empty-result handling routes it to the decline block gracefully. The
+    empty case is logged at info level (a ratified graceful outcome, not
+    a fault)."""
     page_range = _FEATURE_PAGE_RANGES.get(feature)
     if page_range is None:
         return search(query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK)
     start, end = page_range
-    try:
-        candidates = search(query, n_results=_PAGE_FILTER_CANDIDATE_N, book_name=_CHEIRO_BOOK)
-        in_range = [r for r in candidates if start <= r.get("page_ref", -1) <= end]
-        if not in_range:
-            logger.warning(
-                "palm_reading._search_with_page_filter: feature=%r page "
-                "range %d-%d matched 0 of %d candidates -- falling back "
-                "to unfiltered search.",
-                feature, start, end, len(candidates),
-            )
-            return search(query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK)
-        return in_range[:_N_RESULTS_PER_FEATURE]
-    except Exception as exc:  # noqa: BLE001 -- filter failure must not break retrieval
-        logger.warning(
-            "palm_reading._search_with_page_filter: filter raised for "
-            "feature=%r: %s -- falling back to unfiltered search.",
-            feature, exc,
+    results = search(
+        query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK,
+        page_ref=(start, end),
+    )
+    if not results:
+        logger.info(
+            "palm_reading._search_with_page_filter: no chunk in verified range "
+            "%s-%s for feature %r -- feature will decline (not an error).",
+            start, end, feature,
         )
-        return search(query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK)
+    return results
 
 
 def _assemble_retrieved_passages(

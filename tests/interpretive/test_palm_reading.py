@@ -704,6 +704,97 @@ def test_search_filters_to_canonical_cheiro_book(monkeypatch):
     assert fake_search.calls[0]["n_results"] == palm_reading._N_RESULTS_PER_FEATURE == 3
 
 
+# ─── S82: page-range gate rewired to one Chroma-level call ─────────────
+
+
+def test_page_range_gate_zero_match_yields_one_call_no_retry_and_decline(monkeypatch):
+    """(S82a) HARDEST CASE: a feature WITH a verified range (life line)
+    whose single page_ref-filtered search returns nothing must NOT retry
+    or fall back to a second unfiltered call -- this is exactly the case
+    the old post-filter's fallback used to cover, and it's the whole
+    point of the one-call rewire."""
+    monkeypatch.setattr(palm_reading, "_FEATURE_PAGE_FILTER_ENABLED", True)
+    fake_search = _FakeSearch([])
+    monkeypatch.setattr(palm_reading, "search", fake_search)
+    client = _explosive_client()
+
+    result = generate_palm_reading(
+        palm_left="LIFE LINE: A long, deep life line.", palm_right=None, client=client
+    )
+
+    assert len(fake_search.calls) == 1
+    assert fake_search.calls[0]["page_ref"] == palm_reading._FEATURE_PAGE_RANGES["life line"]
+    assert client.completions.calls == []
+    assert result.validation.passed is True
+    expected_decline = palm_reading._build_decline_block(palm_reading._FEATURE_REGISTRY)
+    assert expected_decline in result.reading_text
+
+
+def test_page_range_gate_pushes_verified_range_into_single_call(monkeypatch):
+    """(S82b) A feature with a verified range -> exactly 1 call whose
+    recorded page_ref is asserted against the loaded map itself, not a
+    hardcoded pair."""
+    monkeypatch.setattr(palm_reading, "_FEATURE_PAGE_FILTER_ENABLED", True)
+    chunk = _chunk()
+    fake_search = _FakeSearch([chunk])
+    monkeypatch.setattr(palm_reading, "search", fake_search)
+    client = _single_feature_client("life line", chunk, _CLEAN_STUB_TEXT)
+
+    generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
+
+    assert len(fake_search.calls) == 1
+    assert fake_search.calls[0]["page_ref"] == palm_reading._FEATURE_PAGE_RANGES["life line"]
+    assert fake_search.calls[0]["book_name"] == palm_reading._CHEIRO_BOOK
+    assert fake_search.calls[0]["n_results"] == palm_reading._N_RESULTS_PER_FEATURE
+
+
+def test_page_range_gate_null_range_feature_omits_page_ref_key(monkeypatch):
+    """(S82c) markings/other features has a verified-null range in
+    data/cheiro_feature_pages.json -- its single call must carry no
+    page_ref key at all."""
+    monkeypatch.setattr(palm_reading, "_FEATURE_PAGE_FILTER_ENABLED", True)
+    assert palm_reading._FEATURE_PAGE_RANGES.get("markings/other features") is None
+    chunk = _chunk(text="A cross clearly visible near the base of the palm.")
+    fake_search = _FakeSearch([chunk])
+    monkeypatch.setattr(palm_reading, "search", fake_search)
+    voice_text = (
+        "A cross near the base suggests an unusual turning point.[FLOW] "
+        "A cross clearly visible near the base of the palm.[C1]"
+    )
+    client = _single_feature_client("markings/other features", chunk, voice_text)
+
+    generate_palm_reading(
+        palm_left="MARKS: A cross clearly visible near the base of the palm.",
+        palm_right=None,
+        client=client,
+    )
+
+    assert len(fake_search.calls) == 1
+    assert "page_ref" not in fake_search.calls[0]
+
+
+def test_page_range_gate_candidate_pool_constant_removed():
+    """(S82d) Regression guard: the widened-pool constant is fully
+    removed, not merely unused."""
+    assert not hasattr(palm_reading, "_PAGE_FILTER_CANDIDATE_N")
+
+
+def test_page_range_gate_off_by_default_omits_page_ref_key(monkeypatch):
+    """(S82e) Flag OFF (the default) -> the OFF path is unchanged: no
+    page_ref key on the recorded call even for a feature with a verified
+    range."""
+    assert palm_reading._FEATURE_PAGE_FILTER_ENABLED is False
+    chunk = _chunk()
+    fake_search = _FakeSearch([chunk])
+    monkeypatch.setattr(palm_reading, "search", fake_search)
+    client = _single_feature_client("life line", chunk, _CLEAN_STUB_TEXT)
+
+    generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
+
+    assert len(fake_search.calls) == 1
+    assert "page_ref" not in fake_search.calls[0]
+
+
 # ─── Item 11: sources propagation ───────────────────────────────────────
 
 
