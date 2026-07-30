@@ -25,39 +25,39 @@ Evidence only — no relevance label, score, or n recommendation applied below. 
 
 ### fate line
 
-**1.** `cheiroslanguageo00chei_1_p165_c1` — score 0.5099
+**1.** `cheiroslanguageo00chei_1_p165_c1` — score 0.5100
 
 > A. double or sister fate-line is an excellent sign. It denotes two distinct eareers which the subject will follow. This ismuch more important if they go to different mounts.  A square on the hne of fa
 
-**2.** `cheiroslanguageo00chei_1_p165_c0` — score 0.5056
+**2.** `cheiroslanguageo00chei_1_p165_c0` — score 0.5057
 
 > The Line of Fate. 105  from Venus, the subject’s destiny will sway between imagination on the one hand and love and passion on the other (m-m, Plate XXT).  When broken and irregular, the career will b
 
-**3.** `cheiroslanguageo00chei_1_p163_c1` — score 0.4892
+**3.** `cheiroslanguageo00chei_1_p163_c1` — score 0.4894
 
 > The line of fate may rise from the line of hfe, the wrist, the Mount of Luna, the line of head, or even the line of heart.  If the fate-line rise from the line of life and from that poit on 18 strong,
 
-**4.** `cheiroslanguageo00chei_1_p163_c0` — score 0.4890
+**4.** `cheiroslanguageo00chei_1_p163_c0` — score 0.4891
 
 > The Line of Fate. 103  square. I wish to emphasize this as so many students throw up palimistry in despair through not having this point explained at the start.  The strange and mysterious thing to no
 
-**5.** `cheiroslanguageo00chei_1_p127_c1` — score 0.4872
+**5.** `cheiroslanguageo00chei_1_p127_c1` — score 0.4873
 
 > I make no comment on this strange story; I simply relate the facts as they occurred.  The above is only one example in many that could be cited to show that we rarely if ever will go by warnings, no m
 
-**6.** `cheiroslanguageo00chei_1_p136_c3` — score 0.4761
+**6.** `cheiroslanguageo00chei_1_p136_c3` — score 0.4762
 
 > When they cut the line of life only (6-0. Plate NVIL.). they denote the interference of relatives—generally in the home life.  When they cross the life-line and attack the line of fate (e-e, Plate AVI
 
-**7.** `cheiroslanguageo00chei_1_p160_c2` — score 0.4747
+**7.** `cheiroslanguageo00chei_1_p160_c2` — score 0.4748
 
 > When the line is quite bare of branches and thin, it tells of coldness of heart and want of affection.  When bare and thin toward the pereussion or side of the hand, it denotes sterility.  Fine lines 
 
-**8.** `cheiroslanguageo00chei_1_p162_c0` — score 0.4691
+**8.** `cheiroslanguageo00chei_1_p162_c0` — score 0.4692
 
 > CHAPTER XI. THE LINE OF FATE.  And what is fate?  A perfect law that shapes all things for good; And thus, that men may have a just reward For doing what is right, not caring should No earthly crown b
 
-**9.** `cheiroslanguageo00chei_1_p163_c2` — score 0.4649
+**9.** `cheiroslanguageo00chei_1_p163_c2` — score 0.4650
 
 > Rising from the Mount of Luna, fate and success will be more or less dependent on the fancy and eaprice of other people. This 1s very often found in the case of public favorites.  Tf the line of fate 
 
@@ -71,15 +71,15 @@ Evidence only — no relevance label, score, or n recommendation applied below. 
 
 > The Lines of the Hand. 73  The main lines are known by other names, as follows:  The Line of Life is also called the Vital.  The Line of Head, the Natural or Cerebral.  The Line of Heart, the Mensal. 
 
-**2.** `cheiroslanguageo00chei_1_p151_c2` — score 0.5897
+**2.** `cheiroslanguageo00chei_1_p151_c2` — score 0.5898
 
 > THE LINE OF HEAD IN RELATION TO THE PSYCHIC HAND.  The natural position for the line of head on this hand is extremely sloping, giving all the visionary, dreamy qualities in accordance with this type.
 
-**3.** `cheiroslanguageo00chei_1_p135_c2` — score 0.5865
+**3.** `cheiroslanguageo00chei_1_p135_c2` — score 0.5866
 
 > If the line leave the line of life and ascend to the Mount of the Sun, it denotes distinction according to the class of hand.  If it leave the line of life and cross to Mercury, it promises great succ
 
-**4.** `cheiroslanguageo00chei_1_p124_c1` — score 0.5802
+**4.** `cheiroslanguageo00chei_1_p124_c1` — score 0.5803
 
 > Lines very dark in color, almost. black, tell of a melancholy, grave tem- perament, and also indicate a haughty, distant nature, one usually very revengeful and unforgiving.  Lines may appear, diminis
 
@@ -87,7 +87,7 @@ Evidence only — no relevance label, score, or n recommendation applied below. 
 
 > The line of life should be long, narrow, and deep, without irregularities, breaks, or crosses of any kind. Such a formation promises long life, good health, and vitality.  When the line is linked (Fig
 
-**6.** `cheiroslanguageo00chei_1_p135_c0` — score 0.5729
+**6.** `cheiroslanguageo00chei_1_p135_c0` — score 0.5730
 
 > The Line of Life. 81  mencement (a-a, Plate XVIII), it is a very unfortunate sign, denoting that the subject, through a defect in temperament, rushes blindly into danger and catastrophe. This mark, as
 
@@ -95,7 +95,7 @@ Evidence only — no relevance label, score, or n recommendation applied below. 
 
 > When the line is quite bare of branches and thin, it tells of coldness of heart and want of affection.  When bare and thin toward the pereussion or side of the hand, it denotes sterility.  Fine lines 
 
-**8.** `cheiroslanguageo00chei_1_p146_c2` — score 0.5704
+**8.** `cheiroslanguageo00chei_1_p146_c2` — score 0.5705
 
 > When extremely long and straight, and going directly to the side of the hand (the percussion), it usually denotes that the subject has more than ordinary intellectual power, but is inclined to be self
 
@@ -113,15 +113,15 @@ Evidence only — no relevance label, score, or n recommendation applied below. 
 
 > When the line of heart is bright red, it denotes great violence of passion.  When pale and broad, the subject is blasé and indifferent.  When low down on the hand and thus close to the line of head, t
 
-**2.** `cheiroslanguageo00chei_1_p160_c2` — score 0.6067
+**2.** `cheiroslanguageo00chei_1_p160_c2` — score 0.6068
 
 > When the line is quite bare of branches and thin, it tells of coldness of heart and want of affection.  When bare and thin toward the pereussion or side of the hand, it denotes sterility.  Fine lines 
 
-**3.** `cheiroslanguageo00chei_1_p161_c0` — score 0.5970
+**3.** `cheiroslanguageo00chei_1_p161_c0` — score 0.5971
 
 > The Line of Heart. 101  ticnlarly if the hand is soft. Ona hard hand such a mark will affect the subject less—he may not be sensual, but he will never feel very deep affection.  When, however, the lin
 
-**4.** `cheiroslanguageo00chei_1_p156_c0` — score 0.5775
+**4.** `cheiroslanguageo00chei_1_p156_c0` — score 0.5776
 
 > CHAPTER X. THE LINE OF HEART.  Keep still, my heart, Nor ask for peace, when care may suit thee best, Nor ask for love, nor joy, nor even rest, But be content to love, whate’er betide, And maybe love 
 
@@ -187,20 +187,20 @@ s67_metric: FIRST_HIT — a single hardcoded page's first-occurrence rank, check
 
 ### fate line — top 20 scores in order
 
-0.5099, 0.5056, 0.4892, 0.4890, 0.4872, 0.4761, 0.4747, 0.4691, 0.4649, 0.4641, 0.4622, 0.4593, 0.4574, 0.4569, 0.4563, 0.4548, 0.4537, 0.4534, 0.4507, 0.4456
+0.5100, 0.5057, 0.4894, 0.4891, 0.4873, 0.4762, 0.4748, 0.4692, 0.4650, 0.4641, 0.4623, 0.4594, 0.4575, 0.4569, 0.4564, 0.4548, 0.4538, 0.4535, 0.4508, 0.4457
 
 ### head line — top 20 scores in order
 
-0.6090, 0.5897, 0.5865, 0.5802, 0.5744, 0.5729, 0.5728, 0.5704, 0.5688, 0.5686, 0.5606, 0.5576, 0.5564, 0.5550, 0.5548, 0.5542, 0.5488, 0.5484, 0.5455, 0.5454
+0.6090, 0.5898, 0.5866, 0.5803, 0.5744, 0.5730, 0.5728, 0.5705, 0.5688, 0.5686, 0.5606, 0.5576, 0.5564, 0.5550, 0.5548, 0.5542, 0.5488, 0.5485, 0.5455, 0.5454
 
 ### heart line — top 20 scores in order
 
-0.6088, 0.6067, 0.5970, 0.5775, 0.5636, 0.5296, 0.5201, 0.5163, 0.5140, 0.5086, 0.5057, 0.5055, 0.5045, 0.4975, 0.4927, 0.4919, 0.4913, 0.4876, 0.4861, 0.4847
+0.6088, 0.6068, 0.5971, 0.5776, 0.5636, 0.5296, 0.5201, 0.5163, 0.5140, 0.5086, 0.5058, 0.5056, 0.5045, 0.4975, 0.4927, 0.4919, 0.4914, 0.4876, 0.4861, 0.4847
 
 ### Largest consecutive-score gap per feature
 
 | feature | largest consecutive gap | at rank (i -> i+1) |
 |---|---|---|
-| fate line | 0.0164 | rank 2 -> 3 |
-| head line | 0.0193 | rank 1 -> 2 |
+| fate line | 0.0163 | rank 2 -> 3 |
+| head line | 0.0192 | rank 1 -> 2 |
 | heart line | 0.0340 | rank 5 -> 6 |

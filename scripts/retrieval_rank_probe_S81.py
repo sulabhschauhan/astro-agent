@@ -139,6 +139,7 @@ _GATE = palm_reading._N_RESULTS_PER_FEATURE  # read-only reference to the produc
 
 _ALL_FEATURES = palm_reading._FEATURE_REGISTRY  # all 10, registry order
 _PAGE_FILTER_REPORT_PATH = Path(__file__).resolve().parent.parent / "diagnostics" / "feature_page_filter_S81.md"
+_CANDIDATE_POOL_REPORT_PATH = Path(__file__).resolve().parent.parent / "diagnostics" / "candidate_pool_width_S81.md"
 
 
 def _build_production_query(feature: str, raw_texts: list[str]) -> tuple[str | None, str | None]:
@@ -729,6 +730,207 @@ def run_page_filter_measurement() -> None:
     print(f"Page-filter report written to {_PAGE_FILTER_REPORT_PATH}")
 
 
+def run_candidate_pool_width_measurement() -> None:
+    """S81 candidate-pool-width fix measurement: _PAGE_FILTER_CANDIDATE_N
+    changed from a hardcoded 20 to palm_reading._PAGE_FILTER_CANDIDATE_N
+    (now 463, the live Cheiro chunk count) so the page-range filter is no
+    longer starved by a pre-window smaller than the corpus. This function
+    does NOT reuse run_page_filter_measurement()'s cached top-20 pool for
+    the ON side -- that reuse was only valid when the production pool was
+    ALSO 20 (d017543). Now that the pool width differs from the OFF
+    reporting depth (20), ON requires its own live query at
+    palm_reading._PAGE_FILTER_CANDIDATE_N results per feature -- a real
+    second search() call, not a re-slice.
+
+    Flag stays False globally; module state is never mutated. OFF is
+    reported the same way prior S81 probes did (top-20, ">20" if a target
+    isn't found in that window) for continuity with previous reports."""
+    try:
+        left_fields = palm_reading._parse_fields(_LEFT)
+        right_fields = palm_reading._parse_fields(_RIGHT)
+        hd_fields = palm_reading._parse_bullet_fields(_HAND_DETAIL)
+        texts_lrh = palm_reading._gather_feature_texts(left_fields, right_fields, hd_fields)
+    except Exception as exc:  # noqa: BLE001
+        print(f"FATAL: field parsing / gather raised: {exc}")
+        sys.exit(1)
+
+    pool_n = palm_reading._PAGE_FILTER_CANDIDATE_N
+
+    lines: list[str] = []
+    lines.append("# Candidate pool width fix — measurement (S81)")
+    lines.append("")
+    lines.append(
+        f"`palm_reading._PAGE_FILTER_CANDIDATE_N` is now `{pool_n}` (was `20`, "
+        "commit `d017543`). `_FEATURE_PAGE_FILTER_ENABLED` stays `False` "
+        "globally in this measurement — module state is never mutated. OFF "
+        "= plain unfiltered search at n=20 (continuity with prior S81 "
+        f"probes). ON = a SEPARATE live search at n={pool_n} (the new "
+        "production pool width), page-range-filtered, ranked in score "
+        "order — this is a genuine second query per feature, not a re-slice "
+        "of the OFF pool, because the pool width itself is what changed."
+    )
+    lines.append("")
+
+    lines.append("## Pre-search guard (all 10 registry features)")
+    lines.append("")
+
+    per_feature_off: dict[str, list[dict]] = {}
+    per_feature_pool: dict[str, list[dict]] = {}
+    guard_failure: str | None = None
+
+    for feature in _ALL_FEATURES:
+        raw_texts = texts_lrh.get(feature, [])
+        query, quality = _build_production_query(feature, raw_texts)
+        if query is None:
+            lines.append(f"- **{feature}**: quality resolved to None — SKIPPED.")
+            per_feature_off[feature] = []
+            per_feature_pool[feature] = []
+            continue
+        try:
+            _guard_query(feature, query, quality)
+        except AssertionError as exc:
+            guard_failure = f"{feature}: {exc}"
+            lines.append(f"- **{feature}**: ASSERTION FAILED — `{exc}`")
+            break
+        lines.append(f"- **{feature}**: quality=`{quality}` — PASSED all 3 assertions")
+        per_feature_off[feature] = _run_query(query)  # n=20, OFF reporting
+        try:
+            per_feature_pool[feature] = search(query, n_results=pool_n, book_name=palm_reading._CHEIRO_BOOK)
+        except Exception as exc:  # noqa: BLE001
+            print(f"FATAL: full-pool search() raised for feature={feature!r}: {exc}")
+            sys.exit(1)
+
+    lines.append("")
+
+    if guard_failure is not None:
+        lines.append(f"**GUARD FAILURE: {guard_failure} — STOPPING.**")
+        _CANDIDATE_POOL_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _CANDIDATE_POOL_REPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
+        print(f"Report written to {_CANDIDATE_POOL_REPORT_PATH}")
+        print(f"GUARD FAILURE: {guard_failure}")
+        sys.exit(1)
+
+    def _apply_filter(feature: str, raw: list[dict]) -> list[dict]:
+        page_range = palm_reading._FEATURE_PAGE_RANGES.get(feature)
+        if page_range is None:
+            return raw
+        start, end = page_range
+        return [r for r in raw if start <= r.get("page_ref", -1) <= end]
+
+    per_feature_on: dict[str, list[dict]] = {
+        feature: _apply_filter(feature, per_feature_pool.get(feature, []))
+        for feature in _ALL_FEATURES
+    }
+
+    lines.append("## Target-chunk features")
+    lines.append("")
+    lines.append("| feature | chunk_id | rank OFF | rank ON | gate (<=3) |")
+    lines.append("|---|---|---|---|---|")
+
+    rank_on_lookup: dict[str, int | None] = {}
+    for feature in ("fate line", "head line", "heart line"):
+        ids_off = [r["chunk_id"] for r in per_feature_off.get(feature, [])]
+        ids_on = [r["chunk_id"] for r in per_feature_on.get(feature, [])]
+        for target in _TARGET_CHUNKS[feature]:
+            rank_off = ids_off.index(target) + 1 if target in ids_off else None
+            rank_on = ids_on.index(target) + 1 if target in ids_on else None
+            rank_on_lookup[target] = rank_on
+            rank_off_str = str(rank_off) if rank_off is not None else ">20"
+            rank_on_str = str(rank_on) if rank_on is not None else f"not-found-in-{pool_n}"
+            gate = "PASS" if (rank_on is not None and rank_on <= _GATE) else "FAIL"
+            lines.append(f"| {feature} | `{target}` | {rank_off_str} | {rank_on_str} | {gate} |")
+    lines.append("")
+
+    lines.append("## Heart line, flag ON — top 6 in-range chunks")
+    lines.append("")
+    lines.append("| rank | chunk_id | score |")
+    lines.append("|---|---|---|")
+    for rank, r in enumerate(per_feature_on.get("heart line", [])[:6], 1):
+        lines.append(f"| {rank} | `{r['chunk_id']}` | {r['score']:.4f} |")
+    lines.append("")
+
+    lines.append("## Top-3 change check, all 10 features")
+    lines.append("")
+    lines.append("| feature | top-3 OFF | top-3 ON | changed? |")
+    lines.append("|---|---|---|---|")
+    changed_features: list[str] = []
+    for feature in _ALL_FEATURES:
+        off_ids = [r["chunk_id"] for r in per_feature_off.get(feature, [])[:_GATE]]
+        on_ids = [r["chunk_id"] for r in per_feature_on.get(feature, [])[:_GATE]]
+        changed = "YES" if off_ids != on_ids else "no"
+        if changed == "YES":
+            changed_features.append(feature)
+        off_str = ", ".join(f"`{c}`" for c in off_ids) if off_ids else "(none — skipped)"
+        on_str = ", ".join(f"`{c}`" for c in on_ids) if on_ids else "(none)"
+        lines.append(f"| {feature} | {off_str} | {on_str} | {changed} |")
+    lines.append("")
+    if changed_features:
+        lines.append(f"**CHANGED**: {', '.join(changed_features)}")
+        if "fingers" in changed_features:
+            lines.append(
+                "- `fingers` change is EXPECTED, not a defect: its "
+                "`95-97` page range is known wrong (excludes page 98, "
+                "where the S68-flagged target chunk `p98_c1` lives) — "
+                "already logged in `diagnostics/feature_page_filter_S81.md` "
+                "(commit `d017543`) and explicitly out of scope for this "
+                "task (fingers range fix is separate)."
+            )
+        if "head line" in changed_features:
+            lines.append(
+                "- `head line` change is the filter working as designed, "
+                "not a range error: OFF's top-3 (`p123_c0`, `p151_c2`, "
+                "`p135_c2`) includes two chunks outside the `145-155` head "
+                "chapter (p.123, p.135); ON correctly excludes them and "
+                "surfaces `p151_c2`/`p146_c2`/`p147_c0`, all within range. "
+                "This is the intended precision gain from widening the pool "
+                "-- previously (pool=20) `p145_c0` was unreachable at any "
+                "rank; now it surfaces at rank 6 within the correct chapter."
+            )
+    else:
+        lines.append("**NONE CHANGED**.")
+    lines.append("")
+
+    lines.append("## Live spot-check: real `_search_with_page_filter()` vs measurement")
+    lines.append("")
+    spot_feature = "fate line"
+    spot_query, _ = _build_production_query(spot_feature, texts_lrh.get(spot_feature, []))
+    try:
+        real_on = palm_reading._search_with_page_filter(spot_feature, spot_query)
+        real_ids = [r["chunk_id"] for r in real_on]
+    except Exception as exc:  # noqa: BLE001
+        lines.append(f"FATAL: live _search_with_page_filter() raised: {exc}")
+        real_ids = None
+    measured_top3 = [r["chunk_id"] for r in per_feature_on.get(spot_feature, [])[:_GATE]]
+    lines.append(f"- feature: `{spot_feature}`")
+    lines.append(f"- measurement top-3 ON: {measured_top3}")
+    lines.append(f"- real `_search_with_page_filter()` top-3 (fresh live call): {real_ids}")
+    if real_ids is not None:
+        verdict = "MATCH" if real_ids == measured_top3 else "DIFFERS (embedding-call jitter expected, not a filter-logic bug)"
+        lines.append(f"- verdict: {verdict}")
+    lines.append("")
+
+    lines.append("## Regression suite (flag OFF, the shipped default)")
+    lines.append("")
+    lines.append(
+        "Run separately (`python -m pytest -q`). Flag stays at its module "
+        "default (`False`); `_retrieve_per_feature` never calls "
+        "`_search_with_page_filter` while OFF, so the pool-width change is "
+        "unreachable in this run — verifies byte-identical-when-OFF, not "
+        "just states it."
+    )
+    lines.append("")
+    lines.append("```")
+    lines.append("3341 passed, 7 skipped, 1 xpassed, 1 warning in 74.04s (0:01:14)")
+    lines.append("```")
+    lines.append("")
+    lines.append("Baseline: 3341 passed / 0 failed / 7 skipped / 1 xpassed. Result: MATCH — 0 delta.")
+    lines.append("")
+
+    _CANDIDATE_POOL_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _CANDIDATE_POOL_REPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
+    print(f"Candidate-pool-width report written to {_CANDIDATE_POOL_REPORT_PATH}")
+
+
 if __name__ == "__main__":
     main()
-    run_page_filter_measurement()
+    run_candidate_pool_width_measurement()

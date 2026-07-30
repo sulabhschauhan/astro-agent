@@ -200,11 +200,28 @@ _FEATURE_PAGE_RANGES_PATH = (
     Path(__file__).resolve().parent.parent.parent / "data" / "cheiro_feature_pages.json"
 )
 
-# Widened candidate pool for the Python-side post-filter (see module
-# docstring above the flag). NOT a change to _N_RESULTS_PER_FEATURE -- this
-# constant only controls how many candidates the filter has to choose from
-# before truncating to the real production gate.
-_PAGE_FILTER_CANDIDATE_N = 20
+# Candidate pool for the Python-side post-filter (see module docstring
+# above the flag). NOT a change to _N_RESULTS_PER_FEATURE -- this constant
+# only controls how many candidates the filter has to choose from before
+# truncating to the real production gate.
+#
+# THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4) -- this REMOVES a
+# threshold rather than tuning one. A pre-window smaller than the corpus is
+# an arbitrary second gate with no derivation: a chunk ranked outside that
+# window is unreachable by the page-range filter no matter how squarely it
+# falls in range, which is exactly why p145_c0/p160_c3 stayed unreachable
+# both ON and OFF when this was 20 (diagnostics/feature_page_filter_S81.md,
+# commit d017543). The page range itself is the intended selection
+# mechanism, so the candidate pool should cover the whole set it's drawn
+# from. Set to 463, the verified live Cheiro chunk count
+# (diagnostics/chunk_existence_vs_rank_S81.md / re-verified this session --
+# `coll.get(where={"book_name": {"$eq": _CHEIRO_BOOK}})` returns exactly
+# 463 ids). Scope guard: palm-feature retrieval only, Cheiro book only --
+# does not touch _N_RESULTS_PER_FEATURE, the query template, or any other
+# book's search calls. Tuning note: revisit if the Cheiro corpus grows past
+# a few thousand chunks (cost of a full per-query scan stops being
+# negligible) -- at 463 the full scan is free.
+_PAGE_FILTER_CANDIDATE_N = 463
 
 
 def _load_feature_page_ranges() -> dict[str, tuple[int, int] | None]:
