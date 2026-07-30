@@ -78,7 +78,44 @@ except Exception as exc:  # noqa: BLE001
     sys.exit(1)
 
 _REPORT_PATH = Path(__file__).resolve().parent.parent / "diagnostics" / "retrieval_rank_probe_S81.md"
+_SWEEP_REPORT_PATH = Path(__file__).resolve().parent.parent / "diagnostics" / "n_results_sweep_S81.md"
 _PROBE_N_RESULTS = 20  # measurement depth for THIS PROBE ONLY; production stays at _N_RESULTS_PER_FEATURE=3
+_SWEEP_NS = (3, 5, 8, 10, 15, 20)
+_TOP_DUMP = 10
+_DUMP_CHARS = 200
+
+# Verbatim quote, palm_reading.py:168-175 (the THRESHOLD DISCIPLINE comment
+# that justifies _N_RESULTS_PER_FEATURE=3). Kept as a literal string here so
+# the sweep report can cite it without re-reading the source file at report
+# time -- if this ever drifts from the live file, that drift is itself a
+# finding, not silently masked.
+_THRESHOLD_COMMENT_168_175 = """# THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
+# Justification: S67 probe (diagnostics/latest_run.md, commit 0a738c3)
+# measured the worst doctrine-first-hit rank at 2 across all 8 provable
+# features under the ratified variant (iii) template -- +1 margin. Scope
+# guard: this module's per-feature call sites only -- does not alter
+# query_engine.DEFAULT_N_RESULTS or any other caller. Revisit trigger:
+# pass-3 claim ledgers showing support routinely landing at rank 3 -- go
+# to 4 before blaming the template."""
+
+# Verbatim quote, commit 0a738c3's diagnostics/latest_run.md, section 4
+# ("Summary — p.134 / p.163 literal presence by feature x variant"). This is
+# the ENTIRE evidentiary basis for the "worst rank 2" claim above -- it
+# tracks literal presence of exactly two hardcoded pages (134 for life line,
+# 163 for fate line) per feature's result set, not each feature's own
+# relevant doctrine.
+_S67_SECTION4_QUOTE = """| Feature | p.134/p.163 hits |
+|---|---|
+| life line | (ii) rank 2, p.134; (iii) rank 2, p.134; (iii) rank 3, p.134 |
+| head line | none |
+| heart line | none |
+| fate line | (i) rank 5, p.134; (ii) rank 2, p.163; (ii) rank 5, p.163; (iii) rank 2, p.163; (iii) rank 4, p.163; (iii) rank 5, p.163 |
+| sun line | none |
+| thumb | none |
+| fingers | none |
+| mount of venus | none |
+| mount of jupiter | none |
+| markings/other features | none |"""
 
 _FEATURES = ("fate line", "head line", "heart line")
 
@@ -308,6 +345,156 @@ def main() -> None:
     _REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     _REPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
     print(f"Report written to {_REPORT_PATH}")
+
+    _write_sweep_report(per_feature_results, rank_lookup)
+
+
+def _write_sweep_report(
+    per_feature_results: dict[str, list[dict]],
+    rank_lookup: dict[str, int | None],
+) -> None:
+    """PART 1-4: coverage sweep, top-10 content dump, threshold provenance,
+    score geometry. Reuses the SAME top-20 result lists already fetched by
+    main() (no additional search() calls) -- n=3/5/8/10/15/20 are all <= 20,
+    so every sweep point is a slice of data already retrieved via the
+    unmodified production query path."""
+    lines: list[str] = []
+    lines.append("# n_results coverage sweep + top-10 content dump — S81")
+    lines.append("")
+    lines.append(
+        "Reuses `scripts/retrieval_rank_probe_S81.py`'s existing top-20 "
+        "fetch (same queries, same guard, same production "
+        "`_resolve_feature_quality`/`_build_feature_query` path as "
+        "`retrieval_rank_probe_S81.md`, commit `b51049e`) — no new search() "
+        "calls issued, only re-sliced at n=3/5/8/10/15/20."
+    )
+    lines.append("")
+
+    lines.append("## Part 1 — coverage sweep")
+    lines.append("")
+    lines.append("| feature | chunk_id | " + " | ".join(f"n={n}" for n in _SWEEP_NS) + " |")
+    lines.append("|---|---|" + "---|" * len(_SWEEP_NS))
+    for feature in _FEATURES:
+        for target in _TARGET_CHUNKS[feature]:
+            rank = rank_lookup.get(target)
+            cells = []
+            for n in _SWEEP_NS:
+                cleared = rank is not None and rank <= n
+                cells.append("in" if cleared else "out")
+            lines.append(f"| {feature} | `{target}` | " + " | ".join(cells) + " |")
+    lines.append("")
+
+    lines.append("### Per-feature target count in top n")
+    lines.append("")
+    for feature in _FEATURES:
+        targets = _TARGET_CHUNKS[feature]
+        total = len(targets)
+        counts = {}
+        for n in _SWEEP_NS:
+            count = sum(
+                1 for t in targets
+                if rank_lookup.get(t) is not None and rank_lookup[t] <= n
+            )
+            counts[n] = count
+        counts_str = "  ".join(f"n{n}={counts[n]}/{total}" for n in _SWEEP_NS)
+        # smallest n at which ALL targets clear
+        min_n_all: int | str = "NEVER-WITHIN-20"
+        for n in _SWEEP_NS:
+            if counts[n] == total:
+                min_n_all = n
+                break
+        lines.append(f"- **{feature}**: {counts_str}  min_n_all={min_n_all}")
+    lines.append("")
+
+    lines.append("## Part 2 — precision cost: top-10 content dump")
+    lines.append("")
+    lines.append(
+        "Evidence only — no relevance label, score, or n recommendation "
+        "applied below. First 200 chars of chunk text, verbatim."
+    )
+    lines.append("")
+    for feature in _FEATURES:
+        results = per_feature_results.get(feature, [])
+        lines.append(f"### {feature}")
+        lines.append("")
+        for rank, r in enumerate(results[:_TOP_DUMP], 1):
+            text_excerpt = r["text"][:_DUMP_CHARS].replace("\n", " ")
+            lines.append(f"**{rank}.** `{r['chunk_id']}` — score {r['score']:.4f}")
+            lines.append("")
+            lines.append(f"> {text_excerpt}")
+            lines.append("")
+
+    lines.append("## Part 3 — threshold provenance")
+    lines.append("")
+    lines.append("Verbatim, `agent/interpretive/palm_reading.py:168-175`:")
+    lines.append("")
+    lines.append("```python")
+    lines.append(_THRESHOLD_COMMENT_168_175)
+    lines.append("```")
+    lines.append("")
+    lines.append(
+        "Verbatim, commit `0a738c3`'s `diagnostics/latest_run.md`, section "
+        "4 (\"Summary — p.134 / p.163 literal presence by feature x "
+        "variant\") — this table is the ENTIRE evidentiary basis for the "
+        "\"worst rank 2\" figure quoted above:"
+    )
+    lines.append("")
+    lines.append(_S67_SECTION4_QUOTE)
+    lines.append("")
+    lines.append(
+        "**Metric identification (not softened): the S67 probe's own script "
+        "(`scripts/probe_r1_retrieval.py:335-338`) hardcodes exactly two "
+        "page numbers — 134 and 163 — and checks EVERY feature's result set "
+        "for literal presence of THOSE two pages only, regardless of which "
+        "feature is being queried. It is a FIRST-HIT rank of a single "
+        "pre-identified page per feature (page 134 tagged to life line, "
+        "page 163 tagged to fate line), never a check for that feature's "
+        "own full relevant-doctrine set, and never a coverage measure at "
+        "all for the other 8 registry features (head line, heart line, sun "
+        "line, thumb, fingers, mount of venus, mount of jupiter, "
+        "markings/other features) — their \"none\" result is a check "
+        "against the WRONG feature's page markers, not a demonstrated "
+        "doctrine-retrieval failure for their own content. The \"worst rank "
+        "2\" figure is therefore computed from exactly 2 data points (life "
+        "line's p.134 hit, fate line's p.163 hit) out of the registry's 10 "
+        "features, not from '8 provable features' each independently "
+        "measured for their own doctrine coverage — the comment's phrasing "
+        "overstates what section 4 of the cited probe actually measured."
+    )
+    lines.append("")
+    lines.append("s67_metric: FIRST_HIT — a single hardcoded page's first-occurrence rank, checked against only 2 of 10 features' own content; not ALL-RELEVANT-DOCTRINE coverage for any feature.")
+    lines.append("")
+
+    lines.append("## Part 4 — score geometry")
+    lines.append("")
+
+    gap_summary: dict[str, tuple[int, float]] = {}
+    for feature in _FEATURES:
+        results = per_feature_results.get(feature, [])
+        scores = [r["score"] for r in results]
+        lines.append(f"### {feature} — top 20 scores in order")
+        lines.append("")
+        lines.append(", ".join(f"{s:.4f}" for s in scores))
+        lines.append("")
+        if len(scores) < 2:
+            gap_summary[feature] = (0, 0.0)
+            continue
+        gaps = [(i + 1, scores[i] - scores[i + 1]) for i in range(len(scores) - 1)]
+        max_rank, max_gap = max(gaps, key=lambda x: x[1])
+        gap_summary[feature] = (max_rank, max_gap)
+
+    lines.append("### Largest consecutive-score gap per feature")
+    lines.append("")
+    lines.append("| feature | largest consecutive gap | at rank (i -> i+1) |")
+    lines.append("|---|---|---|")
+    for feature in _FEATURES:
+        rank_at, gap = gap_summary[feature]
+        lines.append(f"| {feature} | {gap:.4f} | rank {rank_at} -> {rank_at + 1} |")
+    lines.append("")
+
+    _SWEEP_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _SWEEP_REPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
+    print(f"Sweep report written to {_SWEEP_REPORT_PATH}")
 
 
 if __name__ == "__main__":
