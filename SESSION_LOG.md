@@ -2412,3 +2412,27 @@ S83 — Palm retrieval closed; failure-capture net shipped
   real production silences — do NOT set the number from the S83 sweep sample.
 - BETWEEN-SESSION ACTION: turn the dogfood capture flag ON in the deployed frontend (config, no
   code) — the net collects nothing until then.
+S84 — Near-miss margin gate corrected to production-safe default; window=3 vindicated by live data
+- Gated the S83 near-miss margin log's n_results=30 fetch behind ASTRO_DOGFOOD_CAPTURE
+  (palm_reading.py) — Code had shipped it always-on in error, paying the capture cost in
+  production too. Both _retrieve_per_feature and _search_with_page_filter now fetch 3 in
+  production, 30 only under dogfood capture; full_candidates is [] when the flag is off (renders
+  as NOT CAPTURED, already handled). 3 test assertions corrected to n_results==3, 1 new test locks
+  the flag-on==30 path.
+- Stale xfail removed: test_yogini_routing.py's yogini_dasha format_answer() dispatch confirmed
+  shipped at S73/Prompt 5 (result_formatter.py's own docstring + live _format_yogini_dasha()
+  branch) — xpass -> normal pass.
+- Suite: 3360 passed / 7 skipped / 0 failed.
+- 3 live dogfood runs (Jul 31, flag on) reviewed: near_miss_margin shows NO case of a
+  correct/strong candidate buried past rank 3 for any failing feature (fate line, fingers, heart
+  line, mount of jupiter all failed with top-3 scores 0.51-0.68 already in window).
+  _N_RESULTS_PER_FEATURE=3 is CONFIRMED NOT the bottleneck for these misses — do not widen
+  without new evidence; the S83 PARKED item stays parked.
+- Recurring empty_first/unsupported pattern (fate line, heart line, mount of jupiter) across old
+  AND new captures — suspect Stage-1 overlap floor (0.4, claim_extraction.py) as the real
+  bottleneck, not a rank problem. thumb's one observed attempt_1 failure: overlap 0.08 vs floor
+  0.4 (retry succeeded). NEXT SESSION'S REAL LEAD: investigate the 0.4 overlap floor, not the
+  retrieval window.
+- dogfood_capture.md (10 RUN blocks) archived verbatim to
+  diagnostics/archive/dogfood_capture_2026-07-31.md (91898 bytes, 10/10 runs preserved); working
+  file cleared to 0 bytes — insights already captured above.
