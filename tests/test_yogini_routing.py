@@ -24,6 +24,11 @@ dispatch (confirmed directly: `result_formatter: unknown domain
 will pass once Prompt 5 lands result_formatter.py's own yogini_dasha
 branch.
 
+UPDATE (Session 84): Prompt 5 landed (result_formatter.py's own
+module docstring, Commit C -- `_format_yogini_dasha()` branch, wired into
+format_answer()'s dispatch). test_yogini_orchestrator_returns_current_md
+below is a live assertion again, xfail marker removed.
+
 Sulabh natal inputs / current-MD-lord fixture ("Mars", as of 2026-07-24)
 mirror tests/test_yogini_dasha.py's own test_current_md_lookup_today()
 exactly -- same chart, same query date, same expected lord.
@@ -134,15 +139,6 @@ def test_yogini_in_orchestrator_valid_domains():
     assert "yogini_dasha" in orchestrator._VALID_DOMAINS
 
 
-@pytest.mark.xfail(
-    reason="Prompt 5: result_formatter.py's format_answer() does not yet "
-           "admit yogini_dasha in its own per-domain dispatch -- router "
-           "(Prompt 3) and chart_profile.py's build_domain_profile() "
-           "(Prompt 4) both now handle this domain correctly (see "
-           "tests/infra/test_chart_profile_yogini.py), but format_answer() "
-           "raises 'result_formatter: unknown domain yogini_dasha'. "
-           "Will pass once Prompt 5 lands."
-)
 def test_yogini_orchestrator_returns_current_md():
     # As of 2026-07-24, current Yogini MD lord must be "Mars" for Sulabh
     # (mirrors tests/test_yogini_dasha.py's test_current_md_lookup_today()).

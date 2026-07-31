@@ -119,6 +119,7 @@ not silently absorbed.
 
 from __future__ import annotations
 
+import os
 import json
 import logging
 import re
@@ -176,6 +177,16 @@ _CHEIRO_BOOK = "cheiroslanguageo00chei_1"
 # pass-3 claim ledgers showing support routinely landing at rank 3 -- go
 # to 4 before blaming the template.
 _N_RESULTS_PER_FEATURE = 3
+
+# Same flag, same env var, same comparison as frontend/app.py's own
+# _DOGFOOD_CAPTURE (app.py:41) -- read independently here rather than
+# threaded as a parameter through prepare_palm_reading/generate_palm_reading,
+# since those signatures are a stable external contract and this module
+# already runs in the same process/env as app.py. Governs ONLY the
+# n_results fetch size below; does not change the one-call-per-feature
+# contract (CLAUDE.md Locked Decisions) -- still exactly one search() call
+# per feature, just a smaller n_results value in production.
+_DOGFOOD_CAPTURE = os.environ.get("ASTRO_DOGFOOD_CAPTURE") == "1"
 
 _FEATURE_REGISTRY: tuple[str, ...] = (
     "life line", "head line", "heart line", "fate line", "sun line",
@@ -516,13 +527,17 @@ def _retrieve_per_feature(
     left_fields: dict[str, str],
     right_fields: dict[str, str],
     hd_fields: dict[str, str],
-) -> tuple[dict[str, list[dict]], list[str]]:
-    """Returns (per_feature_results, failed_features).
+) -> tuple[dict[str, list[dict]], list[str], dict[str, list[tuple]]]:
+    """Returns (per_feature_results, failed_features, full_candidates).
     per_feature_results is in _FEATURE_REGISTRY order, every feature
     present as a key (empty list if skipped or the search call failed) --
     this map, not just what's displayed, is the future R3 evidence
     structure, so every assignment is kept even when a chunk_id repeats
     across features.
+    full_candidates maps feature -> [(rank, chunk_id, score), ...] for all
+    30 results before window slicing when ASTRO_DOGFOOD_CAPTURE=1 (S83
+    near-miss margin log); [] in production (flag off) -- no extra fetch
+    cost paid outside dogfood capture.
 
     ACCEPTED GAP (S68 F-C close-out, CLAUDE.md "Known Source Divergences
     / Accepted Gaps (V1)" register, item (c)): "heart line" queries this
@@ -544,20 +559,28 @@ def _retrieve_per_feature(
     production code touched)."""
     texts_by_feature = _gather_feature_texts(left_fields, right_fields, hd_fields)
     results: dict[str, list[dict]] = {}
+    full_candidates: dict[str, list[tuple]] = {}
     failed: list[str] = []
     for feature in _FEATURE_REGISTRY:
         quality = _resolve_feature_quality(feature, texts_by_feature[feature])
         if quality is None:
             results[feature] = []
+            full_candidates[feature] = []
             continue
         query = _build_feature_query(feature, quality)
         try:
             if _FEATURE_PAGE_FILTER_ENABLED:
-                results[feature] = _search_with_page_filter(feature, query)
+                results[feature], full_candidates[feature] = _search_with_page_filter(feature, query)
             else:
-                results[feature] = search(
-                    query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK
+                n_results = 30 if _DOGFOOD_CAPTURE else _N_RESULTS_PER_FEATURE
+                all_results = search(
+                    query, n_results=n_results, book_name=_CHEIRO_BOOK
                 )
+                results[feature] = all_results[:_N_RESULTS_PER_FEATURE]
+                full_candidates[feature] = [
+                    (i + 1, r["chunk_id"], r["score"])
+                    for i, r in enumerate(all_results)
+                ] if _DOGFOOD_CAPTURE else []
         except Exception as exc:  # noqa: BLE001 -- one bad query must not kill the reading
             logger.warning(
                 "palm_reading._retrieve_per_feature: search failed for "
@@ -565,10 +588,11 @@ def _retrieve_per_feature(
             )
             failed.append(feature)
             results[feature] = []
-    return results, failed
+            full_candidates[feature] = []
+    return results, failed, full_candidates
 
 
-def _search_with_page_filter(feature: str, query: str) -> list[dict]:
+def _search_with_page_filter(feature: str, query: str) -> tuple[list[dict], list[tuple]]:
     """S82 page-range gate (flag-gated by _FEATURE_PAGE_FILTER_ENABLED,
     default OFF -- see that constant's own comment). Makes exactly ONE
     search() call per feature: a feature with no verified range
@@ -577,26 +601,38 @@ def _search_with_page_filter(feature: str, query: str) -> list[dict]:
     page_ref=(start, end) Chroma where-clause filter, enforced server-side
     rather than a Python-side post-filter over a widened pool.
 
+    Returns (sliced_results, full_candidates). full_candidates is
+    [(rank, chunk_id, score), ...] for all 30 results before window slicing
+    when ASTRO_DOGFOOD_CAPTURE=1 (S83 near-miss margin log); [] in
+    production (flag off).
+
     A range matching nothing in-chapter now yields an empty list for that
     feature -- this is not swallowed here; _retrieve_per_feature's existing
     empty-result handling routes it to the decline block gracefully. The
     empty case is logged at info level (a ratified graceful outcome, not
     a fault)."""
+    n_results = 30 if _DOGFOOD_CAPTURE else _N_RESULTS_PER_FEATURE
     page_range = _FEATURE_PAGE_RANGES.get(feature)
     if page_range is None:
-        return search(query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK)
-    start, end = page_range
-    results = search(
-        query, n_results=_N_RESULTS_PER_FEATURE, book_name=_CHEIRO_BOOK,
-        page_ref=(start, end),
-    )
-    if not results:
-        logger.info(
-            "palm_reading._search_with_page_filter: no chunk in verified range "
-            "%s-%s for feature %r -- feature will decline (not an error).",
-            start, end, feature,
+        all_results = search(query, n_results=n_results, book_name=_CHEIRO_BOOK)
+    else:
+        start, end = page_range
+        all_results = search(
+            query, n_results=n_results, book_name=_CHEIRO_BOOK,
+            page_ref=(start, end),
         )
-    return results
+        if not all_results:
+            logger.info(
+                "palm_reading._search_with_page_filter: no chunk in verified range "
+                "%s-%s for feature %r -- feature will decline (not an error).",
+                start, end, feature,
+            )
+    sliced = all_results[:_N_RESULTS_PER_FEATURE]
+    full_candidates = [
+        (i + 1, r["chunk_id"], r["score"])
+        for i, r in enumerate(all_results)
+    ] if _DOGFOOD_CAPTURE else []
+    return sliced, full_candidates
 
 
 def _assemble_retrieved_passages(
@@ -1736,7 +1772,7 @@ def prepare_palm_reading(
     left_fields = _parse_fields(palm_left) if palm_left else {}
     right_fields = _parse_fields(palm_right) if palm_right else {}
     hd_fields = _parse_bullet_fields(hand_detail) if hand_detail else {}
-    per_feature_results, failed_retrieval_features = _retrieve_per_feature(
+    per_feature_results, failed_retrieval_features, full_candidates = _retrieve_per_feature(
         left_fields, right_fields, hd_fields
     )
     if failed_retrieval_features:
@@ -1755,6 +1791,13 @@ def prepare_palm_reading(
     extraction_result = claim_extraction.extract_claims(
         gated_results, texts_by_feature, client=client
     )
+
+    # S83 near-miss margin log: merge full ranked candidate list (up to 30)
+    # into per-feature diagnostics before returning; no behavior change.
+    for feature, candidates in full_candidates.items():
+        if feature not in extraction_result.diagnostics.get("features", {}):
+            extraction_result.diagnostics.setdefault("features", {})[feature] = {}
+        extraction_result.diagnostics["features"][feature]["candidates"] = candidates
 
     stage1_retry_features = tuple(
         f for f in _FEATURE_REGISTRY

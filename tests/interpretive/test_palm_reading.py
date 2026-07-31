@@ -701,7 +701,28 @@ def test_search_filters_to_canonical_cheiro_book(monkeypatch):
 
     assert len(fake_search.calls) == 1
     assert fake_search.calls[0]["book_name"] == palm_reading._CHEIRO_BOOK
-    assert fake_search.calls[0]["n_results"] == palm_reading._N_RESULTS_PER_FEATURE == 3
+    assert fake_search.calls[0]["n_results"] == 3  # production default, dogfood flag off
+
+
+def test_search_fetches_30_when_dogfood_capture_flag_on(monkeypatch):
+    """(S84) ASTRO_DOGFOOD_CAPTURE=1 restores the wider 30-candidate fetch
+    for the near-miss margin log. _DOGFOOD_CAPTURE is computed once at
+    import time, so monkeypatch.setenv alone (after import) would not
+    retroactively flip it -- the module attribute itself is monkeypatched
+    directly, same pattern _FEATURE_PAGE_FILTER_ENABLED tests already use
+    elsewhere in this file. setenv is included anyway for readers, even
+    though it's the attribute patch doing the actual work."""
+    monkeypatch.setenv("ASTRO_DOGFOOD_CAPTURE", "1")
+    monkeypatch.setattr(palm_reading, "_DOGFOOD_CAPTURE", True)
+    chunk = _chunk()
+    fake_search = _FakeSearch([chunk])
+    monkeypatch.setattr(palm_reading, "search", fake_search)
+    client = _single_feature_client("life line", chunk, _CLEAN_STUB_TEXT)
+
+    generate_palm_reading(palm_left="LIFE LINE: A long life line.", palm_right=None, client=client)
+
+    assert len(fake_search.calls) == 1
+    assert fake_search.calls[0]["n_results"] == 30
 
 
 # ─── S82: page-range gate rewired to one Chroma-level call ─────────────
@@ -745,7 +766,7 @@ def test_page_range_gate_pushes_verified_range_into_single_call(monkeypatch):
     assert len(fake_search.calls) == 1
     assert fake_search.calls[0]["page_ref"] == palm_reading._FEATURE_PAGE_RANGES["life line"]
     assert fake_search.calls[0]["book_name"] == palm_reading._CHEIRO_BOOK
-    assert fake_search.calls[0]["n_results"] == palm_reading._N_RESULTS_PER_FEATURE
+    assert fake_search.calls[0]["n_results"] == 3  # production default, dogfood flag off
 
 
 def test_page_range_gate_null_range_feature_omits_page_ref_key(monkeypatch):
@@ -1055,7 +1076,7 @@ def test_query_template_two_hand_merged_quality_literal_shape(monkeypatch):
         "what does a barely visible / moderately deep fate line signify "
         "— meaning and indications of a barely visible / moderately deep fate line"
     )
-    assert fake_search.calls[0]["n_results"] == palm_reading._N_RESULTS_PER_FEATURE == 3
+    assert fake_search.calls[0]["n_results"] == 3  # production default, dogfood flag off
     assert client.completions.calls == []
 
 
