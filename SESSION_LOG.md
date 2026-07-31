@@ -2386,3 +2386,29 @@ CARRY-FORWARD OPENED.
   "no PDF/palm storage, fresh upload every session" decision. data/sessions/ is gitignored but
   ignore rules do not untrack. A second history rewrite is cheap now and gets more expensive as
   commits accumulate.
+
+S83 — Palm retrieval closed; failure-capture net shipped
+- Rank sweep (validated answer key, 15 feature/quality rows, gated): 11/15 correct doctrine in
+  top-3; 3 buried at ranks 4-8 (head-straight 4, heart-deep 4, heart-upward 8); the 1 "not found"
+  (head-sloping) was a bad answer-key signature, NOT a retrieval failure.
+- Heart-line frontend drop root-caused: RETRIEVAL, narrow — correct doctrine ranks 4-8 and the
+  _N_RESULTS_PER_FEATURE=3 cutoff discards it before Stage-1. Pool not empty; Stage-1 not at fault.
+- p123 attractor: pre-S82 dogfood (Jul 27) showed it firing live on head line; post-S82 gate
+  (Jul 30) head sources p145 — gate fixed it live. Fully contained, no live leak (null-range
+  'markings/other features' is a marks query, doesn't pull the line-name table). Content-role tag
+  validated feasible (chromadb 1.5.9 metadata-only update, no re-embed) but DEFERRED to Path D /
+  astrology track — no live justification.
+- Vocabulary gap real in text (fate chapter uses "double/sister/branch", never "forked") but
+  text-embedding-3-small bridges it (target ranks #1). Query rewording REJECTED by sweep (helps
+  one row, harms others). No fix.
+- Head-line valence bug (S71) still open, observed live Jul 30 (neutral "strength or weakness"
+  rendered positive). PROMPT layer, untouched.
+- SHIPPED: failure-only dogfood capture net (5b19f98). _run_had_failure gate in
+  _capture_dogfood_run; 4 categorical threshold-free triggers (silence / all_rejected /
+  wrong_source / instability) + capture_reason tag; fail-safe -> ["capture_error"]. Taxonomy
+  signed off at 7 categories; v1 auto-detects the cheap categorical ones; contradictions rely on
+  human eyeball of the captured block; near-miss & marginal-accept NOT captured by design.
+- PARKED: rank-window widening (_N_RESULTS_PER_FEATURE 3->5) until the capture net accumulates
+  real production silences — do NOT set the number from the S83 sweep sample.
+- BETWEEN-SESSION ACTION: turn the dogfood capture flag ON in the deployed frontend (config, no
+  code) — the net collects nothing until then.
