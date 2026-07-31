@@ -300,6 +300,10 @@ def test_capture_dogfood_run_writes_claims_inventory(monkeypatch, tmp_path):
 
 
 def test_capture_dogfood_run_claims_inventory_empty(monkeypatch, tmp_path):
+    """S83: unsupported_features carries a single feature so the run fires
+    the "silence" gate and reaches the writer (a clean reading now writes
+    nothing) -- claims/stage1 diagnostics stay empty as before, so the
+    EMPTY placeholder is still exercised on a reachable path."""
     import frontend.app as app
 
     log_path = tmp_path / "dogfood_capture.md"
@@ -312,11 +316,13 @@ def test_capture_dogfood_run_claims_inventory_empty(monkeypatch, tmp_path):
         model="gpt-4o",
         retry_used=False,
         supported_features=(),
-        unsupported_features=(),
+        unsupported_features=("fate line",),
     )
     app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, reading)
 
     content = log_path.read_text(encoding="utf-8")
+    assert "### capture_reason" in content
+    assert "silence" in content
     assert "### claims_inventory" in content
     assert "claims_inventory: EMPTY" in content
 
@@ -335,6 +341,10 @@ def test_capture_dogfood_run_writes_two_stage_retry_fields(monkeypatch, tmp_path
 
 
 def test_capture_dogfood_run_stage1_retry_features_none_when_empty(monkeypatch, tmp_path):
+    """S83: unsupported_features carries a single feature so the run fires
+    the "silence" gate and reaches the writer (a clean reading now writes
+    nothing) -- stage1_retry_features stays empty as before, so the NONE
+    placeholder is still exercised on a reachable path."""
     import frontend.app as app
 
     log_path = tmp_path / "dogfood_capture.md"
@@ -347,11 +357,13 @@ def test_capture_dogfood_run_stage1_retry_features_none_when_empty(monkeypatch, 
         model="gpt-4o",
         retry_used=False,
         supported_features=(),
-        unsupported_features=(),
+        unsupported_features=("fate line",),
     )
     app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, reading)
 
     content = log_path.read_text(encoding="utf-8")
+    assert "### capture_reason" in content
+    assert "silence" in content
     assert "stage1_retry_features: NONE" in content
     assert "stage2_retry_used: False" in content
 
@@ -566,3 +578,96 @@ def test_capture_checkpoint_declined_still_appends_never_overwrites(monkeypatch,
 
     assert first_content in second_content
     assert second_content.count("## CHECKPOINT-DECLINED") == 2
+
+
+# ─── S83: failure-only capture net ─────────────────────────────────────
+
+
+def _clean_reading() -> PalmReadingResult:
+    """A run with nothing to flag: every feature supported, no retry, Ring
+    1 passed clean, and its one claim's chunk sits inside its feature's
+    own gated page range."""
+    claims = (
+        Claim(
+            claim_id="C1",
+            feature="life line",
+            chunk_id="cheiroslanguageo00chei_1_p134_c2",
+            claim_text="A long, unbroken life line indicates steady vitality.",
+            valence="positive",
+            condition_text=None,
+            observation_basis="visible",
+            excluded_from_voice=False,
+            exclusion_reason=None,
+        ),
+    )
+    return PalmReadingResult(
+        reading_text="Your life line shows steady vitality.",
+        sources=(
+            {"book": "cheiroslanguageo00chei_1", "page": 134, "score": 0.61, "feature": "life line"},
+        ),
+        validation=ValidationReport(passed=True, failures=()),
+        model="gpt-4o",
+        retry_used=False,
+        supported_features=("life line",),
+        unsupported_features=(),
+        claims=claims,
+        stage1_retry_features=(),
+        stage2_retry_used=False,
+    )
+
+
+def test_run_had_failure_clean_reading_returns_false_empty():
+    import frontend.app as app
+
+    fired, tags = app._run_had_failure(_clean_reading())
+    assert (fired, tags) == (False, [])
+
+
+def test_capture_dogfood_run_writes_nothing_for_clean_reading(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, _clean_reading())
+
+    assert not log_path.exists()
+
+
+def test_run_had_failure_unsupported_features_returns_silence():
+    import frontend.app as app
+
+    reading = PalmReadingResult(
+        reading_text="Your life line shows steady vitality.",
+        sources=(),
+        validation=ValidationReport(passed=True, failures=()),
+        model="gpt-4o",
+        retry_used=False,
+        supported_features=(),
+        unsupported_features=("fate line",),
+    )
+    fired, tags = app._run_had_failure(reading)
+    assert (fired, tags) == (True, ["silence"])
+
+
+def test_capture_dogfood_run_writes_capture_reason_silence(monkeypatch, tmp_path):
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    reading = PalmReadingResult(
+        reading_text="Your life line shows steady vitality.",
+        sources=(),
+        validation=ValidationReport(passed=True, failures=()),
+        model="gpt-4o",
+        retry_used=False,
+        supported_features=(),
+        unsupported_features=("fate line",),
+    )
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, reading)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert content.count("## RUN") == 1
+    assert "### capture_reason" in content
+    assert "silence" in content

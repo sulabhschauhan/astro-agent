@@ -23,7 +23,9 @@ from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf, _PRIORITY_ORDER
 from PIL import Image
 from agent.palm_processor import validate_palm_image, describe_palm_image, describe_hand_detail_image
-from agent.interpretive.palm_reading import generate_palm_reading, prepare_palm_reading, complete_palm_reading
+from agent.interpretive.palm_reading import (
+    generate_palm_reading, prepare_palm_reading, complete_palm_reading, _FEATURE_PAGE_RANGES,
+)
 from agent.infra.orchestrator import answer_question
 from agent.interpretive.answer_renderer import render_answer
 
@@ -97,6 +99,52 @@ def _format_stage1_feature_diagnostics_lines(feature_diagnostics: dict) -> list:
     return lines
 
 
+def _run_had_failure(reading) -> tuple[bool, list[str]]:
+    """S83: categorical, threshold-free gate for the dogfood capture net --
+    clean runs write nothing, only a fired reason tag earns a capture.
+    Every check reads an existing PalmReadingResult field directly; no new
+    detectors, no thresholds. Fail-safe: any internal error here returns
+    (True, ["capture_error"]) so a bug in this helper can never cost a
+    capture that should have happened."""
+    try:
+        tags = set()
+
+        if reading.unsupported_features:
+            tags.add("silence")
+        for diag in reading.stage1_feature_diagnostics.values():
+            outcome = str(diag.get("final_outcome", ""))
+            if "empty" in outcome:
+                tags.add("silence")
+            if "failed" in outcome:
+                tags.add("all_rejected")
+
+        for claim in reading.claims:
+            if claim.excluded_from_voice:
+                continue
+            feature_range = _FEATURE_PAGE_RANGES.get(claim.feature)
+            if not feature_range:
+                continue
+            try:
+                match = re.search(r"_p(\d+)_", claim.chunk_id)
+                if match is None:
+                    continue
+                page = int(match.group(1))
+            except Exception:
+                continue
+            start, end = feature_range
+            if not (start <= page <= end):
+                tags.add("wrong_source")
+
+        if reading.retry_used or reading.stage2_retry_used:
+            tags.add("instability")
+        if not reading.validation.passed or reading.validation.failures:
+            tags.add("instability")
+
+        return (bool(tags), sorted(tags))
+    except Exception:
+        return (True, ["capture_error"])
+
+
 def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     """
     Append one markdown block to diagnostics/dogfood_capture.md for a
@@ -109,7 +157,14 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
             was not confirmed for this run.
         reading: the PalmReadingResult returned by generate_palm_reading().
     """
+    any_fired, tags = _run_had_failure(reading)
+    if not any_fired:
+        return
+
     lines = [f"## RUN {datetime.datetime.now().isoformat()}", ""]
+    lines.append("### capture_reason")
+    lines.append(", ".join(tags))
+    lines.append("")
 
     lines.append("### Confirmed descriptions")
     if palm_left:
