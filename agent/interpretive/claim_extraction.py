@@ -241,20 +241,28 @@ def _call_llm(client, messages: list[dict]) -> str:
 _REQUIRED_CLAIM_KEYS = frozenset({"chunk_id", "claim_text", "valence", "condition_text", "observation_basis"})
 
 
-def _validate_response(raw: str, chunk_map: dict[str, str]) -> tuple[list[dict] | None, list[str]]:
-    """Returns (accepted_raw_claims, failures). accepted_raw_claims is None
-    iff failures is non-empty -- an ALL-OR-NOTHING result per feature call
-    (any single claim's E-1/E-2/E-3 violation rejects the whole response,
-    matching palm_reading.py's own F2c precedent of retrying the whole
-    draft, never patching individual sentences)."""
+def _validate_response(
+    raw: str, chunk_map: dict[str, str],
+) -> tuple[list[dict] | None, list[str], int | None]:
+    """Returns (accepted_raw_claims, failures, raw_claim_count).
+    accepted_raw_claims is None iff failures is non-empty -- an
+    ALL-OR-NOTHING result per feature call (any single claim's E-1/E-2/E-3
+    violation rejects the whole response, matching palm_reading.py's own
+    F2c precedent of retrying the whole draft, never patching individual
+    sentences). raw_claim_count is the PRE-VALIDATION count of items in
+    the model's own "claims" list -- observed, not inferred -- and is None
+    only when that list itself could not be determined (malformed JSON, or
+    a missing/non-list "claims" key). Measurement-only addition: does not
+    affect which claims are accepted or which failures are raised."""
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
-        return None, [f"malformed JSON response: {exc}"]
+        return None, [f"malformed JSON response: {exc}"], None
 
     if not isinstance(parsed, dict) or "claims" not in parsed or not isinstance(parsed["claims"], list):
-        return None, ["response missing a top-level 'claims' list"]
+        return None, ["response missing a top-level 'claims' list"], None
 
+    raw_claim_count = len(parsed["claims"])
     failures: list[str] = []
     accepted: list[dict] = []
     for i, raw_claim in enumerate(parsed["claims"]):
@@ -291,8 +299,8 @@ def _validate_response(raw: str, chunk_map: dict[str, str]) -> tuple[list[dict] 
         accepted.append({**raw_claim, "_overlap": overlap})
 
     if failures:
-        return None, failures
-    return accepted, []
+        return None, failures, raw_claim_count
+    return accepted, [], raw_claim_count
 
 
 # ─── Dataclasses ───────────────────────────────────────────────────────
@@ -446,6 +454,11 @@ def extract_claims(
         #   attempt_1_status / attempt_2_status: "not_attempted", "error",
         #     "validation_failed", "validated", "validated_empty",
         #     "skipped_no_viable_chunks" (E2F step 1, new).
+        #   attempt_1_raw_count / attempt_2_raw_count: PRE-VALIDATION count
+        #     of items in the model's own "claims" list (measurement-only,
+        #     see _validate_response's docstring) -- None when no response
+        #     was parsed at all (API error, not attempted, or the response
+        #     itself was malformed/missing the "claims" key).
         #   final_outcome: "failed_first_no_retry", "failed_both",
         #     "success_first", "success_retry", "empty_first", "empty_retry",
         #     "failed_first_no_viable_retry" (E2F step 1, new).
@@ -453,6 +466,7 @@ def extract_claims(
         diag: dict = {
             "call_count": 0, "retry_used": False,
             "attempt_2_status": "not_attempted", "attempt_2_claim_count": None,
+            "attempt_2_raw_count": None,
         }
 
         diag["call_count"] += 1
@@ -467,11 +481,13 @@ def extract_claims(
             diag["error"] = f"claim_extraction: API call failed for feature {feature!r}: {exc}"
             diag["attempt_1_status"] = "error"
             diag["attempt_1_claim_count"] = 0
+            diag["attempt_1_raw_count"] = None
             diag["final_outcome"] = "failed_first_no_retry"
             feature_diagnostics[feature] = diag
             continue
 
-        accepted, failures = _validate_response(raw, chunk_map)
+        accepted, failures, raw_claim_count = _validate_response(raw, chunk_map)
+        diag["attempt_1_raw_count"] = raw_claim_count
 
         if failures:
             diag["attempt_1_status"] = "validation_failed"
@@ -529,10 +545,12 @@ def extract_claims(
                 diag["first_attempt_failures"] = failures
                 diag["attempt_2_status"] = "error"
                 diag["attempt_2_claim_count"] = None
+                diag["attempt_2_raw_count"] = None
                 diag["final_outcome"] = "failed_both"
                 feature_diagnostics[feature] = diag
                 continue
-            accepted, failures = _validate_response(raw, chunk_map)
+            accepted, failures, raw_claim_count = _validate_response(raw, chunk_map)
+            diag["attempt_2_raw_count"] = raw_claim_count
 
         if failures:
             failed_features.append(feature)

@@ -66,7 +66,16 @@ def _format_stage1_feature_diagnostics_lines(feature_diagnostics: dict) -> list:
     messages under first_attempt_failures/failures -- just never emitted
     here. Only appended when the corresponding attempt's status indicates
     a real failure (validation_failed/error) AND the message list is
-    non-empty, so success/empty outcomes stay exactly as compact as before."""
+    non-empty, so success/empty outcomes stay exactly as compact as before.
+
+    Measurement-only addition: attempt_1_raw_count/attempt_2_raw_count
+    (claim_extraction.py's PRE-VALIDATION claims-list length, None when no
+    response was parsed at all) are rendered as an OBSERVED "(raw=N)"
+    suffix per attempt, so a validated_empty/0 outcome shows whether the
+    model emitted zero claims (raw=0) or emitted some that all failed
+    validation (raw>0) -- previously indistinguishable from this line
+    alone. Read via .get() with a "?" fallback for the same pre-existing-
+    capture-compatibility reason as the other fields here."""
     if not feature_diagnostics:
         return ["stage1_feature_diagnostics: NONE"]
     lines = ["stage1_feature_diagnostics:"]
@@ -75,11 +84,13 @@ def _format_stage1_feature_diagnostics_lines(feature_diagnostics: dict) -> list:
         outcome = diag.get("final_outcome", "unknown")
         a1_status = diag.get("attempt_1_status", "unknown")
         a1_count = diag.get("attempt_1_claim_count", "?")
+        a1_raw = diag.get("attempt_1_raw_count", "?")
         a2_status = diag.get("attempt_2_status", "unknown")
         a2_count = diag.get("attempt_2_claim_count", "?")
+        a2_raw = diag.get("attempt_2_raw_count", "?")
         lines.append(
-            f"  {feature}: outcome={outcome} attempt_1={a1_status}/{a1_count} "
-            f"attempt_2={a2_status}/{a2_count}"
+            f"  {feature}: outcome={outcome} attempt_1={a1_status}/{a1_count} (raw={a1_raw}) "
+            f"attempt_2={a2_status}/{a2_count} (raw={a2_raw})"
         )
         if a1_status in ("validation_failed", "error"):
             attempt_1_failures = diag.get("first_attempt_failures", ())
