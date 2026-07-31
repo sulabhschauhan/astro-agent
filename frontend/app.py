@@ -25,6 +25,7 @@ from PIL import Image
 from agent.palm_processor import validate_palm_image, describe_palm_image, describe_hand_detail_image
 from agent.interpretive.palm_reading import (
     generate_palm_reading, prepare_palm_reading, complete_palm_reading, _FEATURE_PAGE_RANGES,
+    _N_RESULTS_PER_FEATURE,
 )
 from agent.infra.orchestrator import answer_question
 from agent.interpretive.answer_renderer import render_answer
@@ -311,6 +312,32 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     # directly, closing the anchor-membership gap that line worked
     # around. CLAUDE.md's accepted-gap register update is a separate
     # close-out prompt's job, not done here.
+    lines.append("")
+
+    # S83 near-miss margin log: full ranked candidate list (up to 30) before
+    # window slicing, one line per feature. No threshold, no behavior change --
+    # logging only. Format: {feature}: window={N} candidates=[(rank, chunk_id, score), ...]
+    lines.append("### near_miss_margin")
+    try:
+        has_data = False
+        for feature in sorted(reading.stage1_feature_diagnostics):
+            diag = reading.stage1_feature_diagnostics[feature]
+            candidates = diag.get("candidates", [])
+            if candidates:
+                has_data = True
+                formatted = ", ".join(
+                    f"({rank}, {chunk_id}, {score})"
+                    for rank, chunk_id, score in candidates
+                )
+                lines.append(
+                    f"  {feature}: window={_N_RESULTS_PER_FEATURE} "
+                    f"candidates=[{formatted}]"
+                )
+        if not has_data:
+            lines.append("near_miss_margin: NOT CAPTURED")
+    except Exception as exc:
+        logger.warning("app._capture_dogfood_run: near_miss_margin capture failed: %s", exc)
+        lines.append("near_miss_margin: EMIT_ERROR")
     lines.append("")
 
     _DOGFOOD_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
