@@ -2436,3 +2436,39 @@ S84 — Near-miss margin gate corrected to production-safe default; window=3 vin
 - dogfood_capture.md (10 RUN blocks) archived verbatim to
   diagnostics/archive/dogfood_capture_2026-07-31.md (91898 bytes, 10/10 runs preserved); working
   file cleared to 0 bytes — insights already captured above.
+
+## S84 addendum -- Palm retrieval restructured: offline-verified-extraction pilot supersedes overlap-floor lead (2026-08-01, docs-only)
+
+Carry-forward from this session's near-miss-margin re-analysis (diagnostics/latest_run.md)
+and the rule-engine-v1_5-design.md cross-chapter-conditions addendum: Cheiro/palm retrieval
+is being restructured from live per-request Stage-1 extraction to an OFFLINE,
+human-verified extraction pipeline into a rules table, scoped BOOK-WIDE rather than
+chapter-grouped. Two root causes drove this, both now recorded in
+diagnostics/KNOWN_PATTERNS.md: (P-016) Stage-1's live per-request extraction against the
+0.4 overlap floor has no verified ground truth to calibrate against, producing
+`empty_first`/raw=0 outcomes that vary run to run for similar inputs; (P-015) compound
+conditions spanning two features (e.g. head-line + heart-line combination doctrine) are
+genuinely cross-chapter and cannot be assembled by the S82 page-range gate's
+chapter-scoped retrieval, however deep the window goes.
+
+THIS SUPERSEDES, NOT ADDS TO, the previously-planned next step. S84's own "NEXT SESSION'S
+REAL LEAD: investigate the 0.4 overlap floor, not the retrieval window" is superseded by
+this pilot -- a future session should NOT separately pursue Stage-1 overlap-floor tuning
+as its own thread. The pilot's offline/book-wide extraction approach is intended to
+replace the mechanism the overlap floor was gating, not to be debugged alongside it.
+
+Framed explicitly as a PILOT (Cheiro/palm only): validates whether offline-verified,
+book-wide extraction is the right method before any astrology-book (BPHS/Phaladeepika/
+Saravali-class combination rules) application is considered. Does NOT touch or partially
+satisfy the V1.5 Rule Engine Foundation gates (still: not before V1 ships; still gated
+behind the rule-of-three / Ashtottari as the 4th hand-coded domain) -- a single-domain
+pilot proceeding is explicitly NOT the generalized multi-domain engine starting; see
+playbook_export/decisions/rule-engine-v1_5-design.md's second 2026-08-01 addendum and
+CLAUDE.md's V1.5 register entry for the cross-linked statement of this distinction.
+
+Files touched this entry's session (all docs-only, additive, no RATIFIED token required
+per Working Style #14's docs/diagnostics exemption): diagnostics/KNOWN_PATTERNS.md (rows
+P-015, P-016 added; P-014's Status column annotated with a superseded-by pointer),
+CLAUDE.md (V1.1 register bullet added; V1.5 register entry cross-link line added),
+playbook_export/decisions/rule-engine-v1_5-design.md (second addendum appended), this
+SESSION_LOG.md entry. No production code changed.

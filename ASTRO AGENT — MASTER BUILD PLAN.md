@@ -1014,6 +1014,8 @@ scales it 10x. Derive schema from shipped hand-coded domains, not
 top-down.
 
 **Full design lock:** `playbook_export/decisions/rule-engine-v1_5-design.md`
+(see that doc's "Addendum 2026-08-01" for a cross-chapter compound-conditional
+scope refinement — additive, gates below unchanged)
 
 **Trigger to open V1.5.1:** ALL four prerequisites green:
 1. V1 shipped end-to-end (palm UI gate implemented, 8 routable 

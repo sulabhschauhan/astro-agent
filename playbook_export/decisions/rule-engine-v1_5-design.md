@@ -116,3 +116,49 @@ agents that exist in this project (a single "Parashara dissent" is
 logged once, in SESSION_LOG.md's S65 entry, on an unrelated palm/
 kundali cross-verification decision — it is not a standing reviewer).
 That claim has been removed rather than repeated here.
+
+## Addendum 2026-08-01 — Cross-chapter scope refinement (docs-only, additive)
+
+**Finding:** Compound conditional interpretation ("if A=X and B=Y then
+Alpha") is confirmed GENUINELY CROSS-CHAPTER within a single book, not
+resolvable by chapter-grouped extraction alone. More prominent in the
+astrology corpus (BPHS / Phaladeepika / Saravali-class combination
+rules, where a yoga's conditions and its result routinely sit in
+different chapters/sections) than in Cheiro palm, where the main case
+is head-line + heart-line combination doctrine — still cross-chapter,
+but narrower in scope than the astrology-corpus case.
+
+**Scope implication:** any future rules-KB / extraction pass built to
+capture this class of compound-conditional doctrine needs a
+cross-chapter linking step, not just per-chapter grouping. This is a
+DESIGN REQUIREMENT flagged for whenever V1.5 is actually scoped — it
+is not a decision to build anything now, and does not add a fifth
+prerequisite or otherwise change the gate below.
+
+**Gates unchanged (re-verified against CLAUDE.md's V1.5 register entry
+and this doc's own D5/Prerequisites above before writing this
+addendum):** still not before V1 ships; still gated behind the
+"rule of three" — the 4th hand-coded domain (Ashtottari dasha) landing
+before any generalization work starts. No prerequisite count change,
+no gate-wording change — this addendum is additive scope context only.
+
+## Addendum 2026-08-01 (second) — Scoped single-domain pilot proceeding ahead of the generalized engine
+
+A scoped single-domain pilot (Cheiro palm reading) is proceeding now,
+ahead of and separate from the generalized multi-domain rule engine
+this document designs. The pilot moves Cheiro/palm from live
+per-request Stage-1 extraction to offline, human-verified extraction
+into a rules table, scoped book-wide (not chapter-grouped) so it can
+capture the cross-chapter compound conditions flagged in the addendum
+above. Full framing: CLAUDE.md's V1.1 register entry
+("offline-verified-extraction pilot").
+
+This does NOT satisfy or partially satisfy any of the four
+Prerequisites above, and does NOT start V1.5.1 — a single-domain,
+already-hand-coded-and-shipping-scope pilot on Cheiro/palm is a
+different activity from designing/building the generalized Tier A/B
+engine. The pilot is explicitly the VALIDATION GATE for whether this
+offline-extraction method generalizes to the astrology corpus at all,
+before that question is even brought to a V1.5 design-chat. Gates
+unchanged: same "not before V1 ships" / rule-of-three restriction as
+stated above and in the first addendum.
