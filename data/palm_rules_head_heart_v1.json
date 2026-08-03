@@ -5,6 +5,7 @@
       "source_page": 145,
       "topic_group": "line_head",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -45,6 +46,7 @@
       "source_page": 146,
       "topic_group": "line_head",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -69,6 +71,7 @@
       "source_page": 146,
       "topic_group": "line_head",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -93,6 +96,7 @@
       "source_page": 146,
       "topic_group": "line_head",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -125,6 +129,7 @@
       "source_page": 147,
       "topic_group": "line_head",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -149,6 +154,7 @@
       "source_page": 147,
       "topic_group": "line_head",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -175,6 +181,7 @@
       "source_page": 147,
       "topic_group": "line_head",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -207,6 +214,7 @@
       "source_page": 147,
       "topic_group": "line_head",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -231,6 +239,7 @@
       "source_page": 147,
       "topic_group": "line_head",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -255,6 +264,7 @@
       "source_page": 147,
       "topic_group": "line_head",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -297,6 +307,7 @@
       "source_page": 147,
       "topic_group": "line_head",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -339,6 +350,7 @@
       "source_page": 148,
       "topic_group": "line_head",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -366,6 +378,7 @@
       "source_page": 148,
       "topic_group": "line_head",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -390,6 +403,7 @@
       "source_page": 148,
       "topic_group": "line_head",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -424,6 +438,7 @@
       "source_page": 148,
       "topic_group": "line_head",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -448,6 +463,7 @@
       "source_page": 150,
       "topic_group": "line_head_types",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Hand",
@@ -482,6 +498,7 @@
       "source_page": 150,
       "topic_group": "line_head_types",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Hand",
@@ -516,6 +533,7 @@
       "source_page": 151,
       "topic_group": "line_head_types",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Hand",
@@ -558,6 +576,7 @@
       "source_page": 154,
       "topic_group": "line_head_murder",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -582,6 +601,7 @@
       "source_page": 156,
       "topic_group": "line_heart",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -606,6 +626,7 @@
       "source_page": 156,
       "topic_group": "line_heart",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -632,6 +653,7 @@
       "source_page": 159,
       "topic_group": "line_heart",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -656,6 +678,7 @@
       "source_page": 159,
       "topic_group": "line_heart",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -680,6 +703,7 @@
       "source_page": 159,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -712,6 +736,7 @@
       "source_page": 160,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -746,6 +771,7 @@
       "source_page": 160,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -780,6 +806,7 @@
       "source_page": 160,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -814,6 +841,7 @@
       "source_page": 160,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -848,6 +876,7 @@
       "source_page": 160,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -880,6 +909,7 @@
       "source_page": 160,
       "topic_group": "line_heart",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -904,6 +934,7 @@
       "source_page": 160,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -936,6 +967,7 @@
       "source_page": 160,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -968,6 +1000,7 @@
       "source_page": 160,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -1000,6 +1033,7 @@
       "source_page": 161,
       "topic_group": "line_heart",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -1026,6 +1060,7 @@
       "source_page": 147,
       "topic_group": "line_head",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -1060,6 +1095,7 @@
       "source_page": 147,
       "topic_group": "line_head",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -1092,6 +1128,7 @@
       "source_page": 147,
       "topic_group": "line_head",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
@@ -1116,6 +1153,7 @@
       "source_page": 159,
       "topic_group": "line_heart",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -1140,6 +1178,7 @@
       "source_page": 159,
       "topic_group": "line_heart",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -1164,6 +1203,7 @@
       "source_page": 159,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -1204,6 +1244,7 @@
       "source_page": 159,
       "topic_group": "line_heart",
       "is_compound": false,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -1228,6 +1269,7 @@
       "source_page": 159,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
@@ -1260,6 +1302,7 @@
       "source_page": 159,
       "topic_group": "line_heart",
       "is_compound": true,
+      "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Heart",
