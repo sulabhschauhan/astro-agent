@@ -3,22 +3,26 @@ agent/interpretive/palm_rules_table.py
 Deterministic rule-matching engine for the offline-verified-extraction
 pilot -- SUPERSEDES the small hand-authored schema this module carried
 before (backed up verbatim to palm_rules_table.py.bak). This rewrite
-loads Sulabh's real validated rule set (data/palm_rules_head_heart_v1.json,
+loads Sulabh's real validated rule set (data/palm_rules/palm_rules_head_heart_v1.json,
 `validated_candidates` only -- `parked_pending_relation_target` rules are
 schema-blocked, per that file's own schema_flags, and are never loaded
 here) and matches it against an observation graph.
 
-Three layers, in order:
-  1. load_rules() -- pure I/O + shape validation, no matching logic.
-  2. match() -- fires rules whose antecedents are ALL satisfied by the
+Four layers, in order:
+  1. load_rules() -- pure I/O + shape validation for a SINGLE rule-book
+     file, no matching logic.
+  2. load_rule_set() -- merges every top-level rule-book file under
+     data/palm_rules/ (non-recursive; data/palm_rules/_candidates/ drafts
+     are never auto-loaded), fail-closed on cross-file rule_id collisions.
+  3. match() -- fires rules whose antecedents are ALL satisfied by the
      observation (+ magnitudes, for comparative antecedents). Independent
      per rule; does not know about topic_group or suppression.
-  3. resolve_priority() -- takes the fired set and suppresses any rule
+  4. resolve_priority() -- takes the fired set and suppresses any rule
      that is a strict antecedent-subset of another FIRED rule in the SAME
      topic_group (most_specific_wins, matching
-     data/deterministic_rule_book.json's own engine_priority doctrine:
-     "resolution_strategy": "most_specific_wins", "scope":
-     "within_topic_group").
+     data/palm_rules/_candidates/deterministic_rule_book.json's own
+     engine_priority doctrine: "resolution_strategy": "most_specific_wins",
+     "scope": "within_topic_group").
 
 SCHEMA NOTE: `logic_join` exists in the source JSON (always "AND" across
 all 43 validated_candidates) but is NOT one of the fields this task's own
@@ -43,8 +47,13 @@ from typing import Sequence
 logger = logging.getLogger(__name__)
 
 _DEFAULT_RULES_PATH = (
-    Path(__file__).resolve().parent.parent.parent / "data" / "palm_rules_head_heart_v1.json"
+    Path(__file__).resolve().parent.parent.parent / "data" / "palm_rules" / "palm_rules_head_heart_v1.json"
 )
+
+# Directory of top-level rule-book JSON files -- load_rule_set() globs this
+# directory ONLY (non-recursive), so data/palm_rules/_candidates/ (unratified
+# drafts like deterministic_rule_book.json) is never picked up automatically.
+_DEFAULT_RULES_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "palm_rules"
 
 # The 6 antecedent fields this task's schema specifies. Any OTHER key
 # present on a raw antecedent dict (e.g. H_011's "hand_side": "both") is
@@ -85,6 +94,7 @@ class PalmRule:
     verified_date: str | None
     source_fidelity: str | None
     schema_flags: tuple[str, ...]
+    baseline: bool = False
 
     def antecedent_set(self) -> frozenset:
         return frozenset(a.signature() for a in self.antecedents)
@@ -139,8 +149,49 @@ def load_rules(path: Path | str = _DEFAULT_RULES_PATH) -> tuple[PalmRule, ...]:
             verified_date=c.get("verified_date"),
             source_fidelity=c.get("source_fidelity"),
             schema_flags=tuple(c.get("schema_flags", [])),
+            baseline=c.get("baseline", False),
         ))
     return tuple(rules)
+
+
+def load_rule_set(rules_dir: Path | str = _DEFAULT_RULES_DIR) -> tuple[PalmRule, ...]:
+    """Loads and merges every top-level rule-book JSON file in `rules_dir`
+    (non-recursive glob -- `_candidates/` subdirectories, e.g. the
+    unratified deterministic_rule_book.json draft, are never picked up).
+    Each file goes through the SAME load_rules() used for a single file --
+    no separate parsing path -- so a malformed file still raises exactly
+    as load_rules() documents (propagated, not swallowed here).
+
+    Fail-closed on cross-file rule_id collisions: two files are allowed to
+    each define their own ids freely, but if the SAME rule_id appears in
+    two different files, that's a genuine authoring error (which rule
+    fires?) -- raised immediately, naming the id and both files, rather
+    than silently keeping one and dropping the other.
+
+    Raises:
+        ValueError: `rules_dir` doesn't exist, or a duplicate rule_id is
+        found across files (message names the dir / the id and files).
+        FileNotFoundError / json.JSONDecodeError: propagated as-is from
+        load_rules() for a malformed individual file -- not caught here.
+    """
+    rules_dir = Path(rules_dir)
+    if not rules_dir.is_dir():
+        raise ValueError(f"palm_rules_table.load_rule_set: rules_dir does not exist or is not a directory: {rules_dir}")
+
+    all_rules: list[PalmRule] = []
+    seen_by_id: dict[str, Path] = {}
+    for file_path in sorted(rules_dir.glob("*.json")):
+        file_rules = load_rules(file_path)
+        for rule in file_rules:
+            if rule.rule_id in seen_by_id:
+                raise ValueError(
+                    f"palm_rules_table.load_rule_set: duplicate rule_id {rule.rule_id!r} "
+                    f"found in both {seen_by_id[rule.rule_id]} and {file_path}"
+                )
+            seen_by_id[rule.rule_id] = file_path
+        all_rules.extend(file_rules)
+
+    return tuple(all_rules)
 
 
 def _antecedent_fires(antecedent: Antecedent, observation: dict, magnitudes: dict) -> bool:
@@ -192,8 +243,9 @@ def resolve_priority(fired: Sequence[PalmRule]) -> tuple[list[PalmRule], list[tu
     Suppression rule: within the same topic_group, a fired rule is
     suppressed if its antecedent_set() is a PROPER subset of another
     FIRED rule's antecedent_set() in that same group (most_specific_wins,
-    matching data/deterministic_rule_book.json's engine_priority doctrine
-    -- same formal spec, independently re-derived here for this engine).
+    matching data/palm_rules/_candidates/deterministic_rule_book.json's
+    engine_priority doctrine -- same formal spec, independently re-derived
+    here for this engine).
     Cross-group rules never suppress each other. Rules with equal
     antecedent-set size (including identical sets) never suppress one
     another -- "benign siblings", same exemption as that doctrine's own

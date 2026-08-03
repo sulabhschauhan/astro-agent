@@ -17,6 +17,7 @@ import pytest
 from agent.interpretive.palm_rules_table import (
     Antecedent,
     PalmRule,
+    load_rule_set,
     load_rules,
     match,
     resolve_priority,
@@ -220,3 +221,84 @@ def test_priority_equal_antecedent_count_siblings_never_suppress():
     survivors, suppression_log = resolve_priority(fired)
     assert set(r.rule_id for r in survivors) == {"H_005", "H_006"}
     assert suppression_log == []
+
+
+# ─── load_rule_set() -- multi-file merge (hardest case first) ────────────
+
+
+def _write_minimal_rule_file(path, rule_ids: list[str]) -> None:
+    """Smallest possible validated_candidates file that load_rules() can
+    parse -- only the fields load_rules() accesses via c[...] (required)
+    are set explicitly; everything else relies on load_rules()'s own
+    .get(...) defaults."""
+    import json
+
+    candidates = [
+        {
+            "rule_id": rid,
+            "source_page": 1,
+            "topic_group": "synthetic_test_group",
+            "is_compound": False,
+            "claim": f"synthetic claim for {rid}",
+            "source_quote": f"synthetic source_quote for {rid}",
+        }
+        for rid in rule_ids
+    ]
+    path.write_text(json.dumps({"validated_candidates": candidates}), encoding="utf-8")
+
+
+def test_load_rule_set_hardest_case_duplicate_rule_id_across_files_raises(tmp_path):
+    # HARDEST CASE: two files, each individually valid, sharing ONE rule_id
+    # -- must raise ValueError naming the colliding id, not silently keep
+    # one and drop the other.
+    file_a = tmp_path / "a_rules.json"
+    file_b = tmp_path / "b_rules.json"
+    _write_minimal_rule_file(file_a, ["SHARED_ID", "ONLY_IN_A"])
+    _write_minimal_rule_file(file_b, ["SHARED_ID", "ONLY_IN_B"])
+
+    with pytest.raises(ValueError, match="SHARED_ID"):
+        load_rule_set(tmp_path)
+
+
+def test_load_rule_set_no_collision_merges_cleanly(tmp_path):
+    file_a = tmp_path / "a_rules.json"
+    file_b = tmp_path / "b_rules.json"
+    _write_minimal_rule_file(file_a, ["A_001", "A_002"])
+    _write_minimal_rule_file(file_b, ["B_001"])
+
+    merged = load_rule_set(tmp_path)
+    assert {r.rule_id for r in merged} == {"A_001", "A_002", "B_001"}
+
+
+def test_load_rule_set_bad_dir_raises_naming_the_dir(tmp_path):
+    import re
+
+    missing = tmp_path / "does_not_exist"
+    with pytest.raises(ValueError, match=re.escape(str(missing))):
+        load_rule_set(missing)
+
+
+def test_load_rule_set_real_data_merges_43_plus_13_with_unique_ids():
+    merged = load_rule_set()
+    assert len(merged) == 56  # 43 head+heart + 13 life-line
+    ids = [r.rule_id for r in merged]
+    assert len(set(ids)) == len(ids)  # all unique
+
+
+def test_load_rule_set_skips_candidates_subdirectory():
+    # data/palm_rules/_candidates/deterministic_rule_book.json must NEVER
+    # be picked up by the non-recursive top-level glob.
+    merged = load_rule_set()
+    ids = {r.rule_id for r in merged}
+    # deterministic_rule_book.json's rule ids are R_xxx-style (per
+    # scripts/gate_rule_citations.py's own R_233/R_335 etc. references) --
+    # none of those should ever appear in the merged top-level set.
+    assert not any(rid.startswith("R_") for rid in ids)
+
+
+def test_load_rule_set_baseline_field_present_and_correct():
+    merged = load_rule_set()
+    by_id = {r.rule_id: r for r in merged}
+    assert by_id["L_001"].baseline is True
+    assert by_id["L_021"].baseline is True
+    assert by_id["H_001"].baseline is False  # known head+heart id, non-baseline

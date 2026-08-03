@@ -1,6 +1,7 @@
 """
 scripts/gate_rule_citations.py
-S84 -- deterministic citation-verification gate for data/deterministic_rule_book.json.
+S84 -- deterministic citation-verification gate for
+data/palm_rules/_candidates/deterministic_rule_book.json.
 
 Independently re-derives whether each rule's source_quote is actually
 anchored in the corpus text at its claimed source_page (or +/-1), and
@@ -28,7 +29,7 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-RULE_BOOK_PATH = ROOT / "data" / "deterministic_rule_book.json"
+RULE_BOOK_PATH = ROOT / "data" / "palm_rules" / "_candidates" / "deterministic_rule_book.json"
 CHUNKS_PATH = ROOT / "data" / "chunked_chunks.json"
 REPORT_PATH = ROOT / "diagnostics" / "latest_run.md"
 BOOK_NAME = "cheiroslanguageo00chei_1"
