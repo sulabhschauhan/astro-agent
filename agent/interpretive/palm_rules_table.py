@@ -250,6 +250,17 @@ def resolve_priority(fired: Sequence[PalmRule]) -> tuple[list[PalmRule], list[tu
     antecedent-set size (including identical sets) never suppress one
     another -- "benign siblings", same exemption as that doctrine's own
     text.
+
+    SECOND PASS -- Tier-0 baseline suppression: additive, runs on the
+    subset pass's SURVIVORS only (never touches its logic or its log
+    entries). Per topic_group, among the survivors: if at least one
+    non-baseline rule survived in that group, every baseline==True
+    survivor in that group is dropped (the ideal-reading baseline yields
+    to whatever actually contradicts or refines it); if ONLY baseline
+    rules survived (nothing to displace them), they are kept as-is. A
+    baseline rule already suppressed by the subset pass is untouched here
+    -- it is no longer among the survivors this pass operates on, so it
+    can never be logged twice.
     """
     by_group: dict[str, list[PalmRule]] = defaultdict(list)
     for r in fired:
@@ -271,4 +282,21 @@ def resolve_priority(fired: Sequence[PalmRule]) -> tuple[list[PalmRule], list[tu
                     break
 
     survivors = [r for r in fired if r.rule_id not in suppressed_ids]
+
+    survivors_by_group: dict[str, list[PalmRule]] = defaultdict(list)
+    for r in survivors:
+        survivors_by_group[r.topic_group].append(r)
+
+    baseline_suppressed_ids: set[str] = set()
+    for group_survivors in survivors_by_group.values():
+        non_baseline = [r for r in group_survivors if not r.baseline]
+        if not non_baseline:
+            continue  # baseline-only group -- nothing contradicts it, keep
+        representative_id = non_baseline[0].rule_id
+        for r in group_survivors:
+            if r.baseline:
+                baseline_suppressed_ids.add(r.rule_id)
+                suppression_log.append((representative_id, r.rule_id))
+
+    survivors = [r for r in survivors if r.rule_id not in baseline_suppressed_ids]
     return survivors, suppression_log

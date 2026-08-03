@@ -302,3 +302,98 @@ def test_load_rule_set_baseline_field_present_and_correct():
     assert by_id["L_001"].baseline is True
     assert by_id["L_021"].baseline is True
     assert by_id["H_001"].baseline is False  # known head+heart id, non-baseline
+
+
+# ─── TIER-0 BASELINE SUPPRESSION ──────────────────────────────────────────
+# Fabricated minimal PalmRule fixtures throughout -- these tests pin the
+# SECOND suppression pass's LOGIC (independent of current rule content),
+# not the real data file's shape.
+
+
+def _make_rule(rule_id: str, topic_group: str, baseline: bool, antecedents: tuple[Antecedent, ...]) -> PalmRule:
+    return PalmRule(
+        rule_id=rule_id, source_page=1, topic_group=topic_group, is_compound=len(antecedents) > 1,
+        antecedents=antecedents, claim=f"synthetic claim for {rule_id}",
+        source_quote="(synthetic, not real corpus text)",
+        verified=True, verifier="test-harness", verified_date="2026-08-03",
+        source_fidelity="chunk_exact", schema_flags=(), baseline=baseline,
+    )
+
+
+def _ante(feature: str, attribute: str, value: str) -> Antecedent:
+    return Antecedent(feature=feature, attribute=attribute, value=value,
+                       condition_type="standard", comparator=None, comparator_feature=None)
+
+
+def test_baseline_hardest_case_non_subset_non_baseline_displaces_baseline():
+    # HARDEST CASE: L_001-shaped (baseline, [long,narrow,deep]) and
+    # L_002-shaped ([chained]) in the same group, NOT subset-related --
+    # both survive the subset pass untouched, then the baseline pass
+    # drops L_001 because a non-baseline rule (L_002) also survived.
+    l001 = _make_rule("L_001", "line_life", True, (
+        _ante("Line of Life", "Length", "long"),
+        _ante("Line of Life", "Width", "narrow"),
+        _ante("Line of Life", "Depth", "deep"),
+    ))
+    l002 = _make_rule("L_002", "line_life", False, (
+        _ante("Line of Life", "Continuity", "chained"),
+    ))
+    fired = [l001, l002]
+    survivors, suppression_log = resolve_priority(fired)
+    assert survivors == [l002]
+    assert ("L_002", "L_001") in suppression_log
+
+
+def test_baseline_only_in_group_survives_no_contradiction():
+    l021 = _make_rule("L_021", "line_life", True, (
+        _ante("Square", "Position", "touching_Line_of_Life"),
+    ))
+    survivors, suppression_log = resolve_priority([l021])
+    assert survivors == [l021]
+    assert suppression_log == []
+
+
+def test_two_baselines_no_non_baseline_in_group_both_survive():
+    baseline_a = _make_rule("BASE_A", "line_life", True, (
+        _ante("Line of Life", "Length", "long"),
+    ))
+    baseline_b = _make_rule("BASE_B", "line_life", True, (
+        _ante("Line of Life", "Width", "narrow"),
+    ))
+    survivors, suppression_log = resolve_priority([baseline_a, baseline_b])
+    assert set(r.rule_id for r in survivors) == {"BASE_A", "BASE_B"}
+    assert suppression_log == []
+
+
+def test_baseline_suppression_is_per_group_not_global():
+    # Baseline in group A, non-baseline only in group B -- the group-A
+    # baseline must NOT be dropped by a contradiction that fired in a
+    # totally different group.
+    baseline_a = _make_rule("BASE_A", "group_a", True, (
+        _ante("Line of Life", "Length", "long"),
+    ))
+    nonbaseline_b = _make_rule("NONBASE_B", "group_b", False, (
+        _ante("Line of Heart", "Continuity", "chained"),
+    ))
+    survivors, suppression_log = resolve_priority([baseline_a, nonbaseline_b])
+    assert set(r.rule_id for r in survivors) == {"BASE_A", "NONBASE_B"}
+    assert suppression_log == []
+
+
+def test_baseline_already_subset_suppressed_not_double_logged():
+    # A baseline rule that the SUBSET pass already killed (a non-baseline
+    # superset fired alongside it) must stay suppressed and appear exactly
+    # ONCE in suppression_log -- the baseline pass must never re-log a rule
+    # that already isn't among its survivors.
+    baseline_narrow = _make_rule("BASE_NARROW", "line_life", True, (
+        _ante("Line of Life", "Width", "narrow"),
+    ))
+    superset_nonbaseline = _make_rule("SUPERSET_NONBASE", "line_life", False, (
+        _ante("Line of Life", "Width", "narrow"),
+        _ante("Line of Life", "Depth", "deep"),
+    ))
+    fired = [baseline_narrow, superset_nonbaseline]
+    survivors, suppression_log = resolve_priority(fired)
+    assert survivors == [superset_nonbaseline]
+    assert suppression_log.count(("SUPERSET_NONBASE", "BASE_NARROW")) == 1
+    assert len(suppression_log) == 1
