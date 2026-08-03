@@ -1,0 +1,320 @@
+{
+ "meta": {
+  "chapter": "Line of Life (Chapter V)",
+  "source": "cheiroslanguageo00chei_1",
+  "ontology_version": "1.2.0",
+  "authored": "chat",
+  "status": "awaiting_Sulabh_validation"
+ },
+ "rules": [
+  {
+   "rule_id": "L_001",
+   "source_page": 134,
+   "topic_group": "line_life",
+   "is_compound": true,
+   "baseline": true,
+   "logic_join": "AND",
+   "antecedents": [
+    {
+     "feature": "Line of Life",
+     "attribute": "Length",
+     "value": "long",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    },
+    {
+     "feature": "Line of Life",
+     "attribute": "Width",
+     "value": "narrow",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    },
+    {
+     "feature": "Line of Life",
+     "attribute": "Depth",
+     "value": "deep",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    }
+   ],
+   "claim": "A life line that is long, narrow, and deep without irregularities promises long life, good health, and vitality.",
+   "source_quote": "The line of life should be long, narrow, and deep, without irregularities, breaks, or crosses of any kind. Such a formation promises long life, good health, and vitality.",
+   "verified": false,
+   "verifier": null,
+   "verified_date": null
+  },
+  {
+   "rule_id": "L_002",
+   "source_page": 134,
+   "topic_group": "line_life",
+   "is_compound": false,
+   "baseline": false,
+   "logic_join": "AND",
+   "antecedents": [
+    {
+     "feature": "Line of Life",
+     "attribute": "Continuity",
+     "value": "chained",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    }
+   ],
+   "claim": "A chained or linked life line is a sign of bad health.",
+   "source_quote": "When the line is linked or made up of little pieces like a chain, it is a sure sign of bad health",
+   "verified": false,
+   "verifier": null,
+   "verified_date": null
+  },
+  {
+   "rule_id": "L_003",
+   "source_page": 134,
+   "topic_group": "line_life",
+   "is_compound": true,
+   "baseline": false,
+   "logic_join": "AND",
+   "antecedents": [
+    {
+     "feature": "Line of Life",
+     "attribute": "Continuity",
+     "value": "chained",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    },
+    {
+     "feature": "Palm",
+     "attribute": "Consistency",
+     "value": "soft",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    }
+   ],
+   "claim": "A chained life line on a soft hand is an especially strong sign of bad health.",
+   "source_quote": "it is a sure sign of bad health, and particularly so on a soft hand",
+   "verified": false,
+   "verifier": null,
+   "verified_date": null
+  },
+  {
+   "rule_id": "L_004",
+   "source_page": 134,
+   "topic_group": "line_life",
+   "is_compound": false,
+   "baseline": false,
+   "logic_join": "AND",
+   "antecedents": [
+    {
+     "feature": "Line of Life",
+     "attribute": "Starting_Point",
+     "value": "rising_from_Mount_of_Jupiter",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    }
+   ],
+   "claim": "A life line starting from the base of the Mount of Jupiter denotes a life of ambition from the earliest years.",
+   "source_quote": "When the line starts from the base of the Mount of Jupiter, instead of the side of the hand, it denotes that from the earliest the life has been one of ambition.",
+   "verified": false,
+   "verifier": null,
+   "verified_date": null
+  },
+  {
+   "rule_id": "L_005",
+   "source_page": 134,
+   "topic_group": "line_life",
+   "is_compound": true,
+   "baseline": false,
+   "logic_join": "AND",
+   "antecedents": [
+    {
+     "feature": "Line of Life",
+     "attribute": "Continuity",
+     "value": "chained",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    },
+    {
+     "feature": "Line of Life",
+     "attribute": "Starting_Point",
+     "value": "under_Mount_of_Jupiter",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    }
+   ],
+   "claim": "A life line chained at its commencement under Jupiter foreshadows bad health in early life.",
+   "source_quote": "When the line is chained at the commencement under Jupiter, bad health in early life is foreshadowed.",
+   "verified": false,
+   "verifier": null,
+   "verified_date": null
+  },
+  {
+   "rule_id": "L_017",
+   "source_page": 136,
+   "topic_group": "line_life",
+   "is_compound": false,
+   "baseline": false,
+   "logic_join": "AND",
+   "antecedents": [
+    {
+     "feature": "Line of Life",
+     "attribute": "Continuity",
+     "value": "islanded",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    }
+   ],
+   "claim": "An island on the life line indicates illness or loss of health for the duration of the island.",
+   "source_quote": "An island on the line of life means an illness or loss of health while the island lasts",
+   "verified": false,
+   "verifier": null,
+   "verified_date": null
+  },
+  {
+   "rule_id": "L_018",
+   "source_page": 136,
+   "topic_group": "line_life",
+   "is_compound": true,
+   "baseline": false,
+   "logic_join": "AND",
+   "antecedents": [
+    {
+     "feature": "Line of Life",
+     "attribute": "Continuity",
+     "value": "islanded",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    },
+    {
+     "feature": "Line of Life",
+     "attribute": "Starting_Point",
+     "value": "at_start",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    },
+    {
+     "feature": "Line of Life",
+     "attribute": "Clarity",
+     "value": "clear",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    }
+   ],
+   "claim": "A clearly formed island at the commencement of the life line denotes some mystery connected with the subject's birth.",
+   "source_quote": "a clearly formed island at the commencement of the line of life denotes some mystery connected with the subject's birth",
+   "verified": false,
+   "verifier": null,
+   "verified_date": null
+  },
+  {
+   "rule_id": "L_020",
+   "source_page": 136,
+   "topic_group": "line_life",
+   "is_compound": true,
+   "baseline": false,
+   "logic_join": "AND",
+   "antecedents": [
+    {
+     "feature": "Line of Life",
+     "attribute": "Continuity",
+     "value": "broken",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    },
+    {
+     "feature": "Square",
+     "attribute": "Position",
+     "value": "touching_Line_of_Life",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    }
+   ],
+   "claim": "A square enclosing a break in the life line indicates preservation from sudden death.",
+   "source_quote": "The line running through a square indicates preservation from death, from sudden death when the life-line running through is broken",
+   "verified": false,
+   "verifier": null,
+   "verified_date": null
+  },
+  {
+   "rule_id": "L_021",
+   "source_page": 136,
+   "topic_group": "line_life",
+   "is_compound": false,
+   "baseline": true,
+   "logic_join": "AND",
+   "antecedents": [
+    {
+     "feature": "Square",
+     "attribute": "Position",
+     "value": "touching_Line_of_Life",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    }
+   ],
+   "claim": "A square found on the life line is a mark of preservation.",
+   "source_quote": "A square, whenever found on the line of life, is a mark of preservation.",
+   "verified": false,
+   "verifier": null,
+   "verified_date": null
+  },
+  {
+   "rule_id": "L_022",
+   "source_page": 139,
+   "topic_group": "line_life",
+   "is_compound": false,
+   "baseline": false,
+   "logic_join": "AND",
+   "antecedents": [
+    {
+     "feature": "Mount of Venus",
+     "attribute": "Fullness",
+     "value": "full",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    }
+   ],
+   "claim": "A full, smooth Mount of Venus indicates a person less affected by those with whom they associate.",
+   "source_quote": "the full, smooth Mount of Venus indicates that the individual is less affected by those with whom he is associated",
+   "verified": false,
+   "verifier": null,
+   "verified_date": null
+  },
+  {
+   "rule_id": "L_025",
+   "source_page": 139,
+   "topic_group": "line_life",
+   "is_compound": false,
+   "baseline": false,
+   "logic_join": "AND",
+   "antecedents": [
+    {
+     "feature": "Line of Life",
+     "attribute": "Length",
+     "value": "short",
+     "condition_type": "standard",
+     "comparator": null,
+     "comparator_feature": null
+    }
+   ],
+   "claim": "A short life line indicates a shorter natural term of life, apart from accidental influences.",
+   "source_quote": "The shorter the line the shorter the life.",
+   "verified": false,
+   "verifier": null,
+   "verified_date": null
+  }
+ ]
+}

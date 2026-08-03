@@ -1,0 +1,1030 @@
+{
+  "meta": {
+    "version": "1.3.0",
+    "source": "Cheiro's Language of the Hand",
+    "description": "Closed vocabulary registry for deterministic palmistry rule extraction. All feature, attribute, and value tokens used in rule generation MUST exist in this registry.",
+    "total_features": 68,
+    "total_attributes": 42,
+    "total_values": 214,
+    "total_comparators": 3
+  },
+  "synonyms": {
+    "Line of Life": [
+      "Vital",
+      "Line of Vitality"
+    ],
+    "Line of Head": [
+      "Natural",
+      "Cerebral"
+    ],
+    "Line of Heart": [
+      "Mensal"
+    ],
+    "Line of Fate": [
+      "Line of Destiny",
+      "Saturnian"
+    ],
+    "Line of Sun": [
+      "Line of Apollo",
+      "Line of Brilliancy",
+      "Line of Success"
+    ],
+    "Line of Health": [
+      "Hepatica",
+      "Liver Line"
+    ],
+    "Line of Mars": [
+      "Inner Vital",
+      "Inner Life Line"
+    ],
+    "Line of Influence": [
+      "Attendant Line",
+      "Ray Line"
+    ],
+    "Via Lasciva": [
+      "Sister Health Line"
+    ],
+    "Bracelets": [
+      "Rascettes",
+      "Vascette"
+    ],
+    "Travel Line": [
+      "Journey Line"
+    ],
+    "Mount of the Sun": [
+      "Mount of Apollo"
+    ],
+    "Mount of Luna": [
+      "Mount of the Moon"
+    ],
+    "First Finger": [
+      "Index Finger",
+      "Finger of Jupiter"
+    ],
+    "Second Finger": [
+      "Finger of Saturn"
+    ],
+    "Third Finger": [
+      "Finger of the Sun",
+      "Finger of Apollo"
+    ],
+    "Fourth Finger": [
+      "Little Finger",
+      "Finger of Mercury"
+    ],
+    "Elementary Hand": [
+      "Lowest Type"
+    ],
+    "Square Hand": [
+      "Useful Hand"
+    ],
+    "Spatulate Hand": [
+      "Nervous Active Type"
+    ],
+    "Philosophic Hand": [
+      "Knotty Hand"
+    ],
+    "Conic Hand": [
+      "Artistic Type"
+    ],
+    "Psychic Hand": [
+      "Idealistic Hand"
+    ],
+    "First Phalange of Thumb": [
+      "Nail Phalange",
+      "Will Phalange"
+    ],
+    "Second Phalange of Thumb": [
+      "Logic Phalange",
+      "Middle Phalange"
+    ],
+    "Third Phalange of Thumb": [
+      "Passion Mount"
+    ],
+    "Supple Jointed Thumb": [
+      "Supple Thumb"
+    ],
+    "Firm Jointed Thumb": [
+      "Stiff Thumb",
+      "Stiff Joint"
+    ],
+    "Square": [
+      "Mark of Preservation"
+    ],
+    "Tripod": [
+      "Spear Head"
+    ],
+    "La Croix Mystique": [
+      "Mystic Cross"
+    ],
+    "Plain of Mars": [
+      "Great Triangle",
+      "Triangle of Mars"
+    ]
+  },
+  "features": {
+    "lines": [
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Sun",
+      "Line of Health",
+      "Line of Mars",
+      "Line of Marriage",
+      "Line of Intuition",
+      "Via Lasciva",
+      "Line of Influence",
+      "Girdle of Venus",
+      "Ring of Saturn",
+      "Ring of Solomon",
+      "Bracelets",
+      "Travel Line",
+      "Child Line"
+    ],
+    "mounts": [
+      "Mount of Venus",
+      "Mount of Jupiter",
+      "Mount of Saturn",
+      "Mount of the Sun",
+      "Mount of Mercury",
+      "Upper Mount of Mars",
+      "Lower Mount of Mars",
+      "Mount of Luna",
+      "Plain of Mars"
+    ],
+    "hand_shapes": [
+      "Elementary Hand",
+      "Square Hand",
+      "Spatulate Hand",
+      "Philosophic Hand",
+      "Conic Hand",
+      "Psychic Hand",
+      "Mixed Hand"
+    ],
+    "fingers": [
+      "First Finger",
+      "Second Finger",
+      "Third Finger",
+      "Fourth Finger",
+      "Finger Tips",
+      "Finger Joints",
+      "Finger Phalanges"
+    ],
+    "thumb": [
+      "Thumb",
+      "First Phalange of Thumb",
+      "Second Phalange of Thumb",
+      "Third Phalange of Thumb"
+    ],
+    "nails": [
+      "Nails",
+      "Nail Moons"
+    ],
+    "signs": [
+      "Star",
+      "Cross",
+      "Square",
+      "Island",
+      "Circle",
+      "Spot",
+      "Grille",
+      "Triangle",
+      "La Croix Mystique",
+      "Tassel",
+      "Fork",
+      "Tripod",
+      "Bar",
+      "Dot"
+    ],
+    "palm_regions": [
+      "Palm",
+      "Left Palm",
+      "Right Palm",
+      "Quadrangle",
+      "Plain of Mars",
+      "Hollow of Hand",
+      "Wrist",
+      "Back of Hand",
+      "Skin"
+    ]
+  },
+  "attributes": {
+    "line_attributes": [
+      "Depth",
+      "Length",
+      "Width",
+      "Color",
+      "Direction",
+      "Slope",
+      "Curve",
+      "Starting_Point",
+      "Ending_Point",
+      "Position",
+      "Continuity",
+      "Clarity",
+      "Proximity",
+      "Branching",
+      "Formation"
+    ],
+    "mount_attributes": [
+      "Height",
+      "Fullness",
+      "Firmness",
+      "Flatness",
+      "Prominence",
+      "Development",
+      "Position",
+      "Leaning"
+    ],
+    "hand_attributes": [
+      "Size",
+      "Proportion",
+      "Texture",
+      "Consistency",
+      "Flexibility",
+      "Thickness",
+      "Breadth",
+      "Laterality"
+    ],
+    "finger_attributes": [
+      "Length",
+      "Shape",
+      "Setting",
+      "Spacing",
+      "Crookedness",
+      "Suppleness",
+      "Knotiness",
+      "Thickness"
+    ],
+    "thumb_attributes": [
+      "Length",
+      "Thickness",
+      "Suppleness",
+      "Angle",
+      "Position",
+      "Phalange_Proportions"
+    ],
+    "nail_attributes": [
+      "Length",
+      "Width",
+      "Shape",
+      "Color",
+      "Thickness",
+      "Curvature",
+      "Flatness",
+      "Moons",
+      "Proportion"
+    ],
+    "sign_attributes": [
+      "Position",
+      "Size",
+      "Clarity",
+      "Formation",
+      "Color",
+      "Number"
+    ],
+    "palm_attributes": [
+      "Shape",
+      "Interior_Quality",
+      "Color"
+    ]
+  },
+  "values": {
+    "depth_values": [
+      "deep",
+      "shallow",
+      "faint",
+      "well_marked",
+      "clearly_marked",
+      "indistinct",
+      "heavily_marked",
+      "heavy"
+    ],
+    "length_values": [
+      "long",
+      "short",
+      "medium",
+      "excessively_long",
+      "extremely_long",
+      "extending_to_Mount_of_Jupiter",
+      "extending_to_Mount_of_Saturn",
+      "extending_to_Mount_of_Sun",
+      "extending_to_Mount_of_Mercury",
+      "extending_to_Mount_of_Luna",
+      "reaching_center_of_palm",
+      "reaching_base_of_fingers",
+      "terminating_at_Mount_of_Jupiter",
+      "terminating_at_Mount_of_Saturn",
+      "terminating_at_Mount_of_Sun",
+      "terminating_at_Mount_of_Mercury",
+      "terminating_at_Mount_of_Luna",
+      "terminating_at_Mount_of_Venus",
+      "barely_reaching_middle_of_hand",
+      "extending_across_entire_palm",
+      "cutting_into_finger_of_Saturn"
+    ],
+    "direction_values": [
+      "upward",
+      "downward",
+      "horizontal",
+      "sloping",
+      "straight",
+      "curved",
+      "wavy",
+      "bending",
+      "drooping",
+      "rising",
+      "descending",
+      "ascending",
+      "tapering",
+      "sweeping_wide",
+      "close_to_Mount_of_Venus"
+    ],
+    "continuity_values": [
+      "broken",
+      "chained",
+      "unbroken",
+      "continuous",
+      "intermittent",
+      "tasselled",
+      "islanded",
+      "starred",
+      "crossed",
+      "barred",
+      "split",
+      "branched",
+      "forked",
+      "double",
+      "single",
+      "clear",
+      "confused",
+      "irregular"
+    ],
+    "color_values": [
+      "red",
+      "pale",
+      "pink",
+      "white",
+      "blue",
+      "yellow",
+      "buff",
+      "dark",
+      "light",
+      "bright",
+      "deep_red",
+      "bright_red",
+      "yellowish",
+      "bluish"
+    ],
+    "shape_values": [
+      "wide",
+      "narrow",
+      "broad",
+      "thin",
+      "thick",
+      "pointed",
+      "square",
+      "spatulate",
+      "conic",
+      "round",
+      "flat",
+      "almond",
+      "filbert",
+      "tapering",
+      "slender",
+      "clumsy",
+      "coarse",
+      "refined",
+      "angular",
+      "fragile"
+    ],
+    "position_values": [
+      "high",
+      "low",
+      "close",
+      "distant",
+      "central",
+      "lateral",
+      "inner",
+      "outer",
+      "upper",
+      "lower",
+      "at_base",
+      "at_tip",
+      "at_start",
+      "at_end",
+      "under_Mount_of_Jupiter",
+      "under_Mount_of_Saturn",
+      "under_Mount_of_Sun",
+      "under_Mount_of_Mercury",
+      "under_Mount_of_Mars",
+      "under_Mount_of_Luna",
+      "under_Mount_of_Venus",
+      "on_Mount_of_Jupiter",
+      "on_Mount_of_Saturn",
+      "on_Mount_of_Sun",
+      "on_Mount_of_Mercury",
+      "on_Mount_of_Mars",
+      "on_Mount_of_Luna",
+      "on_Mount_of_Venus",
+      "between_Jupiter_and_Saturn",
+      "between_Saturn_and_Sun",
+      "between_Sun_and_Mercury",
+      "between_Line_of_Head_and_Heart",
+      "between_Line_of_Life_and_Head",
+      "across_quadrangle",
+      "across_upper_palm",
+      "rising_from_Mount_of_Jupiter",
+      "rising_from_Mount_of_Saturn",
+      "rising_from_Mount_of_Luna",
+      "rising_from_Mount_of_Mars",
+      "rising_from_Mount_of_Venus",
+      "rising_from_Wrist",
+      "rising_from_Line_of_Life",
+      "rising_from_Line_of_Head",
+      "rising_from_Line_of_Fate",
+      "rising_from_Line_of_Heart",
+      "terminating_at_Mount_of_Jupiter",
+      "terminating_at_Mount_of_Saturn",
+      "terminating_at_Mount_of_Sun",
+      "terminating_at_Mount_of_Mercury",
+      "terminating_at_Mount_of_Luna",
+      "running_through_Square",
+      "running_through_center_of_hand",
+      "parallel_to_Line_of_Life",
+      "parallel_to_Line_of_Head",
+      "touching_Line_of_Life",
+      "touching_Line_of_Head",
+      "touching_Line_of_Heart",
+      "touching_Line_of_Fate",
+      "crossing_Line_of_Life",
+      "crossing_Line_of_Head",
+      "crossing_Line_of_Fate",
+      "cutting_Base_of_First_Finger",
+      "cutting_into_Finger_of_Saturn",
+      "parallel_to_Line_of_Health",
+      "from_Mount_of_Mercury_to_Mount_of_Luna",
+      "rising_from_Mount_of_Mercury",
+      "terminating_at_Mount_of_Venus"
+    ],
+    "mount_values": [
+      "high",
+      "low",
+      "developed",
+      "well_developed",
+      "over_developed",
+      "under_developed",
+      "flat",
+      "prominent",
+      "full",
+      "firm",
+      "soft",
+      "hard",
+      "excessive",
+      "moderate",
+      "absent",
+      "depressed",
+      "raised",
+      "leaning"
+    ],
+    "texture_values": [
+      "hard",
+      "soft",
+      "firm",
+      "elastic",
+      "flabby",
+      "coarse",
+      "refined",
+      "smooth",
+      "rough",
+      "delicate",
+      "stiff",
+      "supple",
+      "hollow",
+      "dry",
+      "clumsy"
+    ],
+    "joint_values": [
+      "knotty",
+      "smooth",
+      "developed",
+      "prominent",
+      "flat"
+    ],
+    "fingertip_values": [
+      "pointed",
+      "square",
+      "spatulate",
+      "conic",
+      "round",
+      "flat"
+    ],
+    "thumb_values": [
+      "supple",
+      "stiff",
+      "long",
+      "short",
+      "thick",
+      "thin",
+      "well_shaped",
+      "close_to_fingers",
+      "far_from_fingers",
+      "right_angle",
+      "obtuse_angle",
+      "contracted_inward",
+      "first_phalange_longer",
+      "second_phalange_longer",
+      "phalanges_equal"
+    ],
+    "nail_values": [
+      "long",
+      "short",
+      "broad",
+      "narrow",
+      "flat",
+      "thin",
+      "red",
+      "pink",
+      "pale",
+      "white",
+      "blue",
+      "yellow",
+      "fluted",
+      "ribbed",
+      "curved",
+      "almond",
+      "filbert",
+      "round",
+      "square",
+      "brittle",
+      "sunken",
+      "with_moons",
+      "without_moons"
+    ],
+    "sign_size_values": [
+      "large",
+      "small",
+      "very_small"
+    ],
+    "sign_clarity_values": [
+      "clear",
+      "well_formed",
+      "poorly_formed",
+      "indistinct"
+    ],
+    "sign_number_values": [
+      "single",
+      "multiple"
+    ],
+    "hand_size_values": [
+      "large",
+      "small",
+      "broad",
+      "narrow",
+      "thick",
+      "thin"
+    ],
+    "palm_shape_values": [
+      "even",
+      "uneven",
+      "wide",
+      "narrow",
+      "abnormally_wide",
+      "excessively_narrow"
+    ],
+    "palm_interior_values": [
+      "smooth",
+      "crossed_with_lines",
+      "full_of_lines",
+      "clear"
+    ],
+    "laterality_values": [
+      "left_palm",
+      "right_palm",
+      "both_palms"
+    ],
+    "nail_proportion_values": [
+      "broader_than_long",
+      "longer_than_broad",
+      "equal_length_and_breadth"
+    ]
+  },
+  "comparators": [
+    ">",
+    "<",
+    "="
+  ],
+  "attribute_feature_mapping": {
+    "Depth": [
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Sun",
+      "Line of Health",
+      "Line of Mars",
+      "Line of Marriage",
+      "Line of Intuition",
+      "Girdle of Venus",
+      "Via Lasciva",
+      "Line of Influence"
+    ],
+    "Length": [
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Sun",
+      "Line of Health",
+      "Line of Mars",
+      "Line of Marriage",
+      "First Finger",
+      "Second Finger",
+      "Third Finger",
+      "Fourth Finger",
+      "Thumb",
+      "First Phalange of Thumb",
+      "Second Phalange of Thumb",
+      "Nails"
+    ],
+    "Width": [
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Health",
+      "Line of Marriage",
+      "Nails"
+    ],
+    "Color": [
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Health",
+      "Line of Mars",
+      "Nails",
+      "Palm",
+      "Skin",
+      "Spot"
+    ],
+    "Direction": [
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Sun",
+      "Line of Marriage",
+      "Line of Influence",
+      "Girdle of Venus"
+    ],
+    "Slope": [
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Marriage",
+      "Girdle of Venus"
+    ],
+    "Curve": [
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Sun",
+      "Line of Marriage",
+      "Line of Influence",
+      "Line of Life"
+    ],
+    "Starting_Point": [
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Sun",
+      "Line of Health",
+      "Line of Mars",
+      "Line of Intuition",
+      "Girdle of Venus",
+      "Via Lasciva"
+    ],
+    "Ending_Point": [
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Sun",
+      "Line of Health",
+      "Line of Marriage",
+      "Line of Intuition",
+      "Line of Influence"
+    ],
+    "Position": [
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Marriage",
+      "Girdle of Venus",
+      "Ring of Saturn",
+      "Ring of Solomon",
+      "Star",
+      "Cross",
+      "Square",
+      "Island",
+      "Circle",
+      "Spot",
+      "Grille",
+      "Triangle",
+      "La Croix Mystique",
+      "Tassel",
+      "Fork",
+      "Bar",
+      "Thumb",
+      "Bracelets",
+      "Line of Intuition"
+    ],
+    "Continuity": [
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Sun",
+      "Line of Health",
+      "Line of Mars",
+      "Line of Marriage",
+      "Line of Influence",
+      "Girdle of Venus"
+    ],
+    "Clarity": [
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Sun",
+      "Line of Health",
+      "Line of Marriage",
+      "Star",
+      "Cross",
+      "Square",
+      "Island",
+      "Triangle"
+    ],
+    "Proximity": [
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Marriage",
+      "Line of Influence",
+      "Line of Mars",
+      "Thumb",
+      "Finger Tips"
+    ],
+    "Branching": [
+      "Line of Life",
+      "Line of Head",
+      "Line of Fate",
+      "Line of Sun",
+      "Line of Health",
+      "Line of Marriage",
+      "Line of Influence"
+    ],
+    "Formation": [
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Sun",
+      "Girdle of Venus",
+      "Star",
+      "Cross",
+      "Square",
+      "Island",
+      "Grille",
+      "Triangle"
+    ],
+    "Height": [
+      "Mount of Venus",
+      "Mount of Jupiter",
+      "Mount of Saturn",
+      "Mount of the Sun",
+      "Mount of Mercury",
+      "Upper Mount of Mars",
+      "Lower Mount of Mars",
+      "Mount of Luna"
+    ],
+    "Fullness": [
+      "Mount of Venus",
+      "Mount of Jupiter",
+      "Mount of Saturn",
+      "Mount of the Sun",
+      "Mount of Mercury",
+      "Upper Mount of Mars",
+      "Lower Mount of Mars",
+      "Mount of Luna"
+    ],
+    "Firmness": [
+      "Mount of Venus",
+      "Mount of Jupiter",
+      "Mount of Saturn",
+      "Mount of the Sun",
+      "Mount of Mercury",
+      "Mount of Luna",
+      "Palm"
+    ],
+    "Flatness": [
+      "Nails"
+    ],
+    "Prominence": [
+      "Mount of Venus",
+      "Mount of Jupiter",
+      "Mount of Saturn",
+      "Mount of the Sun",
+      "Mount of Mercury",
+      "Upper Mount of Mars",
+      "Lower Mount of Mars",
+      "Mount of Luna",
+      "Finger Joints"
+    ],
+    "Development": [
+      "Mount of Venus",
+      "Mount of Jupiter",
+      "Mount of Saturn",
+      "Mount of the Sun",
+      "Mount of Mercury",
+      "Upper Mount of Mars",
+      "Lower Mount of Mars",
+      "Mount of Luna"
+    ],
+    "Leaning": [
+      "Mount of Jupiter",
+      "Mount of Saturn",
+      "Mount of the Sun",
+      "Mount of Mercury",
+      "First Finger",
+      "Second Finger",
+      "Third Finger",
+      "Fourth Finger"
+    ],
+    "Size": [
+      "Palm",
+      "Star",
+      "Cross",
+      "Island",
+      "Spot",
+      "Grille",
+      "Triangle",
+      "Square",
+      "Circle"
+    ],
+    "Proportion": [
+      "Palm",
+      "Finger Phalanges",
+      "Thumb",
+      "Nails"
+    ],
+    "Texture": [
+      "Palm",
+      "Skin",
+      "Back of Hand"
+    ],
+    "Consistency": [
+      "Palm",
+      "Skin"
+    ],
+    "Laterality": [
+      "Palm",
+      "Left Palm",
+      "Right Palm",
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Sun",
+      "Line of Health",
+      "Line of Marriage",
+      "Line of Intuition",
+      "Girdle of Venus",
+      "Via Lasciva",
+      "Line of Influence",
+      "Bracelets"
+    ],
+    "Flexibility": [
+      "Palm",
+      "First Finger",
+      "Second Finger",
+      "Third Finger",
+      "Fourth Finger"
+    ],
+    "Thickness": [
+      "Palm",
+      "Line of Life",
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Health",
+      "Thumb",
+      "First Phalange of Thumb",
+      "Second Phalange of Thumb",
+      "Nails",
+      "First Finger",
+      "Second Finger",
+      "Third Finger",
+      "Fourth Finger"
+    ],
+    "Breadth": [
+      "Palm",
+      "Nails",
+      "Quadrangle"
+    ],
+    "Shape": [
+      "First Finger",
+      "Second Finger",
+      "Third Finger",
+      "Fourth Finger",
+      "Finger Tips",
+      "Nails",
+      "Palm",
+      "Quadrangle",
+      "Plain of Mars"
+    ],
+    "Setting": [
+      "First Finger",
+      "Second Finger",
+      "Third Finger",
+      "Fourth Finger",
+      "Thumb"
+    ],
+    "Spacing": [
+      "First Finger",
+      "Second Finger",
+      "Third Finger",
+      "Fourth Finger"
+    ],
+    "Crookedness": [
+      "First Finger",
+      "Second Finger",
+      "Third Finger",
+      "Fourth Finger"
+    ],
+    "Suppleness": [
+      "First Finger",
+      "Second Finger",
+      "Third Finger",
+      "Fourth Finger",
+      "Thumb"
+    ],
+    "Knotiness": [
+      "Finger Joints"
+    ],
+    "Angle": [
+      "Thumb"
+    ],
+    "Phalange_Proportions": [
+      "Thumb"
+    ],
+    "Curvature": [
+      "Nails"
+    ],
+    "Moons": [
+      "Nails"
+    ],
+    "Number": [
+      "Star",
+      "Cross",
+      "Island",
+      "Spot",
+      "Grille",
+      "Triangle",
+      "Bar",
+      "Bracelets"
+    ],
+    "Interior_Quality": [
+      "Quadrangle",
+      "Plain of Mars",
+      "Hollow of Hand"
+    ]
+  },
+  "change_log": [
+    {
+      "version": "1.1.0",
+      "date": "2026-08-01",
+      "changes": [
+        "Added 'parallel_to_Line_of_Health' to position_values (Via Lasciva)",
+        "Added 'from_Mount_of_Mercury_to_Mount_of_Luna' to position_values (Line of Intuition path)",
+        "Added 'rising_from_Mount_of_Mercury' to position_values (Line of Intuition start)",
+        "Added 'terminating_at_Mount_of_Venus' to position_values (Line of Intuition end)",
+        "Added 'Left Palm' and 'Right Palm' as palm_regions features",
+        "Added 'Laterality' attribute to hand_attributes with values: left_palm, right_palm, both_palms",
+        "Added 'Proportion' attribute to nail_attributes with values: broader_than_long, longer_than_broad, equal_length_and_breadth",
+        "Added 'Line of Intuition' to Starting_Point and Ending_Point attribute_feature_mapping",
+        "Added 'Nails' to Proportion attribute_feature_mapping",
+        "Added 'Laterality' to attribute_feature_mapping for all major lines and palm features"
+      ]
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-08-02",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "Map Curve->Line of Life; add 2 arc values (sweeping_wide, close_to_Mount_of_Venus) for p139 intrinsic life-line arc doctrine. NO branch/ray tokens added - those remain relational (Line of Influence, deferred).",
+      "rationale": "Branch-to-mount doctrine is relational, not intrinsic; extending Line of Life with Position/Direction would mis-model branches. Only the life line's own arc is an intrinsic gap."
+    }
+  ]
+}

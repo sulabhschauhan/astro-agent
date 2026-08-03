@@ -1,0 +1,1433 @@
+{
+  "validated_candidates": [
+    {
+      "rule_id": "H_001",
+      "source_page": 145,
+      "topic_group": "line_head",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Mount_of_Jupiter",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Length",
+          "value": "long",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Proximity",
+          "value": "touching_Line_of_Life",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Talent, energy, daring determination with boundless ambition combined with reason; a natural leader.",
+      "source_quote": "Rising from Jupiter and yet touching the line of life, it is, if a long line of head, the most powerful of all.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "H_002",
+      "source_page": 146,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Line_of_Life",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A sensitive, nervous temperament with excess of caution; such people rein themselves in too tightly.",
+      "source_quote": "The line of head from the commencement of the line of life, and connected with it, indicates a sensitive and more nervous temperament; it denotes excess of caution.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "H_003",
+      "source_page": 146,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Mount_of_Mars",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A fretful, worrying temperament, inconstant in thought and action, irritable and in conflict with others.",
+      "source_quote": "The line of head rising from the Mount of Mars, within the life-line, is not such a favorable sign; this indicates a fretful, worrying temperament, inconstant in thought.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "H_004",
+      "source_page": 146,
+      "topic_group": "line_head",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Direction",
+          "value": "straight",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Continuity",
+          "value": "clear",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Practical common sense and a love of material things over those of the imagination.",
+      "source_quote": "When straight, clear, and even, it denotes practical common sense and a love of material things more than those of the imagination.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "H_005",
+      "source_page": 147,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Length",
+          "value": "short",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A thoroughly material nature, lacking imaginative faculties though capable in practical matters.",
+      "source_quote": "When the line is short, barely reaching the middle of the hand, it tells of a nature that is thoroughly material.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "H_006",
+      "source_page": 147,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Length",
+          "value": "short",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Foreshadows an early death from some mental affection (applies to an abnormally short line).",
+      "source_quote": "When abnormally short, it foreshadows some early death from some mental affection.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "LENGTH_DEGREE: 'abnormally short' vs 'short' both map to Length/short; needs a very_short token to separate H_005 from H_006"
+      ]
+    },
+    {
+      "rule_id": "H_007",
+      "source_page": 147,
+      "topic_group": "line_head",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Continuity",
+          "value": "broken",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Position",
+          "value": "under_Mount_of_Saturn",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "An early, sudden death by fatality.",
+      "source_quote": "When broken in two under the Mount of Saturn, it tells of an early sudden death by fatality.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "H_008",
+      "source_page": 147,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Continuity",
+          "value": "chained",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Want of fixity of ideas and indecision.",
+      "source_quote": "When linked, or made up of little pieces like a chain, it denotes want of fixity of ideas, and indecision.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "H_009",
+      "source_page": 147,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Continuity",
+          "value": "islanded",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Great pain to the head and danger of brain disease.",
+      "source_quote": "When full of little islands and hair-lines, it tells of great pain to the head and danger of brain disease.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "H_010a",
+      "source_page": 147,
+      "topic_group": "line_head",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Position",
+          "value": "high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Quadrangle",
+          "attribute": "Breadth",
+          "value": "narrow",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Depth",
+          "value": null,
+          "condition_type": "comparative",
+          "comparator": ">",
+          "comparator_feature": "Line of Heart"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "When the space between head and heart is very narrow and the head line is the stronger, the head completely rules the heart.",
+      "source_quote": "When the line of head is so high on the hand that the space is extremely narrow between it and the line of heart, the head will completely rule the heart, if that line be the strongest.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "COMPARATIVE: depth/strength of head vs heart"
+      ]
+    },
+    {
+      "rule_id": "H_010b",
+      "source_page": 147,
+      "topic_group": "line_head",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Position",
+          "value": "high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Quadrangle",
+          "attribute": "Breadth",
+          "value": "narrow",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Depth",
+          "value": null,
+          "condition_type": "comparative",
+          "comparator": ">",
+          "comparator_feature": "Line of Head"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "In the same narrow-space configuration, if the heart line is the stronger, the heart rules the head (the 'vice versa').",
+      "source_quote": "the head will completely rule the heart, if that line be the strongest, and vice versd.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "COMPARATIVE: the 'vice versa' branch; derived from same sentence as H_010a"
+      ]
+    },
+    {
+      "rule_id": "H_011",
+      "source_page": 148,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Continuity",
+          "value": "broken",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "hand_side": "both"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Foretells some fatal accident or violence to the head.",
+      "source_quote": "When the line of head is broken in two on both hands, it foretells some fatal accident or violence to the head.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "HAND_SIDE: requires new hand_side field (both); not in current ontology"
+      ]
+    },
+    {
+      "rule_id": "H_012",
+      "source_page": 148,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Continuity",
+          "value": "islanded",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A sign of weakness; if clearly defined and the line does not extend farther, the person will never recover.",
+      "source_quote": "An island is a sign of weakness. When clearly defined, if the line does not extend farther, the person will never recover.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "H_013",
+      "source_page": 148,
+      "topic_group": "line_head",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Branching",
+          "value": "branched",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Position",
+          "value": "terminating_on_Mount_of_Jupiter",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Running into a star on the Mount of Jupiter is a sign of wonderful success in all things attempted.",
+      "source_quote": "If the line of head sends an offshoot to or runs into a star on the Mount of Jupiter, it is a sign of wonderful success in all things attempted.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "POSITION token 'terminating_on_Mount_of_Jupiter' -- verify present in ontology"
+      ]
+    },
+    {
+      "rule_id": "H_015",
+      "source_page": 148,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Position",
+          "value": "running_through_Square",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Preservation from accident or violence by the subject's own courage and presence of mind.",
+      "source_quote": "When the line of head runs into or through a square, it indicates preservation from accident or violence.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "H_018",
+      "source_page": 150,
+      "topic_group": "line_head_types",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Hand",
+          "attribute": "Type",
+          "value": "square",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Direction",
+          "value": "sloping",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A sloping head line on a square hand gives a practical foundation for imaginative work.",
+      "source_quote": "The square hand with the sloping head-line would start with a practical foundation for imaginative work.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "CROSS-FEATURE: Hand/Type x Line of Head"
+      ]
+    },
+    {
+      "rule_id": "H_019",
+      "source_page": 150,
+      "topic_group": "line_head_types",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Hand",
+          "attribute": "Type",
+          "value": "spatulate",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Direction",
+          "value": "sloping",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "On a spatulate hand an accentuated slope doubles the action, invention, independence and originality.",
+      "source_quote": "The spatulate hand is the hand of action, invention, independence, and originality; when this sloping is accentuated, all these characteristics are doubled or strengthened.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "CROSS-FEATURE"
+      ]
+    },
+    {
+      "rule_id": "H_020",
+      "source_page": 151,
+      "topic_group": "line_head_types",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Hand",
+          "attribute": "Type",
+          "value": "philosophic",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Position",
+          "value": "high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Direction",
+          "value": "straight",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "On a philosophic hand, a high straight head line is critical, analytical and cynical.",
+      "source_quote": "the philosophic hand, the line set high on the hand and straight, is critical, analytical, and cynical.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "CROSS-FEATURE"
+      ]
+    },
+    {
+      "rule_id": "H_021",
+      "source_page": 154,
+      "topic_group": "line_head_murder",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Position",
+          "value": "high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "When the head line lies high, the world of matter has greater scope and the subject is more brutal and animal in his desires.",
+      "source_quote": "if it be high on the hand, then the world of matter has greater scope, and the subject is more brutal and animal in his desires.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_001",
+      "source_page": 156,
+      "topic_group": "line_heart",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Mount_of_Jupiter",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "The highest type of love -- the pride and worship of the heart's ideal; firm, strong, reliable affections.",
+      "source_quote": "When it rises from the center of Jupiter, it gives the highest type of love -- the pride and the worship of the heart's ideal.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_002",
+      "source_page": 156,
+      "topic_group": "line_heart",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Finger_of_Jupiter",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Rising from the Jupiter finger itself denotes the excess of the foregoing (Jupiterian) love qualities.",
+      "source_quote": "Next we will consider the line rising from the Mount of Jupiter, even from the finger itself. This denotes the excess of all the foregoing qualities.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "STARTING_POINT token 'rising_from_Finger_of_Jupiter' -- verify present"
+      ]
+    },
+    {
+      "rule_id": "HL_003",
+      "source_page": 159,
+      "topic_group": "line_heart",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Starting_Point",
+          "value": "between_Jupiter_and_Saturn",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Rising between the first and second fingers gives a calm but deeper, quieter, more subdued nature in love.",
+      "source_quote": "The line rising between the first and second fingers gives a calm but deeper nature in matters of love.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_004",
+      "source_page": 159,
+      "topic_group": "line_heart",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Mount_of_Saturn",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "More passion in attachments and more selfishness in satisfying the affections; less demonstrative at home.",
+      "source_quote": "With the line of heart rising from Saturn, the subject will have more passion in his attachments, and will be more or less selfish in satisfying his affections.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_005",
+      "source_page": 159,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Mount_of_Saturn",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Position",
+          "value": "high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Rising very high on Saturn, often from the finger itself, makes the subject far more passionate and sensual.",
+      "source_quote": "The excess of this is the same kind of line rising very high on the mount, often from the very finger of Saturn. Such a subject is far more passionate and sensual than any of the others.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_006",
+      "source_page": 160,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Position",
+          "value": "high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Quadrangle",
+          "attribute": "Breadth",
+          "value": "narrow",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "When the heart line lies high and the space is narrowed by the head line being too close, the head rules the affections, giving a hard, cold, envious nature.",
+      "source_quote": "When, however, it lies high on the hand, and the space is narrowed by the line of head being too close, the reverse is the case, and the head will so completely rule the affections that it gives a hard, cold nature, envious and uncharitable.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "VERIFIED-EARLIER equivalent: matches RULE_C3_HEART_HIGH_HEAD_CLOSE authored in palm_rules_table.py"
+      ]
+    },
+    {
+      "rule_id": "HL_007",
+      "source_page": 160,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Continuity",
+          "value": "broken",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Position",
+          "value": "under_Mount_of_Saturn",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A break under Saturn tells of disappointment in affection brought about by fatality.",
+      "source_quote": "Breaks in the line tell of disappointment in affection -- under Saturn, brought about by fatality.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "SHARED-SENTENCE(split): sub-clause of the p160 breaks sentence"
+      ]
+    },
+    {
+      "rule_id": "HL_008",
+      "source_page": 160,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Continuity",
+          "value": "broken",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Position",
+          "value": "under_Mount_of_Sun",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A break under the Sun tells of disappointment in affection through pride.",
+      "source_quote": "under the Sun, through pride.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "SHARED-SENTENCE(split)"
+      ]
+    },
+    {
+      "rule_id": "HL_009",
+      "source_page": 160,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Continuity",
+          "value": "broken",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Position",
+          "value": "under_Mount_of_Mercury",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A break under Mercury tells of disappointment in affection through folly and caprice.",
+      "source_quote": "under Mercury, through folly and caprice.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "SHARED-SENTENCE(split)"
+      ]
+    },
+    {
+      "rule_id": "HL_010",
+      "source_page": 160,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Mount_of_Jupiter",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Continuity",
+          "value": "forked",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Commencing with a small fork on the Mount of Jupiter is an unfailing sign of a true, honest nature and enthusiasm in love.",
+      "source_quote": "When the line of heart commences with a small fork on the Mount of Jupiter, it is an unfailing sign of a true, honest nature and enthusiasm in love.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_011",
+      "source_page": 160,
+      "topic_group": "line_heart",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Position",
+          "value": "high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A heart line commencing high on the hand is the best, showing the happiest nature.",
+      "source_quote": "whether the line of heart commence high or low on the hand. The first is the best, because it shows the happiest nature.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_012",
+      "source_page": 160,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Position",
+          "value": "low",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Direction",
+          "value": "drooping",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Lying so low that it droops toward the head line is a sure sign of unhappiness in affections during early life.",
+      "source_quote": "The line lying so low that it droops down toward the line of head is a sure sign of unhappiness in affections during the early portion of the life.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_013",
+      "source_page": 160,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Continuity",
+          "value": "forked",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Width",
+          "value": "wide",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A wide fork resting one branch on Jupiter, the other on Saturn, denotes an uncertain disposition unsuited to happy marital relations.",
+      "source_quote": "when the fork is so wide that one branch rests on Jupiter, the other on Saturn, it then denotes a very uncertain disposition.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_014",
+      "source_page": 160,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Branching",
+          "value": "single",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Width",
+          "value": "thin",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Quite bare of branches and thin tells of coldness of heart and want of affection.",
+      "source_quote": "When the line is quite bare of branches and thin, it tells of coldness of heart and want of affection.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_015",
+      "source_page": 161,
+      "topic_group": "line_heart",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Presence",
+          "value": "faded",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A heart line that was once there but has faded out marks terrible disappointments in affection, leaving the subject cold, heartless and indifferent.",
+      "source_quote": "when, however, the line has been there, but has faded out, it is a sign that the subject has had such terrible disappointments in affection that he has become cold, heartless, and indifferent.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "PRESENCE: new attribute (present/absent/faded) to replace negation-overload for absence; not in current ontology"
+      ]
+    },
+    {
+      "rule_id": "H_023",
+      "source_page": 147,
+      "topic_group": "line_head",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Branching",
+          "value": "branched",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Position",
+          "value": "terminating_on_Mount",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A branch or offshoot to any mount makes the head line partake of that mount's qualities.",
+      "source_quote": "if, in its course down the hand, it sends an offshoot or branch to any particular mount, by so doing it partakes of the qualities of that mount.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "GENERIC-MOUNT: 'terminating_on_Mount' is a template; the specific mount is the variable"
+      ]
+    },
+    {
+      "rule_id": "H_024",
+      "source_page": 147,
+      "topic_group": "line_head",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Branching",
+          "value": "branched",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Position",
+          "value": "terminating_on_Mount_of_Moon",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A branch toward the Mount of Luna gives imagination and mysticism.",
+      "source_quote": "Toward the Mount of Luna, imagination, mysticism.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "H_025",
+      "source_page": 147,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Branching",
+          "value": "doubled",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A double head line is a rare, sure sign of brain power and versatility, with a double nature—one side gentle, the other cold and cruel.",
+      "source_quote": "A double line of head is very rarely found, but when found it is a sure sign of brain power and mentality.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_016",
+      "source_page": 159,
+      "topic_group": "line_heart",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Length",
+          "value": "extending_across_entire_palm",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A heart line lying right across the hand from side to side gives an excess of affection and a terrible tendency toward jealousy.",
+      "source_quote": "When the line of heart is itself in excess, namely, lying right across the hand from side to side, an excess of affection is the result, and a terrible tendency toward jealousy.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_017",
+      "source_page": 159,
+      "topic_group": "line_heart",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Continuity",
+          "value": "barred",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A heart line much fretted by a crowd of little lines rising into it tells of inconstancy, flirtations and passing affairs, but no lasting affection.",
+      "source_quote": "When the line of heart is much fretted by a crowd of little lines rising into it, it tells of inconstancy, flirtations, a series of amourettes, but no lasting affection.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_018",
+      "source_page": 159,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Mount_of_Saturn",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Continuity",
+          "value": "chained",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Width",
+          "value": "wide",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A heart line from Saturn, chained and broad, gives an utter contempt for the subject's opposite sex.",
+      "source_quote": "A line of heart from Saturn, chained and broad, gives an utter contempt for the subject's opposite sex.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_019",
+      "source_page": 159,
+      "topic_group": "line_heart",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Color",
+          "value": "bright_red",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A bright red heart line denotes great violence of passion.",
+      "source_quote": "When the line of heart is bright red, it denotes great violence of passion.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_020",
+      "source_page": 159,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Color",
+          "value": "pale",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Width",
+          "value": "wide",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A pale and broad heart line marks a blasé, indifferent nature.",
+      "source_quote": "When pale and broad, the subject is blasé and indifferent.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": []
+    },
+    {
+      "rule_id": "HL_021",
+      "source_page": 159,
+      "topic_group": "line_heart",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Position",
+          "value": "low",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Quadrangle",
+          "attribute": "Breadth",
+          "value": "narrow",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "When the heart line lies low and thus close to the head line, the heart will always interfere with the affairs of the head.",
+      "source_quote": "When low down on the hand and thus close to the line of head, the heart will always interfere with the affairs of the head.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [
+        "C2: mirror of HL_006/C3; Quadrangle-narrow encodes the head-heart closeness"
+      ]
+    }
+  ],
+  "parked_pending_relation_target": [
+    {
+      "rule_id": "H_014",
+      "source_page": 148,
+      "topic_group": "line_head",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Branching",
+          "value": "branched",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Direction",
+          "value": "upward",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Heart"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Little hair-lines branching up from head to heart make the affections a matter of fascination, not of love.",
+      "source_quote": "When a number of little hair-lines branch upward from the line of head to that of heart, the affections will be a matter of fascination, not of love.",
+      "verified": false,
+      "verifier": null,
+      "verified_date": null,
+      "source_fidelity": null,
+      "schema_flags": [
+        "RELATION_TARGET: branches directed toward Line of Heart (second feature)"
+      ],
+      "status": "parked_pending_relation_target"
+    },
+    {
+      "rule_id": "H_016",
+      "source_page": 148,
+      "topic_group": "line_head",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Proximity",
+          "value": "distant",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Life"
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Proximity",
+          "value": "medium",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Life"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A medium space between head and life lines denotes splendid energy, self-confidence, promptness of action.",
+      "source_quote": "when medium, it denotes splendid energy and self-confidence, promptness of action and readiness of thought.",
+      "verified": false,
+      "verifier": null,
+      "verified_date": null,
+      "source_fidelity": null,
+      "schema_flags": [
+        "RELATION_TARGET: head-life spacing has no region token (Quadrangle is head-heart only); medium-degree value needed"
+      ],
+      "status": "parked_pending_relation_target"
+    },
+    {
+      "rule_id": "H_017",
+      "source_page": 148,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Proximity",
+          "value": "distant",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Life"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "An extremely wide space between head and life denotes foolhardiness, assurance and excessive effrontery.",
+      "source_quote": "When this space is extremely wide, it denotes foolhardiness, assurance, excessive effrontery, and self-confidence.",
+      "verified": false,
+      "verifier": null,
+      "verified_date": null,
+      "source_fidelity": null,
+      "schema_flags": [
+        "RELATION_TARGET: head-life spacing"
+      ],
+      "status": "parked_pending_relation_target"
+    },
+    {
+      "rule_id": "H_022",
+      "source_page": 154,
+      "topic_group": "line_head_murder",
+      "is_compound": true,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Position",
+          "value": "high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Length",
+          "value": "reaching_Line_of_Heart",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Heart"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "In criminal/murderous hands the head line rises and takes possession of the heart line, sometimes passing beyond it.",
+      "source_quote": "the line of head leaves its proper place on the hand and rises and takes possession of the line of heart, and sometimes even passes beyond it.",
+      "verified": false,
+      "verifier": null,
+      "verified_date": null,
+      "source_fidelity": null,
+      "schema_flags": [
+        "RELATION_TARGET: head reaching/crossing heart; token 'reaching_Line_of_Heart' likely absent",
+        "TIMING: specific ages not present in corpus text -- omitted (honest-partial)"
+      ],
+      "status": "parked_pending_relation_target"
+    }
+  ]
+}
