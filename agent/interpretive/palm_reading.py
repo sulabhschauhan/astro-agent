@@ -260,6 +260,34 @@ def _load_feature_page_ranges() -> dict[str, tuple[int, int] | None]:
 
 _FEATURE_PAGE_RANGES: dict[str, tuple[int, int] | None] = _load_feature_page_ranges()
 
+# ─── Deterministic rule-engine path (offline-verified-extraction pilot) ───
+#
+# OFF by default. When ON, the Stage-1 claim SOURCE changes -- and only
+# that. `prepare_palm_reading` still parses, still retrieves, still runs
+# the support gate; `complete_palm_reading` (Stage 2 voicing, display
+# checks, decline block, DISCLAIMER, strip) is not touched at all by this
+# flag. See `_prepare_claims_from_rules` for the exact substitution.
+#
+# Env override PALM_RULES_ENGINE=1 forces ON so an A/B dogfood run needs
+# no code edit. Read through `_deterministic_rules_enabled()` at CALL
+# time, never captured at import time -- same design requirement the palm
+# UI gate carries (CLAUDE.md, S72): a test must be able to toggle it with
+# monkeypatch.setattr without a module reload.
+#
+# SCOPE GUARD: this flag governs the claim source inside
+# prepare_palm_reading() only. It does not alter retrieval, the support
+# gate, the page-range gate, Stage 2, or any validator.
+_DETERMINISTIC_RULES_ENABLED: bool = False
+
+
+def _deterministic_rules_enabled() -> bool:
+    """Env override wins over the module constant; the constant is read
+    through the module globals so monkeypatch.setattr works."""
+    if os.environ.get("PALM_RULES_ENGINE") == "1":
+        return True
+    return _DETERMINISTIC_RULES_ENABLED
+
+
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
 # Justification: S67 probe-proven -- querying an absence-phrased field
 # (e.g. "No clear marks visible") returns junk (markings tables, scores
@@ -1743,6 +1771,179 @@ class PalmReadingPrep:
     diagnostics: dict = field(default_factory=dict)
 
 
+def _prepare_claims_from_rules(
+    raw_texts_by_feature: dict[str, list[str]],
+    client=None,
+) -> tuple[tuple[Claim, ...], dict]:
+    """Deterministic replacement for `claim_extraction.extract_claims` as
+    the Stage-1 claim SOURCE (flag-gated, see
+    `_deterministic_rules_enabled`). Returns (claims, engine_diagnostics).
+
+    Chain: observation_extractor.extract_observation (the ONE LLM call on
+    this path -- prose -> closed-vocabulary token payload) ->
+    observation_to_tokens.to_tokens -> palm_rules_table.load_rule_set /
+    match / resolve_priority -> rule_to_claim.claims_from_rules.
+
+    FAIL-CLOSED, no silent LLM fallback: ANY exception anywhere in that
+    chain returns `((), diagnostics_with_failed=True)`. Zero claims is an
+    already-supported, already-tested pipeline state -- `voice_claims`
+    makes zero LLM calls on an empty inventory and
+    `_compute_decline_features` declines every supported feature -- so the
+    caller gets an honest decline-only reading. Deliberately NOT a
+    fallback to `extract_claims`: a silent fallback would make engine
+    breakage invisible, which is the whole point of running this A/B.
+
+    Imports are LOCAL, not module-level: `observation_extractor` and
+    `observation_to_tokens` both read data/ontology_registry.json at
+    import time, and a flag-OFF run must not acquire that dependency (or
+    its failure mode) merely by importing this module.
+    """
+    engine_diagnostics: dict = {"enabled": True, "failed": False}
+    try:
+        from agent.interpretive import (  # local -- see docstring
+            observation_extractor,
+            observation_to_tokens,
+            palm_rules_table,
+            rule_to_claim,
+        )
+
+        vision_payload = observation_extractor.extract_observation(
+            raw_texts_by_feature, client=client
+        )
+        observation, magnitudes = observation_to_tokens.to_tokens(vision_payload)
+        rules = palm_rules_table.load_rule_set()
+        fired = palm_rules_table.match(observation, magnitudes, rules)
+        survivors, suppression_log = palm_rules_table.resolve_priority(fired)
+        claims, rule_diagnostics = rule_to_claim.claims_from_rules(survivors)
+    except Exception as exc:  # noqa: BLE001 -- fail-closed by design, see docstring
+        logger.error(
+            "palm_reading._prepare_claims_from_rules: deterministic rule "
+            "engine failed (%s: %s) -- failing closed to zero claims; the "
+            "LLM extraction path is NOT used as a fallback.",
+            type(exc).__name__, exc,
+        )
+        engine_diagnostics.update({
+            "failed": True,
+            "error": f"{type(exc).__name__}: {exc}",
+            "observation": {},
+            "dropped_tokens": [],
+            "fired_rule_ids": [],
+            "surviving_rule_ids": [],
+            # suppression_log key always present, even on failure, so a
+            # reader never has to distinguish "no suppressions" from
+            # "diagnostics dropped the key".
+            "suppression_log": [],
+            "citations": {},
+            "dropped_rule_ids": [],
+        })
+        return (), engine_diagnostics
+
+    engine_diagnostics.update({
+        "observation": observation,
+        "dropped_tokens": magnitudes.get("_dropped", []),
+        "fired_rule_ids": [r.rule_id for r in fired],
+        "surviving_rule_ids": [r.rule_id for r in survivors],
+        "suppression_log": suppression_log,
+        # source_quote lives HERE and nowhere else -- rule_to_claim keeps
+        # it off the Claim object precisely so 19th-century book prose
+        # never reaches claim_voicing's prompt (claim_voicing.py's own
+        # "chunk text never appears in the prompt" invariant).
+        "citations": rule_diagnostics.get("citations", {}),
+        "dropped_rule_ids": rule_diagnostics.get("dropped_rule_ids", []),
+        # FLAGGED, not silently accepted: rule_to_claim sets
+        # Claim.feature to the rule's topic_group ("line_life",
+        # "line_head", ...), which is NOT a _FEATURE_REGISTRY label. Two
+        # known downstream consequences on this path, both recorded here
+        # rather than patched from inside this module:
+        #   1. _compute_decline_features sees zero claims for every
+        #      registry feature and declines all of them, even when rules
+        #      fired for that feature's topic group.
+        #   2. _build_sources_from_claims looks each claim's chunk_id up
+        #      in gated_results and misses (rule chunk_ids are resolved
+        #      from the corpus file, not from this run's retrieval), so
+        #      `sources` comes back empty -- the real citations are the
+        #      "citations" key above.
+        # Fixing either means deciding a topic_group -> registry-feature
+        # mapping, which belongs in rule_to_claim.py, not here.
+        "claim_features_outside_registry": sorted(
+            {c.feature for c in claims} - set(_FEATURE_REGISTRY)
+        ),
+    })
+    return claims, engine_diagnostics
+
+
+def _prepare_deterministic_prep(
+    raw_texts_by_feature: dict[str, list[str]],
+    texts_by_feature: dict[str, str],
+    gated_results: dict[str, list[dict]],
+    supported_features: tuple[str, ...],
+    unsupported_features: tuple[str, ...],
+    full_candidates: dict[str, list],
+    client=None,
+) -> PalmReadingPrep:
+    """Builds the SAME PalmReadingPrep shape the LLM Stage-1 path builds,
+    with `claims` sourced from the deterministic rule engine. Everything
+    else on the prep -- gated_results, the support-gate tuples,
+    texts_by_feature -- is passed through untouched, so
+    `complete_palm_reading` needs no knowledge of this path and is not
+    edited by this flag at all.
+
+    DIAGNOSTICS ROUTING (the prompt's AI-reviewing-AI visibility
+    requirement): the engine block, `suppression_log` included, is written
+    to BOTH
+      - prep.diagnostics["rules_engine"] -- for a caller holding the prep
+        (e.g. the S70 P6b checkpoint step), and
+      - prep.diagnostics["stage1"]["features"]["_rules_engine"] -- the
+        one channel that already reaches `PalmReadingResult` (via
+        `complete_palm_reading`'s existing `.get("stage1", {}).get(
+        "features", {})` read, unmodified), so the dogfood capture and
+        the S83 failure-capture net see it with no frontend change.
+    The `_`-prefixed pseudo-feature key follows the same convention
+    `observation_to_tokens`'s own `magnitudes["_dropped"]` uses. It is
+    read defensively by every consumer (`app._format_stage1_feature_
+    diagnostics_lines` / `_run_had_failure` are all `.get()`-based), and
+    `final_outcome` is deliberately set to a string containing "failed"
+    on engine failure so S83's threshold-free capture net fires on a
+    broken engine without any edit to frontend/app.py.
+
+    Per-feature retrieval `candidates` (the S83 near-miss margin log) are
+    merged in exactly as the LLM path does -- retrieval still ran on this
+    path, so dropping that record would be a silent loss.
+    """
+    claims, engine_diagnostics = _prepare_claims_from_rules(raw_texts_by_feature, client=client)
+    engine_diagnostics["final_outcome"] = (
+        "rules_engine_failed" if engine_diagnostics.get("failed") else "rules_engine_ok"
+    )
+
+    stage1_features: dict[str, dict] = {
+        feature: {"candidates": candidates}
+        for feature, candidates in full_candidates.items()
+    }
+    stage1_features["_rules_engine"] = engine_diagnostics
+
+    return PalmReadingPrep(
+        gated_results=gated_results,
+        supported_features=supported_features,
+        unsupported_features=unsupported_features,
+        claims=claims,
+        texts_by_feature=texts_by_feature,
+        diagnostics={
+            "stage1": {"features": stage1_features},
+            # No LLM extraction ran, so there is no per-feature
+            # extraction failure and no Stage-1 retry to report. A failed
+            # engine is reported through the engine block's own
+            # failed/final_outcome keys, NOT by fabricating a
+            # per-feature extraction-failure list this path never
+            # computes -- and zero claims already drives
+            # _compute_decline_features to decline every supported
+            # feature, which is the honest user-visible outcome.
+            "stage1_failed_features": (),
+            "stage1_retry_features": (),
+            "rules_engine": engine_diagnostics,
+        },
+    )
+
+
 def prepare_palm_reading(
     palm_left: str | None,
     palm_right: str | None,
@@ -1753,6 +1954,13 @@ def prepare_palm_reading(
     (claim_extraction.extract_claims). Same ValueError input guard as
     generate_palm_reading() (unchanged) -- this is where palm_left/
     palm_right are first validated, before any parsing happens.
+
+    This is the Stage-1 boundary the deterministic rule engine swaps into
+    (`_deterministic_rules_enabled`, default OFF): when the flag is ON,
+    everything above the `extract_claims` call runs identically and only
+    the claim SOURCE changes -- see `_prepare_deterministic_prep`. When
+    the flag is OFF this function behaves exactly as it did before the
+    flag existed.
 
     Raises:
         ValueError: Both palm_left and palm_right are None.
@@ -1787,6 +1995,17 @@ def prepare_palm_reading(
         per_feature_results, raw_texts_by_feature
     )
     texts_by_feature = _join_feature_texts(raw_texts_by_feature)
+
+    if _deterministic_rules_enabled():
+        return _prepare_deterministic_prep(
+            raw_texts_by_feature,
+            texts_by_feature,
+            gated_results,
+            supported_features,
+            unsupported_features,
+            full_candidates,
+            client=client,
+        )
 
     extraction_result = claim_extraction.extract_claims(
         gated_results, texts_by_feature, client=client
