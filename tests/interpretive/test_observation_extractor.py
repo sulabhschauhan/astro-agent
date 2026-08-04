@@ -1,21 +1,18 @@
 """
 tests/interpretive/test_observation_extractor.py
-Tests for agent/interpretive/observation_extractor.py's extract_observation().
+Tests for agent/interpretive/observation_extractor.py's extract_observation()
+and to_vision_payload() -- the capture-complete ObservationRecord contract.
 MOCKS the LLM throughout -- no live API call. Fake OpenAI client classes
 transplanted from tests/interpretive/test_claim_extraction.py (same
 client.chat.completions.create(...) surface, same responses=[(content,
 exception), ...] call-order convention, simplified here since this module
 makes at most ONE call, never a retry).
 
-Hardest case first, per project convention: a mocked LLM response that
-VIOLATES its own closed-vocabulary instruction (emits a token that is not
-in the registry at all) -- proves the Python-side fail-closed guard, not
-just the prompt wording, is what actually protects the output. See
-observation_extractor.py's own module docstring point 2 for why this test
-does NOT use the task prompt's own suggested example ("faintly wavy") --
-"wavy" is a real registry value token, verified directly against
-data/ontology_registry.json, so it cannot demonstrate the no-valid-token
-path; "shimmery" (confirmed absent) is used instead.
+Hardest case first, per project convention: real captured life-line prose
+("deep, long, curves around the base of the thumb, no breaks") where a
+genuine observation ("curves around the base of the thumb") has no
+matching ontology value token. Proves CAPTURE, not drop: it must land in
+`unmapped`, not vanish, while "long"/"deep" still tokenize normally.
 """
 
 from __future__ import annotations
@@ -27,7 +24,9 @@ import pytest
 from agent.interpretive.observation_extractor import (
     _CLOSED_VOCAB,
     _FEATURE_ALIAS,
+    ObservationRecord,
     extract_observation,
+    to_vision_payload,
 )
 
 # ─── Fake OpenAI client -- transplanted from test_claim_extraction.py ────
@@ -64,8 +63,8 @@ class _FakeClient:
         self.chat = type("_FakeChat", (), {"completions": self.completions})()
 
 
-def _obs_response(observations: dict) -> str:
-    return json.dumps({"observations": observations})
+def _response(observations: dict, unmapped: dict | None = None) -> str:
+    return json.dumps({"observations": observations, "unmapped": unmapped or {}})
 
 
 # ─── Sanity: registry-derived constants sane before relying on them ──────
@@ -77,89 +76,166 @@ def test_alias_table_has_ten_keys_eight_mapped_two_none():
     unmapped = {k: v for k, v in _FEATURE_ALIAS.items() if v is None}
     assert len(mapped) == 8
     assert set(unmapped) == {"fingers", "markings/other features"}
-    # every mapped ontology feature must actually exist in the closed vocab
     for ontology_feature in mapped.values():
         assert ontology_feature in _CLOSED_VOCAB
 
 
-# ─── HARDEST CASE FIRST ────────────────────────────────────────────────
+# ─── HARDEST CASE FIRST: capture, not drop ───────────────────────────────
 
 
-def test_hardest_case_llm_emits_out_of_vocabulary_token_is_dropped():
-    # "shimmery" is confirmed absent from the full 214-value flattened
-    # registry pool -- if the LLM ignores its own closed-vocabulary
-    # instruction and emits it anyway, the Python-side guard (not prompt
-    # wording) must still drop it.
-    fake = _FakeClient(content=_obs_response({
-        "Line of Head": {"Direction": {"value": "shimmery"}},  # "Direction" IS valid for
-        # this feature -- isolates the test to the VALUE-vocabulary guard specifically,
-        # not the attribute-validity guard.
-    }))
-    result = extract_observation(
-        {"head line": ["the head line looks faintly wavy and shimmery"]},
+def test_hardest_case_unmatched_quality_captured_not_dropped():
+    fake = _FakeClient(content=_response(
+        observations={
+            "Line of Life": {
+                "Length": {"value": "long"},
+                "Depth": {"value": "deep"},
+            },
+        },
+        unmapped={
+            "Line of Life": [
+                {"quality": "curves around the base of the thumb", "attribute_guess": "Curve"},
+            ],
+        },
+    ))
+    record = extract_observation(
+        {"life line": ["deep, long, curves around the base of the thumb, no breaks"]},
         client=fake,
     )
-    assert result == {}
-    assert len(fake.completions.calls) == 1  # exactly one call, no retry mechanism here
-
-
-# ─── Valid compound prose -> all tokens emitted ──────────────────────────
-
-
-def test_valid_compound_prose_all_tokens_emitted():
-    fake = _FakeClient(content=_obs_response({
-        "Line of Life": {
-            "Length": {"value": "long"},
-            "Width": {"value": "narrow"},
-            "Depth": {"value": "deep"},
-        },
-    }))
-    result = extract_observation(
-        {"life line": ["life line long, narrow, deep"]},
-        client=fake,
-    )
-    assert result == {
-        "Line of Life": {
-            "Length": {"value": "long", "confidence": 1.0},
-            "Width": {"value": "narrow", "confidence": 1.0},
-            "Depth": {"value": "deep", "confidence": 1.0},
-        },
+    assert isinstance(record, ObservationRecord)
+    fobs = record.features["Line of Life"]
+    assert fobs.tokens == {
+        "Length": {"value": "long", "confidence": 1.0},
+        "Depth": {"value": "deep", "confidence": 1.0},
     }
+    assert {"quality": "curves around the base of the thumb", "attribute_guess": "Curve"} in fobs.unmapped
+    assert fobs.raw_prose == "deep, long, curves around the base of the thumb, no breaks"
+    assert len(fake.completions.calls) == 1
 
 
-# ─── Unmapped prose feature -> skipped, not raised ───────────────────────
+# ─── enabled_features: allow-list applied AFTER capture ─────────────────
 
 
-def test_unmapped_prose_feature_skipped_not_raised():
-    fake = _FakeClient(content=_obs_response({
-        "Line of Life": {"Length": {"value": "long"}},
-    }))
-    result = extract_observation(
-        {
-            "fingers": ["long and slender"],  # no ontology counterpart
-            "life line": ["long"],
+def test_disabled_feature_fully_captured_but_dropped_from_payload():
+    fake = _FakeClient(content=_response(
+        observations={
+            "Line of Life": {"Length": {"value": "long"}},
+            "Line of Head": {"Direction": {"value": "straight"}},
         },
+    ))
+    record = extract_observation(
+        {"life line": ["long"], "head line": ["straight"]},
+        enabled_features={"Line of Head"},
         client=fake,
     )
-    assert result == {"Line of Life": {"Length": {"value": "long", "confidence": 1.0}}}
-    # only Line of Life was ever sent to the LLM -- "fingers" never reached the prompt
+    # capture is total regardless of enabled_features
+    assert "Line of Life" in record.features
+    assert record.features["Line of Life"].tokens == {
+        "Length": {"value": "long", "confidence": 1.0},
+    }
+    assert record.dropped_disabled == ["Line of Life"]
+
+    payload = to_vision_payload(record, enabled_features={"Line of Head"})
+    assert "Line of Life" not in payload
+    assert payload == {"Line of Head": {"Direction": {"value": "straight", "confidence": 1.0}}}
+
+
+# ─── Quality with no token and no attribute guess -> unmapped, not tokens ─
+
+
+def test_quality_with_no_attribute_guess_lands_in_unmapped_not_tokens():
+    fake = _FakeClient(content=_response(
+        observations={},
+        unmapped={
+            "Line of Head": [
+                {"quality": "an odd texture near the start", "attribute_guess": None},
+            ],
+        },
+    ))
+    record = extract_observation({"head line": ["an odd texture near the start"]}, client=fake)
+    fobs = record.features["Line of Head"]
+    assert fobs.tokens == {}
+    assert fobs.unmapped == [{"quality": "an odd texture near the start", "attribute_guess": None}]
+
+
+# ─── Empty feature_texts -> empty record, no raise, no LLM call ─────────
+
+
+def test_empty_feature_texts_returns_empty_record_no_llm_call():
+    fake = _FakeClient(content="should never be read")
+    record = extract_observation({}, client=fake)
+    assert record == ObservationRecord(features={}, dropped_disabled=[], unmappable_prose_features=[])
+    assert len(fake.completions.calls) == 0
+
+
+def test_feature_texts_with_only_blank_strings_returns_empty_record_no_llm_call():
+    fake = _FakeClient(content="should never be read")
+    record = extract_observation({"life line": ["", "   "]}, client=fake)
+    assert record.features == {}
+    assert len(fake.completions.calls) == 0
+
+
+# ─── to_vision_payload round-trips into to_tokens()'s expected shape ─────
+
+
+def test_to_vision_payload_round_trips_into_to_tokens_accepted_shape():
+    from agent.interpretive import observation_to_tokens
+
+    fake = _FakeClient(content=_response(
+        observations={"Line of Life": {"Length": {"value": "long"}, "Depth": {"value": "deep"}}},
+    ))
+    record = extract_observation({"life line": ["long, deep"]}, client=fake)
+    payload = to_vision_payload(record)
+    observation, magnitudes = observation_to_tokens.to_tokens(payload)
+    assert observation == {"Line of Life": {"Length": "long", "Depth": "deep"}}
+    assert magnitudes["Line of Life"] == {"Length": 1.0, "Depth": 1.0}
+
+
+def test_to_vision_payload_omits_feature_with_no_tokens():
+    fake = _FakeClient(content=_response(
+        observations={},
+        unmapped={"Line of Life": [{"quality": "something vague", "attribute_guess": None}]},
+    ))
+    record = extract_observation({"life line": ["something vague"]}, client=fake)
+    assert to_vision_payload(record) == {}
+
+
+# ─── Unmappable prose feature (fingers/markings) -- visible, not invisible ─
+
+
+def test_unmappable_prose_feature_visible_not_invisible():
+    fake = _FakeClient(content=_response(
+        observations={"Line of Life": {"Length": {"value": "long"}}},
+    ))
+    record = extract_observation(
+        {"fingers": ["long and slender"], "life line": ["long"]},
+        client=fake,
+    )
+    assert record.unmappable_prose_features == [
+        {"prose_feature": "fingers", "raw_prose": "long and slender"},
+    ]
+    # never reached the prompt
     sent_prompt = fake.completions.calls[0]["messages"][1]["content"]
-    assert "Line of Life" in sent_prompt
     assert "Finger" not in sent_prompt
 
 
-def test_completely_unknown_prose_key_also_skipped_not_raised():
-    # A prose key not even present in _FEATURE_ALIAS at all (not one of
-    # the 10 registered labels) -- .get() returns None the same way an
-    # explicitly-None-mapped key does, so it takes the identical skip path.
-    fake = _FakeClient(content=_obs_response({
-        "Line of Life": {"Length": {"value": "long"}},
-    }))
-    result = extract_observation(
-        {"aura": ["glowing brightly"], "life line": ["long"]},
+# ─── Out-of-vocabulary LLM emission -- folded into unmapped, never tokens ─
+
+
+def test_out_of_vocabulary_emission_folded_into_unmapped_not_tokens():
+    # "shimmery" is confirmed absent from the full registry value pool --
+    # if the LLM violates its own closed-vocabulary instruction, the
+    # Python-side guard must still keep it out of `tokens`, but it must
+    # now be VISIBLE in `unmapped` rather than silently vanishing.
+    fake = _FakeClient(content=_response(
+        observations={"Line of Head": {"Direction": {"value": "shimmery"}}},
+    ))
+    record = extract_observation(
+        {"head line": ["the head line looks faintly wavy and shimmery"]},
         client=fake,
     )
-    assert result == {"Line of Life": {"Length": {"value": "long", "confidence": 1.0}}}
+    fobs = record.features["Line of Head"]
+    assert fobs.tokens == {}
+    assert {"quality": "shimmery", "attribute_guess": "Direction"} in fobs.unmapped
 
 
 # ─── JSON parse failure -> ValueError with snippet ───────────────────────
@@ -177,55 +253,49 @@ def test_missing_observations_key_raises_value_error_with_snippet():
         extract_observation({"life line": ["long"]}, client=fake)
 
 
-# ─── Empty feature_texts -> empty payload, no raise ──────────────────────
-
-
-def test_empty_feature_texts_returns_empty_payload_no_llm_call():
-    fake = _FakeClient(content="should never be read")
-    result = extract_observation({}, client=fake)
-    assert result == {}
-    assert len(fake.completions.calls) == 0  # no call made at all -- nothing to attempt
-
-
-def test_feature_texts_with_only_blank_strings_returns_empty_payload_no_llm_call():
-    fake = _FakeClient(content="should never be read")
-    result = extract_observation({"life line": ["", "   "]}, client=fake)
-    assert result == {}
-    assert len(fake.completions.calls) == 0
+def test_missing_unmapped_key_does_not_raise_defaults_empty():
+    # older/partially-compliant response shape: only "observations" present
+    fake = _FakeClient(content=json.dumps({
+        "observations": {"Line of Life": {"Length": {"value": "long"}}},
+    }))
+    record = extract_observation({"life line": ["long"]}, client=fake)
+    assert record.features["Line of Life"].unmapped == []
 
 
 # ─── Confidence: prose hedging lowers it, else defaults to 1.0 ──────────
 
 
 def test_hedged_prose_lowers_confidence():
-    fake = _FakeClient(content=_obs_response({
-        "Line of Head": {"Direction": {"value": "straight"}},
-    }))
-    result = extract_observation(
+    fake = _FakeClient(content=_response(
+        observations={"Line of Head": {"Direction": {"value": "straight"}}},
+    ))
+    record = extract_observation(
         {"head line": ["the head line is possibly straight"]},
         client=fake,
     )
-    assert result["Line of Head"]["Direction"]["confidence"] == 0.6
+    assert record.features["Line of Head"].tokens["Direction"]["confidence"] == 0.6
 
 
 def test_non_hedged_prose_defaults_confidence_to_one():
-    fake = _FakeClient(content=_obs_response({
-        "Line of Head": {"Direction": {"value": "straight"}},
-    }))
-    result = extract_observation(
+    fake = _FakeClient(content=_response(
+        observations={"Line of Head": {"Direction": {"value": "straight"}}},
+    ))
+    record = extract_observation(
         {"head line": ["the head line is straight"]},
         client=fake,
     )
-    assert result["Line of Head"]["Direction"]["confidence"] == 1.0
+    assert record.features["Line of Head"].tokens["Direction"]["confidence"] == 1.0
 
 
-# ─── LLM emits a feature outside the requested batch -> dropped ─────────
+# ─── LLM emits a feature outside the requested batch -> dropped entirely ─
 
 
 def test_llm_emitted_feature_outside_requested_batch_is_dropped():
-    fake = _FakeClient(content=_obs_response({
-        "Line of Life": {"Length": {"value": "long"}},
-        "Line of Heart": {"Position": {"value": "high"}},  # never requested this call
-    }))
-    result = extract_observation({"life line": ["long"]}, client=fake)
-    assert result == {"Line of Life": {"Length": {"value": "long", "confidence": 1.0}}}
+    fake = _FakeClient(content=_response(
+        observations={
+            "Line of Life": {"Length": {"value": "long"}},
+            "Line of Heart": {"Position": {"value": "high"}},  # never requested this call
+        },
+    ))
+    record = extract_observation({"life line": ["long"]}, client=fake)
+    assert set(record.features) == {"Line of Life"}

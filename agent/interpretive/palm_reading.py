@@ -1771,6 +1771,89 @@ class PalmReadingPrep:
     diagnostics: dict = field(default_factory=dict)
 
 
+def _enabled_features_from_rules(rules) -> frozenset[str]:
+    """The ontology feature set the rule engine can ACTUALLY consume, from
+    the loaded rule set itself -- never a hardcoded list, so adding a rule
+    chapter widens the extractor's allow-list with no edit here.
+
+    DEVIATION, flagged not silent (project convention): the instructing
+    prompt specifies "the set of ontology features that appear as
+    antecedent `.feature`". This also unions in `.comparator_feature`.
+    Reason: a comparative antecedent (`condition_type == "comparative"`)
+    reads `magnitudes[comparator_feature]`, and magnitudes are derived by
+    `to_tokens()` from the payload -- so withholding a comparator-only
+    feature would silently starve the very rule that needs it, which is
+    the exact silent-failure class this rewire exists to remove. MEASURED
+    NO-OP on the current rule set: both comparator features ("Line of
+    Head", "Line of Heart") already appear as antecedent `.feature`, so
+    the derived set is byte-identical either way today.
+    """
+    features: set[str] = set()
+    for rule in rules:
+        for antecedent in rule.antecedents:
+            if antecedent.feature:
+                features.add(antecedent.feature)
+            if antecedent.comparator_feature:
+                features.add(antecedent.comparator_feature)
+    return frozenset(features)
+
+
+def rule_engine_enabled_features() -> frozenset[str]:
+    """Convenience wrapper over `_enabled_features_from_rules` that loads
+    the rule set itself -- for callers/tests that want the allow-list
+    without running a reading. `_prepare_claims_from_rules` does NOT use
+    this (it derives from the rule set it already loaded, so one run never
+    reads the rule files twice)."""
+    from agent.interpretive import palm_rules_table  # local -- see _prepare_claims_from_rules
+
+    return _enabled_features_from_rules(palm_rules_table.load_rule_set())
+
+
+def _observation_record_diagnostics(record, enabled_features) -> dict:
+    """Plain-dict, JSON-serializable projection of the FULL
+    `ObservationRecord` -- the diagnostic surface a silent feature has to
+    be traceable through.
+
+    Captures what the payload alone cannot answer: `tokens` (what became
+    a token), `unmapped` (the LLM saw it but no ontology token existed for
+    it), `raw_prose` (what the LLM was given at all), `dropped_disabled`
+    (extracted fine, withheld because no rule consumes that feature) and
+    `unmappable_prose_features` (prose labels with no ontology counterpart
+    -- never sent to the LLM). "LLM saw nothing" and "no token existed for
+    what it saw" are distinguishable from this block; from the payload
+    alone they are not.
+
+    ROUTING: this rides inside `engine_diagnostics`, exactly as
+    `suppression_log` already does -- so it reaches
+    `prep.diagnostics["rules_engine"]` AND
+    `stage1.features["_rules_engine"]` (and thus the dogfood capture /
+    S83 net) with no new channel. It is NEVER passed to Stage 2:
+    `complete_palm_reading` hands `voice_claims` claims + texts only, and
+    nothing in this dict is read there.
+    """
+    return {
+        "enabled_features": sorted(enabled_features),
+        "features": {
+            feature: {
+                "tokens": dict(fobs.tokens),
+                "unmapped": [dict(u) for u in fobs.unmapped],
+                "raw_prose": fobs.raw_prose,
+            }
+            for feature, fobs in record.features.items()
+        },
+        "dropped_disabled": list(record.dropped_disabled),
+        "unmappable_prose_features": [dict(u) for u in record.unmappable_prose_features],
+    }
+
+
+_EMPTY_OBSERVATION_RECORD_DIAGNOSTICS: dict = {
+    "enabled_features": [],
+    "features": {},
+    "dropped_disabled": [],
+    "unmappable_prose_features": [],
+}
+
+
 def _prepare_claims_from_rules(
     raw_texts_by_feature: dict[str, list[str]],
     client=None,
@@ -1779,15 +1862,38 @@ def _prepare_claims_from_rules(
     the Stage-1 claim SOURCE (flag-gated, see
     `_deterministic_rules_enabled`). Returns (claims, engine_diagnostics).
 
-    Chain: observation_extractor.extract_observation (the ONE LLM call on
-    this path -- prose -> closed-vocabulary token payload) ->
-    observation_to_tokens.to_tokens -> palm_rules_table.load_rule_set /
-    match / resolve_priority -> rule_to_claim.claims_from_rules.
+    Chain: palm_rules_table.load_rule_set (also the source of the
+    extractor's `enabled_features` allow-list) ->
+    observation_extractor.extract_observation (the ONE LLM call on this
+    path -- prose -> capture-complete `ObservationRecord`) ->
+    observation_extractor.to_vision_payload (record -> the
+    `{feature: {attribute: {value, confidence}}}` shape, allow-list
+    applied here) -> observation_to_tokens.to_tokens ->
+    palm_rules_table.match / resolve_priority ->
+    rule_to_claim.claims_from_rules.
 
-    FAIL-CLOSED, no silent LLM fallback: ANY exception anywhere in that
-    chain returns `((), diagnostics_with_failed=True)`. Zero claims is an
-    already-supported, already-tested pipeline state -- `voice_claims`
-    makes zero LLM calls on an empty inventory and
+    FAIL-CLOSED, no silent LLM fallback -- but SCOPED, not blanket. Four
+    boundaries, deliberately different:
+      1. rule load + allow-list derivation: broad catch -> honest decline
+         (a missing/malformed rule dir is an operational condition).
+      2. `extract_observation`: catches RuntimeError (LLM/API failure) and
+         ValueError (unparseable LLM response) ONLY -- the two failures
+         that module documents. Anything else (e.g. a TypeError from a
+         changed signature) PROPAGATES.
+      3. the record -> payload -> tokens adapter seam: NOT caught at all.
+         A TypeError/ValueError here can only mean the extractor's return
+         contract and this call site disagree -- exactly the break that
+         the previous blanket `except Exception` masked as "engine
+         produced zero claims" for the whole of this branch's life (10
+         tests passed OFF, the ON path silently declined every run). It
+         must fail loudly in tests, not decline.
+      4. match / resolve_priority / claims_from_rules: broad catch ->
+         honest decline (unchanged).
+    Every caught exception is recorded as `error` + `failed_stage` in the
+    diagnostics, so even a broad catch cannot hide WHERE it broke.
+
+    Zero claims is an already-supported, already-tested pipeline state --
+    `voice_claims` makes zero LLM calls on an empty inventory and
     `_compute_decline_features` declines every supported feature -- so the
     caller gets an honest decline-only reading. Deliberately NOT a
     fallback to `extract_claims`: a silent fallback would make engine
@@ -1799,6 +1905,32 @@ def _prepare_claims_from_rules(
     its failure mode) merely by importing this module.
     """
     engine_diagnostics: dict = {"enabled": True, "failed": False}
+
+    def _fail_closed(exc: Exception, stage: str, record_diagnostics: dict):
+        logger.error(
+            "palm_reading._prepare_claims_from_rules: deterministic rule "
+            "engine failed at stage %r (%s: %s) -- failing closed to zero "
+            "claims; the LLM extraction path is NOT used as a fallback.",
+            stage, type(exc).__name__, exc,
+        )
+        engine_diagnostics.update({
+            "failed": True,
+            "failed_stage": stage,
+            "error": f"{type(exc).__name__}: {exc}",
+            "observation": {},
+            "dropped_tokens": [],
+            "fired_rule_ids": [],
+            "surviving_rule_ids": [],
+            # suppression_log key always present, even on failure, so a
+            # reader never has to distinguish "no suppressions" from
+            # "diagnostics dropped the key". Same for observation_record.
+            "suppression_log": [],
+            "observation_record": record_diagnostics,
+            "citations": {},
+            "dropped_rule_ids": [],
+        })
+        return (), engine_diagnostics
+
     try:
         from agent.interpretive import (  # local -- see docstring
             observation_extractor,
@@ -1807,38 +1939,39 @@ def _prepare_claims_from_rules(
             rule_to_claim,
         )
 
-        vision_payload = observation_extractor.extract_observation(
-            raw_texts_by_feature, client=client
-        )
-        observation, magnitudes = observation_to_tokens.to_tokens(vision_payload)
         rules = palm_rules_table.load_rule_set()
+        enabled_features = _enabled_features_from_rules(rules)
+    except Exception as exc:  # noqa: BLE001 -- fail-closed boundary 1, see docstring
+        return _fail_closed(exc, "rule_load", dict(_EMPTY_OBSERVATION_RECORD_DIAGNOSTICS))
+
+    try:
+        record = observation_extractor.extract_observation(
+            raw_texts_by_feature, enabled_features=set(enabled_features), client=client
+        )
+    except (RuntimeError, ValueError) as exc:  # fail-closed boundary 2 -- NARROW
+        return _fail_closed(
+            exc, "observation_extraction",
+            {**_EMPTY_OBSERVATION_RECORD_DIAGNOSTICS,
+             "enabled_features": sorted(enabled_features)},
+        )
+
+    record_diagnostics = _observation_record_diagnostics(record, enabled_features)
+
+    # Boundary 3: NO try/except by design (see docstring). A contract
+    # mismatch between extract_observation's return type and this seam
+    # must raise, not decline.
+    vision_payload = observation_extractor.to_vision_payload(record, enabled_features)
+    observation, magnitudes = observation_to_tokens.to_tokens(vision_payload)
+
+    try:
         fired = palm_rules_table.match(observation, magnitudes, rules)
         survivors, suppression_log = palm_rules_table.resolve_priority(fired)
         claims, rule_diagnostics = rule_to_claim.claims_from_rules(survivors)
-    except Exception as exc:  # noqa: BLE001 -- fail-closed by design, see docstring
-        logger.error(
-            "palm_reading._prepare_claims_from_rules: deterministic rule "
-            "engine failed (%s: %s) -- failing closed to zero claims; the "
-            "LLM extraction path is NOT used as a fallback.",
-            type(exc).__name__, exc,
-        )
-        engine_diagnostics.update({
-            "failed": True,
-            "error": f"{type(exc).__name__}: {exc}",
-            "observation": {},
-            "dropped_tokens": [],
-            "fired_rule_ids": [],
-            "surviving_rule_ids": [],
-            # suppression_log key always present, even on failure, so a
-            # reader never has to distinguish "no suppressions" from
-            # "diagnostics dropped the key".
-            "suppression_log": [],
-            "citations": {},
-            "dropped_rule_ids": [],
-        })
-        return (), engine_diagnostics
+    except Exception as exc:  # noqa: BLE001 -- fail-closed boundary 4, see docstring
+        return _fail_closed(exc, "rule_matching", record_diagnostics)
 
     engine_diagnostics.update({
+        "observation_record": record_diagnostics,
         "observation": observation,
         "dropped_tokens": magnitudes.get("_dropped", []),
         "fired_rule_ids": [r.rule_id for r in fired],

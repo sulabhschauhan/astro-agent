@@ -32,7 +32,7 @@ import json
 import pytest
 
 from agent.interpretive import claim_extraction, palm_reading
-from agent.interpretive import palm_rules_table
+from agent.interpretive import observation_extractor, palm_rules_table
 from agent.interpretive.palm_reading import generate_palm_reading
 from agent.prompt_builder import DISCLAIMER
 from tests.interpretive.test_palm_reading import (
@@ -57,9 +57,15 @@ _CAPTURED_LEFT_LIFE_LINE = (
 )
 
 
-def _observation_response(observations: dict) -> str:
-    """observation_extractor's contracted response shape."""
-    return json.dumps({"observations": observations})
+def _observation_response(observations: dict, unmapped: dict | None = None) -> str:
+    """observation_extractor's contracted response shape. `unmapped` is
+    the SECOND half of that contract (qualities the model saw but could
+    not tokenize) -- omitted entirely when None, which the extractor
+    tolerates by design (its docstring point 7)."""
+    body: dict = {"observations": observations}
+    if unmapped is not None:
+        body["unmapped"] = unmapped
+    return json.dumps(body)
 
 
 def _engine_diag(result) -> dict:
@@ -67,6 +73,12 @@ def _engine_diag(result) -> dict:
     diagnostics actually survive the prep -> complete hand-off rather
     than only existing on the prep."""
     return result.stage1_feature_diagnostics["_rules_engine"]
+
+
+def _record_diag(result) -> dict:
+    """The full ObservationRecord projection, as it reaches
+    PalmReadingResult (same channel as suppression_log)."""
+    return _engine_diag(result)["observation_record"]
 
 
 @pytest.fixture
@@ -261,6 +273,12 @@ def test_zero_valid_tokens_declines_honestly_without_raising(
     assert diag["dropped_tokens"] == []
     assert diag["fired_rule_ids"] == []
     assert diag["surviving_rule_ids"] == []
+    # ... and the rejected token is now TRACEABLE rather than gone: the
+    # extractor folds its own out-of-vocabulary rejects into unmapped
+    # (its docstring point 2), and that survives to the result.
+    assert _record_diag(result)["features"]["Line of Life"]["unmapped"] == [
+        {"quality": "shimmery", "attribute_guess": "Depth"}
+    ]
 
     assert result.claims == ()
     assert result.reading_text_tagged == ""
@@ -291,6 +309,15 @@ def test_no_mappable_features_makes_zero_llm_calls_at_all(
     assert result.claims == ()
     assert _engine_diag(result)["failed"] is False
     assert result.reading_text.endswith(DISCLAIMER)
+
+    # Not a silent nothing: the prose IS captured, under the category that
+    # says WHY it never became a token -- no ontology counterpart at all,
+    # so it was never sent to the LLM (distinct from dropped_disabled).
+    record = _record_diag(result)
+    assert record["features"] == {}
+    assert record["dropped_disabled"] == []
+    assert [u["prose_feature"] for u in record["unmappable_prose_features"]] == ["fingers"]
+    assert "knotty" in record["unmappable_prose_features"][0]["raw_prose"]
 
 
 # ─── Flag ON: a rule that actually fires ────────────────────────────────
@@ -587,3 +614,227 @@ def test_s83_candidate_records_survive_on_the_deterministic_path(
     )
 
     assert "candidates" in result.stage1_feature_diagnostics["life line"]
+
+
+# ─── enabled_features: derived from the rule set, never hardcoded ───────
+
+
+def test_enabled_features_derived_from_the_loaded_rule_set():
+    """Pins the DERIVATION, not a literal list: the allow-list must equal
+    the antecedent-feature set of whatever rules are loaded, so adding a
+    rule chapter widens it with no code edit. The literal set is asserted
+    too, as a canary -- if a new chapter changes it, this assertion is the
+    intended place to notice."""
+    rules = palm_rules_table.load_rule_set()
+    expected = {a.feature for r in rules for a in r.antecedents}
+    expected |= {a.comparator_feature for r in rules for a in r.antecedents if a.comparator_feature}
+
+    derived = palm_reading._enabled_features_from_rules(rules)
+    assert derived == expected
+    assert palm_reading.rule_engine_enabled_features() == derived
+
+    assert derived == frozenset({
+        "Hand", "Line of Head", "Line of Heart", "Line of Life",
+        "Mount of Venus", "Palm", "Quadrangle", "Square",
+    })
+    # The point of the allow-list: real ontology features with NO rule
+    # behind them are excluded, so the engine is never handed a token it
+    # has nothing to do with.
+    for unruled in ("Line of Sun", "Line of Fate", "Thumb", "Mount of Jupiter"):
+        assert unruled not in derived
+
+
+def test_unruled_feature_tokens_are_withheld_from_the_payload_but_kept_in_the_record(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """"Line of Sun" has no rule anywhere in the loaded set, so it is not
+    in enabled_features. The extractor still CAPTURES it in full (capture
+    is total, participation is filtered) -- the withholding happens at
+    to_vision_payload, one layer down.
+
+    Both halves asserted: absent from `observation` (the engine never sees
+    it), present with its real token in `observation_record` and named in
+    `dropped_disabled` (a reader can tell "withheld by the allow-list"
+    from "the LLM saw nothing")."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(responses=[(
+        _observation_response({
+            "Line of Sun": {"Length": {"value": "long"}},
+        }),
+        None,
+    )])
+
+    result = generate_palm_reading(
+        palm_left="OTHER LINES: The sun line is long and clearly marked.",
+        palm_right=None,
+        client=client,
+    )
+
+    diag = _engine_diag(result)
+    assert diag["failed"] is False
+    assert "Line of Sun" not in diag["observation"]
+    assert diag["observation"] == {}
+    assert diag["fired_rule_ids"] == []
+
+    record = _record_diag(result)
+    assert "Line of Sun" not in record["enabled_features"]
+    assert record["dropped_disabled"] == ["Line of Sun"]
+    # Captured, not discarded -- the token is right there in the record.
+    assert record["features"]["Line of Sun"]["tokens"] == {
+        "Length": {"value": "long", "confidence": 1.0}
+    }
+    assert "sun line is long" in record["features"]["Line of Sun"]["raw_prose"]
+
+
+# ─── HARDEST CASE: real prose with no ontology token for what it says ──
+
+
+def test_life_line_thumb_clause_is_visible_in_unmapped_end_to_end(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """HARDEST CASE, and the whole reason for the record contract.
+
+    "curves around the base of the thumb" is a genuine, correctly-observed
+    life-line quality with NO ontology token to hold it (CLAUDE.md's F-A
+    entry uses this exact clause as its landmark-exclusion example). Under
+    the old dict contract it vanished: the payload only ever carried
+    tokens, so the caller could not tell this apart from "the LLM saw
+    nothing about the life line".
+
+    Required: the clause reaches the RESULT's diagnostics, under the life
+    line's own `unmapped[]`, on the same run where it produces no life
+    line claim. Both facts asserted together -- the silence has to be
+    explained, not merely present."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(responses=[(
+        _observation_response(
+            {"Line of Life": {"Length": {"value": "long"}, "Depth": {"value": "deep"}}},
+            unmapped={"Line of Life": [
+                {"quality": "curves around the base of the thumb",
+                 "attribute_guess": "Curve"},
+            ]},
+        ),
+        None,
+    )])
+
+    result = generate_palm_reading(
+        palm_left=_CAPTURED_LEFT_LIFE_LINE, palm_right=None, client=client
+    )
+
+    life_line = _record_diag(result)["features"]["Line of Life"]
+    assert life_line["unmapped"] == [
+        {"quality": "curves around the base of the thumb", "attribute_guess": "Curve"}
+    ]
+    # Same run, the other half of the story: what DID tokenize, and the
+    # raw prose the LLM was actually given.
+    assert life_line["tokens"] == {
+        "Length": {"value": "long", "confidence": 1.0},
+        "Depth": {"value": "deep", "confidence": 1.0},
+    }
+    # raw_prose is the field VALUE, label already stripped by _parse_fields
+    # -- pinned literally so a future parser change is visible here.
+    assert life_line["raw_prose"] == _CAPTURED_LEFT_LIFE_LINE.split(": ", 1)[1]
+    assert "curving around the base of the thumb" in life_line["raw_prose"]
+
+    # No life-line claim, and now that is a TRACEABLE outcome rather than
+    # an undiagnosable silence.
+    assert _engine_diag(result)["fired_rule_ids"] == []
+    assert result.claims == ()
+
+
+# ─── Fail-closed is now SCOPED: contract breaks must not be masked ─────
+
+
+def test_contract_break_at_the_adapter_seam_propagates_and_is_not_masked(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """REGRESSION GUARD for the bug this rewire fixes.
+
+    The old blanket `except Exception` turned the extractor's return-type
+    change into "engine produced zero claims" -- an honest-looking decline
+    on every single ON-path run, with nothing but a log line to show for
+    it. The record -> payload -> tokens seam is now OUTSIDE the fail-closed
+    boundary: a TypeError there is a code defect, and it must reach the
+    caller (and the test suite) as one."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+
+    def _wrong_contract(*args, **kwargs):
+        raise TypeError("to_vision_payload: contract mismatch")
+
+    monkeypatch.setattr(observation_extractor, "to_vision_payload", _wrong_contract)
+    client = _FakeClient(responses=[(
+        _observation_response({"Line of Head": {"Length": {"value": "short"}}}), None,
+    )])
+
+    with pytest.raises(TypeError, match="contract mismatch"):
+        generate_palm_reading(
+            palm_left="HEAD LINE: Short and clearly marked.", palm_right=None, client=client
+        )
+
+
+def test_failed_stage_is_recorded_so_a_broad_catch_cannot_hide_where_it_broke(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """The two remaining broad catches stay broad (a rule-file or engine
+    failure IS an operational decline), but they can no longer be
+    anonymous: `failed_stage` says which boundary caught it."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+
+    def _raise(*args, **kwargs):
+        raise RuntimeError("engine exploded")
+
+    monkeypatch.setattr(palm_rules_table, "match", _raise)
+    client = _FakeClient(responses=[(
+        _observation_response({"Line of Head": {"Length": {"value": "short"}}}), None,
+    )])
+
+    result = generate_palm_reading(
+        palm_left="HEAD LINE: Short and clearly marked.", palm_right=None, client=client
+    )
+
+    diag = _engine_diag(result)
+    assert diag["failed_stage"] == "rule_matching"
+    # Extraction succeeded before the engine broke, so the record it
+    # produced is still reported rather than blanked out.
+    assert diag["observation_record"]["features"]["Line of Head"]["tokens"] == {
+        "Length": {"value": "short", "confidence": 1.0}
+    }
+
+
+def test_extractor_api_failure_records_its_stage_and_an_empty_record(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """The narrow boundary: a RuntimeError out of the LLM call is an
+    operational failure and still declines honestly -- but it is labelled,
+    and the allow-list it got as far as deriving is still reported."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(exception=RuntimeError("simulated API failure"))
+
+    result = generate_palm_reading(
+        palm_left="HEAD LINE: Short and clearly marked.", palm_right=None, client=client
+    )
+
+    diag = _engine_diag(result)
+    assert diag["failed"] is True
+    assert diag["failed_stage"] == "observation_extraction"
+    assert diag["observation_record"]["features"] == {}
+    assert "Line of Head" in diag["observation_record"]["enabled_features"]
+
+
+def test_engine_diagnostics_stay_json_serializable(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """The record projection rides the dogfood-capture channel, which
+    writes JSON. A dataclass leaking into the diagnostics would break the
+    capture at write time, not here -- so it is asserted here."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_head_line_chunk()]))
+    client = _short_head_line_client(
+        "A thoroughly material nature, lacking imaginative faculties.[C1] "
+        "It foreshadows a nature little given to mental strain.[C2]"
+    )
+
+    result = generate_palm_reading(
+        palm_left="HEAD LINE: Short and clearly marked.", palm_right=None, client=client
+    )
+
+    json.dumps(_engine_diag(result))  # raises TypeError if anything leaks
