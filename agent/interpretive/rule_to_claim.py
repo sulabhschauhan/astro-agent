@@ -58,6 +58,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
 
+from agent.interpretive.palm_rules_table import load_rule_set
+
 if TYPE_CHECKING:
     from agent.interpretive.claim_extraction import Claim
     from agent.interpretive.palm_rules_table import PalmRule
@@ -66,6 +68,74 @@ logger = logging.getLogger(__name__)
 
 _CHUNKS_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "chunked_chunks.json"
 _BOOK_NAME = "cheiroslanguageo00chei_1"
+
+# ─── topic_group -> palm_reading._FEATURE_REGISTRY token ──────────────────
+#
+# BUG THIS FIXES (see diagnostics/latest_run.md for the full writeup):
+# claims_from_rules previously set Claim.feature directly to the rule's
+# topic_group ("line_head", "line_life", "line_heart", ...) -- a rule-book
+# grouping label, NOT one of palm_reading._FEATURE_REGISTRY's tokens
+# ("head line", "life line", "heart line", ...). Every downstream consumer
+# that keys on the registry token (_compute_decline_features,
+# _build_sources_from_claims, _check_banned_feature_mentions, all in
+# palm_reading.py) silently mismatched: gate-supported features got
+# declined anyway (zero claims ever matched their registry key) and
+# `sources` came back empty even when rules fired and cited real chunks.
+# palm_reading.py's own `_prepare_claims_from_rules` docstring flagged this
+# exact defect and named this module as the fix site (S69/S70-era
+# comment, unedited by this fix per this task's scope: palm_reading.py is
+# not touched here).
+#
+# Every topic_group actually present in data/palm_rules/*.json's
+# `validated_candidates` must have an entry here -- enforced fail-closed
+# below at module load, not just documented, so a new rule-book chapter
+# with a new topic_group can never silently mis-route through this
+# mapping's default-less dict lookup.
+_TOPIC_GROUP_TO_FEATURE: dict[str, str] = {
+    "line_life": "life line",
+    "line_head": "head line",
+    "line_head_types": "head line",
+    "line_head_murder": "head line",
+    "line_heart": "heart line",
+}
+
+
+def _assert_topic_groups_mapped(rules: Sequence["PalmRule"]) -> None:
+    """Fail-closed guard: every distinct topic_group among `rules` must
+    already have a _TOPIC_GROUP_TO_FEATURE entry. Raises ValueError naming
+    every unmapped group (not just the first) so a multi-chapter rule-book
+    addition surfaces its full mapping gap in one pass. Called at module
+    load against the real data/palm_rules/*.json rule set below, and
+    directly callable by tests against a synthetic rule set."""
+    unmapped = sorted({r.topic_group for r in rules} - _TOPIC_GROUP_TO_FEATURE.keys())
+    if unmapped:
+        raise ValueError(
+            f"rule_to_claim: topic_group(s) {unmapped!r} have no "
+            f"_TOPIC_GROUP_TO_FEATURE entry -- add each to that mapping "
+            f"before claims_from_rules can route their rules to a "
+            f"palm_reading._FEATURE_REGISTRY token."
+        )
+
+
+_assert_topic_groups_mapped(load_rule_set())
+
+
+def _feature_for_topic_group(topic_group: str) -> str:
+    """Single lookup site claims_from_rules calls -- same fail-closed
+    ValueError shape as _assert_topic_groups_mapped's module-load guard,
+    so a rule reaching this function with an unmapped topic_group (e.g. a
+    synthetic rule built directly for a test, bypassing the module-load
+    scan above) still fails loud instead of raising a bare KeyError."""
+    try:
+        return _TOPIC_GROUP_TO_FEATURE[topic_group]
+    except KeyError:
+        raise ValueError(
+            f"rule_to_claim: topic_group {topic_group!r} has no "
+            f"_TOPIC_GROUP_TO_FEATURE entry -- add it to that mapping "
+            f"before this rule can be routed to a "
+            f"palm_reading._FEATURE_REGISTRY token."
+        ) from None
+
 
 # ASSUMPTION (flagged per this task's own instruction, not hardcoded
 # silently): valence is a REQUIRED field on Claim (not Optional -- see
@@ -130,10 +200,14 @@ def claims_from_rules(
     are logged, never raise.
 
     Returns (claims, diagnostics). diagnostics["citations"] maps
-    claim_id -> {"rule_id", "chunk_id", "source_page", "source_quote"} --
-    this is where source_quote is actually carried (see module docstring:
-    Claim itself has no field for it, and stuffing it into
-    observation_basis would leak book text into the voicer's prompt).
+    claim_id -> {"rule_id", "chunk_id", "source_page", "source_quote",
+    "topic_group"} -- this is where source_quote is actually carried (see
+    module docstring: Claim itself has no field for it, and stuffing it
+    into observation_basis would leak book text into the voicer's
+    prompt); "topic_group" is the rule's own grouping label, kept here for
+    the suppression audit even though Claim.feature is now the mapped
+    _FEATURE_REGISTRY token, not this raw label (see
+    _TOPIC_GROUP_TO_FEATURE).
     diagnostics["dropped_rule_ids"] lists any rule skipped for an
     unresolvable page.
     """
@@ -159,7 +233,7 @@ def claims_from_rules(
         counter += 1
         claims.append(Claim(
             claim_id=claim_id,
-            feature=rule.topic_group,  # ASSUMPTION, flagged: see report
+            feature=_feature_for_topic_group(rule.topic_group),
             chunk_id=chunk_id,
             claim_text=rule.claim,
             valence=_RULE_DERIVED_VALENCE,
@@ -173,6 +247,11 @@ def claims_from_rules(
             "chunk_id": chunk_id,
             "source_page": rule.source_page,
             "source_quote": rule.source_quote,
+            # Kept for the suppression audit even though Claim.feature is
+            # now the mapped registry token, not this -- see
+            # _TOPIC_GROUP_TO_FEATURE above for the mapping this discards
+            # from Claim.feature itself.
+            "topic_group": rule.topic_group,
         }
 
     diagnostics = {"citations": citations, "dropped_rule_ids": dropped}

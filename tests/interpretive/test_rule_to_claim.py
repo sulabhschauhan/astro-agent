@@ -18,8 +18,14 @@ from dataclasses import replace
 import pytest
 
 from agent.interpretive.claim_voicing import voice_claims
-from agent.interpretive.palm_rules_table import Antecedent, PalmRule, load_rules
-from agent.interpretive.rule_to_claim import claims_from_rules, resolve_chunk_id
+from agent.interpretive.palm_reading import _FEATURE_REGISTRY
+from agent.interpretive.palm_rules_table import Antecedent, PalmRule, load_rule_set, load_rules
+from agent.interpretive.rule_to_claim import (
+    _assert_topic_groups_mapped,
+    _TOPIC_GROUP_TO_FEATURE,
+    claims_from_rules,
+    resolve_chunk_id,
+)
 
 RULES = load_rules()
 BY_ID = {r.rule_id: r for r in RULES}
@@ -111,6 +117,55 @@ def test_hl006_claim_object_fields():
     # docstring) -- it lives in the side-channel citations dict instead.
     assert not hasattr(claim, "source_quote")
     assert diagnostics["citations"]["C1"]["source_quote"] == BY_ID["HL_006"].source_quote
+    # HL_006's topic_group is "line_heart" -- Claim.feature must be the
+    # MAPPED palm_reading._FEATURE_REGISTRY token, not that raw label
+    # (this is the bug this task fixes: see _TOPIC_GROUP_TO_FEATURE).
+    assert BY_ID["HL_006"].topic_group == "line_heart"
+    assert claim.feature == "heart line"
+    # topic_group itself survives in the citations side-channel for the
+    # suppression audit -- not lost, just no longer on Claim.feature.
+    assert diagnostics["citations"]["C1"]["topic_group"] == "line_heart"
+
+
+# ─── topic_group -> _FEATURE_REGISTRY mapping (this task's own fix) ──────
+
+
+def test_every_real_topic_group_maps_to_a_registry_feature():
+    """HARDEST-ADJACENT CASE: exhaustively scans BOTH live rule files
+    (data/palm_rules/*.json via load_rule_set(), not just the single-file
+    default load_rules() the rest of this test module uses) and asserts
+    every distinct topic_group present is mapped, and every mapped value
+    is itself a real palm_reading._FEATURE_REGISTRY token -- proving the
+    mapping is exhaustive against the real corpus, not just against the
+    hand-picked ids this test module happens to reference elsewhere."""
+    real_topic_groups = {r.topic_group for r in load_rule_set()}
+    assert real_topic_groups  # sanity: the rule files actually loaded something
+    assert real_topic_groups <= _TOPIC_GROUP_TO_FEATURE.keys()
+    for topic_group in real_topic_groups:
+        assert _TOPIC_GROUP_TO_FEATURE[topic_group] in _FEATURE_REGISTRY
+
+
+def test_fired_line_head_rule_maps_to_head_line_not_raw_topic_group():
+    assert BY_ID["H_002"].topic_group == "line_head"
+    claims, _ = claims_from_rules([BY_ID["H_002"]])
+    assert len(claims) == 1
+    assert claims[0].feature == "head line"
+    assert claims[0].feature != "line_head"
+
+
+def test_unmapped_topic_group_raises_valueerror_naming_the_group():
+    """HARDEST CASE: a synthetic rule carrying a topic_group this module
+    has never seen must fail loud at the same fail-closed guard the real
+    module-load call above uses -- not silently pass an unrecognized
+    label through as Claim.feature (the exact defect this task fixes)."""
+    bogus = replace(BY_ID["H_002"], rule_id="BOGUS_GROUP", topic_group="line_pinky_toe")
+    with pytest.raises(ValueError, match="line_pinky_toe"):
+        _assert_topic_groups_mapped([bogus])
+    # claims_from_rules' own per-rule lookup fails the same way, not with
+    # a bare KeyError -- exercised on the actual call path, not just the
+    # module-load guard in isolation.
+    with pytest.raises(ValueError, match="line_pinky_toe"):
+        claims_from_rules([bogus])
 
 
 # ─── voice_claims() accepts the bridged Claim unchanged ──────────────────
