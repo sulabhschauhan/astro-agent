@@ -224,6 +224,19 @@ _FEATURE_ALIAS: dict[str, str | None] = {
     "markings/other features": None,
 }
 
+
+def all_aliased_features() -> frozenset[str]:
+    """Every ontology feature this module can ever produce a token for --
+    the non-None value set of `_FEATURE_ALIAS` (Line of Life/Head/Heart/
+    Fate/Sun, Thumb, Mount of Venus, Mount of Jupiter). A caller that wants
+    to unblock every LLM-observable feature into `extract_observation`'s
+    `enabled_features` allow-list (rather than a narrower, e.g. rule-
+    derived, allow-list) should derive it from here, never hardcode the
+    list at the call site -- this is the single source of truth for what
+    the extraction call can produce, and stays correct if `_FEATURE_ALIAS`
+    ever grows a new mapped feature."""
+    return frozenset(f for f in _FEATURE_ALIAS.values() if f is not None)
+
 # ─── Confidence -- prose hedge-word detection (module docstring point 6) ──
 
 _HEDGE_WORDS: tuple[str, ...] = (

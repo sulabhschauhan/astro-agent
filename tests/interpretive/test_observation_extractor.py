@@ -25,6 +25,7 @@ from agent.interpretive.observation_extractor import (
     _CLOSED_VOCAB,
     _FEATURE_ALIAS,
     ObservationRecord,
+    all_aliased_features,
     extract_observation,
     to_vision_payload,
 )
@@ -172,6 +173,24 @@ def test_feature_texts_with_only_blank_strings_returns_empty_record_no_llm_call(
     record = extract_observation({"life line": ["", "   "]}, client=fake)
     assert record.features == {}
     assert len(fake.completions.calls) == 0
+
+
+# ─── all_aliased_features: single source of truth, never hardcoded ──────
+
+
+def test_all_aliased_features_is_the_non_none_value_set_of_feature_alias():
+    """DERIVATION, not a literal list: must equal every non-None value in
+    `_FEATURE_ALIAS`, so a future alias addition widens this with no code
+    edit at any call site. The literal set is asserted too, as a canary."""
+    expected = frozenset(f for f in _FEATURE_ALIAS.values() if f is not None)
+    assert all_aliased_features() == expected
+    assert all_aliased_features() == frozenset({
+        "Line of Life", "Line of Head", "Line of Heart", "Line of Fate",
+        "Line of Sun", "Thumb", "Mount of Venus", "Mount of Jupiter",
+    })
+    # The two None entries ("fingers", "markings/other features") must
+    # never surface here -- they have no ontology counterpart to unblock.
+    assert None not in all_aliased_features()
 
 
 # ─── to_vision_payload round-trips into to_tokens()'s expected shape ─────

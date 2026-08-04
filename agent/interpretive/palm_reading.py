@@ -1817,11 +1817,19 @@ def _observation_record_diagnostics(record, enabled_features) -> dict:
     Captures what the payload alone cannot answer: `tokens` (what became
     a token), `unmapped` (the LLM saw it but no ontology token existed for
     it), `raw_prose` (what the LLM was given at all), `dropped_disabled`
-    (extracted fine, withheld because no rule consumes that feature) and
+    (extracted fine, withheld by `enabled_features`) and
     `unmappable_prose_features` (prose labels with no ontology counterpart
     -- never sent to the LLM). "LLM saw nothing" and "no token existed for
     what it saw" are distinguishable from this block; from the payload
     alone they are not.
+
+    `dropped_disabled` is ALWAYS empty on `_prepare_claims_from_rules`'s
+    call path (see that function's ALL-FEATURES UNBLOCK docstring note):
+    `enabled_features` there is `observation_extractor.
+    all_aliased_features()`, the full set the extractor can ever produce,
+    so nothing it captures can fall outside it. A feature having no rule
+    behind it now shows up as zero fired rules, not as a withheld feature
+    here.
 
     ROUTING: this rides inside `engine_diagnostics`, exactly as
     `suppression_log` already does -- so it reaches
@@ -1862,10 +1870,12 @@ def _prepare_claims_from_rules(
     the Stage-1 claim SOURCE (flag-gated, see
     `_deterministic_rules_enabled`). Returns (claims, engine_diagnostics).
 
-    Chain: palm_rules_table.load_rule_set (also the source of the
-    extractor's `enabled_features` allow-list) ->
+    Chain: palm_rules_table.load_rule_set ->
     observation_extractor.extract_observation (the ONE LLM call on this
-    path -- prose -> capture-complete `ObservationRecord`) ->
+    path -- prose -> capture-complete `ObservationRecord`; its
+    `enabled_features` allow-list is `observation_extractor.
+    all_aliased_features()`, NOT derived from the loaded rule set -- see
+    ALL-FEATURES UNBLOCK below) ->
     observation_extractor.to_vision_payload (record -> the
     `{feature: {attribute: {value, confidence}}}` shape, allow-list
     applied here) -> observation_to_tokens.to_tokens ->
@@ -1874,8 +1884,12 @@ def _prepare_claims_from_rules(
 
     FAIL-CLOSED, no silent LLM fallback -- but SCOPED, not blanket. Four
     boundaries, deliberately different:
-      1. rule load + allow-list derivation: broad catch -> honest decline
-         (a missing/malformed rule dir is an operational condition).
+      1. rule load: broad catch -> honest decline (a missing/malformed
+         rule dir is an operational condition). The extractor's
+         `enabled_features` allow-list is derived here too, but from
+         `observation_extractor.all_aliased_features()` (every ontology
+         feature the LLM call can ever produce), NOT from the loaded rule
+         set -- see the ALL-FEATURES UNBLOCK note below.
       2. `extract_observation`: catches RuntimeError (LLM/API failure) and
          ValueError (unparseable LLM response) ONLY -- the two failures
          that module documents. Anything else (e.g. a TypeError from a
@@ -1903,6 +1917,19 @@ def _prepare_claims_from_rules(
     `observation_to_tokens` both read data/ontology_registry.json at
     import time, and a flag-OFF run must not acquire that dependency (or
     its failure mode) merely by importing this module.
+
+    ALL-FEATURES UNBLOCK: `enabled_features` passed to `extract_observation`
+    / `to_vision_payload` is `observation_extractor.all_aliased_features()`
+    -- every ontology feature the LLM extraction call can ever produce --
+    not the narrower rule-derived set (`_enabled_features_from_rules`,
+    still available standalone via `rule_engine_enabled_features()` for
+    introspection, just no longer fed into this seam). Rules currently only
+    exist for a subset of those features; the rest are captured and reach
+    `observation`/diagnostics same as any other feature, but fire no rules
+    -- an honest decline visible in the record, rather than a feature
+    silently withheld before the engine ever saw it. `dropped_disabled` is
+    therefore always empty on this path: nothing the extractor can produce
+    falls outside its own allow-list by construction.
     """
     engine_diagnostics: dict = {"enabled": True, "failed": False}
 
@@ -1940,7 +1967,11 @@ def _prepare_claims_from_rules(
         )
 
         rules = palm_rules_table.load_rule_set()
-        enabled_features = _enabled_features_from_rules(rules)
+        # ALL-FEATURES UNBLOCK (see docstring): NOT
+        # _enabled_features_from_rules(rules) -- that narrower,
+        # rule-derived set stays available standalone via
+        # rule_engine_enabled_features(), just no longer feeds this seam.
+        enabled_features = observation_extractor.all_aliased_features()
     except Exception as exc:  # noqa: BLE001 -- fail-closed boundary 1, see docstring
         return _fail_closed(exc, "rule_load", dict(_EMPTY_OBSERVATION_RECORD_DIAGNOSTICS))
 

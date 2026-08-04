@@ -616,15 +616,18 @@ def test_s83_candidate_records_survive_on_the_deterministic_path(
     assert "candidates" in result.stage1_feature_diagnostics["life line"]
 
 
-# ─── enabled_features: derived from the rule set, never hardcoded ───────
+# ─── enabled_features: rule-derivation still exists standalone ──────────
 
 
 def test_enabled_features_derived_from_the_loaded_rule_set():
-    """Pins the DERIVATION, not a literal list: the allow-list must equal
-    the antecedent-feature set of whatever rules are loaded, so adding a
-    rule chapter widens it with no code edit. The literal set is asserted
-    too, as a canary -- if a new chapter changes it, this assertion is the
-    intended place to notice."""
+    """Pins the DERIVATION, not a literal list: `_enabled_features_from_
+    rules`/`rule_engine_enabled_features()` still compute the antecedent-
+    feature set of whatever rules are loaded -- unchanged by the
+    ALL-FEATURES UNBLOCK below, which stopped FEEDING this set into the
+    extraction seam but did not remove the function itself (still useful
+    standalone: "what can the rule engine actually consume"). The literal
+    set is asserted too, as a canary -- if a new chapter changes it, this
+    assertion is the intended place to notice."""
     rules = palm_rules_table.load_rule_set()
     expected = {a.feature for r in rules for a in r.antecedents}
     expected |= {a.comparator_feature for r in rules for a in r.antecedents if a.comparator_feature}
@@ -637,53 +640,110 @@ def test_enabled_features_derived_from_the_loaded_rule_set():
         "Hand", "Line of Head", "Line of Heart", "Line of Life",
         "Mount of Venus", "Palm", "Quadrangle", "Square",
     })
-    # The point of the allow-list: real ontology features with NO rule
-    # behind them are excluded, so the engine is never handed a token it
-    # has nothing to do with.
+    # Real ontology features with no rule behind them are STILL excluded
+    # from this rule-derived set -- that hasn't changed. What changed is
+    # that the extraction seam no longer uses this set as its allow-list
+    # (see the tests below).
     for unruled in ("Line of Sun", "Line of Fate", "Thumb", "Mount of Jupiter"):
         assert unruled not in derived
 
 
-def test_unruled_feature_tokens_are_withheld_from_the_payload_but_kept_in_the_record(
+# ─── ALL-FEATURES UNBLOCK: the extraction seam's real allow-list ────────
+
+
+def test_enabled_features_at_the_seam_is_all_aliased_features(
     rules_engine_on, no_llm_extraction, monkeypatch
 ):
-    """"Line of Sun" has no rule anywhere in the loaded set, so it is not
-    in enabled_features. The extractor still CAPTURES it in full (capture
-    is total, participation is filtered) -- the withholding happens at
-    to_vision_payload, one layer down.
+    """Pins the UNBLOCK itself: the allow-list actually passed to
+    extract_observation/to_vision_payload is observation_extractor.
+    all_aliased_features() (every ontology feature the LLM call can ever
+    produce), NOT the narrower rule-derived set pinned above -- those two
+    sets are byte-different (the rule-derived set includes non-LLM-
+    producible tokens like "Hand"/"Palm" and excludes 4 real LLM
+    features). Spied directly on the extract_observation call so this
+    proves what was PASSED, not just a downstream consequence."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    real_extract = observation_extractor.extract_observation
+    captured: dict = {}
 
-    Both halves asserted: absent from `observation` (the engine never sees
-    it), present with its real token in `observation_record` and named in
-    `dropped_disabled` (a reader can tell "withheld by the allow-list"
-    from "the LLM saw nothing")."""
+    def _spy(*args, **kwargs):
+        captured["enabled_features"] = kwargs.get("enabled_features")
+        return real_extract(*args, **kwargs)
+
+    monkeypatch.setattr(observation_extractor, "extract_observation", _spy)
+    client = _FakeClient(responses=[(_observation_response({}), None)])
+
+    result = generate_palm_reading(
+        palm_left=_CAPTURED_LEFT_LIFE_LINE, palm_right=None, client=client
+    )
+
+    assert captured["enabled_features"] == observation_extractor.all_aliased_features()
+    # And the record's own "enabled_features" diagnostic (built from the
+    # SAME variable, also fed to to_vision_payload) agrees.
+    record = _record_diag(result)
+    assert set(record["enabled_features"]) == observation_extractor.all_aliased_features()
+    assert record["dropped_disabled"] == []
+
+
+def test_thumb_now_reaches_observation_and_record_but_fires_no_rules(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """"Thumb" has no rule anywhere in the loaded set (pinned as one of the
+    4 unruled features above). Before the ALL-FEATURES UNBLOCK it would
+    have been silently withheld at to_vision_payload (dropped_disabled);
+    now it reaches `observation` in full, same as any ruled feature, and
+    produces zero claims only because no rule exists for it -- an honest
+    decline visible end to end, not a silent drop before the engine ever
+    saw it."""
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
     client = _FakeClient(responses=[(
         _observation_response({
-            "Line of Sun": {"Length": {"value": "long"}},
+            "Thumb": {"Suppleness": {"value": "stiff"}},
         }),
         None,
     )])
 
     result = generate_palm_reading(
-        palm_left="OTHER LINES: The sun line is long and clearly marked.",
+        palm_left="THUMB: Notably stiff and set low on the hand.",
         palm_right=None,
         client=client,
     )
 
     diag = _engine_diag(result)
     assert diag["failed"] is False
-    assert "Line of Sun" not in diag["observation"]
-    assert diag["observation"] == {}
+    assert diag["observation"].get("Thumb") == {"Suppleness": "stiff"}
     assert diag["fired_rule_ids"] == []
 
     record = _record_diag(result)
-    assert "Line of Sun" not in record["enabled_features"]
-    assert record["dropped_disabled"] == ["Line of Sun"]
-    # Captured, not discarded -- the token is right there in the record.
-    assert record["features"]["Line of Sun"]["tokens"] == {
-        "Length": {"value": "long", "confidence": 1.0}
+    assert "Thumb" in record["enabled_features"]
+    assert record["dropped_disabled"] == []
+    assert record["features"]["Thumb"]["tokens"] == {
+        "Suppleness": {"value": "stiff", "confidence": 1.0}
     }
-    assert "sun line is long" in record["features"]["Line of Sun"]["raw_prose"]
+    assert result.claims == ()
+
+
+def test_unmappable_prose_features_unaffected_by_the_unblock(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """The ALL-FEATURES UNBLOCK widens `enabled_features`, but "fingers"
+    and "markings/other features" still have NO ontology counterpart at
+    all (_FEATURE_ALIAS -> None) -- no allow-list, however wide, can
+    unblock a feature the extractor never sends to the LLM in the first
+    place. Still routed to `unmappable_prose_features`, not `observation`,
+    same as before this task."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(exception=AssertionError("no LLM call expected"))
+
+    result = generate_palm_reading(
+        palm_left="FINGERS: Long and smooth, with slightly knotty joints.",
+        palm_right=None,
+        client=client,
+    )
+
+    record = _record_diag(result)
+    assert record["dropped_disabled"] == []
+    assert [u["prose_feature"] for u in record["unmappable_prose_features"]] == ["fingers"]
 
 
 # ─── HARDEST CASE: real prose with no ontology token for what it says ──
