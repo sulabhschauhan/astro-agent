@@ -111,6 +111,10 @@ def _format_stage1_feature_diagnostics_lines(feature_diagnostics: dict) -> list:
                 lines.append(f"    surviving_rule_ids: {diag.get('surviving_rule_ids', [])}")
                 lines.append(f"    suppression_log: {diag.get('suppression_log', [])}")
                 lines.append(f"    dropped_tokens: {diag.get('dropped_tokens', [])}")
+                lines.append(f"    phrase_promotions: {diag.get('phrase_promotions', [])}")
+                lines.append(f"    citations: {diag.get('citations', {})}")
+                lines.append(f"    dropped_rule_ids: {diag.get('dropped_rule_ids', [])}")
+                lines.append(f"    claim_features_outside_registry: {diag.get('claim_features_outside_registry', [])}")
                 lines.append("    observation_record:")
                 record_features = record.get("features", {}) or {}
                 if record_features:
