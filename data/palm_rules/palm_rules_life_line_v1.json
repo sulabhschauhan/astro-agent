@@ -307,21 +307,13 @@
       "rule_id": "L_023",
       "source_page": 139,
       "topic_group": "line_life",
-      "is_compound": true,
+      "is_compound": false,
       "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Life",
           "attribute": "Curve",
           "value": "sweeping_wide",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        },
-        {
-          "feature": "Mount of Venus",
-          "attribute": "Development",
-          "value": "well_developed",
           "condition_type": "standard",
           "comparator": null,
           "comparator_feature": null
@@ -332,7 +324,7 @@
       "verified": true,
       "verifier": "Sulabh",
       "verified_date": "2026-08-04",
-      "source_fidelity": null,
+      "source_fidelity": "S(this session): reduced to single sweep antecedent; Cheiro p139 treats Venus scope as a consequence of the sweep, not an independent condition. Prior 2-antecedent encoding over-restricted.",
       "schema_flags": []
     },
     {

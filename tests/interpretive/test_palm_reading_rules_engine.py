@@ -13,15 +13,21 @@ NO live LLM call anywhere here: observation_extractor's single call is
 answered by the same `client` seam fake test_palm_reading.py already
 uses for Stage 1/Stage 2.
 
-CONFOUND, stated up front because it shapes the L_001 test below: every
-rule in data/palm_rules/palm_rules_life_line_v1.json currently carries
-verified=false, and palm_rules_table.match() skips unverified rules
-outright. So "L_001 did not fire" is true for TWO independent reasons on
-the live rule set, and asserting only the pipeline outcome would prove
-nothing about tokens. test_l001_does_not_fire_without_narrow_token_
-verified_confound_removed isolates the token reason by force-verifying a
-copy of the real L_001 in the test (dataclasses.replace, test-side only
--- the rule FILE is never touched).
+CONFOUND, stated up front because it shapes the test below it names:
+whenever a rule is genuinely unverified, palm_rules_table.match() skips it
+outright, so "the rule did not fire" would be true for TWO independent
+reasons (unverified AND missing token) and asserting only the pipeline
+outcome would prove nothing about tokens specifically.
+test_l001_does_not_fire_without_narrow_token_verified_confound_removed
+isolates the token reason with a SYNTHETIC unverified rule built entirely
+in-test (not tied to any production rule_id or file) -- so this test's
+validity never depends on which production rules happen to be verified on
+any given day. (Earlier version of this test pinned the real L_001's
+verified flag directly; that anchor went stale the day L_001 was marked
+verified=true -- data/palm_rules/palm_rules_life_line_v1.json, 2026-08-04 --
+while the test's actual intent, proving match() enforces the token
+independent of the verified flag, was never invalidated. Rebuilt on a
+synthetic fixture so a future verified-flag edit can never re-break it.)
 """
 
 from __future__ import annotations
@@ -205,32 +211,72 @@ def test_l001_does_not_fire_on_captured_life_line_prose(rules_engine_on, no_llm_
     assert len(client.completions.calls) == 1
 
 
+def _make_synthetic_unverified_rule() -> palm_rules_table.PalmRule:
+    """Test-only fixture, never persisted to any rule file and never
+    loaded via load_rule_set() -- rule_id is deliberately NOT a real
+    production id, so this test's validity can never depend on which
+    production rules happen to be verified on any given day (see the
+    module docstring's CONFOUND note). Same 3-antecedent shape as the
+    real L_001 (Length=long, Width=narrow, Depth=deep) purely because
+    that shape is what this test needs to exercise -- not because it is
+    meant to represent L_001 specifically."""
+    antecedents = (
+        palm_rules_table.Antecedent(
+            feature="Line of Life", attribute="Length", value="long",
+            condition_type="standard", comparator=None, comparator_feature=None,
+        ),
+        palm_rules_table.Antecedent(
+            feature="Line of Life", attribute="Width", value="narrow",
+            condition_type="standard", comparator=None, comparator_feature=None,
+        ),
+        palm_rules_table.Antecedent(
+            feature="Line of Life", attribute="Depth", value="deep",
+            condition_type="standard", comparator=None, comparator_feature=None,
+        ),
+    )
+    return palm_rules_table.PalmRule(
+        rule_id="L_SYNTH_UNVERIFIED_TEST",
+        source_page=0,
+        topic_group="test_synthetic",
+        is_compound=True,
+        antecedents=antecedents,
+        claim="synthetic test fixture -- never voiced, never loaded from a rule file",
+        source_quote="synthetic test fixture -- not real classical text",
+        verified=False,
+        verifier=None,
+        verified_date=None,
+        source_fidelity=None,
+        schema_flags=(),
+        baseline=False,
+    )
+
+
 def test_l001_does_not_fire_without_narrow_token_verified_confound_removed():
     """De-confounded companion to the test above, at engine level.
 
-    L_001 currently carries verified=false, so match() would skip it even
-    if every antecedent were satisfied. This test force-verifies a COPY
-    of the real L_001 (the rule file is untouched) and re-runs match, so
-    the only remaining reason it cannot fire is the absent "narrow"
-    Width token. Control arm included: adding Width=narrow to the same
-    observation DOES fire the force-verified rule, which is what proves
-    the negative arm is about the token and nothing else."""
-    l001 = next(
-        r for r in palm_rules_table.load_rule_set() if r.rule_id == "L_001"
-    )
-    assert l001.verified is False  # the confound, pinned
-    verified_l001 = dataclasses.replace(l001, verified=True)
+    Uses a SYNTHETIC unverified rule (see module docstring CONFOUND note
+    and _make_synthetic_unverified_rule) rather than the real L_001, so
+    this test can never go stale again when a production rule's verified
+    flag changes. This test force-verifies a COPY of the synthetic rule
+    (dataclasses.replace, the synthetic fixture itself is untouched) and
+    runs match, so the only remaining reason it cannot fire is the absent
+    "narrow" Width token. Control arm included: adding Width=narrow to the
+    same observation DOES fire the force-verified rule, which is what
+    proves the negative arm is about the token and nothing else."""
+    synthetic_rule = _make_synthetic_unverified_rule()
+    assert synthetic_rule.verified is False  # the confound, by construction
+    verified_rule = dataclasses.replace(synthetic_rule, verified=True)
 
-    required = {(a.attribute, a.value) for a in verified_l001.antecedents}
+    required = {(a.attribute, a.value) for a in verified_rule.antecedents}
     assert ("Width", "narrow") in required
 
     observed = {"Line of Life": {"Length": "long", "Depth": "deep"}}
     magnitudes: dict = {}
-    assert palm_rules_table.match(observed, magnitudes, [verified_l001]) == []
+    assert palm_rules_table.match(observed, magnitudes, [verified_rule]) == []
 
     with_narrow = {"Line of Life": {"Length": "long", "Depth": "deep", "Width": "narrow"}}
-    fired = palm_rules_table.match(with_narrow, magnitudes, [verified_l001])
-    assert [r.rule_id for r in fired] == ["L_001"]
+    fired = palm_rules_table.match(with_narrow, magnitudes, [verified_rule])
+    assert [r.rule_id for r in fired] == ["L_SYNTH_UNVERIFIED_TEST"]
 
 
 # ─── Flag ON: hardest case -- prose yields zero valid tokens ────────────

@@ -288,6 +288,18 @@ def _deterministic_rules_enabled() -> bool:
     return _DETERMINISTIC_RULES_ENABLED
 
 
+# Phrase-normalization lexicon (see agent/interpretive/phrase_normalizer.py)
+# -- config, not hardcoded inline. Same repo-root-derivation pattern as
+# _FEATURE_PAGE_RANGES_PATH above; env-overridable so a future lexicon
+# revision or an A/B test needs no code edit. Only consulted on the
+# deterministic (`_deterministic_rules_enabled()`) path -- see
+# `_prepare_claims_from_rules`.
+_PALM_LEXICON_PATH = Path(os.getenv(
+    "ASTRO_PALM_LEXICON_PATH",
+    str(Path(__file__).resolve().parent.parent.parent / "data" / "palm_phrase_lexicon_v1.json"),
+))
+
+
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
 # Justification: S67 probe-proven -- querying an absence-phrased field
 # (e.g. "No clear marks visible") returns junk (markings tables, scores
@@ -1955,6 +1967,7 @@ def _prepare_claims_from_rules(
             "observation_record": record_diagnostics,
             "citations": {},
             "dropped_rule_ids": [],
+            "phrase_promotions": [],
         })
         return (), engine_diagnostics
 
@@ -1963,6 +1976,7 @@ def _prepare_claims_from_rules(
             observation_extractor,
             observation_to_tokens,
             palm_rules_table,
+            phrase_normalizer,
             rule_to_claim,
         )
 
@@ -1984,6 +1998,18 @@ def _prepare_claims_from_rules(
             exc, "observation_extraction",
             {**_EMPTY_OBSERVATION_RECORD_DIAGNOSTICS,
              "enabled_features": sorted(enabled_features)},
+        )
+
+    try:
+        promotions = phrase_normalizer.normalize(record, _PALM_LEXICON_PATH)
+    except RuntimeError as exc:  # fail-closed boundary 2b -- NARROW, same pattern as boundary 2
+        # `record` is guaranteed unmutated here: phrase_normalizer.normalize
+        # only raises RuntimeError out of its own lexicon load step, which
+        # runs before any promotion is applied -- so the real extraction
+        # diagnostics (not the empty placeholder) are still meaningful.
+        return _fail_closed(
+            exc, "phrase_normalization",
+            _observation_record_diagnostics(record, enabled_features),
         )
 
     record_diagnostics = _observation_record_diagnostics(record, enabled_features)
@@ -2032,6 +2058,10 @@ def _prepare_claims_from_rules(
         "claim_features_outside_registry": sorted(
             {c.feature for c in claims} - set(_FEATURE_REGISTRY)
         ),
+        # AI-assisted mapping must never be invisible (CLAUDE.md Working
+        # Style #5) -- every phrase->token promotion this run made, for the
+        # dogfood capture / S83 net, same routing as suppression_log above.
+        "phrase_promotions": promotions,
     })
     return claims, engine_diagnostics
 

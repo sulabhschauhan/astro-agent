@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "version": "1.0.1",
+    "purpose": "Deterministic phrase->token normalization. Applied to leftover unmapped prose after extract_observation, before to_vision_payload. Promotes human-verified surface phrasings to closed-vocab tokens the extractor correctly refuses to guess. Verifier owns every entry.",
+    "verifier": "Sulabh",
+    "verified_date": "2026-08-05",
+    "match_semantics": "case-insensitive substring. Promotes iff (feature in applies_to_features) AND (any match_any is a substring) AND (no must_not_match is a substring). Guard biased to OVER-BLOCK (stay silent) over over-promote (invent). No numeric threshold."
+  },
+  "entries": [
+    {
+      "entry_id": "PN_001",
+      "attribute": "Curve",
+      "token": "sweeping_wide",
+      "applies_to_features": ["Line of Life"],
+      "match_any": ["sweep", "sweeping", "wide arc", "curves widely", "curves far out", "sweeps far out", "arcs into the palm", "bows out toward the wrist"],
+      "must_not_match": ["slight curve", "slightly curved", "gentle curve", "gently curves", "curved", "faint curve"],
+      "notes": "Cheiro p139: 'When the line of life sweeps far out into the hand, thus allowing the Mount of Venus a greater scope'. sweeping_wide = the wide-sweep case. Bare 'curved'/'slight' stay unmapped. EXCLUDED 'curves around base of thumb' (v1.0.1): anatomy-neutral, not evidence of a wide sweep per Cheiro p139 'sweeps far out into the hand'; promoting it would over-reach an ambiguous observation."
+    }
+  ]
+}

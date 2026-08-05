@@ -142,6 +142,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -334,18 +336,31 @@ def _call_llm(client, model: str, messages: list[dict], ontology_features: list[
     makes. A failure here is re-raised as a RuntimeError naming the whole
     feature batch this call was for -- never swallowed into a silent
     empty result."""
+    start = time.monotonic()
     try:
         response = client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=0,
             response_format={"type": "json_object"},
+            # timeout=60s: single-JSON extraction on gpt-4o-mini runs 2-8s typical;
+            # 60s catches genuine hangs without false-aborting a slow-but-alive call.
+            # Scope guard: env-overridable. Tuning note: log elapsed to calibrate.
+            timeout=float(os.getenv("ASTRO_EXTRACT_TIMEOUT_S", "60")),
+            # max_tokens=1500: well-formed response for <=10 features is a few hundred
+            # tokens; 1500 caps runaway generation. If hit mid-JSON, _parse_response
+            # raises ValueError -> existing fail-closed decline path (correct).
+            max_tokens=int(os.getenv("ASTRO_EXTRACT_MAX_TOKENS", "1500")),
         )
     except Exception as exc:  # noqa: BLE001 -- re-raised immediately, named, not swallowed
         raise RuntimeError(
             "observation_extractor.extract_observation: LLM call failed for feature "
             f"batch {sorted(ontology_features)}: {exc}"
         ) from exc
+    logger.debug(
+        "observation_extractor._call_llm: elapsed=%.2fs for feature batch %s",
+        time.monotonic() - start, sorted(ontology_features),
+    )
     return response.choices[0].message.content
 
 
@@ -439,7 +454,13 @@ def extract_observation(
 
     if client is None:
         from openai import OpenAI  # lazy import -- see module docstring DEVIATION 1
-        client = OpenAI()
+        client = OpenAI(
+            # max_retries=1: worst-case ~2x timeout (~120s), one retry absorbs a
+            # transient network blip while still bounding the hang. 0 = hard
+            # fail-fast (no blip resilience); 2 = SDK default (~180s, too long
+            # for an interactive read). Env-overridable.
+            max_retries=int(os.getenv("ASTRO_EXTRACT_MAX_RETRIES", "1")),
+        )
 
     ontology_features = [e[1] for e in entries]
     text_by_feature = {e[1]: e[2] for e in entries}
