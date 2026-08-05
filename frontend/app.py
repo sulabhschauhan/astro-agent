@@ -75,12 +75,60 @@ def _format_stage1_feature_diagnostics_lines(feature_diagnostics: dict) -> list:
     model emitted zero claims (raw=0) or emitted some that all failed
     validation (raw>0) -- previously indistinguishable from this line
     alone. Read via .get() with a "?" fallback for the same pre-existing-
-    capture-compatibility reason as the other fields here."""
+    capture-compatibility reason as the other fields here.
+
+    ROOT-CAUSE FIX (diagnosed this session): the deterministic rule
+    engine's diagnostics ride the SAME `stage1_feature_diagnostics` dict
+    under the pseudo-feature key "_rules_engine" (palm_reading.py's
+    `_prepare_deterministic_prep`), but its payload shape is entirely
+    different from an LLM-extraction feature's (observation_record,
+    fired_rule_ids, observation, dropped_tokens, suppression_log, ... vs.
+    attempt_1_status/attempt_2_status/...). Before this fix, the generic
+    branch below read those absent LLM-ledger keys via .get() and silently
+    emitted a content-free "outcome=... attempt_1=unknown/? (raw=?)
+    attempt_2=unknown/? (raw=?)" line for it -- never crashing (the
+    .get() defensiveness worked as designed), but also never surfacing
+    the actual engine payload anywhere in the capture. Detected via
+    diag's own "observation_record" key (only the engine entry ever has
+    one) rather than the "_rules_engine" feature-name string, so a future
+    rename of the pseudo-feature key can't silently defeat this branch."""
     if not feature_diagnostics:
         return ["stage1_feature_diagnostics: NONE"]
     lines = ["stage1_feature_diagnostics:"]
     for feature in sorted(feature_diagnostics):
         diag = feature_diagnostics[feature]
+
+        if isinstance(diag, dict) and "observation_record" in diag:
+            try:
+                outcome = diag.get("final_outcome", "unknown")
+                failed = diag.get("failed", "unknown")
+                lines.append(f"  {feature}: outcome={outcome} failed={failed}")
+                if "failed_stage" in diag:
+                    lines.append(f"    failed_stage: {diag['failed_stage']}")
+                record = diag.get("observation_record", {}) or {}
+                lines.append(f"    enabled_features: {sorted(record.get('enabled_features', []))}")
+                lines.append(f"    fired_rule_ids: {diag.get('fired_rule_ids', [])}")
+                lines.append(f"    surviving_rule_ids: {diag.get('surviving_rule_ids', [])}")
+                lines.append(f"    suppression_log: {diag.get('suppression_log', [])}")
+                lines.append(f"    dropped_tokens: {diag.get('dropped_tokens', [])}")
+                lines.append("    observation_record:")
+                record_features = record.get("features", {}) or {}
+                if record_features:
+                    for rec_feature in sorted(record_features):
+                        fobs = record_features[rec_feature]
+                        raw_prose = str(fobs.get("raw_prose", ""))
+                        if len(raw_prose) > 200:
+                            raw_prose = raw_prose[:200] + "..."
+                        lines.append(
+                            f"      {rec_feature}: tokens={fobs.get('tokens', {})} "
+                            f"unmapped={fobs.get('unmapped', [])} raw_prose=\"{raw_prose}\""
+                        )
+                else:
+                    lines.append("      NONE")
+            except Exception as exc:  # noqa: BLE001 -- must never crash the capture
+                lines.append(f"  {feature}: EMIT_ERROR: {exc}")
+            continue
+
         outcome = diag.get("final_outcome", "unknown")
         a1_status = diag.get("attempt_1_status", "unknown")
         a1_count = diag.get("attempt_1_claim_count", "?")

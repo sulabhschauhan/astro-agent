@@ -235,6 +235,209 @@ def test_capture_dogfood_run_writes_stage2_first_attempt_failures_line(monkeypat
     ) in content
 
 
+# ─── _rules_engine special-case rendering (root-cause fix, this session) ─
+#
+# Diagnosed this session: stage1_feature_diagnostics["_rules_engine"] rides
+# the SAME dict the LLM-extraction per-feature ledger uses, but with an
+# entirely different payload shape (observation_record/fired_rule_ids/
+# observation/dropped_tokens/suppression_log, not attempt_1_status/
+# attempt_2_status). Before this fix, _format_stage1_feature_diagnostics_
+# lines' generic .get()-based branch silently rendered a content-free
+# "outcome=... attempt_1=unknown/? (raw=?) attempt_2=unknown/? (raw=?)"
+# line for it -- never crashing, but never surfacing the real engine
+# payload anywhere in the capture either (confirmed against the live
+# diagnostics/dogfood_capture.md log, 5 occurrences, all identical).
+
+
+def _rules_engine_diag() -> dict:
+    """A realistic engine_diagnostics dict, same shape
+    palm_reading._prepare_claims_from_rules / _prepare_deterministic_prep
+    actually produce -- not a hand-trimmed stub, so this test exercises the
+    real key set."""
+    return {
+        "enabled": True,
+        "failed": False,
+        "final_outcome": "rules_engine_ok",
+        "observation": {"Line of Life": {"Length": "long", "Depth": "deep"}},
+        "dropped_tokens": [],
+        "fired_rule_ids": ["L_001"],
+        "surviving_rule_ids": ["L_001"],
+        "suppression_log": [],
+        "citations": {},
+        "dropped_rule_ids": [],
+        "claim_features_outside_registry": [],
+        "observation_record": {
+            "enabled_features": [
+                "Line of Fate", "Line of Head", "Line of Heart", "Line of Life",
+                "Line of Sun", "Mount of Jupiter", "Mount of Venus", "Thumb",
+            ],
+            "features": {
+                "Line of Life": {
+                    "tokens": {
+                        "Length": {"value": "long", "confidence": 1.0},
+                        "Depth": {"value": "deep", "confidence": 1.0},
+                    },
+                    "unmapped": [
+                        {"quality": "curves around the base of the thumb", "attribute_guess": "Curve"},
+                    ],
+                    "raw_prose": "deep, long, curves around the base of the thumb, no breaks",
+                },
+            },
+            "dropped_disabled": [],
+            "unmappable_prose_features": [],
+        },
+    }
+
+
+def test_capture_dogfood_run_renders_rules_engine_observation_record(monkeypatch, tmp_path):
+    """The root-cause fix itself: observation_record's per-feature tokens/
+    unmapped/raw_prose, plus fired_rule_ids, must now actually reach the
+    capture file -- none of this appeared anywhere before this fix."""
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    reading = PalmReadingResult(
+        reading_text="Your life line shows steady vitality.",
+        sources=(),
+        validation=ValidationReport(passed=True, failures=()),
+        model="gpt-4o",
+        retry_used=False,
+        supported_features=("life line",),
+        unsupported_features=("fate line",),  # trips the "silence" capture gate
+        stage1_feature_diagnostics={"_rules_engine": _rules_engine_diag()},
+    )
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, reading)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "_rules_engine: outcome=rules_engine_ok failed=False" in content
+    assert "fired_rule_ids: ['L_001']" in content
+    assert (
+        "Line of Life: tokens={'Length': {'value': 'long', 'confidence': 1.0}, "
+        "'Depth': {'value': 'deep', 'confidence': 1.0}} "
+        "unmapped=[{'quality': 'curves around the base of the thumb', "
+        "'attribute_guess': 'Curve'}] "
+        'raw_prose="deep, long, curves around the base of the thumb, no breaks"'
+    ) in content
+    # The old, content-free placeholder line must be GONE, not just
+    # supplemented -- this is a replacement, not an addition alongside it.
+    assert "attempt_1=unknown/? (raw=?)" not in content
+
+
+def test_capture_dogfood_run_rules_engine_failed_stage_rendered(monkeypatch, tmp_path):
+    """A failed engine run (fail-closed boundary) must show WHERE it broke,
+    not just that it broke -- failed_stage is the diagnostic that answers
+    "which of the 4 boundaries caught it"."""
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    failed_diag = {
+        "enabled": True,
+        "failed": True,
+        "failed_stage": "rule_matching",
+        "error": "RuntimeError: engine exploded",
+        "final_outcome": "rules_engine_failed",
+        "observation": {},
+        "dropped_tokens": [],
+        "fired_rule_ids": [],
+        "surviving_rule_ids": [],
+        "suppression_log": [],
+        "observation_record": {
+            "enabled_features": [], "features": {}, "dropped_disabled": [],
+            "unmappable_prose_features": [],
+        },
+        "citations": {},
+        "dropped_rule_ids": [],
+    }
+    reading = PalmReadingResult(
+        reading_text="Your life line shows steady vitality.",
+        sources=(),
+        validation=ValidationReport(passed=True, failures=()),
+        model="gpt-4o",
+        retry_used=False,
+        supported_features=(),
+        unsupported_features=("fate line",),
+        stage1_feature_diagnostics={"_rules_engine": failed_diag},
+    )
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, reading)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "_rules_engine: outcome=rules_engine_failed failed=True" in content
+    assert "failed_stage: rule_matching" in content
+
+
+def test_capture_dogfood_run_rules_engine_empty_observation_record_shows_none(monkeypatch, tmp_path):
+    """No captured features at all (e.g. every prose field blank) renders
+    an explicit NONE placeholder rather than a silently empty block --
+    same "absence is visible, not silent" convention the rest of this
+    capture already follows."""
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    diag = _rules_engine_diag()
+    diag["observation_record"]["features"] = {}
+    reading = PalmReadingResult(
+        reading_text="Your life line shows steady vitality.",
+        sources=(),
+        validation=ValidationReport(passed=True, failures=()),
+        model="gpt-4o",
+        retry_used=False,
+        supported_features=(),
+        unsupported_features=("fate line",),
+        stage1_feature_diagnostics={"_rules_engine": diag},
+    )
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, reading)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "observation_record:\n      NONE" in content
+
+
+def test_capture_dogfood_run_llm_ledger_entries_unchanged_by_the_fix(monkeypatch, tmp_path):
+    """Regression guard: a real LLM-extraction per-feature diag (no
+    "observation_record" key) must still render via the pre-existing
+    attempt_1/attempt_2 branch, untouched by the new special case, on the
+    SAME run that also carries a "_rules_engine" entry -- proves the two
+    branches coexist correctly rather than one silently swallowing the
+    other."""
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    llm_diag = {
+        "final_outcome": "validated_ok",
+        "attempt_1_status": "validated_ok",
+        "attempt_1_claim_count": 2,
+        "attempt_1_raw_count": 2,
+        "attempt_2_status": "unknown",
+        "attempt_2_claim_count": "?",
+        "attempt_2_raw_count": "?",
+    }
+    reading = PalmReadingResult(
+        reading_text="Your life line shows steady vitality.",
+        sources=(),
+        validation=ValidationReport(passed=True, failures=()),
+        model="gpt-4o",
+        retry_used=False,
+        supported_features=(),
+        unsupported_features=("fate line",),
+        stage1_feature_diagnostics={
+            "life line": llm_diag,
+            "_rules_engine": _rules_engine_diag(),
+        },
+    )
+    app._capture_dogfood_run("LIFE LINE: A long life line.", None, None, reading)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "life line: outcome=validated_ok attempt_1=validated_ok/2 (raw=2) attempt_2=unknown/? (raw=?)" in content
+    assert "_rules_engine: outcome=rules_engine_ok failed=False" in content
+
+
 def test_capture_dogfood_run_source_lines_carry_feature_tag(monkeypatch, tmp_path):
     import frontend.app as app
 
