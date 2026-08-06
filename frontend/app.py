@@ -514,6 +514,8 @@ if "palm_left_confirmed" not in st.session_state:
     st.session_state.palm_left_confirmed = False
 if "palm_right_confirmed" not in st.session_state:
     st.session_state.palm_right_confirmed = False
+if "palm_nondominant_only" not in st.session_state:
+    st.session_state.palm_nondominant_only = False
 if "_palm_left_image_name" not in st.session_state:
     st.session_state["_palm_left_image_name"] = None
 if "_palm_right_image_name" not in st.session_state:
@@ -1195,21 +1197,34 @@ with st.expander(_upload_expander_title, expanded=False):
         # through (palm_left, palm_right, hand_detail alike, CLAUDE.md "Palm
         # human checkpoint" lock); an unconfirmed description is withheld even
         # if it exists.
-        _any_hand_confirmed = (
-            st.session_state.palm_left_confirmed and st.session_state.palm_left_str
-        ) or (
-            st.session_state.palm_right_confirmed and st.session_state.palm_right_str
+        st.radio(
+            "Which hand do you use for most everyday tasks?",
+            options=["Left hand", "Right hand"],
+            key="palm_dominant_side",
         )
-        if _any_hand_confirmed:
+        _dominant_is_left = st.session_state.palm_dominant_side == "Left hand"
+
+        _confirmed_left = (
+            st.session_state.palm_left_str if st.session_state.palm_left_confirmed else None
+        )
+        _confirmed_right = (
+            st.session_state.palm_right_str if st.session_state.palm_right_confirmed else None
+        )
+        _confirmed_hand_detail = (
+            st.session_state.hand_detail_str if st.session_state.hand_detail_confirmed else None
+        )
+        _dominant_str, _nondominant_str = (
+            (_confirmed_left, _confirmed_right) if _dominant_is_left
+            else (_confirmed_right, _confirmed_left)
+        )
+
+        if _dominant_str:
+            # LEAF A -- dominant hand confirmed (regardless of non-dominant):
+            # auto-eligible, non-dominant hand is dropped (passed as None).
             if st.button("Generate Palm Reading", key="generate_palm_reading_btn"):
-                _confirmed_left = (
-                    st.session_state.palm_left_str if st.session_state.palm_left_confirmed else None
-                )
-                _confirmed_right = (
-                    st.session_state.palm_right_str if st.session_state.palm_right_confirmed else None
-                )
-                _confirmed_hand_detail = (
-                    st.session_state.hand_detail_str if st.session_state.hand_detail_confirmed else None
+                st.session_state.palm_nondominant_only = False
+                _gen_left, _gen_right = (
+                    (_dominant_str, None) if _dominant_is_left else (None, _dominant_str)
                 )
                 if _DOGFOOD_CAPTURE:
                     # S70 P6b: DOGFOOD path stops at Stage 1 only -- no
@@ -1222,8 +1237,8 @@ with st.expander(_upload_expander_title, expanded=False):
                     try:
                         with st.spinner("Extracting claims (Stage 1)…"):
                             st.session_state.palm_prep = prepare_palm_reading(
-                                palm_left=_confirmed_left,
-                                palm_right=_confirmed_right,
+                                palm_left=_gen_left,
+                                palm_right=_gen_right,
                                 hand_detail=_confirmed_hand_detail,
                             )
                         st.session_state.palm_reading_result = None
@@ -1236,12 +1251,49 @@ with st.expander(_upload_expander_title, expanded=False):
                     try:
                         with st.spinner("Generating your palm reading…"):
                             st.session_state.palm_reading_result = generate_palm_reading(
-                                palm_left=_confirmed_left,
-                                palm_right=_confirmed_right,
+                                palm_left=_gen_left,
+                                palm_right=_gen_right,
                                 hand_detail=_confirmed_hand_detail,
                             )
                     except (ValueError, RuntimeError) as e:
                         st.error(str(e))
+        elif _nondominant_str:
+            # LEAF B -- only the non-dominant hand is confirmed: does NOT
+            # auto-run, requires an explicit opt-in click.
+            st.info(
+                "You've confirmed only your non-dominant hand. Upload your "
+                "dominant hand above for the full reading, or continue with "
+                "this hand only — it reflects innate potential, not your "
+                "current life trajectory."
+            )
+            if st.button("Continue with non-dominant hand only", key="generate_palm_reading_nondominant_btn"):
+                st.session_state.palm_nondominant_only = True
+                _gen_left, _gen_right = (
+                    (None, _nondominant_str) if _dominant_is_left else (_nondominant_str, None)
+                )
+                if _DOGFOOD_CAPTURE:
+                    try:
+                        with st.spinner("Extracting claims (Stage 1)…"):
+                            st.session_state.palm_prep = prepare_palm_reading(
+                                palm_left=_gen_left,
+                                palm_right=_gen_right,
+                                hand_detail=_confirmed_hand_detail,
+                            )
+                        st.session_state.palm_reading_result = None
+                        st.rerun()
+                    except (ValueError, RuntimeError) as e:
+                        st.error(str(e))
+                else:
+                    try:
+                        with st.spinner("Generating your palm reading…"):
+                            st.session_state.palm_reading_result = generate_palm_reading(
+                                palm_left=_gen_left,
+                                palm_right=_gen_right,
+                                hand_detail=_confirmed_hand_detail,
+                            )
+                    except (ValueError, RuntimeError) as e:
+                        st.error(str(e))
+        # LEAF C -- neither hand confirmed: unchanged, no generate button.
 
 if st.session_state.get("pdf_context"):
     _astrosage_sections = _split_astrosage_sections(st.session_state.pdf_context)
@@ -1344,6 +1396,12 @@ if _PALM_ENABLED:
                 + "; ".join(_reading.validation.failures)
             )
         else:
+            if st.session_state.get("palm_nondominant_only"):
+                st.warning(
+                    "Reading based on your non-dominant hand only — this shows "
+                    "inherited nature and potential, not current trajectory. "
+                    "Upload your dominant hand for a full reading."
+                )
             st.markdown(_reading.reading_text)
             with st.expander("Classical sources"):
                 for _src in _reading.sources:
