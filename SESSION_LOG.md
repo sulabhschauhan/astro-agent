@@ -2472,3 +2472,58 @@ P-015, P-016 added; P-014's Status column annotated with a superseded-by pointer
 CLAUDE.md (V1.1 register bullet added; V1.5 register entry cross-link line added),
 playbook_export/decisions/rule-engine-v1_5-design.md (second addendum appended), this
 SESSION_LOG.md entry. No production code changed.
+
+## S85 — Palm extraction reliability: vision-descriptor width/direction + incompleteness retry (2026-08-05 to 2026-08-06)
+
+Commits:
+- `762a12e` feat(palm): deterministic phrase-normalization layer + extractor reliability + L_023 fix
+- `cf9ae2c` fix(palm): render phrase_promotions + engine diagnostic keys in dogfood capture
+- `69756df` feat(palm): add line width to vision descriptor -- unblocks L_001 (p134 healthy-line rule)
+- `66807d8` fix(palm): retry incomplete batched extraction with corrective re-ask
+- `01a9a22` feat(palm): elicit head-line direction (straight vs sloping) in vision descriptor
+
+Key outcomes:
+- Vision-width fix unblocked L_001 (p134 healthy-line rule): a narrow-life-line hand fired
+  the rule with a p134_c0 citation; a medium-width hand correctly stayed silent (no forced
+  rule where doctrine doesn't clearly apply).
+- L_023 / phrase-normalization sweep work deprioritized -- low ROI, since the vision
+  descriptor cannot reliably discriminate the finer distinctions that sweep targeted.
+- observation_extractor.py's single batched LLM call now retries on detected incompleteness
+  (substantive input prose but zero tokens AND zero unmapped for a feature), up to
+  ASTRO_EXTRACT_INCOMPLETE_RETRIES times, with each retry appending ONE corrective user
+  message naming the specific dropped features (temperature=0 means an identical retried
+  request would just reproduce the same partial response -- the correction is what lets the
+  retry's output actually differ). Keeps the fewest-dropped attempt; fail-open, never raises,
+  never fabricates a token. New `ObservationRecord.extraction_retries` diagnostics field.
+- Head line's own descriptor line now explicitly elicits `direction` (straight across vs
+  sloping toward the wrist/Mount of Luna) -- the core straight=practical/sloping=imaginative
+  doctrine key that the old "same attributes [as life line]" phrasing never asked for.
+
+Multi-hand test result (from diagnostics/dogfood_capture.md's final captured RUN block,
+`2026-08-05T22:09:59.701587`): this run PREDATES both the incompleteness-retry fix
+(`66807d8`, committed 2026-08-06T10:07:52+04:00) and the head-direction descriptor fix
+(`01a9a22`, committed 2026-08-06T10:18:58+04:00) -- it is the problem-DEMONSTRATING run,
+not a post-fix validation. It confirms: (1) the width fix already live and working --
+Line of Life tokens included Width=narrow, L_001 fired citing p134_c0; (2) the exact
+silent-drop failure mode that motivated the retry fix -- Line of Head and Line of Heart
+both had substantive raw_prose ("deep, narrow, long, slightly curved, no clear breaks or
+forks") but `tokens={}` AND `unmapped=[]`, i.e. zero extraction despite real content; (3) no
+Direction token anywhere, since the head-direction descriptor change wasn't live yet either.
+No dogfood run has been captured SINCE `66807d8`/`01a9a22` landed -- live recovery of
+head/heart tokens and appearance of a Direction token are UNVALIDATED, pending a fresh
+dogfood capture. Do not report this pair as "confirmed working" until that capture exists.
+
+Deferred (not attempted this session):
+- Left/right hand split -- architectural change, touches locked-core `palm_reading.py`;
+  merge seam is `_gather_feature_texts` (`agent/interpretive/palm_reading.py:468`), which
+  joins LEFT+RIGHT prose into one string per feature before extraction -- e.g. the width
+  token above resolved to only "narrow" (LEFT's value) despite RIGHT independently stating
+  "medium width", an ambiguity a hand-split would resolve. V1.1-scope, per CLAUDE.md's
+  V1 palm-drop lock (all palm code stays intact, not touched, pending V1.1). Also deferred:
+  a hand-dominance input (which hand is dominant) that a split would need to make use of.
+- Gap A (clarity/ambiguity handling) -- deprioritized alongside the L_023 sweep, same
+  low-ROI-given-vision-model-ceiling reasoning.
+- `agent/interpretive/claim_extraction.py` (+ its test) -- an OLDER, still-uncommitted
+  change from a prior session (E-5: disjunctive-taxonomy fail-closed, S71 head-line
+  valence bug fix), left dirty and untouched across every task this session per explicit
+  per-task staging instructions. Still uncommitted as of this entry.
