@@ -110,6 +110,7 @@ query_engine + chart_calculator → astrologer → session_manager
 21. **KNOWN-PATTERNS DISCIPLINE** (S84) — before starting any new diagnosis, grep `diagnostics/KNOWN_PATTERNS.md` first; a symptom already settled there does not need re-deriving, only re-verifying against its cited evidence. Before closing any diagnostic finding, add a row there — that file is the durable record, not a narrative `diagnostics/*.md` file (do not create a new one-off `diagnostics/<topic>_S<xx>.md` for a conclusion that belongs in the index; raw probe scripts/output stay where they are as evidence, only the settled conclusion gets a row).
 
 ## Varshaphal House-Counting Convention (Session 18)
+`resolve_house_counting_lagna()` is the canonical house-counting reference for any Varshaphal-derived bhav calculation (prefers AstroSage parsed Lagna, year-matched; else computed + boundary flag); call it rather than reading Lagna directly off `varshaphal_data`.
 
 ## Palm Diagnostic Principles (2026-08-06)
 Learnings from the head/life-line descriptor fixes (width, direction) and the extraction incompleteness-retry guard, this session.
@@ -118,7 +119,6 @@ Learnings from the head/life-line descriptor fixes (width, direction) and the ex
 2. **Not all silence is a gap** — a plain healthy heart line or a medium-width life line has no Cheiro doctrine to fire on; forcing a rule there is unsourced invention. Honest silence is the product working as designed.
 3. **Rules-vs-vision mismatch is the dominant palm failure class** (this arc) — rules keyed on narrow/direction/clear dimensions the vision descriptor never elicited. Fix = add the missing dimension to the descriptor, not the rule. Validated: adding width to the descriptor unblocked L_001.
 4. **Instrumentation must be rendered, not just stored** — a diagnostics dict key (e.g. `phrase_promotions`) is invisible until the dogfood FORMATTER (`frontend/app.py`) actually renders it. Any new diagnostic field must be wired through to the capture, not just populated upstream.
-`resolve_house_counting_lagna()` is the canonical house-counting reference for any Varshaphal-derived bhav calculation (prefers AstroSage parsed Lagna, year-matched; else computed + boundary flag); call it rather than reading Lagna directly off `varshaphal_data`.
 
 ## Calculation Architecture (Session 19+)
 Every new calculation module lives in its `calculations/` subpackage; never add calculation logic to a top-level file.
