@@ -287,10 +287,18 @@ class ObservationRecord:
         counterpart at all (`_FEATURE_ALIAS` -> None) -- see module
         docstring point 3 for why these are kept separate from
         `dropped_disabled` rather than merged into it.
+    extraction_retries: incompleteness-guard summary for this call (see
+        `_compute_dropped_features` / the retry loop in
+        `extract_observation`) -- {"attempts_made": int, "retried": bool,
+        "dropped_per_attempt": [{"attempt": int, "dropped": [str, ...]},
+        ...], "final_dropped": [str, ...]}. Empty dict when no LLM call
+        was made at all (empty `feature_texts`). A caller (e.g. the
+        dogfood capture) can attach this verbatim for retry visibility.
     """
     features: dict[str, FeatureObservation] = field(default_factory=dict)
     dropped_disabled: list[str] = field(default_factory=list)
     unmappable_prose_features: list[dict[str, str]] = field(default_factory=list)
+    extraction_retries: dict[str, object] = field(default_factory=dict)
 
 
 # ─── LLM system prompt -- global value vocabulary embedded once ──────────
@@ -397,82 +405,74 @@ def _parse_response(raw: str) -> tuple[dict, dict]:
     return observations, unmapped_raw
 
 
-def extract_observation(
-    feature_texts: dict[str, list[str]],
-    *,
-    enabled_features: set[str] | None = None,
-    model: str = "gpt-4o-mini",
-    client=None,
-) -> ObservationRecord:
-    """Converts palm_reading._gather_feature_texts's `{prose_feature:
-    [raw_text, ...]}` output into a capture-complete `ObservationRecord`.
-    See module docstring for the full contract, deviations, and design
-    notes.
+# ─── Incompleteness guard -- retry the whole batched call ────────────────
+# The batched call sometimes returns partial JSON that silently drops a
+# feature with rich input prose (dogfood 2026-08-05T22:09, Athira:
+# head/heart/venus/thumb came back empty despite full descriptions). This
+# guard detects that class of drop -- distinct from a feature that
+# legitimately has nothing to report -- and retries the WHOLE batch (never
+# a per-feature call, per the one-call-per-batch contract this module
+# already keeps) up to a bounded number of times, keeping whichever
+# attempt dropped the fewest features. Fail-open: never raises over an
+# incomplete result, never fabricates a token for a feature that stays
+# empty after all retries -- honest silence beats a made-up observation.
 
-    One LLM call for the whole batch (every alias-mapped, non-empty-text
-    feature together, regardless of `enabled_features` -- capture is
-    total, participation is filtered afterward) -- never one call per
-    feature. A `feature_texts` with no mappable, non-empty-text entries
-    makes ZERO LLM calls and returns an empty `ObservationRecord`
-    directly (empty is a valid, non-raising result).
+_TRIVIAL_PROSE_MARKERS: tuple[str, ...] = (
+    "not clearly visible", "barely visible", "absent", "no other lines",
+)
 
-    enabled_features: allow-list applied AFTER capture -- every feature
-        is still extracted into `features` regardless; features not in
-        this set are additionally listed in `dropped_disabled`. None
-        (default) means no allow-list: nothing is excluded.
-    client: injection seam for tests (see module docstring, DEVIATION 1)
-        -- if None, a real OpenAI() client is constructed lazily INSIDE
-        this function, never at module import time.
 
-    Raises:
-        RuntimeError: the LLM call itself failed (network/API error).
-        ValueError: the LLM's response could not be parsed as the
-                     expected JSON shape (see _parse_response).
-    """
-    entries: list[tuple[str, str, str]] = []
-    unmappable_prose_features: list[dict[str, str]] = []
-    for prose_feature, texts in feature_texts.items():
-        joined = " ".join(t.strip() for t in (texts or []) if t and t.strip())
-        if not joined:
+def _is_substantive_prose(text: str) -> bool:
+    """True if `text` is long enough and specific enough that SOME
+    extraction result (a token or an unmapped quality) is expected for
+    it -- as opposed to one of the descriptor's stock "nothing here"
+    phrasings. THRESHOLD: 15 chars filters trivial/absent markers
+    ("Absent.", "N/A") without excluding a real short observation;
+    env-overridable via ASTRO_EXTRACT_MIN_PROSE_CHARS. Tuning note: the
+    retry loop below logs every dropped-feature list at INFO level --
+    use those logs to recalibrate this threshold or `_TRIVIAL_PROSE_
+    MARKERS` if a legitimate short observation starts triggering false
+    retries, or a real drop stops being caught."""
+    stripped = text.strip()
+    min_chars = int(os.getenv("ASTRO_EXTRACT_MIN_PROSE_CHARS", "15"))
+    if len(stripped) <= min_chars:
+        return False
+    lowered = stripped.lower()
+    return not any(marker in lowered for marker in _TRIVIAL_PROSE_MARKERS)
+
+
+def _compute_dropped_features(
+    features: dict[str, FeatureObservation],
+    ontology_features: list[str],
+    text_by_feature: dict[str, str],
+) -> list[str]:
+    """Ontology features whose input prose was substantive
+    (`_is_substantive_prose`) but whose extracted result is completely
+    empty (zero tokens AND zero unmapped) -- the signature of a batched
+    call silently dropping a feature it should have said SOMETHING
+    about, as distinct from a feature that legitimately had nothing to
+    report (e.g. "barely visible" prose, correctly empty)."""
+    dropped = []
+    for feature in ontology_features:
+        if not _is_substantive_prose(text_by_feature.get(feature, "")):
             continue
-        ontology_feature = _FEATURE_ALIAS.get(prose_feature)
-        if ontology_feature is None:
-            logger.info(
-                "observation_extractor.extract_observation: prose feature %r has no "
-                "ontology counterpart -- captured as unmappable, not tokenized.", prose_feature,
-            )
-            unmappable_prose_features.append({"prose_feature": prose_feature, "raw_prose": joined})
-            continue
-        entries.append((prose_feature, ontology_feature, joined))
+        fobs = features.get(feature)
+        if fobs is None or (not fobs.tokens and not fobs.unmapped):
+            dropped.append(feature)
+    return sorted(dropped)
 
-    if not entries:
-        return ObservationRecord(
-            features={},
-            dropped_disabled=[],
-            unmappable_prose_features=unmappable_prose_features,
-        )
 
-    if client is None:
-        from openai import OpenAI  # lazy import -- see module docstring DEVIATION 1
-        client = OpenAI(
-            # max_retries=1: worst-case ~2x timeout (~120s), one retry absorbs a
-            # transient network blip while still bounding the hang. 0 = hard
-            # fail-fast (no blip resilience); 2 = SDK default (~180s, too long
-            # for an interactive read). Env-overridable.
-            max_retries=int(os.getenv("ASTRO_EXTRACT_MAX_RETRIES", "1")),
-        )
-
-    ontology_features = [e[1] for e in entries]
-    text_by_feature = {e[1]: e[2] for e in entries}
-    messages = [
-        {"role": "system", "content": _EXTRACTION_SYSTEM_PROMPT},
-        {"role": "user", "content": _build_user_prompt(entries)},
-    ]
-    raw = _call_llm(client, model, messages, ontology_features)
-    observations_raw, unmapped_raw = _parse_response(raw)
-
-    requested = frozenset(ontology_features)
-
+def _build_features_from_response(
+    observations_raw: dict,
+    unmapped_raw: dict,
+    ontology_features: list[str],
+    text_by_feature: dict[str, str],
+    requested: frozenset[str],
+) -> dict[str, FeatureObservation]:
+    """One attempt's (A)+(B) fill of a fresh `{feature: FeatureObservation}`
+    map from a single parsed LLM response -- factored out of
+    `extract_observation` so the incompleteness-retry loop there can call
+    it once per attempt and compare attempts by dropped-feature count."""
     features: dict[str, FeatureObservation] = {
         feature: FeatureObservation(raw_prose=text_by_feature[feature])
         for feature in ontology_features
@@ -566,6 +566,146 @@ def extract_observation(
                 attribute_guess = None
             fobs.unmapped.append({"quality": quality, "attribute_guess": attribute_guess})
 
+    return features
+
+
+def extract_observation(
+    feature_texts: dict[str, list[str]],
+    *,
+    enabled_features: set[str] | None = None,
+    model: str = "gpt-4o-mini",
+    client=None,
+) -> ObservationRecord:
+    """Converts palm_reading._gather_feature_texts's `{prose_feature:
+    [raw_text, ...]}` output into a capture-complete `ObservationRecord`.
+    See module docstring for the full contract, deviations, and design
+    notes.
+
+    One LLM call for the whole batch (every alias-mapped, non-empty-text
+    feature together, regardless of `enabled_features` -- capture is
+    total, participation is filtered afterward) -- never one call per
+    feature. A `feature_texts` with no mappable, non-empty-text entries
+    makes ZERO LLM calls and returns an empty `ObservationRecord`
+    directly (empty is a valid, non-raising result).
+
+    enabled_features: allow-list applied AFTER capture -- every feature
+        is still extracted into `features` regardless; features not in
+        this set are additionally listed in `dropped_disabled`. None
+        (default) means no allow-list: nothing is excluded.
+    client: injection seam for tests (see module docstring, DEVIATION 1)
+        -- if None, a real OpenAI() client is constructed lazily INSIDE
+        this function, never at module import time.
+
+    Raises:
+        RuntimeError: the LLM call itself failed (network/API error).
+        ValueError: the LLM's response could not be parsed as the
+                     expected JSON shape (see _parse_response).
+    """
+    entries: list[tuple[str, str, str]] = []
+    unmappable_prose_features: list[dict[str, str]] = []
+    for prose_feature, texts in feature_texts.items():
+        joined = " ".join(t.strip() for t in (texts or []) if t and t.strip())
+        if not joined:
+            continue
+        ontology_feature = _FEATURE_ALIAS.get(prose_feature)
+        if ontology_feature is None:
+            logger.info(
+                "observation_extractor.extract_observation: prose feature %r has no "
+                "ontology counterpart -- captured as unmappable, not tokenized.", prose_feature,
+            )
+            unmappable_prose_features.append({"prose_feature": prose_feature, "raw_prose": joined})
+            continue
+        entries.append((prose_feature, ontology_feature, joined))
+
+    if not entries:
+        return ObservationRecord(
+            features={},
+            dropped_disabled=[],
+            unmappable_prose_features=unmappable_prose_features,
+        )
+
+    if client is None:
+        from openai import OpenAI  # lazy import -- see module docstring DEVIATION 1
+        client = OpenAI(
+            # max_retries=1: worst-case ~2x timeout (~120s), one retry absorbs a
+            # transient network blip while still bounding the hang. 0 = hard
+            # fail-fast (no blip resilience); 2 = SDK default (~180s, too long
+            # for an interactive read). Env-overridable.
+            max_retries=int(os.getenv("ASTRO_EXTRACT_MAX_RETRIES", "1")),
+        )
+
+    ontology_features = [e[1] for e in entries]
+    text_by_feature = {e[1]: e[2] for e in entries}
+    messages = [
+        {"role": "system", "content": _EXTRACTION_SYSTEM_PROMPT},
+        {"role": "user", "content": _build_user_prompt(entries)},
+    ]
+    requested = frozenset(ontology_features)
+
+    # Incompleteness guard: retry the whole batch (never per-feature, per
+    # the one-call-per-batch contract) up to ASTRO_EXTRACT_INCOMPLETE_
+    # RETRIES times if any substantive-prose feature came back completely
+    # empty. THRESHOLD: 2 retries (3 attempts total) balances catching a
+    # transient partial-JSON response against dogfood latency; env-
+    # overridable. Tuning note: `dropped_per_attempt` in the returned
+    # `extraction_retries` logs which features triggered each retry --
+    # use it to recalibrate. Keeps the attempt with the FEWEST dropped
+    # features; never raises solely for incompleteness (fail-open).
+    max_retries = int(os.getenv("ASTRO_EXTRACT_INCOMPLETE_RETRIES", "2"))
+    dropped_per_attempt: list[dict[str, object]] = []
+    best_features: dict[str, FeatureObservation] | None = None
+    best_dropped: list[str] | None = None
+
+    # temperature=0 (`_call_llm`) means an IDENTICAL request reliably returns
+    # an identical (still-partial) response -- a retry only has a chance of
+    # recovering a dropped feature if the INPUT changes. `current_messages`
+    # starts as the original request (attempt 1, unchanged) and, after any
+    # attempt that drops something, is rebuilt as original `messages` + ONE
+    # appended corrective user message naming that attempt's dropped
+    # features -- never accumulated across multiple retries (each retry's
+    # request is original-plus-one-correction, not a growing conversation).
+    current_messages = messages
+
+    for attempt_num in range(1, max_retries + 2):
+        raw = _call_llm(client, model, current_messages, ontology_features)
+        observations_raw, unmapped_raw = _parse_response(raw)
+        attempt_features = _build_features_from_response(
+            observations_raw, unmapped_raw, ontology_features, text_by_feature, requested,
+        )
+        dropped = _compute_dropped_features(attempt_features, ontology_features, text_by_feature)
+        dropped_per_attempt.append({"attempt": attempt_num, "dropped": dropped})
+
+        if best_dropped is None or len(dropped) < len(best_dropped):
+            best_features = attempt_features
+            best_dropped = dropped
+
+        if not dropped:
+            break
+
+        if attempt_num <= max_retries:
+            logger.info(
+                "observation_extractor.extract_observation: attempt %d dropped substantive-"
+                "prose features %s -- retrying whole batch with a corrective instruction "
+                "(up to %d retries).",
+                attempt_num, dropped, max_retries,
+            )
+            current_messages = messages + [{
+                "role": "user",
+                "content": (
+                    "Your previous response omitted these features that have "
+                    f"descriptions: {', '.join(dropped)}. Return a complete JSON "
+                    "including an entry for EVERY listed feature. Do not omit any."
+                ),
+            }]
+
+    features = best_features
+    extraction_retries: dict[str, object] = {
+        "attempts_made": len(dropped_per_attempt),
+        "retried": len(dropped_per_attempt) > 1,
+        "dropped_per_attempt": dropped_per_attempt,
+        "final_dropped": best_dropped,
+    }
+
     if enabled_features is None:
         dropped_disabled: list[str] = []
     else:
@@ -575,6 +715,7 @@ def extract_observation(
         features=features,
         dropped_disabled=dropped_disabled,
         unmappable_prose_features=unmappable_prose_features,
+        extraction_retries=extraction_retries,
     )
 
 
