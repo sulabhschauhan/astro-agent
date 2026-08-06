@@ -192,6 +192,7 @@ def _render_observation_basis(rule: "PalmRule") -> str:
 def claims_from_rules(
     surfaced_rules: Sequence["PalmRule"],
     chunks_path: Path | str = _CHUNKS_PATH,
+    magnitudes: dict | None = None,
 ) -> tuple[tuple["Claim", ...], dict]:
     """One Claim per surfaced rule whose source_page resolves to a real
     chunk_id, numbered C1, C2, ... in surfaced order -- a dropped rule
@@ -199,15 +200,27 @@ def claims_from_rules(
     output stays contiguous (no C1, C3 gap). Fail-closed: dropped rules
     are logged, never raise.
 
+    magnitudes: the same {feature: {attribute: confidence_float}} dict
+        `observation_to_tokens.to_tokens()` returns (plus its own
+        "_dropped" key, which no real Antecedent.feature ever collides
+        with) -- optional, default None for full backward compatibility
+        with any existing caller that doesn't have it. When given, each
+        claim's citation carries an "evidence_confidence" weakest-link
+        value (see below); when None (legacy call), the key is still
+        present but its value is always None -- plumbing only, no
+        confidence FLOOR/threshold behavior here.
+
     Returns (claims, diagnostics). diagnostics["citations"] maps
     claim_id -> {"rule_id", "chunk_id", "source_page", "source_quote",
-    "topic_group"} -- this is where source_quote is actually carried (see
-    module docstring: Claim itself has no field for it, and stuffing it
-    into observation_basis would leak book text into the voicer's
-    prompt); "topic_group" is the rule's own grouping label, kept here for
-    the suppression audit even though Claim.feature is now the mapped
-    _FEATURE_REGISTRY token, not this raw label (see
-    _TOPIC_GROUP_TO_FEATURE).
+    "topic_group", "evidence_confidence"} -- this is where source_quote is
+    actually carried (see module docstring: Claim itself has no field for
+    it, and stuffing it into observation_basis would leak book text into
+    the voicer's prompt); "topic_group" is the rule's own grouping label,
+    kept here for the suppression audit even though Claim.feature is now
+    the mapped _FEATURE_REGISTRY token, not this raw label (see
+    _TOPIC_GROUP_TO_FEATURE). "evidence_confidence" is provenance metadata
+    ONLY -- never placed on the Claim object itself and never fed into any
+    LLM prompt, same side-channel discipline as source_quote.
     diagnostics["dropped_rule_ids"] lists any rule skipped for an
     unresolvable page.
     """
@@ -242,6 +255,24 @@ def claims_from_rules(
             excluded_from_voice=False,
             exclusion_reason=None,
         ))
+        # evidence_confidence: weakest-link across this rule's own
+        # antecedents' observed confidence (accuracy-first: a claim is
+        # only as trustworthy as its SOFTEST supporting observation, not
+        # an average or the strongest one). An antecedent whose
+        # (feature, attribute) key is absent from magnitudes contributes
+        # no confidence value and is simply excluded from the min, not
+        # treated as a failure -- e.g. a comparative antecedent's own
+        # (feature, attribute) pair may never have been observed even
+        # though its comparator_feature was (see observation_to_tokens.py:
+        # magnitudes are an unfiltered passthrough, not a superset
+        # guarantee over every antecedent shape).
+        confs = (
+            [magnitudes.get(a.feature, {}).get(a.attribute) for a in rule.antecedents]
+            if magnitudes else []
+        )
+        present = [c for c in confs if isinstance(c, (int, float))]
+        evidence_confidence = min(present) if present else None
+
         citations[claim_id] = {
             "rule_id": rule.rule_id,
             "chunk_id": chunk_id,
@@ -252,6 +283,7 @@ def claims_from_rules(
             # _TOPIC_GROUP_TO_FEATURE above for the mapping this discards
             # from Claim.feature itself.
             "topic_group": rule.topic_group,
+            "evidence_confidence": evidence_confidence,
         }
 
     diagnostics = {"citations": citations, "dropped_rule_ids": dropped}

@@ -2023,7 +2023,7 @@ def _prepare_claims_from_rules(
     try:
         fired = palm_rules_table.match(observation, magnitudes, rules)
         survivors, suppression_log = palm_rules_table.resolve_priority(fired)
-        claims, rule_diagnostics = rule_to_claim.claims_from_rules(survivors)
+        claims, rule_diagnostics = rule_to_claim.claims_from_rules(survivors, magnitudes=magnitudes)
     except Exception as exc:  # noqa: BLE001 -- fail-closed boundary 4, see docstring
         return _fail_closed(exc, "rule_matching", record_diagnostics)
 

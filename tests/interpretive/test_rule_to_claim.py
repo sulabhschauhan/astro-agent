@@ -183,3 +183,76 @@ def test_hl006_claim_accepted_by_voice_claims_without_modifying_it():
     assert result.validation_failures == ()
     assert result.reading_text_tagged != ""
     assert "[C1]" in result.reading_text_tagged
+
+
+# ─── evidence_confidence: weakest-link across antecedents (this task) ────
+#
+# HL_006's antecedents are (Line of Heart, Position) and (Quadrangle,
+# Breadth) -- a real two-feature compound rule, deliberately reused here
+# rather than a synthetic one, since it already exercises the
+# cross-feature magnitudes lookup this plumbing needs.
+
+
+def test_evidence_confidence_hardest_case_mixed_confidence_weakest_link():
+    """HARDEST CASE: one antecedent's observation is deterministic-grade
+    (confidence 1.0), the other is vision-grade and hedged (0.6) -- the
+    weakest-link min must pick the SOFTER value, not average or take the
+    stronger one."""
+    magnitudes = {
+        "Line of Heart": {"Position": 1.0},
+        "Quadrangle": {"Breadth": 0.6},
+    }
+    claims, diagnostics = claims_from_rules([BY_ID["HL_006"]], magnitudes=magnitudes)
+    assert len(claims) == 1
+    assert diagnostics["citations"]["C1"]["evidence_confidence"] == 0.6
+
+
+def test_evidence_confidence_missing_antecedent_key_excluded_not_crashed():
+    """An antecedent whose (feature, attribute) key is absent from
+    magnitudes contributes NO confidence value and is silently excluded
+    from the min -- not a crash, not treated as 0.0. Here only
+    "Quadrangle" is missing entirely, so evidence_confidence must equal
+    the sole remaining antecedent's value."""
+    magnitudes = {"Line of Heart": {"Position": 0.75}}
+    claims, diagnostics = claims_from_rules([BY_ID["HL_006"]], magnitudes=magnitudes)
+    assert len(claims) == 1
+    assert diagnostics["citations"]["C1"]["evidence_confidence"] == 0.75
+
+
+def test_evidence_confidence_all_antecedent_keys_missing_yields_none():
+    """Every antecedent key absent from magnitudes -> evidence_confidence
+    is None, not a crash and not 0.0 -- an empty weakest-link pool is
+    "no signal", not "worst possible signal"."""
+    magnitudes = {"Some Other Feature": {"Some Attribute": 0.9}}
+    claims, diagnostics = claims_from_rules([BY_ID["HL_006"]], magnitudes=magnitudes)
+    assert len(claims) == 1
+    assert diagnostics["citations"]["C1"]["evidence_confidence"] is None
+
+
+def test_evidence_confidence_legacy_call_magnitudes_none_key_present_value_none():
+    """A caller that doesn't pass magnitudes at all (legacy/default) still
+    gets the "evidence_confidence" key in the citation, always None --
+    the key's PRESENCE never depends on whether the caller opted in."""
+    claims, diagnostics = claims_from_rules([BY_ID["HL_006"]])
+    assert len(claims) == 1
+    assert "evidence_confidence" in diagnostics["citations"]["C1"]
+    assert diagnostics["citations"]["C1"]["evidence_confidence"] is None
+
+
+def test_evidence_confidence_multi_antecedent_same_feature_hl010():
+    """HL_010's two antecedents are BOTH on "Line of Heart"
+    (Starting_Point, Continuity) -- proves the lookup is keyed on
+    (feature, attribute) pairs, not just feature, since both antecedents
+    share a feature but need independent attribute lookups."""
+    magnitudes = {"Line of Heart": {"Starting_Point": 0.9, "Continuity": 0.4}}
+    claims, diagnostics = claims_from_rules([BY_ID["HL_010"]], magnitudes=magnitudes)
+    assert len(claims) == 1
+    assert diagnostics["citations"]["C1"]["evidence_confidence"] == 0.4
+
+
+def test_evidence_confidence_never_placed_on_claim_object():
+    """Provenance metadata only -- must never leak onto the Claim
+    dataclass itself (same side-channel discipline as source_quote)."""
+    magnitudes = {"Line of Heart": {"Position": 1.0}, "Quadrangle": {"Breadth": 0.6}}
+    claims, _ = claims_from_rules([BY_ID["HL_006"]], magnitudes=magnitudes)
+    assert not hasattr(claims[0], "evidence_confidence")
