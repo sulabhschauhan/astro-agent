@@ -264,7 +264,6 @@ A claim marked valence="corrective" REJECTS or CONTRADICTS the natural reading o
 ## Output format (voice tags)
 Every sentence in your reading must end with exactly one tag, placed immediately after the sentence's closing punctuation with NO space before the bracket:
 - "[C<n>]" -- for a sentence voicing claim C<n> from the inventory below. Copy the number EXACTLY as given. The sentence's interpretive content must come ONLY from that claim's own text -- never blend in a second claim's content or add anything beyond what the claim states.
-- "[OBS]" -- for a sentence that only restates a confirmed observation, carrying no interpretive content of its own.
 - "[FLOW]" -- for a pure connective or transition sentence (an opening, a closing, or a bridge between claims) that adds no new observation or interpretive content at all.
 Tag every sentence, including the opening and closing ones. Every tag MUST be preceded by a complete sentence of visible text. Never place two tags back-to-back with nothing between them. Never emit "[X][Y]" -- always "{sentence}. [X] {next sentence}. [Y]". Never use any other bracketed token. These tags are machine-readable annotation only -- they are stripped before display, so they are not the "citations" any scope rule below forbids.
 
@@ -276,18 +275,16 @@ Keep the reading focused -- do not pad with repeated restatements of the same cl
 
 
 def _build_user_prompt(included_claims: list["Claim"], texts_by_feature: dict[str, str]) -> str:
+    # texts_by_feature: retained for signature stability; deterministic
+    # bare-observation rendering moves out of the LLM in a later step.
     claim_lines = [
         f'{c.claim_id}: (valence: {c.valence}) "{c.claim_text}" -- observation: "{c.observation_basis}"'
         for c in included_claims
     ]
     claim_block = "\n".join(claim_lines) if claim_lines else "(none)"
 
-    obs_lines = [f"- {feature}: {text}" for feature, text in texts_by_feature.items() if text]
-    obs_block = "\n".join(obs_lines) if obs_lines else "(none recorded)"
-
     return (
         f"CLAIM INVENTORY (voice ONLY these, cite by claim_id in your [C<n>] tags):\n{claim_block}\n\n"
-        f"CONFIRMED OBSERVATIONS (for [OBS] sentences):\n{obs_block}\n\n"
         f"Write the reading per your instructions."
     )
 
