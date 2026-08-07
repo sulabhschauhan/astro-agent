@@ -1,0 +1,7 @@
+{
+  "_schema": "chapter/line -> list of {configuration, feature, reason, source_checked, decided, session}",
+  "_note": "Recorded 'no clean valence-safe doctrine exists' verdicts. Persisted so closed questions are not re-litigated. Harness reads this to skip re-investigation.",
+  "line_head": [],
+  "line_heart": [],
+  "line_life": []
+}

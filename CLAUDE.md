@@ -178,3 +178,11 @@ Resolved entries are archived in SESSION_LOG.md (see each session's "Carry-forwa
 
 ## Carry-forward corrections
 - S72 close carry-forward incorrectly stated "Prompt 3 (router wiring) committed and pushed" — actually uncommitted in working tree, caught S73 open by `git log origin/main..HEAD --oneline` returning empty against expectation. Landed as S73 Commit A (router + Stage 2 test substitution). Full detail: SESSION_LOG.md S73.
+
+
+## Rule Authoring & Audit Architecture
+Storage convention is authoritative in `data/palm_rules/README.md` -- read it there, not restated here.
+
+- **Standing rule**: every chapter follows the same pipeline -- doctrine inventory (`_doctrine/doctrine_<line>.md`) -> rules (`palm_rules_<chapter>_v1.json`) -> reconciliation audit (`_audit/reconciliation_<line>.md`) -> unauthorable register (`unauthorable_register.json`). Authoring is complete for a chapter only when every doctrine statement maps to either a verified rule OR a register entry -- no doctrine statement may go unaccounted for.
+- **MANDATORY reading** before any rule-authoring or reconciliation work (palm now, astrology later): `data/_meta/learnings_for_astrology_rules.md` -- the reusable procedure and the three-vocabularies-drift mistake class it exists to stop from repeating chapter to chapter.
+- **Status**: head line reconciliation is DONE (`data/palm_rules/_audit/reconciliation_head.md`). Heart line is the next audit. All other chapters are backlogged for a future batch sweep, not started.
