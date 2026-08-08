@@ -1,125 +1,48 @@
-# Near-miss margin analysis — dogfood_capture.md since S84 archive/clear
+# Latest Run
 
-Analysis only. No production code or threshold changes.
+## Task: commit scoping — "commit all final files" (docs/data only, per user decision)
 
-## 1. Runs captured since S84 clear
+### Blockers surfaced before acting
+1. **CLAUDE.md Working Style #14** — source-code commits require the literal line
+   `RATIFIED: commit authorized` in the instructing prompt. "commit all final files" does not
+   contain it. Source-code files stay uncommitted: `agent/interpretive/claim_extraction.py`,
+   `agent/palm_processor.py`, `data/ontology_registry.json`,
+   `tests/interpretive/test_claim_extraction.py`, `tests/interpretive/test_palm_rules_table.py`.
+2. `agent/palm_processor.py` / `data/ontology_registry.json` still carry the uncommitted
+   SLOPE MAGNITUDE / threshold / Slope_Magnitude borderline experiments a prior task in this
+   session decided to DISCARD (revert to `5ace6e8`) — committing them now would ship exactly
+   what was ruled out. Untouched.
 
-`diagnostics/dogfood_capture.md` currently holds **3 RUN blocks**, all same
-day (2026-07-31), all `capture_reason: instability, silence`:
+User chose: **"Docs/data only for now"** — commit docs/latest_run.md plus clearly-safe
+untracked data/diagnostics files; leave all source-code files alone until explicitly ratified.
 
-| # | timestamp | capture_reason |
-|---|---|---|
-| 1 | 2026-07-31T15:06:06.947177 | instability, silence |
-| 2 | 2026-07-31T15:13:30.702501 | instability, silence |
-| 3 | 2026-07-31T15:16:23.707563 | instability, silence |
+### Files INCLUDED in this commit
+- `diagnostics/latest_run.md` (this file — docs, exempt from ratification)
+- `data/palm_rules/_candidates/heart_line_positive_candidates_S86.json` (rule-authoring
+  candidate data, generated 2026-08-06 from Cheiro Ch.X heart-line pages 156-161, no PII)
+- `diagnostics/archive/dogfood_capture_20260807T051107Z.md` (diagnostic capture archive,
+  matches the project's documented `dogfood_capture.md` convention — generic hand-description
+  content, no name/PII observed in the file)
 
-No `wrong_source` or `all_rejected` runs in this window. Runs 1 and 2 have
-near-identical LEFT/RIGHT field text (same confirmed descriptions,
-word-for-word) — almost certainly the same user session recaptured across
-retries, not two independent data points. Run 3 adds a HAND_DETAIL capture
-and has a materially different head-line retrieval result (see below).
+### Files EXCLUDED and why (flagged, not committed)
+- `diagnostics/probe_heartline_fullarm.py` — its own module docstring states "Report-only,
+  throwaway, **no commit**, no production file touched." Excluded per the file's own
+  declaration.
+- `scripts/_probe_value_phrasing.py` — stale scratch probe, references the now-removed
+  `registry.value_phrasings` (would raise `RuntimeError` if run), was previously flagged for
+  deletion, not commit.
+- `data/test_images/Athira Palm Left.jpeg` / `Athira Palm Right.jpeg` — real photographs of a
+  named individual, headed into a public GitHub repo that already carries an open, flagged
+  privacy concern (CLAUDE.md S82 open item on `data/default_user/`, `data/sessions/*.json`
+  being tracked against the project's no-storage lock). Excluded pending an explicit decision
+  on this specific case, given that precedent.
 
-**Sample size verdict up front: 3 failing runs, of which 2 are near-
-duplicates of each other. This is well under the <5-run floor this task set
-for drawing a distribution. Reporting plainly per the task's own instruction
-rather than stretching a conclusion — see Section 4.**
+### Files left untouched (source code, blocked without RATIFIED token)
+`agent/interpretive/claim_extraction.py`, `agent/palm_processor.py`,
+`data/ontology_registry.json`, `tests/interpretive/test_claim_extraction.py`,
+`tests/interpretive/test_palm_rules_table.py`.
 
-## 2. Per-run failing-feature near-miss data
-
-"Failing" = `stage1_feature_diagnostics` outcome `empty_first` (Stage-1
-returned RAW=0 claims) or a rejected-then-retried attempt. `unknown` rows
-(sun line, mount of jupiter in runs 1-2) were never queried (absence-phrased
-or no quality resolved) — not a retrieval/extraction failure, excluded below.
-
-| Feature | Run | capture_reason | Rank-1 chunk | Rank-1 score | Rank-3 score (cutoff) | Gap (r1-r3) | Stage-1 outcome |
-|---|---|---|---|---|---|---|---|
-| fate line | 1 | instability, silence | p165_c1 | 0.6002 | 0.5671 | 0.033 | empty_first (raw=0) |
-| fate line | 2 | instability, silence | p165_c1 | 0.6001 | 0.5671 | 0.033 | empty_first (raw=0) |
-| fate line | 3 | instability, silence | p165_c0/p165_c1 (tied) | 0.4942 | 0.4729 | 0.021 | empty_first (raw=0) |
-| fingers | 1 | instability, silence | p96_c0 | 0.5164 | 0.51 | 0.006 | empty_first (raw=0) |
-| fingers | 2 | instability, silence | p96_c0 | 0.5164 | 0.51 | 0.006 | empty_first (raw=0) |
-| fingers | 3 | instability, silence | p96_c0 | 0.5251 | 0.5125 | 0.013 | **success_first** (not a failure this run) |
-| heart line | 1 | instability, silence | p160_c2 | 0.6427 | 0.6061 | 0.037 | empty_first (raw=0) |
-| heart line | 2 | instability, silence | p160_c2 | 0.6427 | 0.6061 | 0.037 | empty_first (raw=0) |
-| heart line | 3 | instability, silence | p159_c3 | 0.6088 | 0.5971 | 0.012 | empty_first (raw=0) |
-| head line | 3 | instability, silence | p151_c2 | 0.5898 | 0.5485 | 0.041 | empty_first (raw=0) — head line SUCCEEDED in runs 1-2, only failed in run 3 |
-| thumb | 1 | instability, silence | p88_c0 | 0.5104 | 0.5041 | 0.006 | success_retry (attempt_1 overlap 0.31 < 0.4 floor for p88_c0, retried, passed) |
-| thumb | 2 | instability, silence | p88_c0 | 0.5104 | 0.5041 | 0.006 | success_retry (attempt_1 overlap 0.38 < 0.4 floor for p88_c0, retried, passed) |
-
-Notes:
-- In every single row above, the rank-3 score (current cutoff) is already
-  within ~0.006-0.041 of the rank-1 score — the same "no cliff" shape S81/S82
-  measured corpus-wide. There is no row where the gap between rank-3 and a
-  buried rank-4+ candidate looks like a real cutoff loss.
-- No feature in any of the 3 runs has its best (or any plausible) candidate
-  outside the top-3 window. `empty_first` is Stage-1 emitting **zero raw
-  claims** (raw=0) given chunks it already had in-window — this is not a
-  rank/window symptom by construction; widening the window would hand the
-  same LLM call the same top-3-plus-more chunks it already saw.
-- thumb's two rejections are the one mechanism actually visible here, and
-  it's the OVERLAP FLOOR (0.4), not rank: a claim WAS extracted (raw=1) from
-  the in-window rank-1/rank-2 chunk (`p88_c0`), scored 0.31 and 0.38 overlap,
-  below the 0.4 floor, rejected on attempt 1, then recovered on retry both
-  times.
-
-## 3. Distribution requested (Section 4 of the task)
-
-Given every failing feature's supporting evidence is already inside the
-current `_N_RESULTS_PER_FEATURE=3` window in all 3 runs:
-- Window=5 would catch: **0 additional failures** (nothing failing here is
-  rank-4/5).
-- Window=8: **0**.
-- Window=10: **0**.
-
-Miss-rank is not "scattered" or "consistent" in the sense the task's
-decision gate asks about, because there IS no buried-rank miss in this data
-— the question the gate poses (uniform stable rank N vs. per-feature
-scatter) doesn't have a live instance to measure from these 3 runs. Zero
-widening cases means this sample cannot support opening the widening case
-at all, let alone characterize its shape.
-
-## 4. Flag: any RUN where the correct chunk never appears in the 30-pool
-
-None identified. All 3 runs are `instability, silence` (not `wrong_source`),
-and every failing feature's near_miss_margin shows a plausible in-doctrine
-top candidate (fate ~p165, fingers ~p96, heart ~p159/160, head ~p145-151) —
-consistent with prior sessions' validated doctrine locations. No feature in
-this window shows a candidate pool that looks corpus-empty or off-topic.
-Nothing here to flag as a corpus/query gap distinct from the S84-confirmed
-pattern below.
-
-## 5. Cross-check against S84's specific claim
-
-S84 (3cc3abe, 3 runs reviewed Jul 31): "near_miss_margin shows NO case of a
-correct/strong candidate buried past rank 3 for any failing feature (fate
-line, fingers, heart line, mount of jupiter all failed with top-3 scores
-0.51-0.68 already in window)."
-
-**These 3 new runs CONFIRM that finding, do not contradict it.** Same
-features (fate line, fingers, heart line) fail again with top-3 scores in
-the same 0.49-0.65 band, still with no buried candidate. New data point:
-run 3 shows **head line** also failing via `empty_first` for the first time
-in this data — but its near_miss_margin top-3 (p151_c2 0.59, p146_c2 0.57,
-p147_c0 0.55) is even stronger than runs 1-2's head-line success case, so
-this is not a new counter-example either; if anything it strengthens the
-case that the bottleneck is downstream of retrieval, not the window.
-
-## 6. Bottom line for the decision this task serves
-
-Per the task's own gate: "if accumulated captures show a consistent
-near-miss margin (correct chunk buried at stable rank N) then widen; else
-per-feature fix." Neither branch is actually supported by this data —
-**there is no buried-rank case to widen for**, consistent or scattered.
-The recurring failure signature across all 3 runs is downstream of
-retrieval (Stage-1 raw=0 extraction, or the 0.4 overlap floor rejecting an
-in-window claim on first attempt) — same as S84's own next-lead note. No
-number is proposed here (Working Style #16/#19) — with 3 total runs (2 of
-them near-duplicate) there isn't enough independent evidence to set
-anything regardless of which branch this pointed to.
-
-**Recommendation for design chat, not a decision made here:** the open
-lead is still the Stage-1 overlap floor / raw=0 extraction behavior (S84's
-own next-session pointer), not the retrieval window. Continue accumulating
-dogfood captures (ASTRO_DOGFOOD_CAPTURE must stay on in the deployed
-frontend per S83's between-session action item) before either widening the
-window or touching the 0.4 floor — 3 runs is too thin to set either number.
+### Git state
+Staged: exactly the 3 included files above (verified via `git diff --cached --stat`).
+Commit SHA and push status: see below (this file was overwritten before staging, so the SHA
+is reported in the chat response, not re-written here).

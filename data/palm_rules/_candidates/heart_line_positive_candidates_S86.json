@@ -1,0 +1,53 @@
+{
+  "meta": {
+    "generated": "2026-08-06",
+    "source_chapter": "Cheiro's Language of the Hand, Chapter X: The Line of Heart",
+    "source_pages_scanned": [
+      156,
+      157,
+      158,
+      159,
+      160,
+      161
+    ],
+    "note_pages_157_158": "diagram pages, page_type=diagram, no extractable text (CLAUDE.md accepted-gap register)",
+    "scope": "single-feature (Line of Heart only), POSITIVE or NEUTRAL configurations only",
+    "cross_referenced_against": "data/palm_rules/palm_rules_head_heart_v1.json (read-only, not edited)",
+    "cross_reference_finding": "21 line_heart rules (HL_001-HL_021) already exist in the production file, all verifier=Sulabh, verified_date=2026-08-02, covering pages 156-161 comprehensively. All 3 seeded known-positive configurations were checked against this set: 'high origin = happiest nature' already exists as HL_011 (verified); 'fork on Mount of Jupiter = true honest nature' already exists as HL_010 (verified); 'fork Jupiter + between first/second fingers = happy tranquil nature' is NOT in the verified set -- this is the one genuine gap, and the only candidate in this file. A full page-by-page re-scan of all 4 text chunks (p156, p159, p160, p161) found no other single-feature positive/neutral configuration missing from the already-verified 21 -- HL_001 (Jupiter origin plain) and HL_003 (between-fingers plain origin) already cover the other two candidates a fresh scan would otherwise surface. No duplicate candidates are included in this file."
+  },
+  "candidates": [
+    {
+      "candidate_id": "HC_001",
+      "source_page": 160,
+      "topic_group": "line_heart",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Line of Heart",
+          "attribute": "Continuity",
+          "value": "forked",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Mount_of_Jupiter",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "proposed_claim": "When the heart line forks with one branch resting on Jupiter and the other between the first and second fingers, it signifies a happy, tranquil nature, good fortune, and happiness in affection.",
+      "source_quote": "When the line of heart forks, with one branch resting on Jupiter, the\nother between the first and second fingers, it is a sign of a happy, tranquil\nnature, good fortune, and happiness in affection",
+      "proposed_valence": "positive",
+      "verified": false,
+      "verifier": null,
+      "needs_human_valence_check": true,
+      "mapping_note": "Two-branch fork: this candidate can only encode ONE branch's location (Starting_Point=rising_from_Mount_of_Jupiter) because Starting_Point is a single-valued attribute in ontology_registry.json -- there is no clean second slot for the other branch's location (\"between the first and second fingers\", which would be Starting_Point=between_Jupiter_and_Saturn per HL_003's existing token). No new attribute was invented per the HARD RULE; flagging for Sulabh to decide whether a second antecedent, a compound value, or a new attribute is warranted. Note also: the existing verified sibling rule HL_013 (same source sentence, negative branch -- \"fork so wide one branch Jupiter, other Saturn = uncertain disposition\") encoded its distinguishing signal via Width=wide rather than Starting_Point; Sulabh may want this candidate's encoding to stay consistent with that choice instead of (or in addition to) the Starting_Point antecedent used here."
+    }
+  ]
+}
