@@ -1334,6 +1334,8 @@
     },
     {
       "rule_id": "H_026",
+      "topic_group": "line_head",
+      "is_compound": false,
       "feature": "Line of Head",
       "role": "base_rule",
       "antecedents": [
