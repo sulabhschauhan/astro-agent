@@ -2527,3 +2527,40 @@ Deferred (not attempted this session):
   change from a prior session (E-5: disjunctive-taxonomy fail-closed, S71 head-line
   valence bug fix), left dirty and untouched across every task this session per explicit
   per-task staging instructions. Still uncommitted as of this entry.
+
+## S86 — Verification architecture + head-line authoring start (2026-08-08)
+
+- **Voicing Step-1 committed** — LLM `[OBS]` fabrication removed from claim voicing; the
+  reading body now renders empty when no rule fires, rather than an LLM-composed
+  observation standing in for a doctrine claim. Step-2 (deterministic bare-obs rendering,
+  so an empty body doesn't read as a UX dead end) is still PENDING/blocking for UX.
+- **Dominant-hand radio → Right default** — committed.
+- **VERIFICATION ARCHITECTURE adopted** (fidelity-not-truth; verify the predicate
+  vocabulary once rather than each rule; §6 mechanical checks; whole-chapter reasoning,
+  never a retrieved chunk or single page in isolation). Locked into CLAUDE.md. Specs:
+  `Prior-Art_Investigation_Deterministic_Citation.md` + `VERIFICATION_ARCHITECTURE.md`
+  (project files).
+- **Head-line "unauthorable" FALSIFIED** — p145's "intellectual strength or weakness"
+  sentence is a chapter SCOPE sentence, not a disjunctive rule and not grounds for
+  unauthorable; p146-148 carry ~27 authorable base rules in Ch VII (Cheiro), independent
+  of hand-type. See `diagnostics/head_chapter_doctrine_map.md`.
+- **S83 heart-line retrieval bug ELIMINATED** — retrieval itself works; the heart-line
+  gap is an AUTHORING gap, not a retrieval defect. p157-158 being absent from the corpus
+  is EXPECTED (they are image plates, confirmed), not a chunking failure.
+- **OCR reality confirmed** — the old JSON corpus is the worst-quality source; the PDF
+  text-layer and a manual paste both yield the same, cleaner OCR quality. No clean
+  born-digital edition exists (Project Gutenberg's Cheiro text is a different book, not
+  usable as a cleaner source). Clean page-anchored citation corpus built:
+  `data/cheiro/cheiro_clean_v1.json` (SHA `644f667`), `page_ref = pdf_index + 1`
+  validated, `page_type` inherited from the source. Reference full text:
+  `data/cheiro/cheiro_pdf_fulltext.md`.
+- **Fidelity anchor = human image-proofread of CITED sentences only** — not a bulk OCR
+  re-clean. Example: the stored "Boliemianism" garble was caught and corrected to
+  "Bohemianism" by eyeballing the page image for that one cited span, not by an OCR pass
+  over the whole corpus.
+- **H_026 authored** — Ch VII row 7 ("entire line slight slope → leaning toward
+  imaginative work"), the first span-anchored extractive rule under the new
+  verification architecture, §6-passing (source spans resolve, lexically grounded,
+  operative not scope, `Line of Head` now has 23 rules, `Slope`/`downward` vocabulary
+  already closed-registry). Live dogfood-confirmed voicing the imaginative-work claim
+  before commit. Committed `be9d9b5` on `wip/interpretive-pilot`.
