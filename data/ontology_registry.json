@@ -1002,6 +1002,9 @@
       "Hollow of Hand"
     ]
   },
+  "attribute_value_binding": {
+    "Slope": ["upward", "downward", "straight"]
+  },
   "change_log": [
     {
       "version": "1.1.0",

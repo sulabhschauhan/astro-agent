@@ -90,14 +90,34 @@ silently paper over a mismatch)
    a rejection path for a field whose entire purpose is showing what the
    model GUESSED, including wrong guesses.
 
-5. Closed-vocabulary construction (`_CLOSED_VOCAB`) reuses
-   `observation_to_tokens.py`'s own already-documented interpretation of
-   `ontology_registry.json` (that module's docstring point 3): the flat
-   union of every values-category list is treated as the valid value
-   pool for ANY attribute valid for a feature, since the registry
-   provides no authoritative narrower attribute -> value-category
-   binding and real verified rules need cross-category value use to
-   validate at all. Unchanged from the prior version of this module.
+5. Closed-vocabulary construction (`_CLOSED_VOCAB`) is now BINDING-AWARE,
+   with the flat pool as the fallback. The registry's
+   `attribute_value_binding` block (added 2026-08-08) names, per
+   attribute, the narrow value set that attribute may take. For any
+   attribute that HAS a binding, both the Python guard (`_CLOSED_VOCAB`)
+   and the per-feature prompt block (`_build_user_prompt`'s VALUE
+   CONSTRAINTS line) use that narrow set. For any attribute WITHOUT a
+   binding, behavior is byte-identical to the prior version: the flat
+   union of every values-category list (`_ALL_VALUES`) is the valid pool,
+   per `observation_to_tokens.py`'s own docstring point 3, since the
+   registry supplies no narrower binding for it and real verified rules
+   need cross-category value use to validate at all.
+
+   WHY: the flat pool let a generic near-token win over the specific one
+   when both live in the same category. Measured (dogfood
+   2026-08-08T23:10:58, Athira): head-line prose "...slightly sloping
+   downward toward the wrist..." -> the model emitted Slope="sloping",
+   the flat guard accepted it, and H_026 (antecedent Slope="downward",
+   exact match) never fired. `attribute_value_binding.Slope =
+   [upward, downward, straight]` removes "sloping" from Slope's legal
+   set in BOTH the prompt and the guard, leaving "downward" as the only
+   legal Slope token the prose supports.
+
+   The GLOBAL ALLOWED VALUE VOCABULARY block in the system prompt is
+   deliberately left as the full flat pool -- it is the vocabulary for
+   every UNBOUND attribute, and the per-attribute VALUE CONSTRAINTS line
+   overrides it only for the bound ones, so unbound-attribute guidance is
+   unchanged.
 
 6. Confidence is computed ENTIRELY in Python from source-prose hedge-word
    detection (`_confidence_for_text`), never read from the LLM's own
@@ -179,17 +199,88 @@ _ALL_ONTOLOGY_FEATURES: frozenset[str] = frozenset(
 )
 
 
+def _load_attribute_value_binding() -> dict[str, tuple[str, ...]]:
+    """attribute -> narrow tuple of the ONLY values that attribute may
+    take, from the registry's OPTIONAL `attribute_value_binding` block
+    (module docstring point 5). An attribute absent from this map falls
+    back to `_ALL_VALUES` everywhere -- the block is additive, and a
+    registry without it reproduces the pre-binding behavior exactly.
+
+    Fail-closed on a MALFORMED block (present but not an object, or an
+    entry that isn't a non-empty list of strings) rather than silently
+    dropping the narrowing: a binding that quietly reverts to the flat
+    pool is exactly the undiagnosable-silence class this module exists to
+    remove. A binding value that isn't in the global value pool is
+    LOGGED, not rejected -- it stays legal for that attribute (the
+    per-attribute VALUE CONSTRAINTS prompt line still names it), but it
+    would never appear in the GLOBAL ALLOWED VALUE VOCABULARY block, so
+    the mismatch is worth surfacing.
+    """
+    raw = _REGISTRY.get("attribute_value_binding")
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(
+            "observation_extractor: ontology_registry.json's "
+            "'attribute_value_binding' is present but is not an object "
+            f"(got {type(raw).__name__}) -- refusing to fall back silently "
+            "to the flat value pool."
+        )
+    binding: dict[str, tuple[str, ...]] = {}
+    for attribute, values in raw.items():
+        if (
+            not isinstance(values, list)
+            or not values
+            or not all(isinstance(v, str) and v for v in values)
+        ):
+            raise ValueError(
+                "observation_extractor: ontology_registry.json's "
+                f"'attribute_value_binding[{attribute!r}]' must be a non-empty "
+                f"list of strings -- got {values!r}."
+            )
+        orphans = [v for v in values if v not in _ALL_VALUES_SET]
+        if orphans:
+            logger.info(
+                "observation_extractor: attribute_value_binding[%r] names value(s) "
+                "%r absent from the registry's global value pool -- kept as legal "
+                "for this attribute, but they are not in the GLOBAL ALLOWED VALUE "
+                "VOCABULARY prompt block.", attribute, orphans,
+            )
+        binding[attribute] = tuple(values)
+    return binding
+
+
+try:
+    _ATTRIBUTE_VALUE_BINDING: dict[str, tuple[str, ...]] = _load_attribute_value_binding()
+except ValueError:
+    raise
+except Exception as exc:  # noqa: BLE001 -- re-raised immediately, named, not swallowed
+    raise RuntimeError(
+        "observation_extractor: failed to read 'attribute_value_binding' from "
+        f"{_DEFAULT_REGISTRY_PATH}: {exc}"
+    ) from exc
+
+
+def _values_for_attribute(attribute: str) -> tuple[str, ...]:
+    """The legal value tuple for `attribute`: its narrow binding if the
+    registry declares one, else the flat `_ALL_VALUES` pool (module
+    docstring point 5). Single source of truth for BOTH the Python guard
+    (`_build_closed_vocab`) and the prompt (`_build_user_prompt`), so the
+    two can never disagree about what a bound attribute may emit."""
+    return _ATTRIBUTE_VALUE_BINDING.get(attribute, _ALL_VALUES)
+
+
 def _build_closed_vocab() -> dict[str, dict[str, tuple[str, ...]]]:
     """Per ontology feature -> {attribute: (value, ...)}, built once at
-    module load. Every attribute's value tuple is the SAME `_ALL_VALUES`
-    (see module docstring point 5) -- the dict shape is kept literal
-    rather than collapsed to a flat set, since it is what both the
-    Python-side fail-closed guard and the per-feature prompt block key
-    off of."""
+    module load. An attribute's value tuple is its narrow
+    `attribute_value_binding` set when the registry declares one, else
+    the flat `_ALL_VALUES` (see module docstring point 5) -- the dict
+    shape is what both the Python-side fail-closed guard and the
+    per-feature prompt block key off of."""
     vocab: dict[str, dict[str, tuple[str, ...]]] = {}
     for feature in _ALL_ONTOLOGY_FEATURES:
         attrs = {
-            attribute: _ALL_VALUES
+            attribute: _values_for_attribute(attribute)
             for attribute, features in _ATTRIBUTE_FEATURE_MAP.items()
             if feature in features
         }
@@ -331,11 +422,26 @@ def _build_user_prompt(entries: list[tuple[str, str, str]]) -> str:
     blocks = []
     for _prose_feature, ontology_feature, text in entries:
         valid_attributes = sorted(_CLOSED_VOCAB.get(ontology_feature, {}))
-        blocks.append(
+        block = (
             f"FEATURE: {ontology_feature}\n"
             f"PROSE: {text}\n"
             f"VALID ATTRIBUTES FOR THIS FEATURE: {', '.join(valid_attributes)}"
         )
+        # Per-attribute narrowing, emitted ONLY for attributes the registry
+        # actually binds (module docstring point 5). An unbound attribute
+        # gets no line here at all, so its guidance stays exactly what it
+        # was before bindings existed: the GLOBAL ALLOWED VALUE VOCABULARY
+        # block in the system prompt.
+        constrained = [a for a in valid_attributes if a in _ATTRIBUTE_VALUE_BINDING]
+        if constrained:
+            constraint_lines = "; ".join(
+                f"{a}: {', '.join(_ATTRIBUTE_VALUE_BINDING[a])}" for a in constrained
+            )
+            block += (
+                "\nVALUE CONSTRAINTS (choose only from these for the named "
+                f"attribute, overriding the global vocabulary): {constraint_lines}"
+            )
+        blocks.append(block)
     return "\n\n".join(blocks) + "\n\nExtract observations per your instructions."
 
 
