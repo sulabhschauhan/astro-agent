@@ -2564,3 +2564,41 @@ Deferred (not attempted this session):
   operative not scope, `Line of Head` now has 23 rules, `Slope`/`downward` vocabulary
   already closed-registry). Live dogfood-confirmed voicing the imaginative-work claim
   before commit. Committed `be9d9b5` on `wip/interpretive-pilot`.
+
+## S87 — Slope silence fixed via ontology binding; borderline let-be ratified (2026-08-09)
+- **Slope-line silence ROOT-CAUSED to the OBSERVATION->TOKEN layer** (NOT retrieval, NOT
+  authoring — both previously settled). Two parts: (a) vision emitted narrative prose
+  instead of a token -> fixed with an explicit SLOPE enum in the vision prompt
+  (`agent/palm_processor.py`); (b) the ontology's flat value pool let `Slope` map to
+  `"sloping"` instead of `"downward"` -> fixed with `attribute_value_binding` (per-attribute
+  value narrowing in `data/ontology_registry.json`), consumed GENERICALLY by
+  `observation_extractor.py`'s `_values_for_attribute` — no slope-specific code added.
+- **H_026** (the first head-line rule) now FIRES and VOICES live, cited to Cheiro p146.
+  Committed `5ace6e8` on `wip/interpretive-pilot`.
+- **RATIFIED**: `attribute_value_binding` is the standard pattern for any prose->token gap —
+  the ontology is the single source of truth, consumption is generic, no hardcoded phrase
+  lists. Adding a bound attribute is registry data only, no extractor/rule code change
+  required.
+- **RATIFIED**: borderline straight-vs-slight head slope is INHERENTLY non-deterministic.
+  Measured on Athira's right hand, N=15 independent calls at temperature=0: `straight` x13,
+  `downward` x2 — the vision model itself alternates its own description, not just the
+  token. A follow-up explicit slope-threshold prompt edit (cheap N=6 re-test, same hand) did
+  not eliminate the flip either (5 straight / 1 downward). DECISION: LET IT BE — do not
+  force, sample, or stabilize the boundary; a borderline line honestly reads differently
+  across calls, as different palmists would read it differently. Accept the per-call slope;
+  H_026 fires or not on whatever the model sees that call.
+- **Slope_Magnitude** (`slight`/`very`) attempted and DISCARDED by decision — not needed
+  until rules for clearly-sloping hands (doctrine row 8, Cheiro "very sloping" ->
+  Bohemianism) are authored. A deliberate deferral, not a gap. NOTE: the uncommitted
+  prompt/ontology additions for this experiment (SLOPE MAGNITUDE vision lines, the slope
+  threshold text, and the Slope_Magnitude ontology entries) are queued for a working-tree
+  revert but NOT YET reverted as of this entry — a separate git-op task stopped on its own
+  safety gate (unrelated modified tracked files: `agent/interpretive/claim_extraction.py` and
+  two of its tests) before running the checkout. Committed state (`5ace6e8`) already carries
+  only the SLOPE enum + `attribute_value_binding.Slope`, unaffected either way.
+- **Bucket-2 hardcoding audit** (prose->token conversion done via hand-written phrase lists,
+  the pattern `attribute_value_binding` replaces) recorded for later retirement:
+  `phrase_normalizer.py` + `data/palm_rules/palm_phrase_lexicon_v1.json`
+  (`match_any`/`must_not_match`), and `palm_reading.py`'s `_ABSENCE_PHRASES`/`_is_absence` +
+  needle keyword routing (Presence should become an ontology attribute).
+  `observation_extractor.py` is the GOOD constrained-extraction template going forward.

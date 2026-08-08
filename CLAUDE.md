@@ -119,6 +119,8 @@ Learnings from the head/life-line descriptor fixes (width, direction) and the ex
 2. **Not all silence is a gap** — a plain healthy heart line or a medium-width life line has no Cheiro doctrine to fire on; forcing a rule there is unsourced invention. Honest silence is the product working as designed.
 3. **Rules-vs-vision mismatch is the dominant palm failure class** (this arc) — rules keyed on narrow/direction/clear dimensions the vision descriptor never elicited. Fix = add the missing dimension to the descriptor, not the rule. Validated: adding width to the descriptor unblocked L_001.
 4. **Instrumentation must be rendered, not just stored** — a diagnostics dict key (e.g. `phrase_promotions`) is invisible until the dogfood FORMATTER (`frontend/app.py`) actually renders it. Any new diagnostic field must be wired through to the capture, not just populated upstream.
+5. **`attribute_value_binding` pattern** — constraining observation extraction = declare the legal value set per attribute in `ontology_registry.json`'s `attribute_value_binding`; `observation_extractor` consumes it generically. Never enumerate prose phrases in code or lexicons to map observations.
+6. **Let borderline be** — for inherently ambiguous vision features (e.g. straight vs slight slope), do NOT engineer forced determinism or multi-sample stabilization. Accept the honest per-call read; honest variance beats confident-wrong.
 
 ## Calculation Architecture (Session 19+)
 Every new calculation module lives in its `calculations/` subpackage; never add calculation logic to a top-level file.
