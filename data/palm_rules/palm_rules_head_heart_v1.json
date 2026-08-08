@@ -1331,6 +1331,36 @@
       "schema_flags": [
         "C2: mirror of HL_006/C3; Quadrangle-narrow encodes the head-heart closeness"
       ]
+    },
+    {
+      "rule_id": "H_026",
+      "feature": "Line of Head",
+      "role": "base_rule",
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Slope",
+          "value": "downward"
+        }
+      ],
+      "claim": "A head line with a slight downward slope indicates a leaning toward imaginative rather than practical work.",
+      "source_chunk_id": "cheiroslanguageo00chei_1_p146",
+      "source_page": 146,
+      "condition_span": [
+        1580,
+        1619
+      ],
+      "condition_text": "When the entire line has a slight slope",
+      "consequence_span": [
+        1621,
+        1665
+      ],
+      "consequence_text": "there is a leaning toward imag¬\ninative work",
+      "source_quote": "When the entire line has a slight slope, there is a leaning toward imag¬\ninative work",
+      "verified": true,
+      "verifier": "Sulabh",
+      "modifier_excluded": "hand-type art-form clause (music/painting/literature/invention) intentionally NOT authored -- deferred modifier",
+      "notes": "SAMPLE rule. Slope=downward matches descriptor emission. Row 8 (very sloping->idealism) parked pending slight/very descriptor grain."
     }
   ],
   "parked_pending_relation_target": [
