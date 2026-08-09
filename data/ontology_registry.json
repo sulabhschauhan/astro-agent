@@ -217,6 +217,7 @@
       "Color",
       "Direction",
       "Slope",
+      "Slope_Magnitude",
       "Curve",
       "Starting_Point",
       "Ending_Point",
@@ -608,6 +609,10 @@
       "broader_than_long",
       "longer_than_broad",
       "equal_length_and_breadth"
+    ],
+    "magnitude_values": [
+      "slight",
+      "very"
     ]
   },
   "comparators": [
@@ -679,6 +684,13 @@
       "Girdle of Venus"
     ],
     "Slope": [
+      "Line of Head",
+      "Line of Heart",
+      "Line of Fate",
+      "Line of Marriage",
+      "Girdle of Venus"
+    ],
+    "Slope_Magnitude": [
       "Line of Head",
       "Line of Heart",
       "Line of Fate",
@@ -1003,7 +1015,15 @@
     ]
   },
   "attribute_value_binding": {
-    "Slope": ["upward", "downward", "straight"]
+    "Slope": [
+      "upward",
+      "downward",
+      "straight"
+    ],
+    "Slope_Magnitude": [
+      "slight",
+      "very"
+    ]
   },
   "change_log": [
     {
@@ -1029,5 +1049,64 @@
       "change": "Map Curve->Line of Life; add 2 arc values (sweeping_wide, close_to_Mount_of_Venus) for p139 intrinsic life-line arc doctrine. NO branch/ray tokens added - those remain relational (Line of Influence, deferred).",
       "rationale": "Branch-to-mount doctrine is relational, not intrinsic; extending Line of Life with Position/Direction would mis-model branches. Only the life line's own arc is an intrinsic gap."
     }
+  ],
+  "relation_target_registry": [
+    "Line of Life",
+    "Line of Head",
+    "Line of Heart",
+    "Line of Fate",
+    "Line of Sun",
+    "Line of Health",
+    "Line of Mars",
+    "Line of Marriage",
+    "Line of Intuition",
+    "Via Lasciva",
+    "Line of Influence",
+    "Girdle of Venus",
+    "Ring of Saturn",
+    "Ring of Solomon",
+    "Bracelets",
+    "Travel Line",
+    "Child Line",
+    "Mount of Venus",
+    "Mount of Jupiter",
+    "Mount of Saturn",
+    "Mount of the Sun",
+    "Mount of Mercury",
+    "Upper Mount of Mars",
+    "Lower Mount of Mars",
+    "Mount of Luna",
+    "Plain of Mars",
+    "First Finger",
+    "Second Finger",
+    "Third Finger",
+    "Fourth Finger",
+    "Finger Tips",
+    "Finger Joints",
+    "Finger Phalanges",
+    "Star",
+    "Cross",
+    "Square",
+    "Island",
+    "Circle",
+    "Spot",
+    "Grille",
+    "Triangle",
+    "La Croix Mystique",
+    "Tassel",
+    "Fork",
+    "Tripod",
+    "Bar",
+    "Dot",
+    "Palm",
+    "Left Palm",
+    "Right Palm",
+    "Quadrangle",
+    "Hollow of Hand",
+    "Wrist",
+    "Back of Hand",
+    "Skin",
+    "Percussion",
+    "Base of Thumb"
   ]
 }
