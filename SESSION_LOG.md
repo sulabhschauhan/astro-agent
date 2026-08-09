@@ -2603,3 +2603,11 @@ Deferred (not attempted this session):
   needle keyword routing (Presence should become an ontology attribute).
   `observation_extractor.py` is the GOOD constrained-extraction template going forward.
 S88 ORDERING LOCK: H_001 (old-schema duplicate of H_027, same Jupiter+touching+long doctrine) MUST be retired or cross-referenced BEFORE any Starting_Point/Proximity vision-enum + attribute_value_binding is authored — both fire identically once those tokens bind, causing double-voicing. Both currently silent (tokens unbound), so latent not live.
+
+## S89 (2026-08-09) — Relational vision block validated, enhancement rejected
+
+GROUND TRUTH (Athira right palm, human-verified): HEAD origin=Line of Life (joins under index, touching/intertwined); slope=slight-down; ends left/lower palm edge. HEART origin=between index-middle (Jupiter); ends pinky/percussion (Mercury); medium gap to head line (quadrangle). FATE origin=Wrist; deep lower / faint upper; ends ~Saturn. No marks on any line.
+
+ENHANCEMENT VERDICT: A/B N=10 each — REJECTED. Enhanced 13/15 vs original 14/15 GT; faint fate upper NOT surfaced (0/10 both); zero fabrication both. Revisit only for genuinely unreadable images, not as default stage.
+
+CALIBRATION FINDINGS: (1) proximity_degree is dead — model says "medium" universally; only proximity_target carries signal; degree-based antecedents (e.g. H_027 "touching") won'''t fire → honest silence. (2) Vision cannot read intra-line depth variation (faint-upper fate read as uniformly deep 20/20).
