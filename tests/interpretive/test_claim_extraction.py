@@ -17,7 +17,12 @@ import json
 
 import pytest
 
-from agent.interpretive.claim_extraction import Claim, ExtractionResult, extract_claims
+from agent.interpretive.claim_extraction import (
+    Claim,
+    ExtractionResult,
+    _is_two_sided_definitional,
+    extract_claims,
+)
 
 # ─── Fake OpenAI client -- transplanted from test_palm_reading.py ────────
 
@@ -501,6 +506,100 @@ def test_e4_corrective_claim_retained_not_excluded():
     assert claim.excluded_from_voice is False
     assert claim.exclusion_reason is None
     assert result.diagnostics["exclusion_ledger"] == []
+
+
+# ─── E-5: disjunctive-taxonomy fail-closed (S71 head-line valence bug) ───
+# Real claim_text strings, sourced verbatim from diagnostics/dogfood_capture.md.
+
+
+@pytest.mark.parametrize(
+    "claim_text,expected_signal",
+    [
+        pytest.param(
+            "The line of head relates principally to the mentality of the "
+            "subject, including intellectual strength or weakness and the "
+            "direction and quality of talent.",
+            "S1:antonym-pair",
+            id="p145_c0_strength_or_weakness",
+        ),
+        pytest.param(
+            "The line of head divides the hand into two parts, representing "
+            "mind and material.",
+            "S2:definitional",
+            id="bare_taxonomy_divides_the_hand",
+        ),
+    ],
+)
+def test_e5_flags_disjunctive_taxonomy(claim_text, expected_signal):
+    signal = _is_two_sided_definitional(claim_text)
+    assert signal is not None
+    assert signal == expected_signal
+
+
+@pytest.mark.parametrize(
+    "claim_text",
+    [
+        pytest.param(
+            "A long, deep, and narrow line of life without irregularities "
+            "promises long life, good health, and vitality.",
+            id="life_line_quality_qualifiers",
+        ),
+        pytest.param(
+            "When the line of life sweeps far out into the hand, it is a "
+            "sign of good physical strength and long life.",
+            id="life_line_sweeps_quality_word",
+        ),
+        pytest.param(
+            "A well-developed Mount of Venus indicates strong and robust health.",
+            id="mount_of_venus_no_definitional_predicate",
+        ),
+        pytest.param(
+            "A well-formed thumb that is not too close to the side or at "
+            "right angles to the palm indicates a nature that is independent.",
+            id="thumb_no_line_or_mount_subject_a",
+        ),
+        pytest.param(
+            "A well-formed thumb that is not too close to the palm indicates "
+            "independence of spirit and strength of character.",
+            id="thumb_no_line_or_mount_subject_b",
+        ),
+        pytest.param(
+            "The statement that in every case the fingers must be longer "
+            "than the palm is erroneous and misleading.",
+            id="fingers_no_subject_no_antonym_pair",
+        ),
+    ],
+)
+def test_e5_keeps_genuine_one_sided_claims(claim_text):
+    assert _is_two_sided_definitional(claim_text) is None
+
+
+def test_e5_integration_p145_head_line_claim_excluded_via_apply_e4():
+    # Real p145_c0 doctrine, valence="supports", condition_text=None -- E-4
+    # never touches this (not conditional, no condition_text); E-5 must
+    # catch it on the S1 antonym-pair signal.
+    chunk_text = (
+        "The line of head relates principally to the mentality of the "
+        "subject, including intellectual strength or weakness and the "
+        "direction and quality of talent."
+    )
+    gated_results = {"head line": [_chunk("p145_c0", chunk_text)]}
+    texts_by_feature = {"head line": "A long, straight head line."}
+    resp = _response("head line", [_raw_claim(
+        chunk_id="p145_c0", claim_text=chunk_text, valence="supports", condition_text=None,
+    )])
+    client = _FakeClient(content=resp)
+
+    result = extract_claims(gated_results, texts_by_feature, client=client)
+
+    assert len(result.claims) == 1
+    claim = result.claims[0]
+    assert claim.excluded_from_voice is True
+    assert claim.exclusion_reason.startswith("disjunctive-taxonomy (S71)")
+    ledger = result.diagnostics["exclusion_ledger"]
+    assert len(ledger) == 1
+    assert ledger[0]["claim_id"] == claim.claim_id
+    assert ledger[0]["feature"] == "head line"
 
 
 # ─── Retry cap ───────────────────────────────────────────────────────────

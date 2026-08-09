@@ -330,6 +330,56 @@ class ExtractionResult:
 
 _UNVERIFIED_PRECONDITION_REASON = "precondition unverified"
 
+# ─── E-5: disjunctive-taxonomy fail-closed (S71 head-line valence bug) ───
+# CITATION: CLAUDE.md S71 "T4 RATIFICATION REVERSED" -- Run A row 5
+# (cheiroslanguageo00chei_1_p145_c0) voiced a one-sided positive claim
+# ("intellectual strength") from doctrine that is actually a neutral
+# strength-OR-weakness disjunction, with valence="supports" and
+# condition_text=None, so E-4 never touched it. E-5 is a second,
+# independent fail-closed check on the SAME chunk-text pathology class:
+# doctrine that is definitional/taxonomic (what a line IS or divides) or
+# genuinely two-sided (states both poles of an outcome), never a real
+# one-sided claim, regardless of what valence label the model assigned it.
+_DISJUNCTIVE_TAXONOMY_REASON = "disjunctive-taxonomy (S71)"
+
+_ANTONYM_PAIRS = (
+    ("strength", "weakness"), ("strong", "weak"),
+    ("good", "bad"), ("good", "evil"),
+    ("fortunate", "unfortunate"), ("fortune", "misfortune"),
+    ("success", "failure"), ("positive", "negative"),
+)
+_DEFINITIONAL_PREDICATES = frozenset({
+    "relates principally to", "relates to", "is concerned with",
+    "divides the hand", "represents", "governs",
+    "is of importance in connection with", "is of extreme importance",
+})
+_QUALITY_LEXICON = frozenset({
+    "long", "short", "deep", "shallow", "narrow", "broad", "wide",
+    "well-formed", "well formed", "well-developed", "well developed",
+    "straight", "curved", "curving", "sweeps", "faint",
+    "barely visible", "broken", "chained", "forked", "island",
+    "high-set", "low-set", "high set", "low set",
+    "wide angle", "right angles",
+})
+
+
+def _is_two_sided_definitional(claim_text: str) -> str | None:
+    """S71 disjunctive-taxonomy detector. Reads claim_text only
+    (Stage-1 faithful). Threshold-free, closed lexicons.
+    S1: both poles of an antonym pair present -> two-sided.
+    S2: line/mount subject + definitional predicate + NO morphology
+    qualifier -> bare taxonomy. Returns signal name or None."""
+    t = claim_text.lower()
+    for a, b in _ANTONYM_PAIRS:
+        if re.search(rf"\b{a}\b", t) and re.search(rf"\b{b}\b", t):
+            return "S1:antonym-pair"
+    has_subject = ("line of" in t) or ("mount of" in t)
+    has_predicate = any(p in t for p in _DEFINITIONAL_PREDICATES)
+    has_quality = any(q in t for q in _QUALITY_LEXICON)
+    if has_subject and has_predicate and not has_quality:
+        return "S2:definitional"
+    return None
+
 
 def _apply_e4(
     accepted_raw_claims: list[dict], feature: str, observation_text: str, counter: itertools.count,
@@ -364,6 +414,13 @@ def _apply_e4(
             else:
                 excluded = True
                 reason = _UNVERIFIED_PRECONDITION_REASON
+
+        # E-5: two-sided/definitional doctrine -> fail-closed exclude
+        if not excluded and valence == "supports":
+            e5 = _is_two_sided_definitional(raw_claim["claim_text"])
+            if e5:
+                excluded = True
+                reason = f"{_DISJUNCTIVE_TAXONOMY_REASON}:{e5}"
 
         claim = Claim(
             claim_id=claim_id,
