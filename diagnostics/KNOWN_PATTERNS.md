@@ -28,11 +28,32 @@ stale and will not `git cat-file -t` successfully.
   Establish existence by direct `collection.get(ids=[...])` lookup, never by
   whether a chunk appears in ranked output. Conflating these produced a
   false DATA verdict and three sessions of wrong direction (S81).
+- **Validate vision-PROMPT changes on a real ground-truthed image, never the
+  suite (fake client).** A pytest suite mocks the LLM client and cannot
+  detect a real vision-model regression from a prompt edit — only a live
+  run against a human-verified ground-truth image can. Ruling: S90.
+- **Self-consistency is not correctness.** N-run agreement across repeated
+  calls measures precision (the model is stable), not accuracy (the model
+  is right) — a model can stably confabulate the same wrong answer every
+  time. Ruling: S90.
+- **Palm vision reads only clearly-visible lines.** Faint, occluded, or
+  fold-dependent lines are NOT forced into a definite reading — honest
+  silence; the astrology track covers the gap a flat photo leaves (a
+  palmist sees more by folding/pressing/tilting the hand than any photo
+  can show). Ruling: S90.
+- **Origin/termination landmarks are a closed, book-derivable set per
+  line.** Enumerate the possible values from the source text first and
+  constrain vision to that per-line menu — do not build general
+  open-world LLM origin/termination logic. Ruling: S90.
 
 ## Patterns
 
 | ID | Symptom (what a future session would observe) | Root cause | Status | Evidence (session #, commit) |
 |---|---|---|---|---|
+| P-020 | A vision-emitted relation_target landmark is silently dropped by the extractor (e.g. generic "Mount of Mars"). | Vocabulary drift — vision emits a generic landmark name absent from `relation_target_registry`, which holds only specific variants (Upper/Lower Mount of Mars). | RESOLVED-BY-DESIGN — Prompt 5a/5b enumerates the book's closed per-line origin/termination menu and constrains the vision prompt to name the specific registry variant; no generic alias needed. | S90, Prompt-4 run |
+| P-019 | A known faint/varying-depth line segment (e.g. faint-upper fate line) never surfaces as anything but uniform depth across repeated vision runs. | Vision cannot read intra-line depth variation from a flat photo — reads the whole line as one uniform depth value. | SETTLED (honest silence) — do not force a depth-variation read; out of scope for a flat photo (see palm-scope standing rule). | S89 |
+| P-018 | A vision-reported attribute never discriminates between hands/runs — every value comes back identical (e.g. `proximity_degree` always "medium"). | The attribute carries no real signal for this model/prompt; not an extraction bug. | SETTLED (honest silence) — drop the dead attribute from rule antecedents, do not chase a fix. | S89 |
+| P-017 | Verified rules go silent (stop firing) immediately after an unrelated `attribute_value_binding` addition to the ontology registry. | The extractor's closed-vocabulary guard narrows to the new binding immediately; baked antecedent values that predate the migration fall outside the narrowed set and are dropped before any rule can match. | SETTLED — bind `attribute_value_binding` LAST, atomically with the rule+pool migration, never as a standalone early step. | S89/S90, `b62d1ef` |
 | P-016 | Stage-1 extraction outcomes (`empty_first` raw=0, or overlap-floor rejection at 0.4) vary run to run for the same or similar feature/chunk pairing, with no fixed ground truth to check a given call's behavior against. | Each palm reading runs Stage-1 extraction live, per-request, against a runtime threshold (`_PARAPHRASE_OVERLAP_FLOOR=0.4`) with no offline-verified baseline — every call is a fresh judgment with nothing to calibrate or regression-test it against. | SUPERSEDING FIX IN PROGRESS — see CLAUDE.md V1.1 register, offline-verified-extraction pilot (Cheiro-scoped) | S84 `near_miss_margin` data; this session's `dogfood_capture.md` re-analysis (`diagnostics/latest_run.md`) |
 | P-015 | A compound conditional claim spanning two features (e.g. head-line + heart-line combination doctrine) never gets surfaced — no single-chapter retrieval or extraction step can assemble it. | Doctrine for compound/cross-chapter conditions is genuinely split across chapters in the source text; the S82 page-range gate is chapter-scoped by design, so no per-chapter retrieval call can join conditions that live in different chapters. | SUPERSEDING FIX IN PROGRESS — same pilot, extraction re-scoped book-wide (not chapter-grouped) to handle this class | This session, `playbook_export/decisions/rule-engine-v1_5-design.md` addendum |
 | P-014 | fate line / fingers / heart line fail production runs despite correct doctrine chunks present and well-scored in the candidate pool; one head-line failure occurred even with a STRONGER top-3 than passing runs of the same feature. | RULED OUT as a window/rank problem — 3 production runs post-S84 show zero buried-rank cases, no-cliff shape holds (rank-3 within 0.006-0.041 of rank-1 in every failing row); the stronger-top-3-yet-failing head-line case rules out rank position as the mechanism entirely. | RETIRED (do not re-open without new contradicting evidence) — superseded by the offline-extraction pilot (P-016), not further threshold work | `diagnostics/latest_run.md` (this session's capture-net analysis) |
