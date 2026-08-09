@@ -55,12 +55,12 @@ _DEFAULT_RULES_PATH = (
 # drafts like deterministic_rule_book.json) is never picked up automatically.
 _DEFAULT_RULES_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "palm_rules"
 
-# The 6 antecedent fields this task's schema specifies. Any OTHER key
+# The 7 antecedent fields this task's schema specifies. Any OTHER key
 # present on a raw antecedent dict (e.g. H_011's "hand_side": "both") is
 # silently dropped when building an Antecedent -- not an error, just out
 # of this schema's scope; see the module's own report for the one
 # concrete instance this drops in the current data (H_011).
-_ANTECEDENT_FIELDS = ("feature", "attribute", "value", "condition_type", "comparator", "comparator_feature")
+_ANTECEDENT_FIELDS = ("feature", "attribute", "value", "condition_type", "comparator", "comparator_feature", "relation_target")
 
 
 @dataclass(frozen=True)
@@ -71,13 +71,19 @@ class Antecedent:
     condition_type: str
     comparator: str | None
     comparator_feature: str | None
+    relation_target: str | None = None
 
     def signature(self) -> tuple:
         """Hashable identity used for antecedent-SET comparison in
         resolve_priority() -- two antecedents are "the same condition"
         only if every field matches, so a comparative antecedent (value
-        is always None) is never confused with a standard one."""
-        return (self.feature, self.attribute, self.value, self.condition_type, self.comparator, self.comparator_feature)
+        is always None) is never confused with a standard one, and a
+        directed antecedent (relation_target set) is never confused with
+        its undirected counterpart."""
+        return (
+            self.feature, self.attribute, self.value, self.condition_type,
+            self.comparator, self.comparator_feature, self.relation_target,
+        )
 
 
 @dataclass(frozen=True)
@@ -194,7 +200,7 @@ def load_rule_set(rules_dir: Path | str = _DEFAULT_RULES_DIR) -> tuple[PalmRule,
     return tuple(all_rules)
 
 
-def _antecedent_fires(antecedent: Antecedent, observation: dict, magnitudes: dict) -> bool:
+def _antecedent_fires(antecedent: Antecedent, observation: dict, magnitudes: dict, targets: dict) -> bool:
     if antecedent.condition_type == "comparative":
         feature_mags = magnitudes.get(antecedent.feature)
         other_mags = magnitudes.get(antecedent.comparator_feature)
@@ -214,23 +220,45 @@ def _antecedent_fires(antecedent: Antecedent, observation: dict, magnitudes: dic
     # standard (or any other condition_type): plain equality lookup.
     # Unknown feature/attribute -> .get(...) chain returns None, which
     # never equals a real value string -- fails silently, no raise.
-    return observation.get(antecedent.feature, {}).get(antecedent.attribute) == antecedent.value
+    if observation.get(antecedent.feature, {}).get(antecedent.attribute) != antecedent.value:
+        return False
+    if antecedent.relation_target is None:
+        return True
+    # Directed antecedent: the plain value matched, but a relation_target
+    # is also required -- fail-closed if `targets` has no entry, or a
+    # mismatched one, for this (feature, attribute). No relation_target
+    # machinery upstream yet means this branch is unreachable on any
+    # currently-loaded rule (all relation_target fields are None), but is
+    # written fail-closed now so a future un-parked rule can never fire
+    # on value-equality alone.
+    return targets.get(antecedent.feature, {}).get(antecedent.attribute) == antecedent.relation_target
 
 
 def match(
     observation: dict[str, dict[str, str]],
     magnitudes: dict[str, dict[str, object]],
     rules: Sequence[PalmRule],
+    targets: dict[str, dict[str, str]] | None = None,
 ) -> list[PalmRule]:
     """Returns the FIRED set (pre-priority) -- every verified rule whose
-    antecedents ALL fire against `observation`/`magnitudes`. Unverified
-    rules are skipped here (fail-closed, no exception) -- this is where
-    the loader's "may load unverified" contract actually gets enforced."""
+    antecedents ALL fire against `observation`/`magnitudes`/`targets`.
+    Unverified rules are skipped here (fail-closed, no exception) -- this
+    is where the loader's "may load unverified" contract actually gets
+    enforced.
+
+    `targets` is optional and keyword-only in practice (positional callers
+    predating this parameter pass exactly 3 args and are unaffected).
+    Maps feature -> attribute -> the directed relation_target actually
+    observed, e.g. {"Line of Head": {"Proximity": "Line of Life"}}. Only
+    consulted for antecedents whose own relation_target is not None; no
+    currently-loaded rule sets one, so this is presently a no-op in
+    production."""
+    targets = targets or {}
     fired = []
     for rule in rules:
         if rule.verified is not True:
             continue
-        if rule.antecedents and all(_antecedent_fires(a, observation, magnitudes) for a in rule.antecedents):
+        if rule.antecedents and all(_antecedent_fires(a, observation, magnitudes, targets) for a in rule.antecedents):
             fired.append(rule)
     return fired
 

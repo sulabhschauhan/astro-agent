@@ -89,6 +89,83 @@ def test_unknown_feature_no_match_no_exception():
     assert fired == []
 
 
+# ─── RELATION_TARGET (directed antecedents) ──────────────────────────────
+# No currently-loaded rule sets relation_target -- un-parking the
+# parked_pending_relation_target rules that would is a later prompt. These
+# tests pin the mechanism's LOGIC directly against a hand-built directed
+# antecedent/rule, same construction pattern as
+# test_unverified_rule_is_skipped_not_raised above.
+
+
+def _make_directed_rule() -> PalmRule:
+    directed = Antecedent(
+        feature="Line of Head", attribute="Proximity", value="distant",
+        condition_type="standard", comparator=None, comparator_feature=None,
+        relation_target="Line of Life",
+    )
+    return PalmRule(
+        rule_id="DIRECTED_TEST", source_page=1, topic_group="test_group", is_compound=False,
+        antecedents=(directed,), claim="placeholder", source_quote="placeholder",
+        verified=True, verifier="test-harness", verified_date="2026-08-09",
+        source_fidelity="chunk_exact", schema_flags=(),
+    )
+
+
+def test_relation_target_fires_when_target_matches():
+    rule = _make_directed_rule()
+    observation = {"Line of Head": {"Proximity": "distant"}}
+    targets = {"Line of Head": {"Proximity": "Line of Life"}}
+    fired = match(observation, {}, [rule], targets=targets)
+    assert fired == [rule]
+
+
+def test_relation_target_no_fire_when_target_wrong():
+    rule = _make_directed_rule()
+    observation = {"Line of Head": {"Proximity": "distant"}}
+    targets = {"Line of Head": {"Proximity": "Line of Heart"}}  # value matches, target doesn't
+    fired = match(observation, {}, [rule], targets=targets)
+    assert fired == []
+
+
+def test_relation_target_no_fire_when_targets_empty_fail_closed():
+    # Transition state: a directed antecedent exists but no targets graph
+    # was supplied at all yet -- must NOT fall back to firing on value
+    # equality alone.
+    rule = _make_directed_rule()
+    observation = {"Line of Head": {"Proximity": "distant"}}
+    assert match(observation, {}, [rule], targets={}) == []
+    assert match(observation, {}, [rule]) == []  # targets omitted entirely -- same fail-closed result
+
+
+def test_undirected_antecedent_ignores_populated_targets():
+    # H_002 has relation_target=None -- a populated (even wrong) targets
+    # graph must be irrelevant to it; only plain value equality governs.
+    rule = BY_ID["H_002"]
+    observation = {"Line of Head": {"Starting_Point": "rising_from_Line_of_Life"}}
+    targets = {"Line of Head": {"Starting_Point": "some_irrelevant_target"}}
+    fired = match(observation, {}, [rule], targets=targets)
+    assert fired == [rule]
+
+
+def test_signature_differs_by_relation_target_only():
+    undirected = _ante("Line of Head", "Proximity", "distant")
+    directed = Antecedent(
+        feature="Line of Head", attribute="Proximity", value="distant",
+        condition_type="standard", comparator=None, comparator_feature=None,
+        relation_target="Line of Life",
+    )
+    assert undirected.signature() != directed.signature()
+
+
+def test_backward_compat_existing_style_positional_call_unaffected():
+    # Pre-existing caller shape (agent/interpretive/palm_reading.py:2024) --
+    # exactly 3 positional args, no targets -- must behave identically to
+    # before this prompt's change.
+    rule = BY_ID["H_002"]
+    observation = {"Line of Head": {"Starting_Point": "rising_from_Line_of_Life"}}
+    assert match(observation, {}, [rule]) == [rule]
+
+
 # ─── COMPOUND ────────────────────────────────────────────────────────────
 
 
