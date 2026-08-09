@@ -27,6 +27,8 @@ from agent.interpretive.observation_extractor import (
     ObservationRecord,
     all_aliased_features,
     extract_observation,
+    extract_relational_targets,
+    merge_relational_targets,
     to_vision_payload,
 )
 
@@ -318,3 +320,122 @@ def test_llm_emitted_feature_outside_requested_batch_is_dropped():
     ))
     record = extract_observation({"life line": ["long"]}, client=fake)
     assert set(record.features) == {"Line of Life"}
+
+
+# ─── Relational targets -- directed antecedent parsing (S89 -> S90 wiring) ──
+# _ATHIRA_ORIGINAL_RUN_1 is the real, validated vision output ("ORIGINAL
+# RUN 1" of the S89 A/B probe, diagnostics/relational_ab_raw.txt) -- not a
+# hand-constructed fixture.
+
+_ATHIRA_ORIGINAL_RUN_1 = """HAND SHAPE: elongated palm, medium build
+
+FINGERS: medium length relative to palm, straight, rounded fingertips, medium spacing
+
+THUMB: medium size, low set, moderate angle from the palm
+
+LIFE LINE: present, deep, narrow, long, curves around the base of the thumb, no breaks/chains/forks/islands visible
+
+HEAD LINE: present, deep, narrow, long, straight across
+  SLOPE: straight
+
+HEART LINE: present, deep, narrow, long, curves slightly upward
+  SLOPE: upward
+
+FATE LINE: present, deep, narrow, long, runs vertically towards the middle finger
+  SLOPE: straight
+
+HEAD LINE RELATIONAL:
+  ORIGIN: Line of Life
+  PROXIMITY: medium to Line of Life
+  TERMINATION: Mount of Mars
+  BRANCHES_TO: none
+
+HEART LINE RELATIONAL:
+  ORIGIN: Mount of Jupiter
+  PROXIMITY: medium to Line of Head
+  TERMINATION: Mount of Mercury
+  BRANCHES_TO: none
+
+FATE LINE RELATIONAL:
+  ORIGIN: Wrist
+  PROXIMITY: medium to Line of Life
+  TERMINATION: Mount of Saturn
+  BRANCHES_TO: none
+
+OTHER LINES: none clearly visible
+
+MOUNTS: Mount of Venus developed, others unremarkable
+
+MARKS: none clearly visible
+"""
+
+
+def test_extract_relational_targets_builds_correct_mapping_from_validated_athira_output():
+    # TERMINATION's raw value "Mount of Mars" is not itself a
+    # relation_target_registry member (only "Upper Mount of Mars"/"Lower
+    # Mount of Mars" are) -- correctly fail-closed dropped, not coerced.
+    targets = extract_relational_targets(_ATHIRA_ORIGINAL_RUN_1)
+    assert targets == {
+        "Line of Head": {
+            "Starting_Point": "Line of Life",
+            "Proximity": "Line of Life",
+        },
+        "Line of Heart": {
+            "Starting_Point": "Mount of Jupiter",
+            "Proximity": "Line of Head",
+            "Position": "Mount of Mercury",
+        },
+        "Line of Fate": {
+            "Starting_Point": "Wrist",
+            "Proximity": "Line of Life",
+            "Position": "Mount of Saturn",
+        },
+    }
+
+
+def test_extract_relational_targets_drops_none_and_out_of_registry_landmarks():
+    text = (
+        "HEAD LINE RELATIONAL:\n"
+        "  ORIGIN: none\n"
+        "  PROXIMITY: n/a to none\n"
+        "  TERMINATION: Not A Real Landmark\n"
+        "  BRANCHES_TO: Line of Head\n"
+    )
+    targets = extract_relational_targets(text)
+    assert targets == {"Line of Head": {"Branching": "Line of Head"}}
+
+
+def test_extract_relational_targets_empty_for_text_without_relational_block():
+    assert extract_relational_targets("HAND SHAPE: elongated palm, medium build") == {}
+
+
+def test_extract_relational_targets_raises_typeerror_for_non_str_input():
+    with pytest.raises(TypeError):
+        extract_relational_targets(None)
+
+
+def test_merge_relational_targets_right_hand_wins_on_collision():
+    left = {"Line of Head": {"Starting_Point": "Line of Life"}}
+    right = {
+        "Line of Head": {"Starting_Point": "Mount of Jupiter"},
+        "Line of Fate": {"Position": "Mount of Saturn"},
+    }
+    merged = merge_relational_targets(left, right)
+    assert merged == {
+        "Line of Head": {"Starting_Point": "Mount of Jupiter"},
+        "Line of Fate": {"Position": "Mount of Saturn"},
+    }
+
+
+def test_existing_observation_extraction_unchanged_alongside_relational_parsing():
+    """Parsing relational targets shares no state with extract_observation's
+    LLM-mediated token extraction -- calling one first must not perturb
+    the other's result for the same underlying input."""
+    fake = _FakeClient(content=_response(
+        observations={"Line of Head": {"Direction": {"value": "straight"}}},
+    ))
+    extract_relational_targets(_ATHIRA_ORIGINAL_RUN_1)
+    record = extract_observation({"head line": ["straight across"]}, client=fake)
+    assert record.features["Line of Head"].tokens == {
+        "Direction": {"value": "straight", "confidence": 1.0}
+    }

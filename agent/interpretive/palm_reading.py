@@ -1877,6 +1877,7 @@ _EMPTY_OBSERVATION_RECORD_DIAGNOSTICS: dict = {
 def _prepare_claims_from_rules(
     raw_texts_by_feature: dict[str, list[str]],
     client=None,
+    targets: dict[str, dict[str, str]] | None = None,
 ) -> tuple[tuple[Claim, ...], dict]:
     """Deterministic replacement for `claim_extraction.extract_claims` as
     the Stage-1 claim SOURCE (flag-gated, see
@@ -1968,6 +1969,7 @@ def _prepare_claims_from_rules(
             "citations": {},
             "dropped_rule_ids": [],
             "phrase_promotions": [],
+            "targets": {},
         })
         return (), engine_diagnostics
 
@@ -2021,7 +2023,7 @@ def _prepare_claims_from_rules(
     observation, magnitudes = observation_to_tokens.to_tokens(vision_payload)
 
     try:
-        fired = palm_rules_table.match(observation, magnitudes, rules)
+        fired = palm_rules_table.match(observation, magnitudes, rules, targets=targets)
         survivors, suppression_log = palm_rules_table.resolve_priority(fired)
         claims, rule_diagnostics = rule_to_claim.claims_from_rules(survivors, magnitudes=magnitudes)
     except Exception as exc:  # noqa: BLE001 -- fail-closed boundary 4, see docstring
@@ -2030,6 +2032,7 @@ def _prepare_claims_from_rules(
     engine_diagnostics.update({
         "observation_record": record_diagnostics,
         "observation": observation,
+        "targets": targets or {},
         "dropped_tokens": magnitudes.get("_dropped", []),
         "fired_rule_ids": [r.rule_id for r in fired],
         "surviving_rule_ids": [r.rule_id for r in survivors],
@@ -2074,6 +2077,7 @@ def _prepare_deterministic_prep(
     unsupported_features: tuple[str, ...],
     full_candidates: dict[str, list],
     client=None,
+    targets: dict[str, dict[str, str]] | None = None,
 ) -> PalmReadingPrep:
     """Builds the SAME PalmReadingPrep shape the LLM Stage-1 path builds,
     with `claims` sourced from the deterministic rule engine. Everything
@@ -2104,7 +2108,9 @@ def _prepare_deterministic_prep(
     merged in exactly as the LLM path does -- retrieval still ran on this
     path, so dropping that record would be a silent loss.
     """
-    claims, engine_diagnostics = _prepare_claims_from_rules(raw_texts_by_feature, client=client)
+    claims, engine_diagnostics = _prepare_claims_from_rules(
+        raw_texts_by_feature, client=client, targets=targets
+    )
     engine_diagnostics["final_outcome"] = (
         "rules_engine_failed" if engine_diagnostics.get("failed") else "rules_engine_ok"
     )
@@ -2191,6 +2197,11 @@ def prepare_palm_reading(
     texts_by_feature = _join_feature_texts(raw_texts_by_feature)
 
     if _deterministic_rules_enabled():
+        from agent.interpretive import observation_extractor  # local -- see _prepare_claims_from_rules
+        targets = observation_extractor.merge_relational_targets(
+            observation_extractor.extract_relational_targets(palm_left or ""),
+            observation_extractor.extract_relational_targets(palm_right or ""),
+        )
         return _prepare_deterministic_prep(
             raw_texts_by_feature,
             texts_by_feature,
@@ -2199,6 +2210,7 @@ def prepare_palm_reading(
             unsupported_features,
             full_candidates,
             client=client,
+            targets=targets,
         )
 
     extraction_result = claim_extraction.extract_claims(

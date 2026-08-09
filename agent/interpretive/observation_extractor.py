@@ -163,6 +163,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -329,6 +330,150 @@ def all_aliased_features() -> frozenset[str]:
     the extraction call can produce, and stays correct if `_FEATURE_ALIAS`
     ever grows a new mapped feature."""
     return frozenset(f for f in _FEATURE_ALIAS.values() if f is not None)
+
+
+# ─── Relational targets -- directed antecedent parsing (S89 -> S90 wiring) ──
+# Parses the vision RELATIONAL block palm_processor.describe_palm_image
+# emits for HEAD/HEART/FATE (ORIGIN / PROXIMITY <degree> to <landmark> /
+# TERMINATION / BRANCHES_TO) into the `{feature: {attribute: landmark}}`
+# shape palm_rules_table.match()'s `targets` param already accepts and
+# consults for any antecedent whose own relation_target is not None. INERT
+# on the currently-loaded rule set: no loaded rule sets a relation_target,
+# so this dict is built and threaded through but never actually consulted
+# yet -- proving the vision->extractor->engine path ahead of the migration
+# that will add the first directed rule.
+#
+# Deliberately separate from extract_observation()'s LLM-mediated token
+# extraction: this is a pure deterministic string parse of the vision
+# model's OWN raw output, no LLM call, no closed-vocabulary value/pool/
+# binding involved (module docstring point 5 governs VALUES only; this
+# governs relation_target landmarks, a disjoint axis on the SAME line
+# attributes -- Starting_Point/Position/Proximity/Branching already exist
+# in the registry's line_attributes for VALUE emission elsewhere).
+
+_RELATION_TARGET_REGISTRY: frozenset[str] = frozenset(
+    _REGISTRY.get("relation_target_registry", [])
+)
+
+# HEAD/HEART/FATE line -> ontology feature, narrowed from _FEATURE_ALIAS
+# (single source of truth) to the 3 features palm_processor's RELATIONAL
+# block actually emits -- life/sun lines and every non-line feature never
+# carry a RELATIONAL block, so they are intentionally absent here even
+# though _FEATURE_ALIAS maps them too.
+_RELATIONAL_LINE_ALIAS: dict[str, str] = {
+    "head line": _FEATURE_ALIAS["head line"],
+    "heart line": _FEATURE_ALIAS["heart line"],
+    "fate line": _FEATURE_ALIAS["fate line"],
+}
+
+# RELATIONAL sub-field label -> the line_attribute it targets. Degree
+# (PROXIMITY's "<degree> to") is deliberately NOT captured anywhere here --
+# S89 finding: proximity_degree is a dead axis (model says "medium"
+# universally, no signal); only the target landmark carries signal.
+_RELATIONAL_ATTRIBUTE_MAP: dict[str, str] = {
+    "ORIGIN": "Starting_Point",
+    "PROXIMITY": "Proximity",
+    "TERMINATION": "Position",
+    "BRANCHES_TO": "Branching",
+}
+
+_RELATIONAL_HEADER = re.compile(r"^([A-Z][A-Z ]*) RELATIONAL:\s*$")
+_RELATIONAL_SUBFIELD = re.compile(
+    r"^(ORIGIN|PROXIMITY|TERMINATION|BRANCHES_TO):\s*(.*)$"
+)
+
+
+def _proximity_landmark(value: str) -> str:
+    """PROXIMITY's raw value is '<degree> to <landmark>' -- returns just
+    the landmark half, dropping the degree (see module note above). A
+    value with no ' to ' separator (malformed) is returned as-is and will
+    simply fail the registry-membership check in
+    extract_relational_targets."""
+    if " to " in value:
+        return value.split(" to ", 1)[1].strip()
+    return value.strip()
+
+
+def extract_relational_targets(raw_text: str) -> dict[str, dict[str, str]]:
+    """Parses ONE vision description string's HEAD/HEART/FATE LINE
+    RELATIONAL blocks into `{ontology_feature: {attribute: landmark}}` --
+    the shape palm_rules_table.match()'s `targets` param consumes.
+
+    Fail-closed per landmark, not per call: a landmark that is 'none',
+    'n/a', empty, malformed, or simply not a `relation_target_registry`
+    member is DROPPED (that attribute key is omitted entirely) rather
+    than coerced to a nearest match or a sentinel -- mirroring
+    _build_features_from_response's closed-vocabulary discipline for
+    VALUE tokens, applied here to relation targets instead. A feature
+    with no accepted landmarks at all is simply absent from the returned
+    dict. Does NOT emit any observation VALUE token -- value/pool/binding
+    changes belong to the migration this wiring precedes.
+
+    Never raises for a missing/malformed RELATIONAL block (the common
+    case for input that doesn't carry one at all -- e.g. hand_detail's
+    freeform prose, which never carries this block) -- returns {} in that
+    case, same as "no signal" anywhere else in this module.
+    """
+    if not isinstance(raw_text, str):
+        raise TypeError(
+            "observation_extractor.extract_relational_targets: raw_text "
+            f"must be a str, got {type(raw_text).__name__}"
+        )
+
+    targets: dict[str, dict[str, str]] = {}
+    current_feature: str | None = None
+
+    for line in raw_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            current_feature = None
+            continue
+
+        header = _RELATIONAL_HEADER.match(stripped)
+        if header:
+            line_label = header.group(1).strip().lower()
+            current_feature = _RELATIONAL_LINE_ALIAS.get(line_label)
+            continue
+
+        if current_feature is None:
+            continue
+
+        sub = _RELATIONAL_SUBFIELD.match(stripped)
+        if not sub:
+            continue
+
+        field, raw_value = sub.group(1), sub.group(2).strip()
+        landmark = _proximity_landmark(raw_value) if field == "PROXIMITY" else raw_value
+        if landmark not in _RELATION_TARGET_REGISTRY:
+            logger.info(
+                "observation_extractor.extract_relational_targets: dropped "
+                "feature=%r field=%r landmark=%r -- not in "
+                "relation_target_registry (or 'none'/'n/a').",
+                current_feature, field, landmark,
+            )
+            continue
+
+        attribute = _RELATIONAL_ATTRIBUTE_MAP[field]
+        targets.setdefault(current_feature, {})[attribute] = landmark
+
+    return targets
+
+
+def merge_relational_targets(
+    *target_dicts: dict[str, dict[str, str]]
+) -> dict[str, dict[str, str]]:
+    """Merges multiple extract_relational_targets() outputs (e.g. one per
+    hand image) into one targets dict. Later args win on a per-(feature,
+    attribute) collision -- callers passing (left, right) get right-hand
+    priority on conflict. Documented as a real behavioral choice (there is
+    no established convention for this axis yet), not an accident of
+    dict.update order."""
+    merged: dict[str, dict[str, str]] = {}
+    for targets in target_dicts:
+        for feature, attrs in targets.items():
+            merged.setdefault(feature, {}).update(attrs)
+    return merged
+
 
 # ─── Confidence -- prose hedge-word detection (module docstring point 6) ──
 
