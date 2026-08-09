@@ -1363,6 +1363,48 @@
       "verifier": "Sulabh",
       "modifier_excluded": "hand-type art-form clause (music/painting/literature/invention) intentionally NOT authored -- deferred modifier",
       "notes": "SAMPLE rule. Slope=downward matches descriptor emission. Row 8 (very sloping->idealism) parked pending slight/very descriptor grain."
+    },
+    {
+      "rule_id": "H_027",
+      "topic_group": "line_head",
+      "is_compound": true,
+      "feature": "Line of Head",
+      "role": "base_rule",
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Mount_of_Jupiter"
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Proximity",
+          "value": "touching_Line_of_Life"
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Length",
+          "value": "long"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A head line rising from the Mount of Jupiter, touching the line of life, and long is the most powerful of all -- talent, energy, daring determination, boundless ambition combined with reason.",
+      "source_chunk_id": "cheiroslanguageo00chei_1_p145",
+      "source_page": 145,
+      "condition_span": [
+        975,
+        1103
+      ],
+      "condition_text": "Rising from Jupiter (c-c, Plate XX.) and yet touching the line of life, it\nis, if a long line of head, the most powerful of all.",
+      "consequence_span": [
+        1104,
+        1227
+      ],
+      "consequence_text": "Such a subject will have\ntalent, energy, and daring determination of purpose, with boundless ambition\ncombined with reason.",
+      "source_quote": "Rising from Jupiter (c-c, Plate XX.) and yet touching the line of life, it\nis, if a long line of head, the most powerful of all. Such a subject will have\ntalent, energy, and daring determination of purpose, with boundless ambition\ncombined with reason.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "notes": "Ch VII doctrine-map Row 1. Compound AND (Starting_Point/Proximity/Length), span-anchored re-authoring of the same doctrine H_001 (old non-span schema, 2026-08-02) already encodes -- flagged as a duplication in diagnostics/latest_run.md, not resolved here. Runtime: SILENT pending binding -- Starting_Point/Proximity/Length absent from ontology_registry.json attribute_value_binding (only Slope/Slope_Magnitude bound) and not emitted as constrained tokens by palm_processor.py HEAD LINE vision prompt (origin/length stated in free prose only; no distance-to-life-line dimension asked at all)."
     }
   ],
   "parked_pending_relation_target": [
