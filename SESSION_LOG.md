@@ -2602,3 +2602,4 @@ Deferred (not attempted this session):
   (`match_any`/`must_not_match`), and `palm_reading.py`'s `_ABSENCE_PHRASES`/`_is_absence` +
   needle keyword routing (Presence should become an ontology attribute).
   `observation_extractor.py` is the GOOD constrained-extraction template going forward.
+S88 ORDERING LOCK: H_001 (old-schema duplicate of H_027, same Jupiter+touching+long doctrine) MUST be retired or cross-referenced BEFORE any Starting_Point/Proximity vision-enum + attribute_value_binding is authored — both fire identically once those tokens bind, causing double-voicing. Both currently silent (tokens unbound), so latent not live.
