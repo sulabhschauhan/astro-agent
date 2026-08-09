@@ -28,7 +28,7 @@ BY_ID = {r.rule_id: r for r in RULES}
 
 
 def test_loader_loads_all_43_validated_candidates():
-    assert len(RULES) == 43
+    assert len(RULES) == 45  # 43 original + H_026 + H_027
 
 
 def test_loader_emits_warning_only_when_unverified_rules_present(caplog):
@@ -280,7 +280,7 @@ def test_load_rule_set_bad_dir_raises_naming_the_dir(tmp_path):
 
 def test_load_rule_set_real_data_merges_43_plus_13_with_unique_ids():
     merged = load_rule_set()
-    assert len(merged) == 56  # 43 head+heart + 13 life-line
+    assert len(merged) == 58  # 45 head+heart (incl. H_026 + H_027) + 13 life-line
     ids = [r.rule_id for r in merged]
     assert len(set(ids)) == len(ids)  # all unique
 
