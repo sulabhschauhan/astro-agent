@@ -2628,3 +2628,6 @@ NEXT (new session) -- Prompt 5 RE-SEQUENCED, enumeration-first:
   5b. Constrain palm_processor vision prompt ORIGIN/TERMINATION to the per-line menus from 5a. This DISSOLVES the Mars vocab-drift -- the menu names Upper/Lower Mount of Mars from the book if present, no generic alias needed.
   5c. MIGRATION: rewrite baked antecedents -> (value + relation_target); add bare qualifiers to values pool + attribute_value_binding (bound LAST); un-park H_014/016/017/022; retire H_001 (S88 lock); migrate H_027; re-verify each antecedent vs source_quote.
   CAVEAT: a closed menu removes INVALID answers, not WRONG ones -- vision can still pick the wrong menu item; per-line reads still spot-checked vs ground truth on a few hands (accuracy != validity).
+
+## S90 addendum — push confirmed (2026-08-09)
+wip/interpretive-pilot pushed to origin: b60d3fa..98714c9. Verified post-fetch: local HEAD == origin/wip/interpretive-pilot == 98714c93036b2db35652952c40c1f28c92847172, 0 ahead/0 behind. Chain confirmed present on remote through the S90 docs commits (98714c9 patterns, 3e9e08c claude register, 2d3e8c9 session close) and Prompt-4 extractor commit f920d3b. Full verification detail: diagnostics/latest_run.md (overwritten this run).
