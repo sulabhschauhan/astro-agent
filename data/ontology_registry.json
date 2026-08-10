@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "1.3.0",
+    "version": "1.4.0",
     "source": "Cheiro's Language of the Hand",
     "description": "Closed vocabulary registry for deterministic palmistry rule extraction. All feature, attribute, and value tokens used in rule generation MUST exist in this registry.",
     "total_features": 68,
@@ -1048,6 +1048,13 @@
       "author": "chat, awaiting Sulabh validation",
       "change": "Map Curve->Line of Life; add 2 arc values (sweeping_wide, close_to_Mount_of_Venus) for p139 intrinsic life-line arc doctrine. NO branch/ray tokens added - those remain relational (Line of Influence, deferred).",
       "rationale": "Branch-to-mount doctrine is relational, not intrinsic; extending Line of Life with Position/Direction would mis-model branches. Only the life line's own arc is an intrinsic gap."
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-08-10",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "5b-pre: add 'Junction of First and Second Fingers' relation_target for Cheiro heart-line junction origin (p156).",
+      "rationale": "Orphaned landmark that was fail-closed-dropped by observation_extractor; unblocks heart ORIGIN menu."
     }
   ],
   "relation_target_registry": [
@@ -1075,6 +1082,7 @@
     "Mount of Mercury",
     "Upper Mount of Mars",
     "Lower Mount of Mars",
+    "Junction of First and Second Fingers",
     "Mount of Luna",
     "Plain of Mars",
     "First Finger",
