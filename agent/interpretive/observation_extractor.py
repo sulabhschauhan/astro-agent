@@ -378,6 +378,19 @@ _RELATIONAL_ATTRIBUTE_MAP: dict[str, str] = {
 }
 
 _RELATIONAL_HEADER = re.compile(r"^([A-Z][A-Z ]*) RELATIONAL:\s*$")
+
+# Second, inline format: the primary line/section headers themselves
+# (e.g. "HEAD LINE: present, deep"), for vision output that places
+# ORIGIN/TERMINATION/etc. directly under the line's own header instead of
+# a separate "<LINE> RELATIONAL:" block. Disjoint from _RELATIONAL_SUBFIELD's
+# label set (ORIGIN/PROXIMITY/TERMINATION/BRANCHES_TO/SLOPE) by construction
+# -- none of those subfield words appear in this alternation -- so a
+# subfield line can never be mistaken for a section header or vice versa.
+_LINE_HEADER = re.compile(
+    r"^(HAND SHAPE|FINGERS|THUMB|LIFE LINE|HEAD LINE|HEART LINE|FATE LINE"
+    r"|OTHER LINES|MARKS):"
+)
+
 _RELATIONAL_SUBFIELD = re.compile(
     r"^(ORIGIN|PROXIMITY|TERMINATION|BRANCHES_TO):\s*(.*)$"
 )
@@ -397,7 +410,9 @@ def _proximity_landmark(value: str) -> str:
 def extract_relational_targets(raw_text: str) -> dict[str, dict[str, str]]:
     """Parses ONE vision description string's HEAD/HEART/FATE LINE
     RELATIONAL blocks into `{ontology_feature: {attribute: landmark}}` --
-    the shape palm_rules_table.match()'s `targets` param consumes.
+    the shape palm_rules_table.match()'s `targets` param consumes. Accepts
+    either the separate "<LINE> RELATIONAL:" header format or the inline
+    format (subfields directly under the line's own "<LINE>:" header).
 
     Fail-closed per landmark, not per call: a landmark that is 'none',
     'n/a', empty, malformed, or simply not a `relation_target_registry`
@@ -432,6 +447,17 @@ def extract_relational_targets(raw_text: str) -> dict[str, dict[str, str]]:
         header = _RELATIONAL_HEADER.match(stripped)
         if header:
             line_label = header.group(1).strip().lower()
+            current_feature = _RELATIONAL_LINE_ALIAS.get(line_label)
+            continue
+
+        line_header = _LINE_HEADER.match(stripped)
+        if line_header:
+            line_label = line_header.group(1).strip().lower()
+            # .get() returns None for non-relational sections (LIFE LINE,
+            # MARKS, etc.) -- this both switches current_feature on for
+            # head/heart/fate and resets it on any other section, so a
+            # later non-relational section's subfields (e.g. LIFE LINE's
+            # own "ORIGIN:") never bleed into the prior relational feature.
             current_feature = _RELATIONAL_LINE_ALIAS.get(line_label)
             continue
 
