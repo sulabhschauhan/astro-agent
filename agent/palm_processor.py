@@ -164,13 +164,19 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
     }
 
 
-def describe_palm_image(image_bytes: bytes, hand: str) -> str:
+def describe_palm_image(image_bytes: bytes, hand: str, temperature: float = 0.0) -> str:
     """
     Generate a textual palm reading description via GPT-4o vision.
 
     Args:
         image_bytes: Raw bytes of the palm image.
         hand: "left" or "right" — inserted into the system prompt.
+        temperature: defaults to 0.0 — unchanged app behavior, the confirmed-
+            description path a user checkpoints against must stay
+            reproducible (see the THRESHOLD DISCIPLINE note below). A
+            non-zero value is used ONLY by the missing-block retry guard /
+            calibration probe, which intentionally trades a little
+            determinism to recover a dropped RELATIONAL block on retry.
 
     Returns:
         Description string from GPT-4o.
@@ -258,14 +264,18 @@ def describe_palm_image(image_bytes: bytes, hand: str) -> str:
             ],
             # temperature=0 (not 0.3): checkpoint reproducibility -- the
             # description a user confirms must be the description the run
-            # would regenerate.
+            # would regenerate. This rationale applies to the default-0.0
+            # confirmed-description path; the retry path (non-zero
+            # temperature, see the temperature arg docstring above)
+            # intentionally trades a little determinism to recover a
+            # dropped RELATIONAL block.
             #
             # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
             # max_tokens=600 (not 400): derived from ~10 labeled fields x
             # ~1-2 lines each. Scope guard: this call site only. Revisit
             # trigger: if the step-3 probe shows truncation.
             max_tokens=600,
-            temperature=0,
+            temperature=temperature,
         )
         return response.choices[0].message.content
     except Exception as exc:
