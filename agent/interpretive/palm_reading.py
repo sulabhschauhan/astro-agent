@@ -1878,6 +1878,7 @@ def _prepare_claims_from_rules(
     raw_texts_by_feature: dict[str, list[str]],
     client=None,
     targets: dict[str, dict[str, str]] | None = None,
+    proximity_observations: dict[str, dict[str, str]] | None = None,
 ) -> tuple[tuple[Claim, ...], dict]:
     """Deterministic replacement for `claim_extraction.extract_claims` as
     the Stage-1 claim SOURCE (flag-gated, see
@@ -1893,7 +1894,11 @@ def _prepare_claims_from_rules(
     `{feature: {attribute: {value, confidence}}}` shape, allow-list
     applied here) -> observation_to_tokens.to_tokens ->
     palm_rules_table.match / resolve_priority ->
-    rule_to_claim.claims_from_rules.
+    rule_to_claim.claims_from_rules. `proximity_observations` (built by
+    the caller, see `prepare_palm_reading`) merges into the flat
+    `observation` dict immediately after `to_tokens`, before `match` --
+    see the tripwire comment at that merge site for why it cannot be
+    folded into the `to_vision_payload`/`to_tokens` leg of this chain.
 
     FAIL-CLOSED, no silent LLM fallback -- but SCOPED, not blanket. Four
     boundaries, deliberately different:
@@ -1970,6 +1975,7 @@ def _prepare_claims_from_rules(
             "dropped_rule_ids": [],
             "phrase_promotions": [],
             "targets": {},
+            "proximity_observations": {},
         })
         return (), engine_diagnostics
 
@@ -2022,6 +2028,14 @@ def _prepare_claims_from_rules(
     vision_payload = observation_extractor.to_vision_payload(record, enabled_features)
     observation, magnitudes = observation_to_tokens.to_tokens(vision_payload)
 
+    # P (proximity degree) merges into the FLAT observation AFTER to_tokens on purpose:
+    # 'touching' is NOT in the registry value pool, so routing it through to_tokens'
+    # _VALID_TRIPLES would silently drop it and kill H_027. attribute_value_binding does
+    # NOT fix this (to_tokens never reads it). Do not move this merge upstream of to_tokens.
+    # P-wins over any LLM-emitted Proximity: P is the deterministic degree parser.
+    for feature, attrs in (proximity_observations or {}).items():
+        observation.setdefault(feature, {})["Proximity"] = attrs["Proximity"]
+
     try:
         fired = palm_rules_table.match(observation, magnitudes, rules, targets=targets)
         survivors, suppression_log = palm_rules_table.resolve_priority(fired)
@@ -2033,6 +2047,7 @@ def _prepare_claims_from_rules(
         "observation_record": record_diagnostics,
         "observation": observation,
         "targets": targets or {},
+        "proximity_observations": proximity_observations or {},
         "dropped_tokens": magnitudes.get("_dropped", []),
         "fired_rule_ids": [r.rule_id for r in fired],
         "surviving_rule_ids": [r.rule_id for r in survivors],
@@ -2078,6 +2093,7 @@ def _prepare_deterministic_prep(
     full_candidates: dict[str, list],
     client=None,
     targets: dict[str, dict[str, str]] | None = None,
+    proximity_observations: dict[str, dict[str, str]] | None = None,
 ) -> PalmReadingPrep:
     """Builds the SAME PalmReadingPrep shape the LLM Stage-1 path builds,
     with `claims` sourced from the deterministic rule engine. Everything
@@ -2109,7 +2125,8 @@ def _prepare_deterministic_prep(
     path, so dropping that record would be a silent loss.
     """
     claims, engine_diagnostics = _prepare_claims_from_rules(
-        raw_texts_by_feature, client=client, targets=targets
+        raw_texts_by_feature, client=client, targets=targets,
+        proximity_observations=proximity_observations,
     )
     engine_diagnostics["final_outcome"] = (
         "rules_engine_failed" if engine_diagnostics.get("failed") else "rules_engine_ok"
@@ -2142,6 +2159,20 @@ def _prepare_deterministic_prep(
             "rules_engine": engine_diagnostics,
         },
     )
+
+
+def _flatten_proximity_degrees(
+    proximity_observations: dict[str, dict[str, dict[str, object]]]
+) -> dict[str, dict[str, str]]:
+    """Drops extract_proximity_observations()'s {value, confidence} wrapper
+    down to the bare {feature: {"Proximity": <degree-string>}} shape
+    merge_relational_targets() (and, downstream, the flat `observation`
+    dict) both expect -- confidence is not consumed on this path."""
+    return {
+        feature: {"Proximity": attrs["Proximity"]["value"]}
+        for feature, attrs in proximity_observations.items()
+        if "Proximity" in attrs
+    }
 
 
 def prepare_palm_reading(
@@ -2202,6 +2233,25 @@ def prepare_palm_reading(
             observation_extractor.extract_relational_targets(palm_left or ""),
             observation_extractor.extract_relational_targets(palm_right or ""),
         )
+        try:
+            proximity_observations = observation_extractor.merge_relational_targets(
+                _flatten_proximity_degrees(
+                    observation_extractor.extract_proximity_observations(palm_left or "")
+                ),
+                _flatten_proximity_degrees(
+                    observation_extractor.extract_proximity_observations(palm_right or "")
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001 -- fail-closed, mirrors
+            # _prepare_claims_from_rules' own posture: a P-parse failure
+            # must not crash the reading, only degrade to no proximity
+            # signal (same as targets' own no-crash contract).
+            logger.error(
+                "palm_reading.prepare_palm_reading: proximity-degree parse "
+                "failed (%s: %s) -- proceeding with no proximity signal.",
+                type(exc).__name__, exc,
+            )
+            proximity_observations = {}
         return _prepare_deterministic_prep(
             raw_texts_by_feature,
             texts_by_feature,
@@ -2211,6 +2261,7 @@ def prepare_palm_reading(
             full_candidates,
             client=client,
             targets=targets,
+            proximity_observations=proximity_observations,
         )
 
     extraction_result = claim_extraction.extract_claims(
