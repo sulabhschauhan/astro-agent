@@ -367,9 +367,14 @@ _RELATIONAL_LINE_ALIAS: dict[str, str] = {
 }
 
 # RELATIONAL sub-field label -> the line_attribute it targets. Degree
-# (PROXIMITY's "<degree> to") is deliberately NOT captured anywhere here --
-# S89 finding: proximity_degree is a dead axis (model says "medium"
-# universally, no signal); only the target landmark carries signal.
+# (PROXIMITY's "<degree> to") is NOT captured by this map -- S89 finding:
+# proximity_degree is a dead axis (model says "medium" universally, no
+# signal); only the target landmark carries signal here. The degree token
+# is separately captured as an observation VALUE (not routed through this
+# map, not bound to any registry attribute yet) by
+# extract_proximity_observations() below -- captured deterministically in
+# case it later proves to carry signal on some feature/hand, but S89's
+# dead-axis finding stands unless re-measured.
 _RELATIONAL_ATTRIBUTE_MAP: dict[str, str] = {
     "ORIGIN": "Starting_Point",
     "PROXIMITY": "Proximity",
@@ -405,6 +410,26 @@ def _proximity_landmark(value: str) -> str:
     if " to " in value:
         return value.split(" to ", 1)[1].strip()
     return value.strip()
+
+
+# Closed set for the degree half of PROXIMITY ("<degree> to <landmark>") --
+# the vision prompt's own contract (agent/palm_processor.py) states degree
+# is exactly one of {touching, medium, distant, n/a}. 'n/a' is deliberately
+# excluded here: it means "no proximity relation applies", not an observed
+# degree value -- honest silence, not a token to emit.
+_PROXIMITY_DEGREE_VALUES: frozenset[str] = frozenset({"touching", "medium", "distant"})
+
+
+def _proximity_degree(value: str) -> str | None:
+    """PROXIMITY's raw value is '<degree> to <landmark>' -- returns just
+    the degree half (mirrors _proximity_landmark, which returns the
+    landmark half). Returns None if there's no ' to ' separator (malformed
+    -- unlike _proximity_landmark's as-is fallback, a degree half that
+    can't be isolated can't be validated against the closed set below, so
+    there is nothing safe to return)."""
+    if " to " in value:
+        return value.split(" to ", 1)[0].strip()
+    return None
 
 
 def extract_relational_targets(raw_text: str) -> dict[str, dict[str, str]]:
@@ -483,6 +508,94 @@ def extract_relational_targets(raw_text: str) -> dict[str, dict[str, str]]:
         targets.setdefault(current_feature, {})[attribute] = landmark
 
     return targets
+
+
+def extract_proximity_observations(raw_text: str) -> dict[str, dict[str, dict[str, object]]]:
+    """Parses ONE vision description string's HEAD/HEART/FATE LINE
+    PROXIMITY subfields (same header detection as extract_relational_targets
+    -- both the separate "<LINE> RELATIONAL:" format and the inline
+    "<LINE>:" format) into `{ontology_feature: {"Proximity": {"value":
+    <degree>, "confidence": 1.0}}}`.
+
+    Deliberately separate from extract_relational_targets: that function
+    owns PROXIMITY's landmark half (-> targets[feature]["Proximity"]) and
+    is UNCHANGED by this addition -- this function owns the DEGREE half
+    only, previously discarded entirely (see the _RELATIONAL_ATTRIBUTE_MAP
+    comment above). Does NOT bind attribute_value_binding and does NOT
+    touch the registry -- bind-last law, a separate future step.
+
+    Fail-closed per degree, not per call: a degree that is 'n/a', missing
+    (no ' to ' separator), or not one of {touching, medium, distant} is
+    DROPPED -- no "Proximity" entry is written for that feature, rather
+    than invented or coerced. A feature with no accepted degree is simply
+    absent from the returned dict.
+
+    Never raises for a missing/malformed PROXIMITY subfield or an
+    unparseable raw_text -- returns {} in that case, same as "no signal"
+    anywhere else in this module.
+    """
+    if not isinstance(raw_text, str):
+        raise TypeError(
+            "observation_extractor.extract_proximity_observations: raw_text "
+            f"must be a str, got {type(raw_text).__name__}"
+        )
+
+    observations: dict[str, dict[str, dict[str, object]]] = {}
+    current_feature: str | None = None
+
+    for line in raw_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            current_feature = None
+            continue
+
+        header = _RELATIONAL_HEADER.match(stripped)
+        if header:
+            line_label = header.group(1).strip().lower()
+            current_feature = _RELATIONAL_LINE_ALIAS.get(line_label)
+            continue
+
+        line_header = _LINE_HEADER.match(stripped)
+        if line_header:
+            line_label = line_header.group(1).strip().lower()
+            current_feature = _RELATIONAL_LINE_ALIAS.get(line_label)
+            continue
+
+        if current_feature is None:
+            continue
+
+        sub = _RELATIONAL_SUBFIELD.match(stripped)
+        if not sub:
+            continue
+
+        field, raw_value = sub.group(1), sub.group(2).strip()
+        if field != "PROXIMITY":
+            continue
+
+        try:
+            degree = _proximity_degree(raw_value)
+        except Exception as exc:  # noqa: BLE001 -- never a bare traceback for a parse slip
+            logger.info(
+                "observation_extractor.extract_proximity_observations: failed "
+                "splitting PROXIMITY value %r for feature=%r: %s",
+                raw_value, current_feature, exc,
+            )
+            continue
+
+        if degree not in _PROXIMITY_DEGREE_VALUES:
+            logger.info(
+                "observation_extractor.extract_proximity_observations: dropped "
+                "feature=%r degree=%r -- not in {touching, medium, distant} "
+                "(or 'n/a'/missing).",
+                current_feature, degree,
+            )
+            continue
+
+        observations.setdefault(current_feature, {})["Proximity"] = {
+            "value": degree, "confidence": 1.0,
+        }
+
+    return observations
 
 
 def merge_relational_targets(
