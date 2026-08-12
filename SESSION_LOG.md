@@ -2631,3 +2631,23 @@ NEXT (new session) -- Prompt 5 RE-SEQUENCED, enumeration-first:
 
 ## S90 addendum — push confirmed (2026-08-09)
 wip/interpretive-pilot pushed to origin: b60d3fa..98714c9. Verified post-fetch: local HEAD == origin/wip/interpretive-pilot == 98714c93036b2db35652952c40c1f28c92847172, 0 ahead/0 behind. Chain confirmed present on remote through the S90 docs commits (98714c9 patterns, 3e9e08c claude register, 2d3e8c9 session close) and Prompt-4 extractor commit f920d3b. Full verification detail: diagnostics/latest_run.md (overwritten this run).
+
+## S91 — Relational-target inline refactor (5a → 5c-P). HEAD 71323eb (pushed to origin).
+
+Commits this session (all pushed, wip/interpretive-pilot):
+- e07d955 5a: freeze Cheiro origin/termination closed menus (doctrine, inert)
+- e3ed2ed 5b-pre: add "Junction of First and Second Fingers" relation_target (meta 1.4.0)
+- 554ceec 5b: constrain vision RELATIONAL menus per line + Mars split (Upper/Lower) + LAW 2
+- 2e1c850 5b.5-pre: parametrize describe_palm_image temperature (default 0.0)
+- 04717e6 B(i): extract_relational_targets reads inline <LINE>: format (backward-compat, _LINE_HEADER)
+- ded49eb B(ii): fold ORIGIN/TERMINATION/PROXIMITY/BRANCHES inline under each line (RELATIONAL TARGETS section removed)
+- 71323eb 5c-P: capture PROXIMITY degree as observation value (inert/unwired)
+
+Findings (settled, do not re-litigate):
+- LAW 2 (heart direction) finalized: finger/mount end = ORIGIN, percussion = TERMINATION. Cheiro p156/159/160 + external corroboration; modern "origin=percussion" rejected.
+- Inline fold (B) fixed the ~40% RELATIONAL block-drop: measured head 8/8, heart 8/8, clear-fate 8/8; fate "drops" on faint hands are honest-silence (0/16 present-but-skipped). Canning refuted — atypical Moon-origin hand read ORIGIN "Mount of Luna" correctly.
+- temp=0 is NOT deterministic on the same image (measured: 5/5 distinct). Temperature is not the lever for block-drop; inline placement was.
+- Match semantics: a directed antecedent requires observation[feat][attr]==value AND targets[feat][attr]==relation_target. value:null makes the value-check no-op -> target-only match (EXECUTED, fires correctly). Proximity needs degree in observation (FLAT string) + landmark in targets.
+- 5c-P captured the proximity degree {touching|medium|distant} as a nested token via new extract_proximity_observations(); inert -- not merged into match()'s observation, not bound (bind-last).
+
+Decided-but-not-done (5c work): (a) merge+flatten P into match observation; (b) bind {touching,medium,distant} LAST; (c) extend head-TERMINATION menu + vision prompt with "Line of Heart" for H_022 (Cheiro p154); (d) retire the stale S89 "degree dead/always-medium" note.
