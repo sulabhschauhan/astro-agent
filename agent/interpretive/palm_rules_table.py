@@ -220,17 +220,17 @@ def _antecedent_fires(antecedent: Antecedent, observation: dict, magnitudes: dic
     # standard (or any other condition_type): plain equality lookup.
     # Unknown feature/attribute -> .get(...) chain returns None, which
     # never equals a real value string -- fails silently, no raise.
-    if observation.get(antecedent.feature, {}).get(antecedent.attribute) != antecedent.value:
-        return False
+    # value:null => wildcard on the observation VALUE (target-only match).
+    # Only enforce value-equality when the antecedent pins a value; else a
+    # present observation value would silently kill a directed antecedent
+    # -- verified S91/dogfood fragility fix.
+    if antecedent.value is not None:
+        if observation.get(antecedent.feature, {}).get(antecedent.attribute) != antecedent.value:
+            return False
     if antecedent.relation_target is None:
-        return True
-    # Directed antecedent: the plain value matched, but a relation_target
-    # is also required -- fail-closed if `targets` has no entry, or a
-    # mismatched one, for this (feature, attribute). No relation_target
-    # machinery upstream yet means this branch is unreachable on any
-    # currently-loaded rule (all relation_target fields are None), but is
-    # written fail-closed now so a future un-parked rule can never fire
-    # on value-equality alone.
+        # value:null AND target:null would fire unconditionally -- a
+        # degenerate antecedent that must never be authored; non-firing.
+        return antecedent.value is not None
     return targets.get(antecedent.feature, {}).get(antecedent.attribute) == antecedent.relation_target
 
 
