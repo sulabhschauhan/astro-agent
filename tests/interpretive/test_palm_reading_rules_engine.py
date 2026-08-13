@@ -944,3 +944,67 @@ def test_engine_diagnostics_stay_json_serializable(
     )
 
     json.dumps(_engine_diag(result))  # raises TypeError if anything leaks
+
+
+# ─── 5c step 1: proximity-degree (P) wiring, inert-and-isolated ─────────
+
+
+def test_proximity_degree_reaches_flat_observation_through_p_wiring(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """Proves the 5c step-1 P-wiring is live end to end (inline PROXIMITY
+    subfield -> extract_proximity_observations -> _flatten_proximity_degrees
+    -> merged into the flat `observation` dict) using an EMPTY LLM
+    observation response as the isolation lever: with nothing coming from
+    the LLM, any "Proximity" token reaching `observation` can only have
+    arrived via the deterministic P-merge, never via to_tokens."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_head_line_chunk()]))
+    client = _FakeClient(responses=[(_observation_response({}), None)])
+
+    result = generate_palm_reading(
+        palm_left=(
+            "HEAD LINE: present, deep.\n"
+            "ORIGIN: Mount of Jupiter\n"
+            "PROXIMITY: touching to Line of Life"
+        ),
+        palm_right=None,
+        client=client,
+    )
+
+    diag = _engine_diag(result)
+    assert diag["proximity_observations"]["Line of Head"]["Proximity"] == "touching"
+    assert diag["observation"]["Line of Head"]["Proximity"] == "touching"  # P is sole source
+    assert diag["targets"]["Line of Head"]["Proximity"] == "Line of Life"  # landmark half unaffected
+
+    # Inert by design: H_027 (the only loaded rule with a Proximity
+    # antecedent) still keys on its pre-migration compound value
+    # "touching_Line_of_Life", not the plain degree token this step wires
+    # in -- so the signal is live but nothing reads it yet (step 3's job).
+    assert "H_027" not in diag["fired_rule_ids"]
+
+
+def test_proximity_degree_wins_over_llm_emitted_proximity(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """Proves P-wins precedence: the LLM's own pool-valid 'medium' survives
+    to_tokens into `observation` first, then the deterministic PROXIMITY
+    parse overwrites it with 'touching'. A pool-valid (not dropped) LLM
+    value is the isolation lever here -- if to_tokens had discarded it
+    instead, the overwrite would prove nothing about precedence."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_head_line_chunk()]))
+    client = _FakeClient(responses=[(
+        _observation_response({"Line of Head": {"Proximity": {"value": "medium"}}}),
+        None,
+    )])
+
+    result = generate_palm_reading(
+        palm_left=(
+            "HEAD LINE: present, deep.\n"
+            "PROXIMITY: touching to Line of Life"
+        ),
+        palm_right=None,
+        client=client,
+    )
+
+    diag = _engine_diag(result)
+    assert diag["observation"]["Line of Head"]["Proximity"] == "touching"  # P overwrote the LLM's 'medium'
