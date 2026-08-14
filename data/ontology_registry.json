@@ -1023,6 +1023,11 @@
     "Slope_Magnitude": [
       "slight",
       "very"
+    ],
+    "Proximity": [
+      "touching",
+      "medium",
+      "distant"
     ]
   },
   "change_log": [
