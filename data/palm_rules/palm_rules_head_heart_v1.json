@@ -1366,6 +1366,33 @@
       "verified": true,
       "verifier": "Sulabh",
       "notes": "Ch VII doctrine-map Row 1. Split-relational migration (5c step 3): Starting_Point and Proximity now use value:null + relation_target (Mount of Jupiter / Line of Life) instead of the old compound-value tokens; Length stays a plain value antecedent. Proximity degree vocab bound in ontology_registry.json's attribute_value_binding (5c step 2). Duplicate H_001 (old non-span schema, 2026-08-02) retired to retired_superseded, superseded_by this rule."
+    },
+    {
+      "rule_id": "H_017",
+      "source_page": 148,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Proximity",
+          "value": "distant",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Life"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "An extremely wide space between head and life denotes foolhardiness, assurance and excessive effrontery.",
+      "source_quote": "When this space is extremely wide, it denotes foolhardiness, assurance, excessive effrontery, and self-confidence.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-14",
+      "source_fidelity": null,
+      "schema_flags": [
+        "RELATION_TARGET: head-life spacing"
+      ]
     }
   ],
   "parked_pending_relation_target": [
@@ -1439,34 +1466,6 @@
       "source_fidelity": null,
       "schema_flags": [
         "RELATION_TARGET: head-life spacing has no region token (Quadrangle is head-heart only); medium-degree value needed"
-      ],
-      "status": "parked_pending_relation_target"
-    },
-    {
-      "rule_id": "H_017",
-      "source_page": 148,
-      "topic_group": "line_head",
-      "is_compound": false,
-      "antecedents": [
-        {
-          "feature": "Line of Head",
-          "attribute": "Proximity",
-          "value": "distant",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null,
-          "relation_target": "Line of Life"
-        }
-      ],
-      "logic_join": "AND",
-      "claim": "An extremely wide space between head and life denotes foolhardiness, assurance and excessive effrontery.",
-      "source_quote": "When this space is extremely wide, it denotes foolhardiness, assurance, excessive effrontery, and self-confidence.",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": null,
-      "schema_flags": [
-        "RELATION_TARGET: head-life spacing"
       ],
       "status": "parked_pending_relation_target"
     },
