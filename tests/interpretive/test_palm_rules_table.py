@@ -28,7 +28,7 @@ BY_ID = {r.rule_id: r for r in RULES}
 
 
 def test_loader_loads_all_43_validated_candidates():
-    assert len(RULES) == 45  # 43 original + H_026 + H_027
+    assert len(RULES) == 44  # 43 original + H_026 + H_027 -1 retired H_001
 
 
 def test_loader_emits_warning_only_when_unverified_rules_present(caplog):
@@ -357,7 +357,7 @@ def test_load_rule_set_bad_dir_raises_naming_the_dir(tmp_path):
 
 def test_load_rule_set_real_data_merges_43_plus_13_with_unique_ids():
     merged = load_rule_set()
-    assert len(merged) == 58  # 45 head+heart (incl. H_026 + H_027) + 13 life-line
+    assert len(merged) == 57  # 44 head+heart (incl. H_026 + H_027, -1 retired H_001) + 13 life-line
     ids = [r.rule_id for r in merged]
     assert len(set(ids)) == len(ids)  # all unique
 
@@ -378,7 +378,7 @@ def test_load_rule_set_baseline_field_present_and_correct():
     by_id = {r.rule_id: r for r in merged}
     assert by_id["L_001"].baseline is True
     assert by_id["L_021"].baseline is True
-    assert by_id["H_001"].baseline is False  # known head+heart id, non-baseline
+    assert by_id["H_002"].baseline is False  # known head+heart id, non-baseline (H_001 retired 5c step 3, superseded_by H_027)
 
 
 # ─── TIER-0 BASELINE SUPPRESSION ──────────────────────────────────────────

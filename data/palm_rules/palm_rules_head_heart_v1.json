@@ -1,47 +1,6 @@
 {
   "validated_candidates": [
     {
-      "rule_id": "H_001",
-      "source_page": 145,
-      "topic_group": "line_head",
-      "is_compound": true,
-      "baseline": false,
-      "antecedents": [
-        {
-          "feature": "Line of Head",
-          "attribute": "Starting_Point",
-          "value": "rising_from_Mount_of_Jupiter",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        },
-        {
-          "feature": "Line of Head",
-          "attribute": "Length",
-          "value": "long",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        },
-        {
-          "feature": "Line of Head",
-          "attribute": "Proximity",
-          "value": "touching_Line_of_Life",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "logic_join": "AND",
-      "claim": "Talent, energy, daring determination with boundless ambition combined with reason; a natural leader.",
-      "source_quote": "Rising from Jupiter and yet touching the line of life, it is, if a long line of head, the most powerful of all.",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-02",
-      "source_fidelity": "chunk_exact",
-      "schema_flags": []
-    },
-    {
       "rule_id": "H_002",
       "source_page": 146,
       "topic_group": "line_head",
@@ -1374,17 +1333,19 @@
         {
           "feature": "Line of Head",
           "attribute": "Starting_Point",
-          "value": "rising_from_Mount_of_Jupiter"
-        },
-        {
-          "feature": "Line of Head",
-          "attribute": "Proximity",
-          "value": "touching_Line_of_Life"
+          "value": null,
+          "relation_target": "Mount of Jupiter"
         },
         {
           "feature": "Line of Head",
           "attribute": "Length",
           "value": "long"
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Proximity",
+          "value": "touching",
+          "relation_target": "Line of Life"
         }
       ],
       "logic_join": "AND",
@@ -1404,7 +1365,7 @@
       "source_quote": "Rising from Jupiter (c-c, Plate XX.) and yet touching the line of life, it\nis, if a long line of head, the most powerful of all. Such a subject will have\ntalent, energy, and daring determination of purpose, with boundless ambition\ncombined with reason.",
       "verified": true,
       "verifier": "Sulabh",
-      "notes": "Ch VII doctrine-map Row 1. Compound AND (Starting_Point/Proximity/Length), span-anchored re-authoring of the same doctrine H_001 (old non-span schema, 2026-08-02) already encodes -- flagged as a duplication in diagnostics/latest_run.md, not resolved here. Runtime: SILENT pending binding -- Starting_Point/Proximity/Length absent from ontology_registry.json attribute_value_binding (only Slope/Slope_Magnitude bound) and not emitted as constrained tokens by palm_processor.py HEAD LINE vision prompt (origin/length stated in free prose only; no distance-to-life-line dimension asked at all)."
+      "notes": "Ch VII doctrine-map Row 1. Split-relational migration (5c step 3): Starting_Point and Proximity now use value:null + relation_target (Mount of Jupiter / Line of Life) instead of the old compound-value tokens; Length stays a plain value antecedent. Proximity degree vocab bound in ontology_registry.json's attribute_value_binding (5c step 2). Duplicate H_001 (old non-span schema, 2026-08-02) retired to retired_superseded, superseded_by this rule."
     }
   ],
   "parked_pending_relation_target": [
@@ -1545,6 +1506,50 @@
         "TIMING: specific ages not present in corpus text -- omitted (honest-partial)"
       ],
       "status": "parked_pending_relation_target"
+    }
+  ],
+  "retired_superseded": [
+    {
+      "rule_id": "H_001",
+      "source_page": 145,
+      "topic_group": "line_head",
+      "is_compound": true,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Starting_Point",
+          "value": "rising_from_Mount_of_Jupiter",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Length",
+          "value": "long",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Proximity",
+          "value": "touching_Line_of_Life",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "Talent, energy, daring determination with boundless ambition combined with reason; a natural leader.",
+      "source_quote": "Rising from Jupiter and yet touching the line of life, it is, if a long line of head, the most powerful of all.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-02",
+      "source_fidelity": "chunk_exact",
+      "schema_flags": [],
+      "superseded_by": "H_027"
     }
   ]
 }
