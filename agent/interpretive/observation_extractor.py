@@ -367,14 +367,14 @@ _RELATIONAL_LINE_ALIAS: dict[str, str] = {
 }
 
 # RELATIONAL sub-field label -> the line_attribute it targets. Degree
-# (PROXIMITY's "<degree> to") is NOT captured by this map -- S89 finding:
-# proximity_degree is a dead axis (model says "medium" universally, no
-# signal); only the target landmark carries signal here. The degree token
-# is separately captured as an observation VALUE (not routed through this
-# map, not bound to any registry attribute yet) by
-# extract_proximity_observations() below -- captured deterministically in
-# case it later proves to carry signal on some feature/hand, but S89's
-# dead-axis finding stands unless re-measured.
+# (PROXIMITY's "<degree> to") is NOT captured by this map -- only the
+# target landmark carries signal here. The degree token is separately
+# captured as an observation VALUE by extract_proximity_observations()
+# below. S89's "dead axis" finding (model says "medium" universally) is
+# RETIRED: the 2026-08-12/13 dogfood showed the vision emitting both
+# 'touching' (head->life) and 'medium' (heart/fate->head); the degree is
+# captured and live as of 5c step 1 (extract_proximity_observations ->
+# flat observation Proximity).
 _RELATIONAL_ATTRIBUTE_MAP: dict[str, str] = {
     "ORIGIN": "Starting_Point",
     "PROXIMITY": "Proximity",
