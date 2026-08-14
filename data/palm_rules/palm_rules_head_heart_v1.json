@@ -1420,27 +1420,17 @@
       "schema_flags": [
         "RELATION_TARGET: medium head-life spacing -> Line of Life; degree vocab bound 5c step 2. distant handled by H_017."
       ]
-    }
-  ],
-  "parked_pending_relation_target": [
+    },
     {
       "rule_id": "H_014",
       "source_page": 148,
       "topic_group": "line_head",
-      "is_compound": true,
+      "is_compound": false,
       "antecedents": [
         {
           "feature": "Line of Head",
           "attribute": "Branching",
-          "value": "branched",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        },
-        {
-          "feature": "Line of Head",
-          "attribute": "Direction",
-          "value": "upward",
+          "value": null,
           "condition_type": "standard",
           "comparator": null,
           "comparator_feature": null,
@@ -1450,15 +1440,16 @@
       "logic_join": "AND",
       "claim": "Little hair-lines branching up from head to heart make the affections a matter of fascination, not of love.",
       "source_quote": "When a number of little hair-lines branch upward from the line of head to that of heart, the affections will be a matter of fascination, not of love.",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-14",
       "source_fidelity": null,
       "schema_flags": [
-        "RELATION_TARGET: branches directed toward Line of Heart (second feature)"
-      ],
-      "status": "parked_pending_relation_target"
-    },
+        "RELATION_TARGET: value:null + target Line of Heart; branch signal carried by BRANCHES_TO (vision menu + extractor both wired, verified). 'upward' Direction antecedent dropped as unreadable. KNOWN LIMITATION: multi-landmark BRANCHES_TO (comma list) currently dropped by extract_relational_targets -> tracked separately."
+      ]
+    }
+  ],
+  "parked_pending_relation_target": [
     {
       "rule_id": "H_022",
       "source_page": 154,
