@@ -1393,6 +1393,33 @@
       "schema_flags": [
         "RELATION_TARGET: head-life spacing"
       ]
+    },
+    {
+      "rule_id": "H_016",
+      "source_page": 148,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Proximity",
+          "value": "medium",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Life"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A medium space between head and life lines denotes splendid energy, self-confidence, promptness of action.",
+      "source_quote": "when medium, it denotes splendid energy and self-confidence, promptness of action and readiness of thought.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-14",
+      "source_fidelity": null,
+      "schema_flags": [
+        "RELATION_TARGET: medium head-life spacing -> Line of Life; degree vocab bound 5c step 2. distant handled by H_017."
+      ]
     }
   ],
   "parked_pending_relation_target": [
@@ -1429,43 +1456,6 @@
       "source_fidelity": null,
       "schema_flags": [
         "RELATION_TARGET: branches directed toward Line of Heart (second feature)"
-      ],
-      "status": "parked_pending_relation_target"
-    },
-    {
-      "rule_id": "H_016",
-      "source_page": 148,
-      "topic_group": "line_head",
-      "is_compound": true,
-      "antecedents": [
-        {
-          "feature": "Line of Head",
-          "attribute": "Proximity",
-          "value": "distant",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null,
-          "relation_target": "Line of Life"
-        },
-        {
-          "feature": "Line of Head",
-          "attribute": "Proximity",
-          "value": "medium",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null,
-          "relation_target": "Line of Life"
-        }
-      ],
-      "logic_join": "AND",
-      "claim": "A medium space between head and life lines denotes splendid energy, self-confidence, promptness of action.",
-      "source_quote": "when medium, it denotes splendid energy and self-confidence, promptness of action and readiness of thought.",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": null,
-      "schema_flags": [
-        "RELATION_TARGET: head-life spacing has no region token (Quadrangle is head-heart only); medium-degree value needed"
       ],
       "status": "parked_pending_relation_target"
     },
