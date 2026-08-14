@@ -2651,3 +2651,29 @@ Findings (settled, do not re-litigate):
 - 5c-P captured the proximity degree {touching|medium|distant} as a nested token via new extract_proximity_observations(); inert -- not merged into match()'s observation, not bound (bind-last).
 
 Decided-but-not-done (5c work): (a) merge+flatten P into match observation; (b) bind {touching,medium,distant} LAST; (c) extend head-TERMINATION menu + vision prompt with "Line of Heart" for H_022 (Cheiro p154); (d) retire the stale S89 "degree dead/always-medium" note.
+
+## S92 — 5c core complete: proximity-degree relational pipeline live, H_027 migrated (2026-08-14). SESSION CLOSE
+
+Commits this session (all pushed, wip/interpretive-pilot):
+- 63b4df6 5c step 1: wire extract_proximity_observations -> flat observation (P-wins merge, post-to_tokens; touching kept P-exclusive)
+- 76340f9 dogfood: surface observation/targets/proximity_observations in stage1 diagnostics
+- 7589cde 5c step 1.5: isolation tests (degree reaches observation; P-wins over LLM-emitted Proximity)
+- e2297ab 5c step 2.5: value:null = TRUE target-only wildcard in _antecedent_fires (ENGINE CHANGE)
+- f59f04f 5c step 2: bind Proximity degree vocab {touching,medium,distant} (bind-last)
+- 66b98f9 5c step 3: migrate H_027 to split-relational antecedents; retire H_001 to retired_superseded; realign count pins
+- e400de2 5c step 7: retire stale S89 proximity-dead-axis comment
+
+Findings (settled, do not re-litigate):
+- CORRECTION to S91: value:null did NOT "fire correctly with no engine change." Original _antecedent_fires killed a directed antecedent whenever an observation value was present (verified by execution). 2.5 fixed it: value-equality is now enforced only when antecedent.value is not None; value:null is a true target-only wildcard. Zero regression (identical branch for all value-not-None antecedents = 100% of loaded rules).
+- 'touching' is P-EXCLUSIVE by design: absent from the global value pool, so to_tokens drops any LLM-emitted 'touching'; only extract_proximity_observations supplies it. Binding it (step 2) logs an EXPECTED orphan-info. Do NOT add 'touching' to the pool — that would let the LLM inject it and break the invariant.
+- retired_superseded: new top-level array = retirement convention (loader reads validated_candidates only, so moving a rule out = it never loads). H_001 lives there, superseded_by H_027.
+- H_027 is the FIRST live relational rule. Fires on ORIGIN Mount of Jupiter + PROXIMITY touching to Line of Life + Length long; correctly silent on Line-of-Life-origin hands. Verified against on-disk committed files, not a report.
+- Degree axis is REAL and multi-valued (touching + medium both emitted across dogfood 2026-08-12/13/14). S89 dead-axis RETIRED. RATIFIED by Sulabh: head->life = 'touching' on every sampled hand is a GENUINE homogeneous sample (all Athira, head genuinely touches life), NOT a vision bias. Do NOT re-investigate.
+- Workflow adopted: push after every ratified commit (GitHub == local). New session: git pull wip/interpretive-pilot before reviewing.
+
+Decided-but-not-done (5c steps 4-6, in order):
+- Step 4: un-park H_016 (FIX contradictory distant+medium -> single Proximity=medium + target Line of Life) and H_017 (Proximity=distant + target Line of Life). Machinery proven; authorable now; will fire in sim. LIVE head->life medium/distant validation DEFERRED — no separated-origin hand sample exists (Sulabh has none). Author sim-validated; accept deferred live validation.
+- Step 5: un-park H_014 (Branching value:null + target Line of Heart; DROP the unreadable "upward" antecedent). PREREQ CHECK: confirm BRANCHES_TO is parsed into targets by extract_relational_targets — NOT yet verified (dogfood only ever emitted BRANCHES_TO: none).
+- Step 6: H_022 — BLOCKED on new vision capture: (a) add "Line of Heart" to head TERMINATION closed menu (data/_doctrine + palm_processor.py vision prompt, Cheiro p154); (b) capture Position:high (absent from observation today). Design task, not a migration.
+
+Parked smells: Thumb Proximity='medium' (from "moderate angle") — Proximity attribute overloaded for non-line features; harmless (no thumb-Proximity rule), needs its own attribute if ever ruled on. Untracked probe/scratch files accumulating — gitignore/clean.
