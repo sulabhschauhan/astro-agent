@@ -2677,3 +2677,27 @@ Decided-but-not-done (5c steps 4-6, in order):
 - Step 6: H_022 — BLOCKED on new vision capture: (a) add "Line of Heart" to head TERMINATION closed menu (data/_doctrine + palm_processor.py vision prompt, Cheiro p154); (b) capture Position:high (absent from observation today). Design task, not a migration.
 
 Parked smells: Thumb Proximity='medium' (from "moderate angle") — Proximity attribute overloaded for non-line features; harmless (no thumb-Proximity rule), needs its own attribute if ever ruled on. Untracked probe/scratch files accumulating — gitignore/clean.
+
+## S93 — 5c steps 4-5 complete: H_016/H_017/H_014 un-parked; all relational rules live (2026-08-14). SESSION CLOSE
+
+Commits (all pushed, wip/interpretive-pilot):
+- dc1b990 4a: un-park H_017 (Proximity=distant + target Line of Life); pins
+- 51e519f 4b: fix H_016 contradictory antecedents -> single Proximity=medium + target Line of Life; un-park; pins
+- 67c5cc7 5:  un-park H_014 as single Branching value:null + target Line of Heart (drop "upward"); pins
+
+Findings (settled, do NOT re-litigate):
+- H_016 was authored BROKEN: two AND-joined antecedents (distant AND medium) -> can never fire. Fixed to single Proximity=medium + target Line of Life. distant is H_017's job; no third degree-rule lost.
+- H_014 redesigned: single antecedent Branching value:null + target Line of Heart. value:null (not "branched") is correct -- branch signal lives in `targets` (BRANCHES_TO landmark), never as observation VALUE (mirrors H_027). "upward" Direction antecedent DROPPED as unreadable/redundant.
+- BRANCHES_TO is FULLY WIRED end-to-end (verified by execution): vision emits it for head/heart/fate (palm_processor.py ~L224/230/236, menu includes Line of Heart) AND extract_relational_targets maps BRANCHES_TO->Branching (observation_extractor.py L382). So H_014 is LIVE-capable the moment a branching hand is uploaded -- NOT deferred-live. Only a sample gap remains (Athira hands emit BRANCHES_TO: none).
+- H_016/H_017 stay deferred-live: no medium/distant head-life hand exists; verified:true is sim-validated only, not a live win.
+- KNOWN DEBT (proved by execution): extract_relational_targets does exact single-member registry matching, so a multi-landmark BRANCHES_TO ("Line of Heart, Mount of Saturn") is DROPPED WHOLE -> H_014 false-negative. Fix is NOT a comma-split: targets[feature][attribute] is a single str and _antecedent_fires does ==, so multi-branch needs str->set in extractor AND engine AND all relational tests (multi-layer, Opus). DEFERRED -- zero branching hands in corpus (SAMPLE-before-SCALE).
+- Every commit reviewed against the DEVICE tree + engine re-executed independently before ratification. 270 passed / 4 skipped throughout. Pins realigned each commit (test_palm_rules_table.py L31 44->47, L360 57->60). All un-parks: verified:true / verifier Sulabh / verified_date 2026-08-14 / status key removed / source_fidelity null.
+
+State: parked_pending_relation_target = [H_022] ONLY. validated_candidates = 47. retired_superseded = [H_001]. HEAD 67c5cc7.
+
+Decided-but-not-done (next, in order):
+- Housekeeping: gitignore untracked probe/scratch files (S92 smell). Trivial, Haiku.
+- Step 6 (H_022) -- LAST parked rule. BLOCKED, needs design (6a, OPUS): (a) extend head-line TERMINATION closed menu to include "Line of Heart" (palm_processor.py vision prompt + data/_doctrine, Cheiro p154); (b) add Position:high capture -- SCHEMA SUBTLETY: TERMINATION already maps to the "Position" attribute as a LANDMARK (target), so H_022's Position=high is a separate VALUE axis on the same attribute name (value/target split, same pattern as Proximity). H_022 antecedents = Position=high (value) AND Length=reaching_Line_of_Heart (value + target Line of Heart). Then 6b implement vision change + re-dogfood for regression (Sonnet edit / Opus review), 6c author H_022 (Sonnet).
+- DEFERRED debt: multi-branch BRANCHES_TO str->set engine change -- only when a real multi-branching hand appears (Opus, multi-layer).
+
+Workflow unchanged: one file/one task, report-first to diagnostics/latest_run.md, RATIFIED authorizes commit, push after each commit, git pull wip/interpretive-pilot before reviewing.
