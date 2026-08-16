@@ -39,3 +39,6 @@ diagnostics/dogfood_capture*.md
 # never source; committed by mistake in 6c4ee8f, untracked same-session
 diagnostics/archive/
 diagnostics/latest_run.md
+
+# Palm/hand test images — no-storage architecture + privacy, local only (S94)
+data/test_images/
