@@ -1,0 +1,240 @@
+[
+  {
+    "feature": "Line of Head",
+    "attribute": "Starting_Point",
+    "condition_token": "UNMAPPABLE",
+    "consequence_text": "talent, energy, daring determination, boundless ambition with reason; controls others; strong but just in rule",
+    "source_quote": "Rising from Jupiter"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Proximity",
+    "condition_token": "touching",
+    "consequence_text": "(rising-from-Jupiter + long) the most powerful of all",
+    "source_quote": "yet touching the line of life"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Length",
+    "condition_token": "long",
+    "consequence_text": "potentiates the powerful Jupiter-origin reading",
+    "source_quote": "if a long line of head, the most powerful of all"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Proximity",
+    "condition_token": "distant",
+    "consequence_text": "(Jupiter-origin, slightly separated) less control/diplomacy; hasty, impetuous",
+    "source_quote": "slightly separated from the line of life"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Starting_Point",
+    "condition_token": "rising_from_Line_of_Life",
+    "consequence_text": "sensitive, more nervous temperament; excess of caution",
+    "source_quote": "The line of head from the commencement of the line of life"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Starting_Point",
+    "condition_token": "rising_from_Mount_of_Mars",
+    "consequence_text": "fretful, worrying, inconstant; in conflict with neighbors; irritable",
+    "source_quote": "rising from the Mount of Mars, within the life-line"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Direction",
+    "condition_token": "straight",
+    "consequence_text": "practical common sense; love of material over imaginative",
+    "source_quote": "When straight, clear, and even"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Continuity",
+    "condition_token": "clear",
+    "consequence_text": "practical common sense; love of material over imaginative",
+    "source_quote": "When straight, clear, and even"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Direction",
+    "condition_token": "sloping",
+    "consequence_text": "leaning toward imaginative work per hand type",
+    "source_quote": "When the entire line has a slight slope"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Direction",
+    "condition_token": "sloping",
+    "consequence_text": "romance, idealism, imaginative work, Bohemianism",
+    "source_quote": "When very sloping"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Position",
+    "condition_token": "terminating_on_Mount_of_Moon",
+    "consequence_text": "(sloping + fork on Luna) literary talent of the imaginative order",
+    "source_quote": "terminating with a fine fork on the Mount of Luna"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Length",
+    "condition_token": "long",
+    "consequence_text": "(extremely long + straight to percussion) intellectual power, but selfish",
+    "source_quote": "When extremely long and straight"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Length",
+    "condition_token": "short",
+    "consequence_text": "thoroughly material nature; lacks imaginative faculties",
+    "source_quote": "When the line is short, barely reaching the middle of the hand"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Length",
+    "condition_token": "short",
+    "consequence_text": "(abnormally short) early death from a mental affection",
+    "source_quote": "When abnormally short"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Continuity",
+    "condition_token": "broken",
+    "consequence_text": "(broken under Saturn) early sudden death by fatality",
+    "source_quote": "When broken in two under the Mount of Saturn"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Position",
+    "condition_token": "under_Mount_of_Saturn",
+    "consequence_text": "(broken under Saturn) early sudden death by fatality",
+    "source_quote": "under the Mount of Saturn"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Continuity",
+    "condition_token": "chained",
+    "consequence_text": "want of fixity of ideas; indecision",
+    "source_quote": "made up of little pieces like a chain"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Continuity",
+    "condition_token": "islanded",
+    "consequence_text": "great pain to head; danger of brain disease",
+    "source_quote": "full of little islands and hair-lines"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Position",
+    "condition_token": "high",
+    "consequence_text": "(head-heart space narrow) head completely rules the heart",
+    "source_quote": "the line of head is so high on the hand"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Breadth",
+    "condition_token": "narrow",
+    "consequence_text": "(narrow head-heart space) head rules heart",
+    "source_quote": "the space is extremely"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Branching",
+    "condition_token": "branched",
+    "consequence_text": "(branch to any particular mount) partakes of that mount's qualities",
+    "source_quote": "sends an offshoot or branch to any particular mount"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Branching",
+    "condition_token": "branched",
+    "consequence_text": "(branch joins line of heart) great fascination/affection; blind to reason",
+    "source_quote": "a branch from the line of head rises up and joins the line of heart"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Branching",
+    "condition_token": "doubled",
+    "consequence_text": "sure sign of brain power and mentality; double nature",
+    "source_quote": "A double line of head"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Branching",
+    "condition_token": "UNMAPPABLE",
+    "consequence_text": "(offshoot into a STAR on Mount of Jupiter) wonderful success in all things attempted",
+    "source_quote": "sends an offshoot to or runs into a star on the Mount"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Continuity",
+    "condition_token": "broken",
+    "consequence_text": "(broken on both hands) fatal accident or violence to the head",
+    "source_quote": "broken in two on both hands"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Position",
+    "condition_token": "running_through_Square",
+    "consequence_text": "preservation from accident/violence by own courage",
+    "source_quote": "runs into or through a square"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Proximity",
+    "condition_token": "medium",
+    "consequence_text": "(medium head-life space) splendid energy, self-confidence, promptness",
+    "source_quote": "when medium, it denotes splendid energy and self-confidence"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Proximity",
+    "condition_token": "distant",
+    "consequence_text": "(extremely wide head-life space) foolhardiness, effrontery, self-confidence",
+    "source_quote": "When this space is"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Proximity",
+    "condition_token": "touching",
+    "consequence_text": "(very tight + low) utter want of self-confidence; extreme sensitiveness",
+    "source_quote": "very tightly connected with"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Type",
+    "condition_token": "square",
+    "consequence_text": "(square hand + sloping) practical foundation for imaginative work",
+    "source_quote": "The square"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Type",
+    "condition_token": "spatulate",
+    "consequence_text": "(spatulate hand) hand of action, invention; sloping accentuated -> strengthened",
+    "source_quote": "The spatulate hand"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Type",
+    "condition_token": "philosophic",
+    "consequence_text": "(philosophic hand + straight, high) critical, analytical, cynical",
+    "source_quote": "the man with the straight line of head on"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Position",
+    "condition_token": "high",
+    "consequence_text": "(high on hand) world of matter greater scope; more brutal/animal",
+    "source_quote": "if it be high on the hand, then the world of matter has greater scope"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Continuity",
+    "condition_token": "islanded",
+    "consequence_text": "(narrow island in sloping line) temporary insanity / brain-fever",
+    "source_quote": "Temporary insanity is shown by a narrow island in the center of a"
+  }
+]

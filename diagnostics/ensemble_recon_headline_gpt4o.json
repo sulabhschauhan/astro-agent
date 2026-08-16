@@ -1,0 +1,149 @@
+[
+  {
+    "feature": "Line of Head",
+    "attribute": "Starting_Point",
+    "condition_token": "rising_from_Mount_of_Mars",
+    "consequence_text": "This indicates a fretful, worrying temperament, inconstant in thought, inconstant in action; the shifting sands of the sea are more steadfast than are the ideas of such an individual, and the connection with Mars gives his nature this one disagreeable trait—he is always in conflict with his neighbors; he is also highly sensitive, nervous, and more or less irritable.",
+    "source_quote": "The line of head rising from the Mount of Mars, within the life-line (f-f Plate XIX.), is not such a favorable sign"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Direction",
+    "condition_token": "straight",
+    "consequence_text": "it denotes practical common sense and a love of material things more than those of the imagination.",
+    "source_quote": "When straight, clear, and even, it denotes practical common sense and a love of material things more than those of the imagination."
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Direction",
+    "condition_token": "sloping",
+    "consequence_text": "there is a leaning toward imaginative work, the quality of such imagination denoting, in accordance with the type of hand, either music, painting, literature, or mechanical invention.",
+    "source_quote": "When the entire line has a slight slope, there is a leaning toward imaginative work"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Direction",
+    "condition_token": "sloping",
+    "consequence_text": "romance, idealism, imaginative work, and Boliemianism.",
+    "source_quote": "When very sloping, romance, idealism, imaginative work, and Boliemianism."
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Position",
+    "condition_token": "terminating_on_Mount_of_Moon",
+    "consequence_text": "it promises literary talent of the imaginative order.",
+    "source_quote": "When sloping, and terminating with a fine fork on the Mount of Luna, it promises literary talent of the imaginative order."
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Length",
+    "condition_token": "long",
+    "consequence_text": "it usually denotes that the subject has more than ordinary intellectual power, but is inclined to be selfish in the use of that power.",
+    "source_quote": "When extremely long and straight, and going directly to the side of the hand (the percussion), it usually denotes that the subject has more than ordinary intellectual power"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Length",
+    "condition_token": "short",
+    "consequence_text": "it tells of a nature that is thoroughly material. Such a man will utterly lack all the imaginative faculties, although in things practical he will be quite at home.",
+    "source_quote": "When the line is short, barely reaching the middle of the hand, it tells of a nature that is thoroughly material."
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Length",
+    "condition_token": "short",
+    "consequence_text": "it foreshadows some early death from some mental affection.",
+    "source_quote": "When abnormally short, it foreshadows some early death from some mental affection."
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Continuity",
+    "condition_token": "broken",
+    "consequence_text": "it tells of an early sudden death by fatality.",
+    "source_quote": "When broken in two under the Mount of Saturn, it tells of an early sudden death by fatality."
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Continuity",
+    "condition_token": "chained",
+    "consequence_text": "it denotes want of fixity of ideas, and indecision.",
+    "source_quote": "When linked, or made up of little pieces like a chain, it denotes want of fixity of ideas, and indecision."
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Continuity",
+    "condition_token": "islanded",
+    "consequence_text": "it tells of great pain to the head and danger of brain disease.",
+    "source_quote": "When full of little islands and hair-lines, it tells of great pain to the head and danger of brain disease."
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Position",
+    "condition_token": "high",
+    "consequence_text": "the head will completely rule the heart, if that line be the strongest, and vice versa.",
+    "source_quote": "When the line of head is so high on the hand that the space is extremely narrow between it and the line of heart, the head will completely rule the heart"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Branching",
+    "condition_token": "branched",
+    "consequence_text": "it partakes of the qualities of that mount",
+    "source_quote": "If the line should turn at the end, or if, in its course down the hand, it sends an offshoot or branch to any particular mount, by so doing it partakes of the qualities of that mount"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Branching",
+    "condition_token": "doubled",
+    "consequence_text": "it is a sure sign of brain power and mentality. Such people have a perfectly double nature—one side sensitive and gentle, the other confident, cold, and cruel.",
+    "source_quote": "A double line of head is very rarely found, but when found it is a sure sign of brain power and mentality."
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Continuity",
+    "condition_token": "broken",
+    "consequence_text": "it foretells some fatal accident or violence to the head.",
+    "source_quote": "When the line of head is broken in two on both hands, it foretells some fatal accident or violence to the head."
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Position",
+    "condition_token": "running_through_Square",
+    "consequence_text": "it indicates preservation from accident or violence by the subject’s own courage and presence of mind.",
+    "source_quote": "When the line of head runs into or through a square, it indicates preservation from accident or violence by the subject’s own courage and presence of mind."
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Proximity",
+    "condition_token": "medium",
+    "consequence_text": "it denotes splendid energy and self-confidence, promptness of action and readiness of thought",
+    "source_quote": "When there is a space found between the line of head and that of life, it is beneficial when not too wide; when medium, it denotes splendid energy and self-confidence, promptness of action and readiness of thought"
+  },
+  {
+    "feature": "Line of Head",
+    "attribute": "Proximity",
+    "condition_token": "touching",
+    "consequence_text": "Such individuals suffer greatly from extreme sensitiveness, and the slightest thing will wound and grieve them.",
+    "source_quote": "When the line of head, on the contrary, is very tightly connected with that of life, and low down in the hand, there is utter want of self-confidence."
+  },
+  {
+    "feature": "Hand",
+    "attribute": "Type",
+    "condition_token": "square",
+    "consequence_text": "The line of head on such a type is straight and long, in keeping with the characteristics of the hand itself.",
+    "source_quote": "The line of head on such a type is straight and long, in keeping with the characteristics of the hand itself."
+  },
+  {
+    "feature": "Hand",
+    "attribute": "Type",
+    "condition_token": "spatulate",
+    "consequence_text": "The natural position for the line of head on this type is long, clear, and slightly sloping.",
+    "source_quote": "The natural position for the line of head on this type is long, clear, and slightly sloping."
+  },
+  {
+    "feature": "Hand",
+    "attribute": "Type",
+    "condition_token": "philosophic",
+    "consequence_text": "The natural position for the line of head on this type is long, closely connected with the line of life, set low down on the hand, and sloping.",
+    "source_quote": "The natural position for the line of head on this type is long, closely connected with the line of life, set low down on the hand, and sloping."
+  }
+]
