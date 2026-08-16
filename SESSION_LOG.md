@@ -2701,3 +2701,35 @@ Decided-but-not-done (next, in order):
 - DEFERRED debt: multi-branch BRANCHES_TO str->set engine change -- only when a real multi-branching hand appears (Opus, multi-layer).
 
 Workflow unchanged: one file/one task, report-first to diagnostics/latest_run.md, RATIFIED authorizes commit, push after each commit, git pull wip/interpretive-pilot before reviewing.
+
+## S94 — 5c step 6 ABANDONED; verification-architecture pivot; ensemble-reconciliation sweep DESIGNED (2026-08-16). SESSION CLOSE
+
+Design-chat + one probe. NO ratified source commits. New session: git pull, confirm HEAD, TRUST this log.
+
+Built: scripts/rule_vocabulary_closure_gate.py (registry-level vocab-closure gate) + run. [confirm commit state on pull]
+Applied-but-ABANDONED (device tree, uncommitted, DO NOT SHIP): 6b placement→Position edits 1-3 (palm_processor PLACEMENT subfield + TERMINATION+Line of Heart; observation_extractor.extract_placement_observations; palm_reading merge). Edit 4 (bind Position) correctly HELD, never applied.
+
+Findings (settled, do NOT re-litigate):
+- D1 REVERSED: never add Position to attribute_value_binding — _values_for_attribute keys it by attribute-name GLOBALLY, so Position:["high"] narrows Stage-1 vocab for EVERY Position-feature -> silently kills ~14 verified rules. Verified.
+- H_022 ant1 (Line of Head/Position/high) == verified H_021 (same p154 quote). Position=high is a LATENT FAMILY (H_021,H_010a,H_020; HL_005/006/011 high; HL_012/021 low), not a new axis.
+- "Position" is OVERLOADED: height {high,low} AND location {under_Mount_of_X, terminating_at_X, running_through_Square, touching_Line_of_X}. Single slot/feature -> the placement->Position merge (palm_reading.py ~L2047) clobbers location tokens. Claude Code's comment "to_tokens has no route for Position" is FALSE (verified _VALID_TRIPLES routes it). This is why 6b was abandoned.
+- CLOSURE GATE: 10 structurally-DEAD antecedents, ALL verified=True. 5 DRIFT (H_013 on->at Jupiter; H_023 terminating_on_Mount; H_024 Moon->Luna; HL_002 Finger->Mount Jupiter; H_025 doubled->double), 4 ATTR-UNMAPPED (H_018/019/020 Hand/Type; HL_015 heart/Presence/faded), 1 FEATURE-UNMAPPED (HL_014 heart/Branching/single).
+- SOURCE REVIEW (do NOT batch-apply gate's difflib nearest-token — wrong on 2): only 2 safe normalizations (H_025, HL_002). 3 MIS-MODELED not misspelled -> normalizing fires WRONG: H_013 (source = offshoot into a STAR on Jupiter -> BRANCHES_TO Jupiter + Star), H_024 ("Toward Mount of Luna" -> BRANCHES_TO Luna; gate wrongly said Sun), H_023 ("any particular mount" -> parametric family). 5 real schema gaps.
+
+STRATEGIC PIVOT (RATIFIED by Sulabh):
+- Local per-rule fixes + parking REJECTED (doesn't scale to 600-1,200 Cheiro / 5,000-20,000 astrology rules). Root cause = MISSING normalization layer between open surface forms and a closed canonical ontology + hand-authored rules bypassing it. Fix = enforce the T-box/A-box split VERIFICATION_ARCHITECTURE §5 already specifies.
+- Fidelity-at-scale = MEASURED, not exhaustive human verify (impossible at ~15k rules): (1) closure gate = pipeline fidelity [built]; (2) EXTRACTIVE rules (verbatim spans, not paraphrase); (3) verify the bounded VOCABULARY (~200-500 atoms) by hand, not every rule; (4) ENSEMBLE with disagreement-only human tickets; (5) statistical SAMPLING + fidelity disclaimer.
+- Vocabulary built FROM rules (Sulabh) but VALIDATED against the cited chapter (reconciliation = his reconciliation_<line>.md convention, corpus-wide). Rules tagged by chapter (source_page present) for the later compound-precedence layer.
+
+DESIGN LOCKED — Ensemble Reconciliation Sweep (Option 1, two-phase):
+- Unit = CHAPTERequence wording, NOT char offsets (S68 line-wrap lesson).
+- Roster review: no conflicts. Fold-ins: persist raw extractions committed (WS#16); calibration golden set; pin cheiro_clean_v1.json (not OCR fulltext); validate chapter boundaries first.
+
+BLOCKERS (external): only OpenAI wired (no anthropic/google client) — full-run ensemble needs a scripted 2nd family key. No 52-chapter map (cheiro_feature_pages.json = ~10 feature ranges). Neither blocks the pilot.
+
+NEXT (in order):
+- 6-PILOT (hardest-case, head line): Step 1 = Cowork Claude blind extraction of head-line chapter -> diagnostics/ensemble_recon_headline_claude.json. Step 2 = Sonnet script: gpt-4o member B + Python reconciliation + CALIBRATION (H_013->FABRICATED-MISMODELED, H_021->AUTO-VERIFIED). PASS before scaling.
+- If PASS: validated 52-chapter map -> Phase A induce+freeze -> Phase B full sweep.
+- Deferred: multi-branch BRANCHES_TO str->set (Opus); H_022 authoring (subsumed); wire closure + citation + NEW extraction-reachability gates into CI; the 8 non-safe dead rules burned down BY the sweep, not hand-patched.
+
+Workflow unchanged: one file/one task, report-first to diagnostics/latest_run.md, RATIFIED authorizes source commits, push after each commit, git pull wip/interpretive-pilot before reviewing.
