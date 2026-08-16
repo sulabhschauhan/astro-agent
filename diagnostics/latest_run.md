@@ -1,53 +1,149 @@
-# S94 heart-line ensemble-reconciliation HOLDOUT (blind, no calibration)
+# Latest Run: palm LLM-select smoke test — deterministic gate, Case A vs Case B
 
-Reconciler mechanism reused UNCHANGED from scripts/ensemble_recon_pilot_headline.py (reconcile, member_fully_corroborates, token_condition_covered, _quotes_overlap, SHINGLE_K=6). No thresholds or matching logic edited for this run.
+Model: gpt-4o, temperature=0, runs per case=5
 
-Rules checked (line_heart*, validated_candidates): 21
-Canonical vocab tokens harvested: 22
-Member A entries (diagnostics/ensemble_recon_heartline_claude.json): 28
-Member B entries (diagnostics/ensemble_recon_heartline_gpt4o.json): 14
-TOKEN-BEARING rules verdicted: 21
-DEFERRED-RELATIONAL rules (not verdicted): 0
+## Full rule corpus (pre-gate)
 
-## Verdict table
+| id | involves | page |
+|---|---|---|
+| H_002 | head | 146 |
+| H_026 | head | 146 |
+| H_027 | head | 145 |
+| HL_001 | heart | 156 |
+| HL_002 | heart | 156 |
+| H_005 | head | 147 |
+| HL_019 | heart | 159 |
 
-| rule_id | verdict | A? | B? | note |
+## Hard-prerequisite gate (in-file, H_027/H_002 only)
+
+- H_027 requires head.origin includes 'Jupiter'
+- H_002 requires head.origin == 'touching_life'
+- All other rules have no prerequisite and always pass through.
+
+## Case A
+
+```json
+{
+  "head": {
+    "origin": "Jupiter_touching_life",
+    "length": "long",
+    "direction": "sloping_gentle"
+  },
+  "heart": {
+    "origin": "finger_of_Jupiter"
+  },
+  "gap": "moderate"
+}
+```
+
+**Gate result:** dropped ['H_002']; candidate rules handed to the LLM: ['H_026', 'H_027', 'HL_001', 'HL_002', 'H_005', 'HL_019']
+
+### Case A per-run results
+
+| run | gate_correct | case_ok | quotes_ok | fired_ids |
 |---|---|---|---|---|
-| HL_001 | AUTO-VERIFIED | True | True | A fully corroborated (Starting_Point='rising_from_Mount_of_Jupiter'); B fully corroborated (Starting_Point='rising_from_Mount_of_Jupiter') |
-| HL_002 | AUTO-VERIFIED | True | True | A fully corroborated (Starting_Point='rising_from_Finger_of_Jupiter'); B fully corroborated (Starting_Point='rising_from_Finger_of_Jupiter') |
-| HL_003 | AUTO-VERIFIED | True | True | A fully corroborated (Starting_Point='between_Jupiter_and_Saturn'); B fully corroborated (Starting_Point='between_Jupiter_and_Saturn') |
-| HL_004 | AUTO-VERIFIED | True | True | A fully corroborated (Starting_Point='rising_from_Mount_of_Saturn'); B fully corroborated (Starting_Point='rising_from_Mount_of_Saturn') |
-| HL_005 | COVERAGE-GAP | False | False | A emitted every token (Position='high', Starting_Point='rising_from_Mount_of_Saturn') but span didn't line up on this rule; B emitted every token (Position='high', Starting_Point='rising_from_Mount_of_Saturn') but span didn't line up on this rule |
-| HL_006 | AMBIGUOUS | True | False | A fully corroborated (Breadth='narrow', Position='high') |
-| HL_007 | AMBIGUOUS | True | False | A fully corroborated (Continuity='broken', Position='under_Mount_of_Saturn') |
-| HL_008 | COVERAGE-GAP | False | False | A emitted every token (Continuity='broken', Position='under_Mount_of_Sun') but span didn't line up on this rule |
-| HL_009 | COVERAGE-GAP | False | False | A emitted every token (Continuity='broken', Position='under_Mount_of_Mercury') but span didn't line up on this rule |
-| HL_010 | COVERAGE-GAP | False | False | A emitted every token (Continuity='forked', Starting_Point='rising_from_Mount_of_Jupiter') but span didn't line up on this rule; B emitted every token (Continuity='forked', Starting_Point='rising_from_Mount_of_Jupiter') but span didn't line up on this rule |
-| HL_011 | AMBIGUOUS | True | False | A fully corroborated (Position='high') |
-| HL_012 | AMBIGUOUS | True | False | A fully corroborated (Direction='drooping', Position='low') |
-| HL_013 | COVERAGE-GAP | False | False | A emitted every token (Continuity='forked', Width='wide') but span didn't line up on this rule |
-| HL_014 | AMBIGUOUS | True | False | A fully corroborated (Branching='single', Width='thin') |
-| HL_015 | AUTO-VERIFIED | True | True | A fully corroborated (Presence='faded'); B fully corroborated (Presence='faded') |
-| HL_016 | AUTO-VERIFIED | True | True | A fully corroborated (Length='extending_across_entire_palm'); B fully corroborated (Length='extending_across_entire_palm') |
-| HL_017 | AMBIGUOUS | True | False | A fully corroborated (Continuity='barred') |
-| HL_018 | COVERAGE-GAP | False | False | A emitted every token (Continuity='chained', Starting_Point='rising_from_Mount_of_Saturn', Width='wide') but span didn't line up on this rule |
-| HL_019 | AUTO-VERIFIED | True | True | A fully corroborated (Color='bright_red'); B fully corroborated (Color='bright_red') |
-| HL_020 | AMBIGUOUS | True | False | A fully corroborated (Color='pale', Width='wide') |
-| HL_021 | COVERAGE-GAP | False | False | A emitted every token (Breadth='narrow', Position='low') but span didn't line up on this rule |
+| 1 | True | True | True | HL_002,H_026,H_027 |
+| 2 | True | True | True | HL_002,H_026,H_027 |
+| 3 | True | True | True | HL_002,H_026,H_027 |
+| 4 | True | True | True | HL_002,H_026,H_027 |
+| 5 | True | True | True | HL_002,H_026,H_027 |
 
-## Deferred-relational (not verdicted)
+**Case A stability: 5/5 runs fully clean on all 3 checks.**
 
-(none)
+### Case A raw per-run detail
 
-## Counts per verdict
+#### Run 1
+- fired_ids: ['HL_002', 'H_026', 'H_027']
+- unmatched_features: ['gap']
+- combined_reading: 'The hand shows a leaning toward imaginative work due to the slight slope of the head line. The head line, rising from Jupiter and touching the line of life, is long and indicates a powerful nature with talent, energy, daring determination, boundless ambition, and reason. The heart line, rising from the finger of Jupiter, denotes an excess of all the foregoing qualities.'
 
-- AUTO-VERIFIED: 7
-- FABRICATED-MISMODELED: 0
-- COVERAGE-GAP: 7
-- AMBIGUOUS: 7
+#### Run 2
+- fired_ids: ['HL_002', 'H_026', 'H_027']
+- unmatched_features: ['gap']
+- combined_reading: 'The head line has a slight slope, indicating a leaning toward imaginative work. Rising from Jupiter and touching the line of life, the long head line is the most powerful of all, suggesting talent, energy, daring determination of purpose, and boundless ambition combined with reason. The heart line rising from the finger of Jupiter denotes the excess of all the foregoing qualities.'
 
-## SHINGLE_K sensitivity (5 vs 6 vs 8)
+#### Run 3
+- fired_ids: ['HL_002', 'H_026', 'H_027']
+- unmatched_features: ['gap']
+- combined_reading: 'There is a leaning toward imaginative work. The subject will have talent, energy, and daring determination of purpose, with boundless ambition combined with reason. The excess of all the foregoing qualities is denoted.'
 
-(no rule's verdict changes between K=5 and K=8)
+#### Run 4
+- fired_ids: ['HL_002', 'H_026', 'H_027']
+- unmatched_features: ['gap']
+- combined_reading: 'There is a leaning toward imaginative work. The subject will have talent, energy, and daring determination of purpose, with boundless ambition combined with reason. The excess of all the foregoing qualities is denoted.'
 
-No calibration gate this run -- blind holdout on a chapter the matcher was never tuned against. Distribution above is reported as-is for review.
+#### Run 5
+- fired_ids: ['HL_002', 'H_026', 'H_027']
+- unmatched_features: ['gap']
+- combined_reading: 'There is a leaning toward imaginative work. The head line, rising from Jupiter and touching the line of life, is long and the most powerful of all, indicating talent, energy, daring determination of purpose, and boundless ambition combined with reason. The heart line rising from the finger of Jupiter denotes the excess of all the foregoing qualities.'
+
+## Case B
+
+```json
+{
+  "head": {
+    "origin": "touching_life",
+    "length": "long",
+    "direction": "sloping_gentle"
+  },
+  "heart": {
+    "origin": "finger_of_Jupiter"
+  },
+  "gap": "moderate"
+}
+```
+
+**Gate result:** dropped ['H_027']; candidate rules handed to the LLM: ['H_002', 'H_026', 'HL_001', 'HL_002', 'H_005', 'HL_019']
+
+### Case B per-run results
+
+| run | gate_correct | case_ok | quotes_ok | jupiter_absent | fired_ids |
+|---|---|---|---|---|---|
+| 1 | True | True | True | True | HL_002,H_002,H_026 |
+| 2 | True | True | True | True | HL_002,H_002,H_026 |
+| 3 | True | True | True | True | HL_002,H_002,H_026 |
+| 4 | True | True | True | True | HL_002,H_002,H_026 |
+| 5 | True | True | True | True | HL_002,H_002,H_026 |
+
+**Case B stability: 5/5 runs fully clean on all 4 checks.**
+
+### Case B Jupiter flag (loud)
+
+'jupiter_literal_present' is EXPECTED true (heart.origin is still finger_of_Jupiter, so HL_002 legitimately mentions Jupiter, and H_027 was gated out so it never reaches the model at all). 'jupiter_absent' (graded above) is scoped to HEAD-tagged content only: no fired quote from a head-tagged rule contains 'jupiter', and no sentence in combined_reading ties 'head' and 'jupiter' together. Since H_027 is not even a candidate this run, any head-Jupiter claim here would be a pure hallucination, not a misapplied-but-real citation.
+
+| run | jupiter_literal_present | head_jupiter_claim (FABRICATION) |
+|---|---|---|
+| 1 | True | False |
+| 2 | True | False |
+| 3 | True | False |
+| 4 | True | False |
+| 5 | True | False |
+
+No Case B run asserted a head-line Jupiter-origin claim.
+
+### Case B raw per-run detail
+
+#### Run 1
+- fired_ids: ['HL_002', 'H_002', 'H_026']
+- unmatched_features: ['gap']
+- combined_reading: 'The line of head from the commencement of the line of life, and connected with it, indicates a sensitive and more nervous temperament; it denotes excess of caution. When the entire line has a slight slope, there is a leaning toward imaginative work. Next we will consider the line rising from the Mount of Jupiter, even from the finger itself. This denotes the excess of all the foregoing qualities.'
+
+#### Run 2
+- fired_ids: ['HL_002', 'H_002', 'H_026']
+- unmatched_features: ['gap']
+- combined_reading: 'The line of head from the commencement of the line of life, and connected with it, indicates a sensitive and more nervous temperament; it denotes excess of caution. When the entire line has a slight slope, there is a leaning toward imaginative work. Next we will consider the line rising from the Mount of Jupiter, even from the finger itself. This denotes the excess of all the foregoing qualities.'
+
+#### Run 3
+- fired_ids: ['HL_002', 'H_002', 'H_026']
+- unmatched_features: ['gap']
+- combined_reading: 'The line of head from the commencement of the line of life, and connected with it, indicates a sensitive and more nervous temperament; it denotes excess of caution. When the entire line has a slight slope, there is a leaning toward imaginative work. Next we will consider the line rising from the Mount of Jupiter, even from the finger itself. This denotes the excess of all the foregoing qualities.'
+
+#### Run 4
+- fired_ids: ['HL_002', 'H_002', 'H_026']
+- unmatched_features: ['gap']
+- combined_reading: 'The line of head from the commencement of the line of life, and connected with it, indicates a sensitive and more nervous temperament; it denotes excess of caution. When the entire line has a slight slope, there is a leaning toward imaginative work. Next we will consider the line rising from the Mount of Jupiter, even from the finger itself. This denotes the excess of all the foregoing qualities.'
+
+#### Run 5
+- fired_ids: ['HL_002', 'H_002', 'H_026']
+- unmatched_features: ['gap']
+- combined_reading: 'The line of head from the commencement of the line of life, and connected with it, indicates a sensitive and more nervous temperament; it denotes excess of caution. When the entire line has a slight slope, there is a leaning toward imaginative work. Next we will consider the line rising from the Mount of Jupiter, even from the finger itself. This denotes the excess of all the foregoing qualities.'
