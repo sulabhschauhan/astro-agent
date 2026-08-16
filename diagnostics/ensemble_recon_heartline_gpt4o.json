@@ -1,0 +1,100 @@
+[
+  {
+    "feature": "Line of Heart",
+    "attribute": "Starting_Point",
+    "condition_token": "rising_from_Mount_of_Jupiter",
+    "consequence_text": "it gives the highest type of love—the pride and the worship of the heart’s ideal.",
+    "source_quote": "When it rises from the center of Jupiter (d-d, Plate XX.), it gives the highest type of love—the pride and the worship of the heart’s ideal."
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Starting_Point",
+    "condition_token": "rising_from_Finger_of_Jupiter",
+    "consequence_text": "This denotes the excess of all the foregoing qualities; it gives the blind enthusiast, the man so carried away by his pride that he can see no faults, no failings in that being whom he so devotedly worships.",
+    "source_quote": "Next we will consider the line rising from the Mount of Jupiter, even from the finger itself (e-e, Plate XX.). This denotes the excess of all the foregoing qualities; it gives the blind enthusiast, the man so carried away by his pride that he can see no faults, no failings in that being whom he so devotedly worships."
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Starting_Point",
+    "condition_token": "between_Jupiter_and_Saturn",
+    "consequence_text": "The line rising between the first and second fingers gives a calm but deeper nature in matters of love.",
+    "source_quote": "The line rising between the first and second fingers gives a calm but deeper nature in matters of love (f-f Plate XX.)."
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Starting_Point",
+    "condition_token": "rising_from_Mount_of_Saturn",
+    "consequence_text": "With the line of heart rising from Saturn, the subject will have more passion in his attachments, and will be more or less selfish in satisfying his affections.",
+    "source_quote": "With the line of heart rising from Saturn, the subject will have more passion in his attachments, and will be more or less selfish in satisfying his affections."
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Length",
+    "condition_token": "extending_across_entire_palm",
+    "consequence_text": "When the line of heart is itself in excess, namely, lying right across the hand from side to side, an excess of affection is the result, and a terrible tendency toward jealousy;",
+    "source_quote": "When the line of heart is itself in excess, namely, lying right across the hand from side to side, an excess of affection is the result, and a terrible tendency toward jealousy;"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Continuity",
+    "condition_token": "chained",
+    "consequence_text": "A line of heart from Saturn, chained and broad, gives an utter contempt for the subject’s opposite sex.",
+    "source_quote": "A line of heart from Saturn, chained and broad, gives an utter contempt for the subject’s opposite sex."
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Color",
+    "condition_token": "bright_red",
+    "consequence_text": "When the line of heart is bright red, it denotes great violence of passion.",
+    "source_quote": "When the line of heart is bright red, it denotes great violence of passion."
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Color",
+    "condition_token": "pale",
+    "consequence_text": "When pale and broad, the subject is blase and indifferent.",
+    "source_quote": "When pale and broad, the subject is blase and indifferent."
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Position",
+    "condition_token": "low",
+    "consequence_text": "When low down on the hand and thus close to the line of head, the heart will always interfere with the affairs of the head.",
+    "source_quote": "When low down on the hand and thus close to the line of head, the heart will always interfere with the affairs of the head."
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Position",
+    "condition_token": "high",
+    "consequence_text": "When, however, it lies high on the hand, and the space is narrowed by the line of head being too close, the reverse is the case, and the head will so completely rule the affections that it gives a hard, cold nature, envious and uncharitable.",
+    "source_quote": "When, however, it lies high on the hand, and the space is narrowed by the line of head being too close, the reverse is the case, and the head will so completely rule the affections that it gives a hard, cold nature, envious and uncharitable."
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Continuity",
+    "condition_token": "broken",
+    "consequence_text": "Breaks in the line tell of disappointment in affection—under Saturn, brought about by fatality; under the Sun, through pride; and under Mercury, through folly and caprice.",
+    "source_quote": "Breaks in the line tell of disappointment in affection—under Saturn, brought about by fatality; under the Sun, through pride; and under Mercury, through folly and caprice."
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Continuity",
+    "condition_token": "forked",
+    "consequence_text": "When the line of heart forks, with one branch resting on Jupiter, the other between the first and second fingers, it is a sign of a happy, tranquil nature, good fortune, and happiness in affection;",
+    "source_quote": "When the line of heart forks, with one branch resting on Jupiter, the other between the first and second fingers, it is a sign of a happy, tranquil nature, good fortune, and happiness in affection;"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Branching",
+    "condition_token": "single",
+    "consequence_text": "When the line is quite bare of branches and thin, it tells of coldness of heart and want of affection.",
+    "source_quote": "When the line is quite bare of branches and thin, it tells of coldness of heart and want of affection."
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Presence",
+    "condition_token": "faded",
+    "consequence_text": "When, however, the line has been there, but has faded out, it is a sign that the subject has had such terrible disappointments in affection that he has become cold, heartless, and indifferent.",
+    "source_quote": "When, however, the line has been there, but has faded out, it is a sign that the subject has had such terrible disappointments in affection that he has become cold, heartless, and indifferent."
+  }
+]

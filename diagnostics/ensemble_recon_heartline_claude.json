@@ -1,0 +1,198 @@
+[
+  {
+    "feature": "Line of Heart",
+    "attribute": "Starting_Point",
+    "condition_token": "rising_from_Mount_of_Jupiter",
+    "consequence_text": "highest type of love; firm, strong, reliable; ambitious for a noble partner; fewer love-affairs",
+    "source_quote": "When it rises from the center of Jupiter"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Starting_Point",
+    "condition_token": "rising_from_Finger_of_Jupiter",
+    "consequence_text": "excess of Jupiter qualities; blind enthusiast, carried away by pride, sees no faults; a sufferer in affection",
+    "source_quote": "the line rising from the Mount of Jupiter, even"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Starting_Point",
+    "condition_token": "between_Jupiter_and_Saturn",
+    "consequence_text": "calm but deeper nature in love; quieter, more subdued passions",
+    "source_quote": "The line rising between the first and second fingers"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Starting_Point",
+    "condition_token": "rising_from_Mount_of_Saturn",
+    "consequence_text": "more passion, more selfish in affection; less expressive/demonstrative at home",
+    "source_quote": "the line of heart rising from Saturn"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Position",
+    "condition_token": "high",
+    "consequence_text": "(rising very high on Saturn's mount) far more passionate, sensual, extremely selfish",
+    "source_quote": "rising very high on the mount"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Length",
+    "condition_token": "extending_across_entire_palm",
+    "consequence_text": "excess of affection and a terrible tendency toward jealousy",
+    "source_quote": "lying right across the"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Continuity",
+    "condition_token": "barred",
+    "consequence_text": "(fretted by many little lines rising into it) inconstancy, flirtations, amourettes, no lasting affection",
+    "source_quote": "much fretted by a crowd of little lines rising"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Continuity",
+    "condition_token": "chained",
+    "consequence_text": "(from Saturn, chained and broad) utter contempt for the opposite sex",
+    "source_quote": "A line of heart from Saturn, chained and broad"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Width",
+    "condition_token": "wide",
+    "consequence_text": "(chained and broad from Saturn) contempt for opposite sex",
+    "source_quote": "chained and broad"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Color",
+    "condition_token": "bright_red",
+    "consequence_text": "great violence of passion",
+    "source_quote": "the line of heart is bright red"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Color",
+    "condition_token": "pale",
+    "consequence_text": "(pale and broad) blase and indifferent",
+    "source_quote": "When pale and broad"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Width",
+    "condition_token": "wide",
+    "consequence_text": "(pale and broad) blase and indifferent",
+    "source_quote": "When pale and broad"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Position",
+    "condition_token": "low",
+    "consequence_text": "(low, close to line of head) heart interferes with affairs of the head",
+    "source_quote": "When low down on the hand"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Position",
+    "condition_token": "high",
+    "consequence_text": "(high, head-line too close, space narrowed) head rules affections; hard, cold, envious",
+    "source_quote": "it lies high on the hand"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Breadth",
+    "condition_token": "narrow",
+    "consequence_text": "(space narrowed by head-line too close) head rules affections",
+    "source_quote": "the space is narrowed by"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Continuity",
+    "condition_token": "broken",
+    "consequence_text": "breaks tell of disappointment in affection",
+    "source_quote": "Breaks in the line tell of disappointment"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Position",
+    "condition_token": "under_Mount_of_Saturn",
+    "consequence_text": "break under Saturn -> disappointment brought about by fatality",
+    "source_quote": "under Saturn"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Position",
+    "condition_token": "under_Mount_of_Sun",
+    "consequence_text": "break under the Sun -> disappointment through pride",
+    "source_quote": "under the Sun"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Position",
+    "condition_token": "under_Mount_of_Mercury",
+    "consequence_text": "break under Mercury -> disappointment through folly and caprice",
+    "source_quote": "under Mercury"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Continuity",
+    "condition_token": "forked",
+    "consequence_text": "(small fork commencing on Jupiter) true, honest nature, enthusiasm in love",
+    "source_quote": "commences with a small fork on the Mount of"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Position",
+    "condition_token": "high",
+    "consequence_text": "commencing high on the hand is best; happiest nature",
+    "source_quote": "The first is the best, because it shows the happiest"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Direction",
+    "condition_token": "drooping",
+    "consequence_text": "(so low it droops toward line of head) unhappiness in affections during early life",
+    "source_quote": "lying so low that it droops down toward the line of head"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Position",
+    "condition_token": "low",
+    "consequence_text": "(so low it droops toward head-line) early unhappiness in affection",
+    "source_quote": "lying so low that it droops down toward the line of head"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Continuity",
+    "condition_token": "forked",
+    "consequence_text": "(fork: one branch Jupiter, one between fingers) happy, tranquil nature, good fortune",
+    "source_quote": "When the line of heart forks, with one branch resting on Jupiter"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Width",
+    "condition_token": "wide",
+    "consequence_text": "(fork so wide: Jupiter to Saturn) uncertain disposition; unhappy marital relations; erratic",
+    "source_quote": "when the fork is so"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Branching",
+    "condition_token": "single",
+    "consequence_text": "(bare of branches and thin) coldness of heart, want of affection",
+    "source_quote": "quite bare of branches and thin"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Width",
+    "condition_token": "thin",
+    "consequence_text": "(bare and thin) coldness of heart; toward percussion -> sterility",
+    "source_quote": "quite bare of branches and thin"
+  },
+  {
+    "feature": "Line of Heart",
+    "attribute": "Presence",
+    "condition_token": "faded",
+    "consequence_text": "(line was present but faded out) terrible disappointments; became cold, heartless, indifferent",
+    "source_quote": "the line has been there, but has faded out"
+  }
+]

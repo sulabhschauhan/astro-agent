@@ -1,66 +1,53 @@
-# S94 head-line ensemble-reconciliation pilot
+# S94 heart-line ensemble-reconciliation HOLDOUT (blind, no calibration)
 
-Rules checked (line_head*, validated_candidates): 26
-Canonical vocab tokens harvested: 26
-Member A entries (diagnostics/ensemble_recon_headline_claude.json): 34
-Member B entries (diagnostics/ensemble_recon_headline_gpt4o.json): 21
-TOKEN-BEARING rules verdicted: 20
-DEFERRED-RELATIONAL rules (not verdicted): 6
+Reconciler mechanism reused UNCHANGED from scripts/ensemble_recon_pilot_headline.py (reconcile, member_fully_corroborates, token_condition_covered, _quotes_overlap, SHINGLE_K=6). No thresholds or matching logic edited for this run.
+
+Rules checked (line_heart*, validated_candidates): 21
+Canonical vocab tokens harvested: 22
+Member A entries (diagnostics/ensemble_recon_heartline_claude.json): 28
+Member B entries (diagnostics/ensemble_recon_heartline_gpt4o.json): 14
+TOKEN-BEARING rules verdicted: 21
+DEFERRED-RELATIONAL rules (not verdicted): 0
 
 ## Verdict table
 
 | rule_id | verdict | A? | B? | note |
 |---|---|---|---|---|
-| H_002 | AMBIGUOUS | True | False | A fully corroborated (Starting_Point='rising_from_Line_of_Life') |
-| H_003 | AUTO-VERIFIED | True | True | A fully corroborated (Starting_Point='rising_from_Mount_of_Mars'); B fully corroborated (Starting_Point='rising_from_Mount_of_Mars') |
-| H_004 | AMBIGUOUS | True | False | A fully corroborated (Continuity='clear', Direction='straight') |
-| H_005 | AUTO-VERIFIED | True | True | A fully corroborated (Length='short'); B fully corroborated (Length='short') |
-| H_006 | AUTO-VERIFIED | True | True | A fully corroborated (Length='short'); B fully corroborated (Length='short') |
-| H_007 | AMBIGUOUS | True | False | A fully corroborated (Continuity='broken', Position='under_Mount_of_Saturn') |
-| H_008 | AUTO-VERIFIED | True | True | A fully corroborated (Continuity='chained'); B fully corroborated (Continuity='chained') |
-| H_009 | AUTO-VERIFIED | True | True | A fully corroborated (Continuity='islanded'); B fully corroborated (Continuity='islanded') |
-| H_011 | AUTO-VERIFIED | True | True | A fully corroborated (Continuity='broken'); B fully corroborated (Continuity='broken') |
-| H_012 | COVERAGE-GAP | False | False | A emitted every token (Continuity='islanded') but span didn't line up on this rule; B emitted every token (Continuity='islanded') but span didn't line up on this rule |
-| H_013 | FABRICATED-MISMODELED | False | False | no member emitted the full compound condition, with or without span overlap |
-| H_015 | AUTO-VERIFIED | True | True | A fully corroborated (Position='running_through_Square'); B fully corroborated (Position='running_through_Square') |
-| H_018 | COVERAGE-GAP | False | False | A emitted every token (Direction='sloping', Type='square') but span didn't line up on this rule; B emitted every token (Direction='sloping', Type='square') but span didn't line up on this rule |
-| H_019 | COVERAGE-GAP | False | False | A emitted every token (Direction='sloping', Type='spatulate') but span didn't line up on this rule; B emitted every token (Direction='sloping', Type='spatulate') but span didn't line up on this rule |
-| H_020 | COVERAGE-GAP | False | False | A emitted every token (Direction='straight', Position='high', Type='philosophic') but span didn't line up on this rule; B emitted every token (Direction='straight', Position='high', Type='philosophic') but span didn't line up on this rule |
-| H_021 | AMBIGUOUS | True | False | A fully corroborated (Position='high') |
-| H_023 | FABRICATED-MISMODELED | False | False | no member emitted the full compound condition, with or without span overlap |
-| H_024 | COVERAGE-GAP | False | False | A emitted every token (Branching='branched', Position='terminating_on_Mount_of_Moon') but span didn't line up on this rule; B emitted every token (Branching='branched', Position='terminating_on_Mount_of_Moon') but span didn't line up on this rule |
-| H_025 | AUTO-VERIFIED | True | True | A fully corroborated (Branching='doubled'); B fully corroborated (Branching='doubled') |
-| H_026 | FABRICATED-MISMODELED | False | False | no member emitted the full compound condition, with or without span overlap |
+| HL_001 | AUTO-VERIFIED | True | True | A fully corroborated (Starting_Point='rising_from_Mount_of_Jupiter'); B fully corroborated (Starting_Point='rising_from_Mount_of_Jupiter') |
+| HL_002 | AUTO-VERIFIED | True | True | A fully corroborated (Starting_Point='rising_from_Finger_of_Jupiter'); B fully corroborated (Starting_Point='rising_from_Finger_of_Jupiter') |
+| HL_003 | AUTO-VERIFIED | True | True | A fully corroborated (Starting_Point='between_Jupiter_and_Saturn'); B fully corroborated (Starting_Point='between_Jupiter_and_Saturn') |
+| HL_004 | AUTO-VERIFIED | True | True | A fully corroborated (Starting_Point='rising_from_Mount_of_Saturn'); B fully corroborated (Starting_Point='rising_from_Mount_of_Saturn') |
+| HL_005 | COVERAGE-GAP | False | False | A emitted every token (Position='high', Starting_Point='rising_from_Mount_of_Saturn') but span didn't line up on this rule; B emitted every token (Position='high', Starting_Point='rising_from_Mount_of_Saturn') but span didn't line up on this rule |
+| HL_006 | AMBIGUOUS | True | False | A fully corroborated (Breadth='narrow', Position='high') |
+| HL_007 | AMBIGUOUS | True | False | A fully corroborated (Continuity='broken', Position='under_Mount_of_Saturn') |
+| HL_008 | COVERAGE-GAP | False | False | A emitted every token (Continuity='broken', Position='under_Mount_of_Sun') but span didn't line up on this rule |
+| HL_009 | COVERAGE-GAP | False | False | A emitted every token (Continuity='broken', Position='under_Mount_of_Mercury') but span didn't line up on this rule |
+| HL_010 | COVERAGE-GAP | False | False | A emitted every token (Continuity='forked', Starting_Point='rising_from_Mount_of_Jupiter') but span didn't line up on this rule; B emitted every token (Continuity='forked', Starting_Point='rising_from_Mount_of_Jupiter') but span didn't line up on this rule |
+| HL_011 | AMBIGUOUS | True | False | A fully corroborated (Position='high') |
+| HL_012 | AMBIGUOUS | True | False | A fully corroborated (Direction='drooping', Position='low') |
+| HL_013 | COVERAGE-GAP | False | False | A emitted every token (Continuity='forked', Width='wide') but span didn't line up on this rule |
+| HL_014 | AMBIGUOUS | True | False | A fully corroborated (Branching='single', Width='thin') |
+| HL_015 | AUTO-VERIFIED | True | True | A fully corroborated (Presence='faded'); B fully corroborated (Presence='faded') |
+| HL_016 | AUTO-VERIFIED | True | True | A fully corroborated (Length='extending_across_entire_palm'); B fully corroborated (Length='extending_across_entire_palm') |
+| HL_017 | AMBIGUOUS | True | False | A fully corroborated (Continuity='barred') |
+| HL_018 | COVERAGE-GAP | False | False | A emitted every token (Continuity='chained', Starting_Point='rising_from_Mount_of_Saturn', Width='wide') but span didn't line up on this rule |
+| HL_019 | AUTO-VERIFIED | True | True | A fully corroborated (Color='bright_red'); B fully corroborated (Color='bright_red') |
+| HL_020 | AMBIGUOUS | True | False | A fully corroborated (Color='pale', Width='wide') |
+| HL_021 | COVERAGE-GAP | False | False | A emitted every token (Breadth='narrow', Position='low') but span didn't line up on this rule |
 
 ## Deferred-relational (not verdicted)
 
-H_010a, H_010b, H_014, H_016, H_017, H_027
+(none)
 
 ## Counts per verdict
 
-- AUTO-VERIFIED: 8
-- FABRICATED-MISMODELED: 3
-- COVERAGE-GAP: 5
-- AMBIGUOUS: 4
-
-NOTE: H_026 stays FABRICATED-MISMODELED due to Direction/Slope vocab overload (its 'downward' claim likely gets tagged attribute='Direction' by members rather than the rule's 'Slope'); flagged for Phase-A vocab freeze, not fixed here.
-
-## Anchor re-pick (single-antecedent, AUTO-VERIFIED this run)
-
-Candidates: H_003, H_005, H_006, H_008, H_009, H_011, H_015, H_025
-Anchor chosen (lowest id): H_003
-
-## Calibration
-
-H_013: FABRICATED-MISMODELED [expected FABRICATED-MISMODELED] OK
-H_023: FABRICATED-MISMODELED [expected FABRICATED-MISMODELED] OK
-H_012: COVERAGE-GAP [expected COVERAGE-GAP] OK
-H_004: AMBIGUOUS [expected AMBIGUOUS] OK
-H_021: AMBIGUOUS [expected AMBIGUOUS] OK
-H_003: AUTO-VERIFIED [expected AUTO-VERIFIED] OK
-
-CALIBRATION: PASS
+- AUTO-VERIFIED: 7
+- FABRICATED-MISMODELED: 0
+- COVERAGE-GAP: 7
+- AMBIGUOUS: 7
 
 ## SHINGLE_K sensitivity (5 vs 6 vs 8)
 
 (no rule's verdict changes between K=5 and K=8)
+
+No calibration gate this run -- blind holdout on a chapter the matcher was never tuned against. Distribution above is reported as-is for review.
