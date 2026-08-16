@@ -2733,3 +2733,19 @@ NEXT (in order):
 - Deferred: multi-branch BRANCHES_TO str->set (Opus); H_022 authoring (subsumed); wire closure + citation + NEW extraction-reachability gates into CI; the 8 non-safe dead rules burned down BY the sweep, not hand-patched.
 
 Workflow unchanged: one file/one task, report-first to diagnostics/latest_run.md, RATIFIED authorizes source commits, push after each commit, git pull wip/interpretive-pilot before reviewing.
+
+## S94 -- Palm interpretation architecture pivot (RESOLVED)
+DECISION: Abandon deterministic rule-MATCHING for interpretation. New architecture = code-gate + whole-sentence LLM select.
+WHY: Four matcher designs (token, span-overlap, condition-decomposition, closure-gate) each failed by relocating a fidelity leak, not fixing it. Root cause: any transform of a rule BEFORE the answer loses meaning (HL_021 narrow, HL_002 "even from the finger", H_027/H_002 confusion).
+VALIDATED ARCHITECTURE (all 5/5, committed):
+  1. Rules stored as VERBATIM Cheiro sentences + involves-tags + page. No tokenized conditions.
+  2. RETRIEVAL = deterministic set-membership on hand-state features (dumb, not semantic).
+  3. Hard-fact GATE (pure Python): drop any rule whose hard prerequisite (origin/position/presence) is not satisfied by the hand-state, BEFORE the LLM sees it. Proven to make fabrication structurally impossible (H_027 Case B: 5/5, "Jupiter" cannot appear).
+  4. LLM reads PRE-FILTERED whole sentences, fires all that fully apply, MERGES into one reading, quotes verbatim. Fabrication guard = output quote must substring-match stored text (held 5/5 every variant).
+KEY FINDINGS:
+  - Ensemble reconciliation (S94 early work) DEMOTED: it is a COVERAGE sampler + an EVAL harness, never a truth judge. Committed pilots: ensemble_recon_pilot_headline.py (calibration PASS), heartline holdout (frozen matcher generalized, 0 edits).
+  - Fabrication is NOT catchable by fuzzy two-reader matching; it is caught by (a) code-gate on hard facts, (b) verbatim output-quote check. Split: hard/deterministic on structured facts, soft/LLM on prose.
+  - Collision scan: 19 pairs / 23 of 47 rules need a hard-prerequisite tag; discriminators are ONLY origin/position/presence -> one repeatable gate, ~half-day authoring, not 140 bespoke tags.
+COMMITS THIS SESSION (wip/interpretive-pilot): head-line reconciler validated; head-line pilot artifacts; heart-line holdout; gate-proves-no-fabrication smoke test; collision scan.
+SETTLED, DO NOT RE-OPEN: matcher-based interpretation is dead; decomposition/condition-rewrite is dead (paraphrase leak); "reject on single miss" is WRONG (kills valid co-fires); the seam is code-gate + whole-sentence LLM.
+NOT YET DONE: (1) author hard-prereq tags for the 23 collision rules; (2) build the eval harness (known-answer hands -- the only thing that catches coverage/precedence errors, which the fabrication guard cannot); (3) vision layer (photo -> hand-state) -- UNTESTED, deferred; precedence tie-break (head-vs-heart strongest) UNTESTED (no crowding hand yet).
