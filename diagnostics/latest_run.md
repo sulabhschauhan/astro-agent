@@ -1,149 +1,39 @@
-# Latest Run: palm LLM-select smoke test — deterministic gate, Case A vs Case B
+# Latest Run: collision_scan -- LLM-selector confusion candidates
 
-Model: gpt-4o, temperature=0, runs per case=5
+Rules scanned (validated_candidates): 47
+Collision pairs found: 19
 
-## Full rule corpus (pre-gate)
+Distinct rules involved in >=1 collision (candidates for a hard-prerequisite tag): 23
+Rule ids: ['HL_004', 'HL_005', 'HL_006', 'HL_007', 'HL_008', 'HL_009', 'HL_010', 'HL_011', 'HL_013', 'HL_018', 'HL_020', 'HL_021', 'H_002', 'H_004', 'H_007', 'H_010a', 'H_010b', 'H_011', 'H_013', 'H_020', 'H_023', 'H_024', 'H_027']
 
-| id | involves | page |
-|---|---|---|
-| H_002 | head | 146 |
-| H_026 | head | 146 |
-| H_027 | head | 145 |
-| HL_001 | heart | 156 |
-| HL_002 | heart | 156 |
-| H_005 | head | 147 |
-| HL_019 | heart | 159 |
+## Method
 
-## Hard-prerequisite gate (in-file, H_027/H_002 only)
+- Shared token: literal (feature, attribute, value) per antecedent, PLUS a normalized (feature, ORIGIN_AT, target) token bridging Starting_Point='rising_from_X' and Proximity='touching' with relation_target=X (the exact H_027/H_002 vocabulary split -- see module docstring). No other equivalences are invented.
 
-- H_027 requires head.origin includes 'Jupiter'
-- H_002 requires head.origin == 'touching_life'
-- All other rules have no prerequisite and always pass through.
+- Hard discriminator: literal (attribute, value_or_target) for Starting_Point / Position / Presence antecedents only (per task spec), no normalization.
 
-## Case A
+- Flagged iff shared-token sets intersect AND discriminator-token sets differ (symmetric difference non-empty). All pairs across the full corpus are scanned, not just within-topic_group.
 
-```json
-{
-  "head": {
-    "origin": "Jupiter_touching_life",
-    "length": "long",
-    "direction": "sloping_gentle"
-  },
-  "heart": {
-    "origin": "finger_of_Jupiter"
-  },
-  "gap": "moderate"
-}
-```
+## Collision pairs
 
-**Gate result:** dropped ['H_002']; candidate rules handed to the LLM: ['H_026', 'H_027', 'HL_001', 'HL_002', 'H_005', 'HL_019']
-
-### Case A per-run results
-
-| run | gate_correct | case_ok | quotes_ok | fired_ids |
+| rule_a | rule_b | shared | discriminator | gloss |
 |---|---|---|---|---|
-| 1 | True | True | True | HL_002,H_026,H_027 |
-| 2 | True | True | True | HL_002,H_026,H_027 |
-| 3 | True | True | True | HL_002,H_026,H_027 |
-| 4 | True | True | True | HL_002,H_026,H_027 |
-| 5 | True | True | True | HL_002,H_026,H_027 |
-
-**Case A stability: 5/5 runs fully clean on all 3 checks.**
-
-### Case A raw per-run detail
-
-#### Run 1
-- fired_ids: ['HL_002', 'H_026', 'H_027']
-- unmatched_features: ['gap']
-- combined_reading: 'The hand shows a leaning toward imaginative work due to the slight slope of the head line. The head line, rising from Jupiter and touching the line of life, is long and indicates a powerful nature with talent, energy, daring determination, boundless ambition, and reason. The heart line, rising from the finger of Jupiter, denotes an excess of all the foregoing qualities.'
-
-#### Run 2
-- fired_ids: ['HL_002', 'H_026', 'H_027']
-- unmatched_features: ['gap']
-- combined_reading: 'The head line has a slight slope, indicating a leaning toward imaginative work. Rising from Jupiter and touching the line of life, the long head line is the most powerful of all, suggesting talent, energy, daring determination of purpose, and boundless ambition combined with reason. The heart line rising from the finger of Jupiter denotes the excess of all the foregoing qualities.'
-
-#### Run 3
-- fired_ids: ['HL_002', 'H_026', 'H_027']
-- unmatched_features: ['gap']
-- combined_reading: 'There is a leaning toward imaginative work. The subject will have talent, energy, and daring determination of purpose, with boundless ambition combined with reason. The excess of all the foregoing qualities is denoted.'
-
-#### Run 4
-- fired_ids: ['HL_002', 'H_026', 'H_027']
-- unmatched_features: ['gap']
-- combined_reading: 'There is a leaning toward imaginative work. The subject will have talent, energy, and daring determination of purpose, with boundless ambition combined with reason. The excess of all the foregoing qualities is denoted.'
-
-#### Run 5
-- fired_ids: ['HL_002', 'H_026', 'H_027']
-- unmatched_features: ['gap']
-- combined_reading: 'There is a leaning toward imaginative work. The head line, rising from Jupiter and touching the line of life, is long and the most powerful of all, indicating talent, energy, daring determination of purpose, and boundless ambition combined with reason. The heart line rising from the finger of Jupiter denotes the excess of all the foregoing qualities.'
-
-## Case B
-
-```json
-{
-  "head": {
-    "origin": "touching_life",
-    "length": "long",
-    "direction": "sloping_gentle"
-  },
-  "heart": {
-    "origin": "finger_of_Jupiter"
-  },
-  "gap": "moderate"
-}
-```
-
-**Gate result:** dropped ['H_027']; candidate rules handed to the LLM: ['H_002', 'H_026', 'HL_001', 'HL_002', 'H_005', 'HL_019']
-
-### Case B per-run results
-
-| run | gate_correct | case_ok | quotes_ok | jupiter_absent | fired_ids |
-|---|---|---|---|---|---|
-| 1 | True | True | True | True | HL_002,H_002,H_026 |
-| 2 | True | True | True | True | HL_002,H_002,H_026 |
-| 3 | True | True | True | True | HL_002,H_002,H_026 |
-| 4 | True | True | True | True | HL_002,H_002,H_026 |
-| 5 | True | True | True | True | HL_002,H_002,H_026 |
-
-**Case B stability: 5/5 runs fully clean on all 4 checks.**
-
-### Case B Jupiter flag (loud)
-
-'jupiter_literal_present' is EXPECTED true (heart.origin is still finger_of_Jupiter, so HL_002 legitimately mentions Jupiter, and H_027 was gated out so it never reaches the model at all). 'jupiter_absent' (graded above) is scoped to HEAD-tagged content only: no fired quote from a head-tagged rule contains 'jupiter', and no sentence in combined_reading ties 'head' and 'jupiter' together. Since H_027 is not even a candidate this run, any head-Jupiter claim here would be a pure hallucination, not a misapplied-but-real citation.
-
-| run | jupiter_literal_present | head_jupiter_claim (FABRICATION) |
-|---|---|---|
-| 1 | True | False |
-| 2 | True | False |
-| 3 | True | False |
-| 4 | True | False |
-| 5 | True | False |
-
-No Case B run asserted a head-line Jupiter-origin claim.
-
-### Case B raw per-run detail
-
-#### Run 1
-- fired_ids: ['HL_002', 'H_002', 'H_026']
-- unmatched_features: ['gap']
-- combined_reading: 'The line of head from the commencement of the line of life, and connected with it, indicates a sensitive and more nervous temperament; it denotes excess of caution. When the entire line has a slight slope, there is a leaning toward imaginative work. Next we will consider the line rising from the Mount of Jupiter, even from the finger itself. This denotes the excess of all the foregoing qualities.'
-
-#### Run 2
-- fired_ids: ['HL_002', 'H_002', 'H_026']
-- unmatched_features: ['gap']
-- combined_reading: 'The line of head from the commencement of the line of life, and connected with it, indicates a sensitive and more nervous temperament; it denotes excess of caution. When the entire line has a slight slope, there is a leaning toward imaginative work. Next we will consider the line rising from the Mount of Jupiter, even from the finger itself. This denotes the excess of all the foregoing qualities.'
-
-#### Run 3
-- fired_ids: ['HL_002', 'H_002', 'H_026']
-- unmatched_features: ['gap']
-- combined_reading: 'The line of head from the commencement of the line of life, and connected with it, indicates a sensitive and more nervous temperament; it denotes excess of caution. When the entire line has a slight slope, there is a leaning toward imaginative work. Next we will consider the line rising from the Mount of Jupiter, even from the finger itself. This denotes the excess of all the foregoing qualities.'
-
-#### Run 4
-- fired_ids: ['HL_002', 'H_002', 'H_026']
-- unmatched_features: ['gap']
-- combined_reading: 'The line of head from the commencement of the line of life, and connected with it, indicates a sensitive and more nervous temperament; it denotes excess of caution. When the entire line has a slight slope, there is a leaning toward imaginative work. Next we will consider the line rising from the Mount of Jupiter, even from the finger itself. This denotes the excess of all the foregoing qualities.'
-
-#### Run 5
-- fired_ids: ['HL_002', 'H_002', 'H_026']
-- unmatched_features: ['gap']
-- combined_reading: 'The line of head from the commencement of the line of life, and connected with it, indicates a sensitive and more nervous temperament; it denotes excess of caution. When the entire line has a slight slope, there is a leaning toward imaginative work. Next we will consider the line rising from the Mount of Jupiter, even from the finger itself. This denotes the excess of all the foregoing qualities.'
+| HL_004 | HL_005 | Line of Heart touches/originates at Mount of Saturn; Line of Heart.Starting_Point=rising_from_Mount_of_Saturn | Position=high | HL_004 and HL_005 both key on [Line of Heart touches/originates at Mount of Saturn; Line of Heart.Starting_Point=rising_from_Mount_of_Saturn], but differ on [Position=high] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| HL_005 | HL_006 | Line of Heart.Position=high | Starting_Point=rising_from_Mount_of_Saturn | HL_005 and HL_006 both key on [Line of Heart.Position=high], but differ on [Starting_Point=rising_from_Mount_of_Saturn] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| HL_005 | HL_011 | Line of Heart.Position=high | Starting_Point=rising_from_Mount_of_Saturn | HL_005 and HL_011 both key on [Line of Heart.Position=high], but differ on [Starting_Point=rising_from_Mount_of_Saturn] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| HL_005 | HL_018 | Line of Heart touches/originates at Mount of Saturn; Line of Heart.Starting_Point=rising_from_Mount_of_Saturn | Position=high | HL_005 and HL_018 both key on [Line of Heart touches/originates at Mount of Saturn; Line of Heart.Starting_Point=rising_from_Mount_of_Saturn], but differ on [Position=high] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| HL_006 | HL_021 | Quadrangle.Breadth=narrow | Position=high; Position=low | HL_006 and HL_021 both key on [Quadrangle.Breadth=narrow], but differ on [Position=high; Position=low] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| HL_007 | HL_008 | Line of Heart.Continuity=broken | Position=under_Mount_of_Saturn; Position=under_Mount_of_Sun | HL_007 and HL_008 both key on [Line of Heart.Continuity=broken], but differ on [Position=under_Mount_of_Saturn; Position=under_Mount_of_Sun] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| HL_007 | HL_009 | Line of Heart.Continuity=broken | Position=under_Mount_of_Mercury; Position=under_Mount_of_Saturn | HL_007 and HL_009 both key on [Line of Heart.Continuity=broken], but differ on [Position=under_Mount_of_Mercury; Position=under_Mount_of_Saturn] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| HL_008 | HL_009 | Line of Heart.Continuity=broken | Position=under_Mount_of_Mercury; Position=under_Mount_of_Sun | HL_008 and HL_009 both key on [Line of Heart.Continuity=broken], but differ on [Position=under_Mount_of_Mercury; Position=under_Mount_of_Sun] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| HL_010 | HL_013 | Line of Heart.Continuity=forked | Starting_Point=rising_from_Mount_of_Jupiter | HL_010 and HL_013 both key on [Line of Heart.Continuity=forked], but differ on [Starting_Point=rising_from_Mount_of_Jupiter] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| HL_013 | HL_018 | Line of Heart.Width=wide | Starting_Point=rising_from_Mount_of_Saturn | HL_013 and HL_018 both key on [Line of Heart.Width=wide], but differ on [Starting_Point=rising_from_Mount_of_Saturn] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| HL_018 | HL_020 | Line of Heart.Width=wide | Starting_Point=rising_from_Mount_of_Saturn | HL_018 and HL_020 both key on [Line of Heart.Width=wide], but differ on [Starting_Point=rising_from_Mount_of_Saturn] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| H_002 | H_027 | Line of Head touches/originates at Line of Life | Starting_Point=->Mount of Jupiter; Starting_Point=rising_from_Line_of_Life | H_002 and H_027 both key on [Line of Head touches/originates at Line of Life], but differ on [Starting_Point=->Mount of Jupiter; Starting_Point=rising_from_Line_of_Life] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| H_004 | H_020 | Line of Head.Direction=straight | Position=high | H_004 and H_020 both key on [Line of Head.Direction=straight], but differ on [Position=high] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| H_007 | H_011 | Line of Head.Continuity=broken | Position=under_Mount_of_Saturn | H_007 and H_011 both key on [Line of Head.Continuity=broken], but differ on [Position=under_Mount_of_Saturn] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| H_010a | HL_021 | Quadrangle.Breadth=narrow | Position=high; Position=low | H_010a and HL_021 both key on [Quadrangle.Breadth=narrow], but differ on [Position=high; Position=low] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| H_010b | HL_021 | Quadrangle.Breadth=narrow | Position=high; Position=low | H_010b and HL_021 both key on [Quadrangle.Breadth=narrow], but differ on [Position=high; Position=low] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| H_013 | H_023 | Line of Head.Branching=branched | Position=terminating_on_Mount; Position=terminating_on_Mount_of_Jupiter | H_013 and H_023 both key on [Line of Head.Branching=branched], but differ on [Position=terminating_on_Mount; Position=terminating_on_Mount_of_Jupiter] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| H_013 | H_024 | Line of Head.Branching=branched | Position=terminating_on_Mount_of_Jupiter; Position=terminating_on_Mount_of_Moon | H_013 and H_024 both key on [Line of Head.Branching=branched], but differ on [Position=terminating_on_Mount_of_Jupiter; Position=terminating_on_Mount_of_Moon] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
+| H_023 | H_024 | Line of Head.Branching=branched | Position=terminating_on_Mount; Position=terminating_on_Mount_of_Moon | H_023 and H_024 both key on [Line of Head.Branching=branched], but differ on [Position=terminating_on_Mount; Position=terminating_on_Mount_of_Moon] -- an LLM given both could fire the wrong one for a hand missing the discriminator. |
