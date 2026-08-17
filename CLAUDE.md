@@ -123,6 +123,8 @@ query_engine + chart_calculator → astrologer → session_manager
 19. **Never set tuning numbers from hand-picked samples** (S83) — collect production misses first, set from evidence. S83: rank window parked for the capture net.
 20. **Failure-capture discipline: log threshold-free** (S83) — log failures only, categorical + threshold-free; humans decide fixes at monthly review; add a near-miss margin log only if silence rows prove insufficient.
 21. **KNOWN-PATTERNS DISCIPLINE** (S84) — before starting any new diagnosis, grep `diagnostics/KNOWN_PATTERNS.md` first; a symptom already settled there does not need re-deriving, only re-verifying against its cited evidence. Before closing any diagnostic finding, add a row there — that file is the durable record, not a narrative `diagnostics/*.md` file (do not create a new one-off `diagnostics/<topic>_S<xx>.md` for a conclusion that belongs in the index; raw probe scripts/output stay where they are as evidence, only the settled conclusion gets a row).
+22. **VOCABULARY CONTRACT** (law, S95) — every rule trigger token MUST exist in the emitted hand-state vocabulary; reachability is a CI gate, per domain. Mismatch = silent miss.
+23. **FULLY-HARD rules fire from the gate; only soft-containing rules reach the LLM** (S95) — never LLM-bridge representations — compute interpreted terms and feed them.
 
 ## Varshaphal House-Counting Convention (Session 18)
 `resolve_house_counting_lagna()` is the canonical house-counting reference for any Varshaphal-derived bhav calculation (prefers AstroSage parsed Lagna, year-matched; else computed + boundary flag); call it rather than reading Lagna directly off `varshaphal_data`.

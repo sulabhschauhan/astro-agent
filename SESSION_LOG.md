@@ -2749,3 +2749,18 @@ KEY FINDINGS:
 COMMITS THIS SESSION (wip/interpretive-pilot): head-line reconciler validated; head-line pilot artifacts; heart-line holdout; gate-proves-no-fabrication smoke test; collision scan.
 SETTLED, DO NOT RE-OPEN: matcher-based interpretation is dead; decomposition/condition-rewrite is dead (paraphrase leak); "reject on single miss" is WRONG (kills valid co-fires); the seam is code-gate + whole-sentence LLM.
 NOT YET DONE: (1) author hard-prereq tags for the 23 collision rules; (2) build the eval harness (known-answer hands -- the only thing that catches coverage/precedence errors, which the fabrication guard cannot); (3) vision layer (photo -> hand-state) -- UNTESTED, deferred; precedence tie-break (head-vs-heart strongest) UNTESTED (no crowding hand yet).
+
+## S95 -- vocabulary-contract diagnosis; architecture sharpened; NO source commits (report-only scans)
+FINDINGS:
+- Ontology captures hard facts: ~2 real gaps (hand-Type attribute missing; H_023 "any mount" wildcard) + 5 naming-drift. Fabrication guarantee is BOOK-WIDE via a binary partition: a rule either names a landmark (gate checks it) or doesn't (nothing to fabricate). 38% are landmark-free free-pass -- expected, safe.
+- Vocab reachability scan: 33/47 reachable; 14/47 (30%) NAMING-MISMATCH (rule triggers on a word the pipeline never emits = silent miss, invisible to any fabrication guard); 2/47 INTERPRETED-TERM (H_010a/b "stronger").
+- H_010a precedence miss was NOT LLM fabrication -- it was vocabulary mismatch. C2 probe: feed the rule's own word ("stronger_line":"head") and H_010a fires 1/1. The LLM was never broken.
+- ARCHITECTURE SHARPEN: split gate survivors -- FULLY-HARD rules (all conditions code-computable) fire deterministically from the gate; only rules with a soft/quality component reach the LLM. H_010a died because it was re-judged by the LLM instead of fired by the gate.
+GENERAL LEARNINGS (transfer to astrology):
+1. Input vocab and rule vocab are ONE contract -- a rule fires only if its exact trigger word is emitted by the pipeline; mismatch = silent miss invisible to correctness checks. Make trigger-token reachability a mechanical CI gate per domain.
+2. Separate NAMING-MISMATCH (align the words) from COMPUTED-TERM (compute and feed; never make the LLM infer). They look identical, fix differently.
+3. Never ask the LLM to bridge two representations (deep->stronger). Compute the interpreted term deterministically.
+4. A "fabrication" symptom is usually a vocabulary problem in disguise -- check words match BEFORE building gates/guards; per-case bridges (_origin_target) don't scale to thousands of rules.
+QUARANTINE (needs_remodel, gate skips, re-model each as own task): H_013 (star on Jupiter), H_024 (branch-toward Luna), H_023 (any-mount wildcard), H_018/019/020 (hand Type attr), HL_002 (finger-of-Jupiter), HL_015 (faded).
+BACKLOG (ordered): A vocab alignment (14 naming + 2 interpreted); B extract select->agent/interpretive/palm_select.py + split hard-fire/soft-LLM; C author eval answer key + score 3 hands; D re-model 6 quarantined; E vision layer (untested, real risk).
+CARRY: eval answer key unauthored; vision untested.
