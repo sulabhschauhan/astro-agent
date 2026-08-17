@@ -1092,7 +1092,7 @@
         {
           "feature": "Line of Head",
           "attribute": "Branching",
-          "value": "doubled",
+          "value": "double",
           "condition_type": "standard",
           "comparator": null,
           "comparator_feature": null
