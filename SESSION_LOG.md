@@ -2764,3 +2764,62 @@ GENERAL LEARNINGS (transfer to astrology):
 QUARANTINE (needs_remodel, gate skips, re-model each as own task): H_013 (star on Jupiter), H_024 (branch-toward Luna), H_023 (any-mount wildcard), H_018/019/020 (hand Type attr), HL_002 (finger-of-Jupiter), HL_015 (faded).
 BACKLOG (ordered): A vocab alignment (14 naming + 2 interpreted); B extract select->agent/interpretive/palm_select.py + split hard-fire/soft-LLM; C author eval answer key + score 3 hands; D re-model 6 quarantined; E vision layer (untested, real risk).
 CARRY: eval answer key unauthored; vision untested.
+
+
+## S95 CLOSE -- palm architecture FROZEN (Head+Heart), pipeline spec created
+
+**Scope frozen.** Head + Heart palm rule authoring is COMPLETE and is now the reference
+implementation for every remaining line: `data/palm_rules/palm_rules_head_heart_v1.json`,
+**47 validated rules, all `verified: true`**.
+
+**`agent/interpretive/palm_select.py` is the CANONICAL interpretation path** (commit
+`d9a8ffa`). It supersedes the two hand-rolled `_HARD_PREREQUISITES` lambda maps in
+`scripts/smoke_test_palm_llm_select.py` and `scripts/eval_harness_soft_v1.py`. Structure:
+production `match()` hard-fire (rules projected onto their hard antecedents via
+`dataclasses.replace`, engine IMPORTED never reimplemented) -> S95 vocabulary guard
+(unreachable trigger tokens surfaced in `unmatched`, never sent onward as a fake fire) ->
+whole-verbatim-sentence soft LLM select with a verbatim-quote guard -> subset precedence.
+
+**Three rulings landed:**
+- **RULING 1** -- `Position=high`/`low` are SOFT (no-anchor decision). H_010a/H_010b are
+  therefore MIXED, not FULLY-HARD: they gate on Breadth+Depth then take ONE LLM call on
+  "so high on the hand". Height is never routed through the hard gate.
+- **RULING 2** -- precedence subset check is CORPUS-WIDE (topic_group is an authoring
+  convenience, not a semantic boundary). **NOT YET IMPLEMENTED** -- the
+  `resolve_priority()` edit in `palm_rules_table.py` was outside the ratified commit's
+  file whitelist and is still outstanding, together with renaming
+  `test_priority_never_suppresses_across_different_topic_groups`, whose name now
+  overclaims. Currently zero observable impact: all 3 cross-group demotions have
+  unreachable primaries.
+- **RULING 3** -- suppression DEMOTES, never DELETES. A defeated rule leaves
+  `fired_ids`/`quotes`/`combined_reading` but lands in `result["suppressed"]` as
+  `{suppressed_id, by, claim, quote}`, carrying its own claim and verbatim sentence.
+
+**Demotion audit (full corpus, 47x47):** 9 proper-subset pairs, only 5 rules can ever be
+demoted (`HL_001`, `HL_004`, `HL_011`, `H_011`, `H_021`). 5 of 9 are LIVE; 4 are INERT
+because their primary is unreachable. Two contradiction-rather-than-generalisation pairs
+were flagged for human eyeball: HL_011 ("happiest nature") demoted by HL_005/HL_006, and
+H_011 ("fatal accident") demoted by H_007 -- in the latter the surviving claim is the more
+severe, so nothing safety-relevant is softened.
+
+**Pipeline spec created: `data/palm_rules/_doctrine/PALM_PIPELINE.md`** -- the frozen,
+repeatable 0-7 checklist every remaining line-chapter MUST follow, plus the four
+non-delegable human rulings (soft-term anchors [default: none], ambiguous-attribute
+routing, precedence/defeat pairs, eval answer key) and the restated working laws.
+
+**Remaining lines:** Life (file exists, **live-but-unvetted** -- `load_rule_set()` already
+merges its 13 rules into a 60-rule live set, 3 antecedents fail reachability, and its schema
+diverges: `parked_pending` vs `parked_pending_relation_target`, no `retired_superseded`),
+Fate, Sun, Health, Mars, Mounts, Marks, Hand-types.
+
+**Carried-forward blockers:** (a) `Quadrangle` and `Hand` are registry-legal but NOT
+emission-reachable, so 7 rules keyed on them can never fire from a real hand -- this is what
+makes RULING 2 inert; (b) caller repoint of the two scripts is BLOCKED, not done -- their
+hand-state fixtures use a private vocabulary (`head`/`origin: "Jupiter_touching_life"`) that
+`match()` cannot read, so a surgical import swap gates out every rule and collapses the
+smoke test's A-vs-B discrimination; translating the fixtures is a data change needing its
+own ratified task; (c) `palm_select.py` ships with no tests -- owed: empty-projection
+vacuous pass, cross-group demotion, RULING 3 demote-not-delete, vocab-guard `unmatched`,
+and the scalar-side-field crash regression.
+
+**Suite:** `tests/interpretive/` 270 passed, 4 skipped.

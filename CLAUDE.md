@@ -202,6 +202,8 @@ Resolved entries are archived in SESSION_LOG.md (see each session's "Carry-forwa
 ## Rule Authoring & Audit Architecture
 Storage convention is authoritative in `data/palm_rules/README.md` -- read it there, not restated here.
 
+- **Palm line authoring MUST follow `data/palm_rules/_doctrine/PALM_PIPELINE.md`** (frozen S95) -- the ordered 0-7 checklist (scope -> author -> vocab reachability -> hard/soft partition -> hard-side proof -> wire via `palm_select.py` -> eval -> quarantine), the four non-delegable human rulings, and the working laws. Head+Heart are the reference implementation; Life is live-but-unvetted (see that doc's warning).
+
 - **Standing rule**: every chapter follows the same pipeline -- doctrine inventory (`_doctrine/doctrine_<line>.md`) -> rules (`palm_rules_<chapter>_v1.json`) -> reconciliation audit (`_audit/reconciliation_<line>.md`) -> unauthorable register (`unauthorable_register.json`). Authoring is complete for a chapter only when every doctrine statement maps to either a verified rule OR a register entry -- no doctrine statement may go unaccounted for.
 - **MANDATORY reading** before any rule-authoring or reconciliation work (palm now, astrology later): `data/_meta/learnings_for_astrology_rules.md` -- the reusable procedure and the three-vocabularies-drift mistake class it exists to stop from repeating chapter to chapter.
 - **Status**: head line reconciliation is DONE (`data/palm_rules/_audit/reconciliation_head.md`). Heart line is the next audit. All other chapters are backlogged for a future batch sweep, not started.
