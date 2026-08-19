@@ -35,13 +35,14 @@ KEY DECISIONS (do NOT re-litigate):
   one check; no defeats/refines 3-way engine). Only 5 rules can ever be demoted: HL_001,
   HL_004, HL_011, H_011, H_021. Sulabh accepted the contradicting demotions (#4/#5 HL_011
   "happiest nature" vs HL_005; #7 H_021 "brutal nature").
-- Fixes landed: H_025 `doubled`->`double` (`c32c850`). **NOT landed:** the `Branching` ->
-  `Line of Heart` ontology mapping for HL_014 was never made -- `ontology_registry.json` is
-  unmodified and `Line of Heart` is absent from `Branching`'s feature list (verified at
-  close). HL_014 therefore remains `attribute_illegal_for_feature`, not merely
-  registry-legal-but-unreachable. The underlying reading still holds: "bare of branches" is
-  `BRANCHES_TO: none` in the vision layer, so HL_014 stays PARKED either way -- but the
-  registry edit is outstanding, not done.
+- Fixes landed: H_025 `doubled`->`double` (`c32c850`); `Branching` -> `Line of Heart`
+  ontology mapping for HL_014, approved in-session and committed separately in the S95
+  close-up (`aef43de`) -- `attribute_feature_mapping["Branching"]` now includes
+  `Line of Heart`, so HL_014's `Line of Heart.Branching = single` is REGISTRY-LEGAL and its
+  value is in the emitted pool. **HL_014 remains PARKED regardless:** registry-legal is not
+  emission-reachable, and "bare of branches" is `BRANCHES_TO: none` in the vision layer, so
+  nothing emits a bare `Branching` observation for the heart line. Un-parking HL_014 is a
+  vision-layer task, not a registry one.
 
 GENERAL LEARNINGS (transfer to astrology):
 1. Input-vocab and rule-vocab are ONE contract; a rule fires only if its exact trigger word
