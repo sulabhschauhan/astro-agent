@@ -1,20 +1,3 @@
-# latest_run — S96 cheirognomy hand-type doctrine transcription
-
-TASK: create `data/palm_rules/_doctrine/CHEIROGNOMY_HAND_TYPE.md` (docs-only, transcription).
-RESULT: file written, 5857 bytes. JSON block validated with `json.loads` — parses, exactly 1
-`json` fence in the file. Top keys: hand_geometry / fingers / _provenance; fingers =
-jupiter, saturn, apollo, mercury; _reserved = length_abs, length_relative, thickness, lean,
-straightness, flexibility, base_shape, phalanges, joints; hand_geometry = palm_squareness,
-broad_point, finger_palm_ratio, overall_proportion, inter_finger_spacing.
-
-DEVIATION (one, formatting-only): the source spec's JSON block carried `//` comments
-(`// MediaPipe, objective`, `// {wrist, base} - spatulate sub-signal`, `// CAPTURED now,
-dual-use`). JSON has no comment syntax, so with them inline the block would NOT parse — and
-the task required confirming it parses. The comments were moved verbatim-in-intent to a
-"Field annotations" list directly beneath the block. No content dropped, no content added.
-
---- FULL FILE CONTENT AS WRITTEN ---
-
 # Cheirognomy — Hand-Type Rubric & Finger-Forward Capture Schema
 
 Source: Cheiro, *Language of the Hand*, Ch. I–XI. Page references are load-bearing — keep them.
