@@ -72,38 +72,6 @@
       "schema_flags": []
     },
     {
-      "rule_id": "L_003",
-      "source_page": 134,
-      "topic_group": "line_life",
-      "is_compound": true,
-      "baseline": false,
-      "antecedents": [
-        {
-          "feature": "Line of Life",
-          "attribute": "Continuity",
-          "value": "chained",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        },
-        {
-          "feature": "Palm",
-          "attribute": "Consistency",
-          "value": "soft",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "A chained life line on a soft hand is an especially strong sign of bad health.",
-      "source_quote": "it is a sure sign of bad health, and particularly so on a soft hand",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-04",
-      "source_fidelity": null,
-      "schema_flags": []
-    },
-    {
       "rule_id": "L_004",
       "source_page": 134,
       "topic_group": "line_life",
@@ -217,62 +185,6 @@
       ],
       "claim": "A clearly formed island at the commencement of the life line denotes some mystery connected with the subject's birth.",
       "source_quote": "a clearly formed island at the commencement of the line of life denotes some mystery connected with the subject's birth",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-04",
-      "source_fidelity": null,
-      "schema_flags": []
-    },
-    {
-      "rule_id": "L_020",
-      "source_page": 136,
-      "topic_group": "line_life",
-      "is_compound": true,
-      "baseline": false,
-      "antecedents": [
-        {
-          "feature": "Line of Life",
-          "attribute": "Continuity",
-          "value": "broken",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        },
-        {
-          "feature": "Square",
-          "attribute": "Position",
-          "value": "touching_Line_of_Life",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "A square enclosing a break in the life line indicates preservation from sudden death.",
-      "source_quote": "The line running through a square indicates preservation from death, from sudden death when the life-line running through is broken",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-04",
-      "source_fidelity": null,
-      "schema_flags": []
-    },
-    {
-      "rule_id": "L_021",
-      "source_page": 136,
-      "topic_group": "line_life",
-      "is_compound": false,
-      "baseline": true,
-      "antecedents": [
-        {
-          "feature": "Square",
-          "attribute": "Position",
-          "value": "touching_Line_of_Life",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "A square found on the life line is a mark of preservation.",
-      "source_quote": "A square, whenever found on the line of life, is a mark of preservation.",
       "verified": true,
       "verifier": "Sulabh",
       "verified_date": "2026-08-04",
@@ -442,6 +354,102 @@
       "source_page": 136,
       "reason": "ambiguous",
       "note": "forked at end + wide space -> death in foreign country. 'wide space' discriminator not expressible; would over-fire generic fork."
+    }
+  ],
+  "retired_superseded": [
+    {
+      "rule_id": "L_003",
+      "source_page": 134,
+      "topic_group": "line_life",
+      "is_compound": true,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Line of Life",
+          "attribute": "Continuity",
+          "value": "chained",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Palm",
+          "attribute": "Consistency",
+          "value": "soft",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A chained life line on a soft hand is an especially strong sign of bad health.",
+      "source_quote": "it is a sure sign of bad health, and particularly so on a soft hand",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-04",
+      "source_fidelity": null,
+      "schema_flags": [],
+      "retired_reason": "out_of_scope: whole-hand Palm consistency not emission-reachable; hand-type family scoped out S96. Strip-Palm rejected: duplicates L_002 and breaks source fidelity.",
+      "retired_session": "S96"
+    },
+    {
+      "rule_id": "L_020",
+      "source_page": 136,
+      "topic_group": "line_life",
+      "is_compound": true,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Line of Life",
+          "attribute": "Continuity",
+          "value": "broken",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        },
+        {
+          "feature": "Square",
+          "attribute": "Position",
+          "value": "touching_Line_of_Life",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A square enclosing a break in the life line indicates preservation from sudden death.",
+      "source_quote": "The line running through a square indicates preservation from death, from sudden death when the life-line running through is broken",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-04",
+      "source_fidelity": null,
+      "schema_flags": [],
+      "retired_reason": "out_of_scope: marks/signs (Square) scoped out S96; not emission-reachable.",
+      "retired_session": "S96"
+    },
+    {
+      "rule_id": "L_021",
+      "source_page": 136,
+      "topic_group": "line_life",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Square",
+          "attribute": "Position",
+          "value": "touching_Line_of_Life",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A square found on the life line is a mark of preservation.",
+      "source_quote": "A square, whenever found on the line of life, is a mark of preservation.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-04",
+      "source_fidelity": null,
+      "schema_flags": [],
+      "retired_reason": "out_of_scope: marks/signs (Square) scoped out S96; not emission-reachable.",
+      "retired_session": "S96"
     }
   ]
 }

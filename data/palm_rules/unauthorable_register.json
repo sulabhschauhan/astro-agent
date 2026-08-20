@@ -3,5 +3,30 @@
   "_note": "Recorded 'no clean valence-safe doctrine exists' verdicts. Persisted so closed questions are not re-litigated. Harness reads this to skip re-investigation.",
   "line_head": [],
   "line_heart": [],
-  "line_life": []
+  "line_life": [
+    {
+      "configuration": "Line of Life Continuity=chained AND Palm Consistency=soft",
+      "feature": "Palm",
+      "reason": "out_of_scope: whole-hand Palm consistency not emission-reachable; hand-type family scoped out S96. Strip-Palm rejected: duplicates L_002 and breaks source fidelity.",
+      "source_checked": 134,
+      "decided": "retire whole",
+      "session": "S96"
+    },
+    {
+      "configuration": "Line of Life Continuity=broken AND Square Position=touching_Line_of_Life",
+      "feature": "Square",
+      "reason": "out_of_scope: marks/signs (Square) scoped out S96; not emission-reachable.",
+      "source_checked": 136,
+      "decided": "retire whole",
+      "session": "S96"
+    },
+    {
+      "configuration": "Square Position=touching_Line_of_Life",
+      "feature": "Square",
+      "reason": "out_of_scope: marks/signs (Square) scoped out S96; not emission-reachable.",
+      "source_checked": 136,
+      "decided": "retire whole",
+      "session": "S96"
+    }
+  ]
 }
