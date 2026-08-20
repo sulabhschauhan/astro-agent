@@ -290,70 +290,60 @@
   ],
   "parked_pending": [
     {
-      "rule_id": "L_P01",
-      "source_page": 134,
-      "reason": "hand_side",
-      "note": "broken in left / joined in right -> dangerous illness. Needs Laterality (dropped by loader)."
-    },
-    {
-      "rule_id": "L_P02",
-      "source_page": 134,
-      "reason": "hand_side",
-      "note": "broken in both hands -> death. Needs Laterality."
-    },
-    {
       "rule_id": "L_P03",
       "source_page": 134,
       "reason": "relation_target",
-      "note": "life closely connected with head -> guided by reason, sensitive. life<->head relation."
+      "note": "life closely connected with head -> guided by reason, sensitive. life<->head relation.",
+      "disposition": "future_relation_target"
     },
     {
       "rule_id": "L_P04",
       "source_page": 134,
       "reason": "relation_target",
-      "note": "medium/wide space life-head -> free/energetic vs foolhardy. life<->head spacing."
+      "note": "medium/wide space life-head -> free/energetic vs foolhardy. life<->head spacing.",
+      "disposition": "future_relation_target"
     },
     {
       "rule_id": "L_P05",
       "source_page": 135,
       "reason": "relation_target",
-      "note": "life+head+heart joined at commencement -> rushes into danger. 3-line junction."
+      "note": "life+head+heart joined at commencement -> rushes into danger. 3-line junction.",
+      "disposition": "future_relation_target"
     },
     {
       "rule_id": "L_P06",
       "source_page": 135,
       "reason": "ontology_gap_branch",
-      "note": "branch to Mount of Luna (+firm/flabby hand, head slope) -> travel/vice. Branch destination not expressible on Line of Life; relational (Line of Influence)."
+      "note": "branch to Mount of Luna (+firm/flabby hand, head slope) -> travel/vice. Branch destination not expressible on Line of Life; relational (Line of Influence).",
+      "disposition": "future_branch"
     },
     {
       "rule_id": "L_P07",
       "source_page": 135,
       "reason": "ontology_gap_branch",
-      "note": "branches rising to Jupiter/Sun/Mercury -> gains/distinction; hair-lines dropping -> weakness. Branch direction+destination not expressible on Line of Life."
+      "note": "branches rising to Jupiter/Sun/Mercury -> gains/distinction; hair-lines dropping -> weakness. Branch direction+destination not expressible on Line of Life.",
+      "disposition": "future_branch"
     },
     {
       "rule_id": "L_P08",
       "source_page": 136,
       "reason": "relation_target",
-      "note": "branch to Saturn parallel to fate -> wealth. Needs parallel_to_Line_of_Fate token + relation."
-    },
-    {
-      "rule_id": "L_P09",
-      "source_page": 137,
-      "reason": "relation_target",
-      "note": "entire p136-139 ray/influence/Hindu subsystem -> relatives/opponents/scandal/divorce etc. Inherently relational."
+      "note": "branch to Saturn parallel to fate -> wealth. Needs parallel_to_Line_of_Fate token + relation.",
+      "disposition": "future_relation_target"
     },
     {
       "rule_id": "L_P10",
       "source_page": 139,
       "reason": "relation_target",
-      "note": "health line meeting life of equal strength -> point of death. life<->health relation."
+      "note": "health line meeting life of equal strength -> point of death. life<->health relation. ALSO needs Health-line emission (not built).",
+      "disposition": "future_relation_target"
     },
     {
       "rule_id": "L_P11",
       "source_page": 136,
       "reason": "ambiguous",
-      "note": "forked at end + wide space -> death in foreign country. 'wide space' discriminator not expressible; would over-fire generic fork."
+      "note": "forked at end + wide space -> death in foreign country. 'wide space' discriminator not expressible; authoring would falsely fire 'death in foreign country' on any end-fork. Park-locked.",
+      "disposition": "do_not_author"
     }
   ],
   "retired_superseded": [

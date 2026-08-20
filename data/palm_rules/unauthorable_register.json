@@ -27,6 +27,30 @@
       "source_checked": 136,
       "decided": "retire whole",
       "session": "S96"
+    },
+    {
+      "configuration": "broken in left / joined in right -> dangerous illness. Needs Laterality (dropped by loader).",
+      "feature": "Laterality",
+      "reason": "out_of_scope: two-hand/laterality state deferred OUT S96 (dual-hand state change, low V1 value)",
+      "source_checked": 134,
+      "decided": "scope_out",
+      "session": "S96"
+    },
+    {
+      "configuration": "broken in both hands -> death. Needs Laterality.",
+      "feature": "Laterality",
+      "reason": "out_of_scope: two-hand/laterality state deferred OUT S96 (dual-hand state change, low V1 value)",
+      "source_checked": 134,
+      "decided": "scope_out",
+      "session": "S96"
+    },
+    {
+      "configuration": "entire p136-139 ray/influence/Hindu subsystem -> relatives/opponents/scandal/divorce etc. Inherently relational.",
+      "feature": "Line of Influence subsystem",
+      "reason": "out_of_scope: Hindu/Influence ray subsystem p136-139 OUT S96 (whole subsystem, outside Cheiro-Western core)",
+      "source_checked": 137,
+      "decided": "scope_out",
+      "session": "S96"
     }
   ]
 }
