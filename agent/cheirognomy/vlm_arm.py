@@ -773,22 +773,24 @@ def _merge_multi(path, flats, n):
     agreement is (runs containing it) / (runs attempted) -- the same denominator
     a single slot uses, so silence still counts against the number.
 
-    A value appearing in even ONE run is kept, with its low agreement recorded
-    and surfaced as a disagreement flag. That is deliberate: on a tangled axis
-    the runs are not contradicting each other by naming different values, so
-    dropping a minority value would discard real evidence rather than resolve a
-    conflict. TUNING NOTE: if a minority value is ever seen pulling a type across
-    the dominance margin on its own, raise this to a per-value majority
-    (`c * 2 > n`) -- one line, and the votes to justify it are already recorded.
+    A value enters the merged SET only if it holds a MAJORITY of runs
+    (`c * 2 > n`) -- a value seen in fewer than half the same-image runs is
+    observation noise on a repeated read, not a co-true axis value (measured:
+    a 1/3 fluke lifted conic to a false runner-up against dominant_type). Every
+    value's agreement, kept or dropped, is still recorded in `votes` and
+    `per_value_agreement` for audit -- the drop is from the set, not the log.
+    TUNING NOTE: N=3 so majority = 2/3; revisit this threshold if N changes.
 
-    The slot-level `agreement` is the mean of the per-value agreements, so
-    `_overall_confidence` reads it exactly as it reads a single slot's.
+    The slot-level `agreement` is the mean of the per-value agreements (over
+    ALL observed values, not just the kept majority), so `_overall_confidence`
+    reads it exactly as it reads a single slot's.
     """
     per_run = [f[path] or () for f in flats]
     counts = Counter(v for run_vals in per_run for v in dict.fromkeys(run_vals))
     per_value = {v: round(c / n, 3) for v, c in counts.items()}
+    majority = {v for v, c in counts.items() if c * 2 > n}
     # Deterministic order: strongest agreement first, alphabetical to break ties.
-    values = tuple(sorted(per_value, key=lambda v: (-per_value[v], v)))
+    values = tuple(sorted(majority, key=lambda v: (-per_value[v], v)))
     agreement = round(statistics.fmean(per_value.values()), 3) if per_value else 0.0
     return {
         "value": values or None,
