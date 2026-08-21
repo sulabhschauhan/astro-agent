@@ -14,6 +14,13 @@ changes, the model's allowed vocabulary and the derive rubric change with it.
 A value the model emits that is not on its menu is a FABRICATION -- it is
 rejected and recorded, never coerced onto the nearest legal token.
 
+CARDINALITY is part of that contract too, and is likewise doctrine-parsed: S4's
+`multi:` annotation names the slots whose axes are TANGLED (a palm can be thick
+AND broad at once), and those slots hold a LIST of menu values. Their criteria
+OR-match -- a type's cell fires when its phrase is among the observed values --
+which credits evidence that is present without moving the dominance bar. Every
+other slot stays single-valued and is merged by strict plurality, unchanged.
+
 Ingestion is NOT reimplemented: `palm_processor.validate_palm_image` is the
 hand-presence / readability gate, and the base64 + OpenAI/.env pattern mirrors
 `palm_processor` exactly.
@@ -195,6 +202,7 @@ class Doctrine:
     menus: dict              # primitive key -> tuple of legal values
     finger_keys: tuple       # ("jupiter", "saturn", "apollo", "mercury")
     spacing_keys: tuple      # ("1_2", "2_3", "3_4")
+    multi_slots: tuple = ()  # slots that hold a LIST of menu values (S4 `multi:` annotation)
 
 
 def _sections(text):
@@ -362,6 +370,38 @@ def _menu_tokens_in_cell(menu, cell):
     return tuple(m for m in menu if any(_stem_match(m, w) for w in cell_words))
 
 
+def _parse_multi_slots(secs):
+    """
+    Read the S4 `multi: <slot>, <slot>` annotation -- which slots hold a LIST of
+    menu values rather than one.
+
+    Cardinality is doctrine, not code: the annotation is parsed the same way every
+    menu is, so the module never carries its own opinion about which axes tangle.
+    An EMPTY result is legal and means "every slot is single-valued" -- the state
+    the file was in before the annotation existed. A slot NAMED but unknown is
+    drift, and fails loud.
+    """
+    found = []
+    for sec in (3, 4):
+        if sec not in secs:
+            continue
+        for m in re.finditer(r"multi:\s*([a-z_]+(?:\s*,\s*[a-z_]+)*)", secs[sec]):
+            for slot in m.group(1).split(","):
+                slot = slot.strip()
+                if slot and slot not in found:
+                    found.append(slot)
+    for slot in found:
+        # Restricted to WHOLE-HAND scored slots on purpose: `fingertip_form` is
+        # captured per finger and merged by `_finger_consensus`, a different
+        # mechanism that multi-value has no meaning in.
+        if slot not in _DERIVE_SLOTS or slot not in _HAND_PRIMITIVES:
+            raise CheirognomyDoctrineError(
+                f"doctrine `multi:` annotation names {slot!r}, which is not a whole-hand "
+                f"scored slot. Legal: {tuple(s for s in _DERIVE_SLOTS if s in _HAND_PRIMITIVES)}."
+            )
+    return tuple(found)
+
+
 def _parse_schema_keys(section):
     """Read the finger identity keys and spacing keys off S4's canonical JSON block."""
     m = re.search(r"```json\s*(\{.*?\})\s*```", section, re.DOTALL)
@@ -477,7 +517,13 @@ def load_doctrine(path=None):
         menus=menus,
         finger_keys=finger_keys,
         spacing_keys=spacing_keys,
+        multi_slots=_parse_multi_slots(secs),
     )
+
+
+def _is_multi_path(path, doc):
+    """True for a merged-primitive path whose slot holds a LIST of menu values."""
+    return path.startswith("hand.") and path[len("hand."):] in doc.multi_slots
 
 
 # =============================================================================
@@ -499,8 +545,27 @@ def build_system_prompt(doc, view="palmar"):
     def menu(key):
         return " | ".join(doc.menus[key] + (UNREADABLE,))
 
+    def label(key):
+        """A multi slot is announced as a LIST in the field line itself."""
+        base = _HAND_PRIMITIVE_LABELS[key]
+        return f"{base} [LIST]" if key in doc.multi_slots else base
+
     omitted = omitted_primitives(view)
     asked = [p for p in _HAND_PRIMITIVES if p not in omitted]
+    multi_asked = [p for p in asked if p in doc.multi_slots]
+
+    multi_block = []
+    if multi_asked:
+        multi_block = [
+            "MULTI-VALUE FIELDS: the fields marked [LIST] describe INDEPENDENT axes -- more "
+            "than one value can be true of the same hand at once (a palm can be thick AND "
+            "broad). For those fields return a JSON ARRAY of EVERY listed value that applies; "
+            "an array of one is correct when only one applies. Every element must still be "
+            f"copied VERBATIM from that field's list. Use [\"{UNREADABLE}\"] if you cannot see "
+            "the feature at all. Do NOT list a value merely because it is plausible -- list it "
+            "only if you can see it.",
+            "",
+        ]
 
     lines = [
         "You are a trained observer recording HAND SHAPE notes for a Cheiro-tradition "
@@ -519,8 +584,9 @@ def build_system_prompt(doc, view="palmar"):
         "  jupiter = index (1st), saturn = middle (2nd), apollo = ring (3rd), mercury = little (4th)",
         f"  fingertip_form: {menu('fingertip_form')}",
         "",
+        *multi_block,
         f"WHOLE HAND (this is a {view} view):",
-        *[f"  {_HAND_PRIMITIVE_LABELS[p]}: {menu(p)}" for p in asked],
+        *[f"  {label(p)}: {menu(p)}" for p in asked],
         "",
         "INTER-FINGER SPACING at rest, one value per gap "
         f"({', '.join(doc.spacing_keys)} = the gaps between adjacent fingers 1-2, 2-3, 3-4).",
@@ -544,7 +610,12 @@ def build_system_prompt(doc, view="palmar"):
         '  "fingers": {'
         + ", ".join(f'"{k}": {{"fingertip_form": "..."}}' for k in doc.finger_keys)
         + "},",
-        '  "hand": {' + ", ".join(f'"{k}": "..."' for k in asked) + "},",
+        '  "hand": {'
+        + ", ".join(
+            f'"{k}": ' + ('["...", "..."]' if k in doc.multi_slots else '"..."')
+            for k in asked
+        )
+        + "},",
         '  "inter_finger_spacing": {'
         + ", ".join(f'"{k}": "..."' for k in doc.spacing_keys)
         + "}",
@@ -618,6 +689,28 @@ def _classify_once(image_bytes, doc, client, run_index, view="palmar"):
         off_menu.append({"path": path, "value": value, "reason": f"off-menu for {menu_key}"})
         return None
 
+    def take_multi(menu_key, value, path):
+        """
+        A multi slot: keep EVERY on-menu element, drop and record the rest.
+
+        Each element runs the same `take` gate as a single value -- the closed
+        vocabulary is unchanged, only the cardinality is. A bare string is
+        accepted as a one-element list (the model occasionally answers a [LIST]
+        field with a single value; that is a correct observation in the wrong
+        container, not a fabrication). Empty result -> None, the same
+        "unobserved" state a single slot uses.
+        """
+        if value is None:
+            return None
+        items = value if isinstance(value, list) else [value]
+        kept = []
+        for i, item in enumerate(items):
+            elem_path = f"{path}[{i}]" if isinstance(value, list) else path
+            v = take(menu_key, item, elem_path)
+            if v is not None and v not in kept:
+                kept.append(v)
+        return tuple(kept) or None
+
     payload = {
         "hand_present": bool(parsed.get("hand_present", False)),
         "fingers": {},
@@ -642,7 +735,8 @@ def _classify_once(image_bytes, doc, client, run_index, view="palmar"):
             # `_score_types` already skips as not-evaluable.
             payload["hand"][pkey] = None
             continue
-        payload["hand"][pkey] = take(pkey, hand_in.get(pkey), f"hand.{pkey}")
+        reader = take_multi if pkey in doc.multi_slots else take
+        payload["hand"][pkey] = reader(pkey, hand_in.get(pkey), f"hand.{pkey}")
 
     spacing_in = parsed.get("inter_finger_spacing") or {}
     for skey in doc.spacing_keys:
@@ -669,6 +763,47 @@ def _flatten(payload, doc):
     return flat
 
 
+def _merge_multi(path, flats, n):
+    """
+    Merge one MULTI slot across runs. The values on a multi slot are independent
+    of one another, so they are merged independently: each is its own yes/no
+    question across the runs, not a competitor in one winner-take-all vote.
+
+    A value is OBSERVED for a run if it appears in that run's list, and its
+    agreement is (runs containing it) / (runs attempted) -- the same denominator
+    a single slot uses, so silence still counts against the number.
+
+    A value appearing in even ONE run is kept, with its low agreement recorded
+    and surfaced as a disagreement flag. That is deliberate: on a tangled axis
+    the runs are not contradicting each other by naming different values, so
+    dropping a minority value would discard real evidence rather than resolve a
+    conflict. TUNING NOTE: if a minority value is ever seen pulling a type across
+    the dominance margin on its own, raise this to a per-value majority
+    (`c * 2 > n`) -- one line, and the votes to justify it are already recorded.
+
+    The slot-level `agreement` is the mean of the per-value agreements, so
+    `_overall_confidence` reads it exactly as it reads a single slot's.
+    """
+    per_run = [f[path] or () for f in flats]
+    counts = Counter(v for run_vals in per_run for v in dict.fromkeys(run_vals))
+    per_value = {v: round(c / n, 3) for v, c in counts.items()}
+    # Deterministic order: strongest agreement first, alphabetical to break ties.
+    values = tuple(sorted(per_value, key=lambda v: (-per_value[v], v)))
+    agreement = round(statistics.fmean(per_value.values()), 3) if per_value else 0.0
+    return {
+        "value": values or None,
+        "source_arm": _SOURCE_ARM,
+        "confidence": agreement,
+        "agreement": agreement,
+        "votes": dict(counts),
+        "per_value_agreement": per_value,
+        "runs_observed": sum(1 for rv in per_run if rv),
+        "runs_total": n,
+        "tied": False,          # no winner-take-all vote here, so no tie to have
+        "multi": True,
+    }
+
+
 def _majority(runs, doc):
     """
     Majority value per primitive across the runs.
@@ -678,11 +813,17 @@ def _majority(runs, doc):
     than being quietly excluded, so silence is visible in the number.
 
     A tie, or no votes at all, yields value=None: no majority is not a coin toss.
+
+    MULTI slots take the `_merge_multi` path instead; every other slot is merged
+    exactly as before.
     """
     n = len(runs)
     flats = [_flatten(p, doc) for p in runs]
     primitives = {}
     for path in flats[0]:
+        if _is_multi_path(path, doc):
+            primitives[path] = _merge_multi(path, flats, n)
+            continue
         votes = [f[path] for f in flats if f[path] is not None]
         counts = Counter(votes)
         value, agreement, tied = None, 0.0, False
@@ -756,13 +897,29 @@ def _score_types(primitives, doc, finger_form):
                 if observed is None:
                     continue
                 evaluable.append(slot)
-                hit = observed == tc.criteria[slot]
+                if isinstance(observed, tuple):
+                    # OR-match on a multi slot: the criterion fires when this
+                    # type's required phrase is AMONG the observed values.
+                    #
+                    # This is NOT a lowered threshold. The counting rule is
+                    # untouched -- score is still matched/evaluable, the slot
+                    # still costs every type that declares it one evaluable
+                    # criterion, and a type whose phrase is absent still scores a
+                    # miss exactly as before. What changes is only that the axis
+                    # can carry more than one true value at once, so evidence
+                    # that is genuinely present is credited instead of being
+                    # crowded out by a different, equally true value. The bar is
+                    # where it was; the observation is no longer forced to
+                    # discard part of itself to fit a single-valued field.
+                    hit = tc.criteria[slot] in observed
+                else:
+                    hit = observed == tc.criteria[slot]
             if hit:
                 matched.append(slot)
             detail.append({
                 "slot": slot,
                 "expected": list(tc.fingertip_tokens) if slot == "fingertip_form" else tc.criteria[slot],
-                "observed": observed,
+                "observed": list(observed) if isinstance(observed, tuple) else observed,
                 "match": hit,
             })
         scored[name] = {
@@ -931,7 +1088,10 @@ class CheirognomyResult:
             p = self.primitives[path]
             if p["value"] is None:
                 return None
-            return {"value": p["value"], "source_arm": p["source_arm"], "confidence": p["confidence"]}
+            # A multi slot's value is a tuple of menu values; emit it as a JSON
+            # list so the S4 shape stays serialisable.
+            value = list(p["value"]) if p.get("multi") else p["value"]
+            return {"value": value, "source_arm": p["source_arm"], "confidence": p["confidence"]}
 
         reserved = {
             "length_abs": None, "length_relative": None, "thickness": None, "lean": None,

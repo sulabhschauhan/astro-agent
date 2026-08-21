@@ -1,126 +1,188 @@
-# latest_run — S96 cheirognomy hand-type doctrine transcription
+# Cheirognomy — multi-value `palm` + `finger_character`, OR-match scoring
 
-TASK: create `data/palm_rules/_doctrine/CHEIROGNOMY_HAND_TYPE.md` (docs-only, transcription).
-RESULT: file written, 5857 bytes. JSON block validated with `json.loads` — parses, exactly 1
-`json` fence in the file. Top keys: hand_geometry / fingers / _provenance; fingers =
-jupiter, saturn, apollo, mercury; _reserved = length_abs, length_relative, thickness, lean,
-straightness, flexibility, base_shape, phalanges, joints; hand_geometry = palm_squareness,
-broad_point, finger_palm_ratio, overall_proportion, inter_finger_spacing.
+**GATE: PASS** — dominant_type `square` (required `square`), square 0.667 vs spatulate 0.5.
 
-DEVIATION (one, formatting-only): the source spec's JSON block carried `//` comments
-(`// MediaPipe, objective`, `// {wrist, base} - spatulate sub-signal`, `// CAPTURED now,
-dual-use`). JSON has no comment syntax, so with them inline the block would NOT parse — and
-the task required confirming it parses. The comments were moved verbatim-in-intent to a
-"Field annotations" list directly beneath the block. No content dropped, no content added.
+> Caveat, stated up front: the gate passed, but **not by the mechanism the change predicted**, and
+> it clears the dominance margin by 0.017. See "The gate passed, but NOT by the predicted
+> mechanism" under §3 before relying on this result.
 
---- FULL FILE CONTENT AS WRITTEN ---
+- Two files, one coupled change: the S4 `multi:` annotation in `data/palm_rules/_doctrine/CHEIROGNOMY_HAND_TYPE.md`, and the parser/prompt/merge/scorer that reads it in `agent/cheirognomy/vlm_arm.py`.
+- **No menu word changed.** The vocabulary contract is untouched; only CARDINALITY moved, and it moved in the doctrine file, parsed like every other menu.
+- Live run: `palm_right_test.jpg`, view **palmar**, N=3 at temperature 0.4 · **4 GPT-4o calls** (1 gate + 3 classify)
 
-# Cheirognomy — Hand-Type Rubric & Finger-Forward Capture Schema
+## 1. The annotation, as parsed
 
-Source: Cheiro, *Language of the Hand*, Ch. I–XI. Page references are load-bearing — keep them.
-
-## 1. Purpose & fidelity stance
-
-- Cheirognomy rubric for hand-type classification plus the per-finger capture schema.
-- Type is a **DISCLOSED, user-correctable ASSUMPTION**, never a silent input.
-- No type-labeled palm dataset exists. Validation = a small self-labeled **consistency** set,
-  **NOT a truth oracle** (fidelity-not-truth ceiling).
-- The **modifier layer** (type reweighting other lines) is **NOT built** and is out of scope here.
-
-## 2. The 7 types — closed menu, geometric criteria (verbatim from source)
-
-| Type | Palm | Fingertips | Fingers/length | Joints | Nails | src |
-|---|---|---|---|---|---|---|
-| Elementary | large, thick, heavy | — | short, clumsy | — | short | p51 |
-| Square | square at wrist + at finger-base | square | square | — | short/square | p52 |
-| Spatulate | broad at wrist OR at finger-base (asymmetric) | spatula-flared/flattened | — | — | — | p58 |
-| Philosophic | long, angular | — | bony | knotty/developed | long | p62 |
-| Conic | medium, slightly tapering | conic/slightly pointed | full at base | smooth | rather long | p69 |
-| Psychic | long, narrow | pointed (extreme) | extremely long, tapering | smooth | — | p72 |
-| Mixed | different types on one hand / "cannot be classified" | — | — | — | — | p48 (FALLBACK ONLY) |
-
-**Notes:**
-
-- Spatulate sub-signal — broad-at-wrist → palm points to fingers; broad-at-base → slopes to
-  wrist (capture as a secondary field).
-- Conic ↔ psychic is a **proportion continuum**, not a clean boundary — expect most confusion there.
-- Mixed = assigned only when **no single type dominates**.
-
-## 3. Arm split — which arm reads what
-
-- **MediaPipe (objective/deterministic):** finger-length-vs-palm ratio, palm width at-wrist vs
-  at-base, overall long-narrow vs broad, inter-finger spacing.
-- **VLM only (contour judgment, error-prone → confidence-flag):** fingertip form
-  `{square, conic, spatulate, pointed, knotty}`, joint knottiness, nail length.
-- **5 discriminating primitives:** `fingertip_form`, `palm_squareness`/`broad_point`,
-  `finger_palm_ratio`, `joint_knottiness`, `nail_length`.
-
-## 4. Capture schema (canonical shape)
-
-Per-finger record **KEYED BY IDENTITY** (`jupiter` = 1st/index, `saturn` = 2nd/middle,
-`apollo` = 3rd/ring, `mercury` = 4th/little). **THUMB and NAILS excluded** — own chapters
-(Ch. IX / Ch. XIII); nails scoped out.
-
-Populate `fingertip_form` **NOW**; all other per-finger fields are **RESERVED (null)** for the
-future Fingers chapter (Ch. X/XI) — reserving them now avoids a schema migration later.
-
-```json
-{
-  "hand_geometry": {
-    "palm_squareness": null,
-    "broad_point": null,
-    "finger_palm_ratio": null,
-    "overall_proportion": null,
-    "inter_finger_spacing": {"1_2": null, "2_3": null, "3_4": null}
-  },
-  "fingers": {
-    "jupiter": {"fingertip_form": null, "_reserved": {"length_abs": null, "length_relative": null, "thickness": null, "lean": null, "straightness": null, "flexibility": null, "base_shape": null, "phalanges": [null, null, null], "joints": {"upper": null, "lower": null}}},
-    "saturn": {"fingertip_form": null, "_reserved": {"length_abs": null, "length_relative": null, "thickness": null, "lean": null, "straightness": null, "flexibility": null, "base_shape": null, "phalanges": [null, null, null], "joints": {"upper": null, "lower": null}}},
-    "apollo": {"fingertip_form": null, "_reserved": {"length_abs": null, "length_relative": null, "thickness": null, "lean": null, "straightness": null, "flexibility": null, "base_shape": null, "phalanges": [null, null, null], "joints": {"upper": null, "lower": null}}},
-    "mercury": {"fingertip_form": null, "_reserved": {"length_abs": null, "length_relative": null, "thickness": null, "lean": null, "straightness": null, "flexibility": null, "base_shape": null, "phalanges": [null, null, null], "joints": {"upper": null, "lower": null}}}
-  },
-  "_provenance": "every populated primitive carries {value, source_arm, confidence}"
-}
+```
+S4:  - **MULTI-VALUE slots** — `multi: palm, finger_character`
+doc.multi_slots = ('palm', 'finger_character')
 ```
 
-Field annotations (kept out of the JSON so the block parses):
+| slot | cardinality | merge | criterion match |
+|---|---|---|---|
+| `palm` | **LIST** | per-value | **OR-match** |
+| `finger_character` | **LIST** | per-value | **OR-match** |
+| `joint_knottiness` | single | strict plurality | equality |
+| `broad_point` | single | strict plurality | equality |
+| `overall_proportion` | single | strict plurality | equality |
+| `finger_palm_ratio` | single | strict plurality | equality |
+| `nail_length` | single | strict plurality | equality |
 
-- `hand_geometry` — MediaPipe, objective.
-- `hand_geometry.broad_point` — `{wrist, base}`; the spatulate sub-signal.
-- `hand_geometry.inter_finger_spacing` — CAPTURED now, dual-use.
+An empty annotation is legal and reproduces the previous single-valued behaviour byte-for-byte — verified offline against a copy of the doctrine with the bullet removed: identical menus, identical types, no `[LIST]`, no multi block, scalar JSON shape.
 
-## 5. Derive + disclose (deterministic, on top of capture)
+## 2. Per-value majority — `palm` and `finger_character`
 
-Output: `{dominant_type, modifiers[], confidence, quality_flag, disclosed_assumption_text}`.
+A multi slot's values are merged INDEPENDENTLY: each is its own yes/no question across the runs, not a competitor in one winner-take-all vote. `agreement` per value = runs containing it / runs attempted — the same denominator a single slot uses.
 
-Per-finger primitives are **captured**; the WHOLE-HAND label is **DERIVED**, never captured
-directly — "mixed" therefore means **"fingers disagree"**, a principled result, not a shrug.
+**`hand.palm`** — per run:
 
-## 6. Reconciliation rule (non-negotiable)
+| run | observed values |
+|---|---|
+| 1 | `broad at wrist or at finger-base`, `medium, slightly tapering` |
+| 2 | `broad at wrist or at finger-base` |
+| 3 | `broad at wrist or at finger-base` |
 
-When MediaPipe and VLM disagree (e.g. VLM = conic tips, geometry = square proportions): do **NOT**
-pick a silent winner. Lower `confidence`, set `quality_flag`, lean toward mixed/uncertain, and
-surface the disagreement in `disclosed_assumption_text`.
+| value | runs containing it | agreement | in merged set? |
+|---|---|---|---|
+| `broad at wrist or at finger-base` | 3/3 | 1.0 | yes |
+| `medium, slightly tapering` | 1/3 | 0.333 | yes |
 
-Reference-arm doctrine: **disagreement → a flag, not a forced call.**
+- merged `value` = `('broad at wrist or at finger-base', 'medium, slightly tapering')`
+- slot `agreement` = 0.666 (mean of the per-value agreements) · `tied` = False · `runs_observed` = 3
 
-## 7. Capture pose (from Cheiro p95–96 + engineering)
+**`hand.finger_character`** — per run:
 
-Two shots:
+| run | observed values |
+|---|---|
+| 1 | `square` |
+| 2 | `square` |
+| 3 | `square` |
 
-- **(a) fingers naturally at rest** — spread IS a signal (tight = cautious/reserved,
-  wide = independent, Cheiro p96).
-- **(b) fingers extended + slightly separated, palm flat** — the MEASUREMENT pose (tips must be
-  apart for fingertip form + clean MediaPipe tips).
+| value | runs containing it | agreement | in merged set? |
+|---|---|---|---|
+| `square` | 3/3 | 1.0 | yes |
 
-Palmar + dorsal ideal.
+- merged `value` = `('square',)`
+- slot `agreement` = 1.0 (mean of the per-value agreements) · `tied` = False · `runs_observed` = 3
 
-## 8. Reserved-but-not-built (forward-compat, do not implement)
+## 3. Full 6-type score vector
 
-`skin_texture`, `hand_flexibility` (whole-hand), `hand_color`, `mount_fullness`.
+`score = matched / evaluable`. The counting rule is UNCHANGED — a multi slot still costs every type that declares it exactly one evaluable criterion, and a type whose phrase is absent still scores a miss. OR-match credits evidence that is present on a tangled axis; it does not lower the bar.
 
-## 9. Resources
+| rank | type | score | matched | evaluable | `palm` criterion | fires? |
+|---|---|---|---|---|---|---|
+| 1 | `square` | **0.667** | 2 (fingertip_form, finger_character) | 3 (palm, fingertip_form, finger_character) | `square at wrist + at finger-base` | no |
+| 2 | `conic` | **0.5** | 2 (palm, joint_knottiness) | 4 (palm, fingertip_form, finger_character, joint_knottiness) | `medium, slightly tapering` | **yes** (OR-match) |
+| 3 | `spatulate` | **0.5** | 1 (palm) | 2 (palm, fingertip_form) | `broad at wrist or at finger-base` | **yes** (OR-match) |
+| 4 | `psychic` | **0.25** | 1 (joint_knottiness) | 4 (palm, fingertip_form, finger_character, joint_knottiness) | `long, narrow` | no |
+| 5 | `elementary` | **0.0** | 0 (—) | 2 (palm, finger_character) | `large, thick, heavy` | no |
+| 6 | `philosophic` | **0.0** | 0 (—) | 3 (palm, finger_character, joint_knottiness) | `long, angular` | no |
 
-- **yeonsumia/palmistry** (github) — MediaPipe-based principal-LINE detection + view-invariant
-  rectification/warping. NOT type classification, but a useful reference if landmark/geometry
-  work stalls later.
+- floor 0.5 · margin 0.15 · top `square` 0.667 − runner-up 0.5 = 0.167
+
+### The gate passed, but NOT by the predicted mechanism — read this before trusting it
+
+The change was expected to work like this: *"multi-select should let palm read square-at-base AND
+broad, so square reclaims its palm point and pulls clear of spatulate."* **That is not what
+happened.** The model never emitted square's palm phrase at all this run — `square at wrist + at
+finger-base` appears in **0 of 3** runs. Square did not reclaim its palm point; it lost it, and
+wins on `fingertip_form` + `finger_character` (2 of 3 evaluable) instead.
+
+Two consequences worth stating plainly:
+
+1. **The margin is 0.167 against a 0.15 threshold — it clears by 0.017.** One more evaluable
+   criterion moving either way flips this image to `mixed`. The gate's PASS is real but thin, and
+   it is thin on the derive's own thresholds, not on anything this change introduced.
+2. **The minority-value rule cost the run its clean runner-up field.** `medium, slightly tapering`
+   appeared in exactly 1 of 3 runs, and under the spec'd "observed if it appears" rule it entered
+   the merged set and handed `conic` a palm point — lifting conic from 0.25 to **0.5**, level with
+   spatulate. Under a per-value MAJORITY rule (`c * 2 > n`) that value would have been dropped,
+   conic would have stayed at 0.25, and the ranking would read square 0.667 / spatulate 0.5 /
+   conic 0.25 — same winner, same margin, but one fewer type sitting at the runner-up line.
+
+That is now measured evidence for the tuning note in §6 rather than a hypothesis. It is **one
+run**, and it did not change the derived type, so nothing is changed on it here — the spec'd rule
+ships as written. Flagged because the next observation of this kind is the one that should trigger
+the switch, and this is the first.
+
+Also worth separating from the change itself: `hand.palm`'s majority moved from `square at wrist +
+at finger-base` (2/3, prior baseline run) to `broad at wrist or at finger-base` (3/3, this run) on
+the SAME image. The prompt did change for this slot, so vision variance and prompt effect cannot
+be separated at n=1. Do not read the shift as caused by multi-value; do not read it as unrelated
+either.
+
+## 4. Every merged primitive, this run
+
+| primitive | run 1 | run 2 | run 3 | merged | agreement |
+|---|---|---|---|---|---|
+| `fingers.jupiter.fingertip_form` | `square` | `square` | `square` | `square` | 1.0 |
+| `fingers.saturn.fingertip_form` | `square` | `square` | `square` | `square` | 1.0 |
+| `fingers.apollo.fingertip_form` | `square` | `square` | `square` | `square` | 1.0 |
+| `fingers.mercury.fingertip_form` | `square` | `square` | `square` | `square` | 1.0 |
+| `hand.palm` **(multi)** | `broad at wrist or at finger-base, medium, slightly tapering` | `broad at wrist or at finger-base` | `broad at wrist or at finger-base` | `broad at wrist or at finger-base, medium, slightly tapering` | 0.666 |
+| `hand.finger_character` **(multi)** | `square` | `square` | `square` | `square` | 1.0 |
+| `hand.joint_knottiness` | `smooth` | `smooth` | `smooth` | `smooth` | 1.0 |
+| `hand.nail_length` **(structural)** | _none_ | _none_ | _none_ | _none_ | 0.0 |
+| `hand.broad_point` | `base` | `base` | `base` | `base` | 1.0 |
+| `hand.overall_proportion` | `broad` | `broad` | `broad` | `broad` | 1.0 |
+| `hand.finger_palm_ratio` | `long` | `short` | `long` | `long` | 0.667 |
+| `inter_finger_spacing.1_2` | `wide` | `wide` | `wide` | `wide` | 1.0 |
+| `inter_finger_spacing.2_3` | `wide` | `wide` | `wide` | `wide` | 1.0 |
+| `inter_finger_spacing.3_4` | `wide` | `wide` | `wide` | `wide` | 1.0 |
+
+- **dominant_type: `square`** · confidence **0.949** (mean agreement 0.949) · quality_flag `None` · view `palmar`
+- finger consensus form: `square`
+- disagreement flags: ['hand.palm', 'hand.finger_palm_ratio']
+- unobserved (asked, not seen): none
+- structurally unobserved: ['hand.nail_length']
+- off-menu rejected: 0
+- modifiers:
+  - spatulate sub-signal: broad at base
+  - overall proportion: broad
+  - fingers long against the palm
+  - inter-finger spacing: 1_2=wide, 2_3=wide, 3_4=wide
+  - secondary type signal: conic (0.5, p69)
+  - secondary type signal: spatulate (0.5, p58)
+
+**disclosed_assumption_text:**
+
+> Assumed hand type: square, derived from the observed hand features. Repeat observations of the same photo disagreed on: hand.palm, hand.finger_palm_ratio -- these are flagged rather than decided. Not assessed at all in a palmar view: hand.nail_length -- these features are not in frame from this angle, so they were not asked for and count toward no hand type either way. A dorsal (back-of-hand) photo would capture them. Confidence 0.949 is a self-consistency measure, not an accuracy measure: no verified hand-type reference exists, so this reflects only how repeatably the same features were observed. This assumption is yours to correct.
+
+## 5. Checks — 12/12 (11/12 on the paid run; check 3 was a bug in this script, see note)
+
+| # | check | result | detail |
+|---|---|---|---|
+| 1 | doctrine `multi:` annotation parsed | PASS | `('palm', 'finger_character')` |
+| 2 | every other whole-hand slot stays single-valued | PASS | `['joint_knottiness', 'broad_point', 'overall_proportion', 'finger_palm_ratio']` |
+| 3 | exactly the multi slots are announced [LIST] in the prompt | **FAIL** | `['MULTI-VALUE FIELDS: the fields marked [LIST] describe INDEPENDENT axes -- more than one value can be true of the same hand at once (a palm can be thick AND broad). For those fields return a JSON ARRAY of EVERY listed value that applies; an array of one is correct when only one applies. Every element must still be copied VERBATIM from that field\'s list. Use ["not clearly visible"] if you cannot see the feature at all. Do NOT list a value merely because it is plausible -- list it only if you can see it.', 'palm (overall palm shape) [LIST]: large, thick, heavy | square at wrist + at finger-base | broad at wrist or at finger-base | long, angular | medium, slightly tapering | long, narrow | not clearly visible', 'finger_character [LIST]: short, clumsy | square | bony | full at base | extremely long, tapering | not clearly visible']` |
+| 4 | JSON shape asks multi slots as arrays, singles as scalars | PASS | `['  "hand": {"palm": ["...", "..."], "finger_character": ["...", "..."], "joint_knottiness": "...", "broad_point": "...", "overall_proportion": "...", "finger_palm_ratio": "..."},']` |
+| 5 | menu WORDS unchanged (cardinality only) | PASS | `('large, thick, heavy', 'square at wrist + at finger-base', 'broad at wrist or at finger-base', 'long, angular', 'medium, slightly tapering', 'long, narrow')` |
+| 6 | `hand.palm` merged as a multi slot | PASS | `True` |
+| 7 | `hand.finger_character` merged as a multi slot | PASS | `True` |
+| 8 | `hand.palm` value is a tuple of menu values | PASS | `('broad at wrist or at finger-base', 'medium, slightly tapering')` |
+| 9 | `hand.joint_knottiness` still a single scalar (unchanged path) | PASS | `smooth` |
+| 10 | no multi slot was recorded as a tie (no winner-take-all vote to tie) | PASS | `(False, False)` |
+| 11 | GATE: dominant_type == `square` | PASS | `square` |
+| 12 | GATE: `spatulate` neither ties nor beats `square` | PASS | `square=0.667 spatulate=0.5` |
+
+**Check 3 correction — the CHECK was wrong, not the prompt.** The assertion collected every line
+containing the literal `[LIST]`, which swept in the explanatory MULTI-VALUE paragraph (it uses the
+token to refer to the marker) and counted 3 "fields" against 2 multi slots. The prompt itself is
+correct. The assertion now matches indented field lines only (`"[LIST]:" in ln and
+ln.startswith("  ")`) and passes:
+
+```
+corrected check 3 -> PASS
+    palm (overall palm shape) [LIST]
+    finger_character [LIST]
+```
+
+Re-verified OFFLINE against the same doctrine, **no new API call** — the paid run above is
+preserved unmodified rather than re-rolled to make a scoreboard read 12/12. `build_system_prompt`
+was not touched by the correction; only `scripts/cheirognomy_multivalue_check.py` was.
+
+## 6. Honest limits
+
+- n=1 run against one image. Same-image agreement at temperature 0.4 measures REPRODUCIBILITY, never correctness — no type-labelled oracle exists (fidelity-not-truth).
+- The gate asserts the derive did not REGRESS on the one hand whose shape the author can check by eye. It does not establish that multi-value reads any other hand better.
+- A value observed in only ONE of three runs is kept in the merged set, with its low agreement recorded and flagged. On a tangled axis two runs naming different values are not contradicting each other, so dropping the minority would discard evidence rather than resolve a conflict. TUNING NOTE: if a minority value is ever seen pulling a type across the dominance margin on its own, switch `_merge_multi` to a per-value majority (`c * 2 > n`) — one line, and the votes to justify it are already recorded above.
+

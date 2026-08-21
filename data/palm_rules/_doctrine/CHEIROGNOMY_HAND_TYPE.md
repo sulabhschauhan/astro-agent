@@ -71,6 +71,12 @@ Field annotations (kept out of the JSON so the block parses):
 - `hand_geometry` — MediaPipe, objective.
 - `hand_geometry.broad_point` — `{wrist, base}`; the spatulate sub-signal.
 - `hand_geometry.inter_finger_spacing` — CAPTURED now, dual-use.
+- **MULTI-VALUE slots** — `multi: palm, finger_character`. These two §2 columns tangle
+  INDEPENDENT axes: a palm can be thick AND broad at once, and finger character is not one
+  scale. So each holds a LIST of applicable §2 menu values rather than a single winner.
+  Every other slot stays single-valued. A type's §2 criterion for a multi slot fires when
+  ANY observed value equals it (OR-match). The menu WORDS are unchanged — this annotation
+  changes cardinality only, never vocabulary.
 
 ## 5. Derive + disclose (deterministic, on top of capture)
 
