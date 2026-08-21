@@ -133,3 +133,52 @@ A multi slot's values are merged INDEPENDENTLY: each is its own yes/no question 
 - The gate asserts the derive did not REGRESS on the one hand whose shape the author can check by eye. It does not establish that multi-value reads any other hand better.
 - A value observed in only ONE of three runs is kept in the merged set, with its low agreement recorded and flagged. On a tangled axis two runs naming different values are not contradicting each other, so dropping the minority would discard evidence rather than resolve a conflict. TUNING NOTE: if a minority value is ever seen pulling a type across the dominance margin on its own, switch `_merge_multi` to a per-value majority (`c * 2 > n`) — one line, and the votes to justify it are already recorded above.
 
+
+## Commit record
+
+```
+b0f0e78 feat(cheirognomy): multi-value palm+finger_character, OR-match + per-value majority merge; square no-regression gate held [S96]
+cf1e46f feat(cheirognomy): multi-value palm + finger_character with OR-match scoring; no-regression square gate [S96]
+dc45061 fix(cheirognomy): view-gate nail_length (no palmar guessing) + spacing base-gap directive [S96]
+013739f feat(cheirognomy): VLM-only hand-type arm -- per-finger fingertip_form + derive + N=3 self-consistency; doctrine-parsed menus + parse-check guard [S96]
+```
+
+- branch `wip/interpretive-pilot`, remote HEAD `b0f0e78` (pushed, matches local)
+- staged + committed: `agent/cheirognomy/vlm_arm.py` (`_merge_multi` majority-merge fix, docstring correction below) + this report file
+- NOT touched (dirty from other work, left alone per instruction): `agent/interpretive/observation_extractor.py`, `scripts/vocab_reachability_scan.py`
+- `data/palm_rules/_doctrine/CHEIROGNOMY_HAND_TYPE.md` and `scripts/cheirognomy_multivalue_check.py` were already committed in `cf1e46f` -- no changes, nothing to stage
+
+### Docstring fix — `_merge_multi`, before/after
+
+Before (shipped in `cf1e46f`, described the pre-fix KEEP-minority behavior):
+
+```
+    A value appearing in even ONE run is kept, with its low agreement recorded
+    and surfaced as a disagreement flag. That is deliberate: on a tangled axis
+    the runs are not contradicting each other by naming different values, so
+    dropping a minority value would discard real evidence rather than resolve a
+    conflict. TUNING NOTE: if a minority value is ever seen pulling a type across
+    the dominance margin on its own, raise this to a per-value majority
+    (`c * 2 > n`) -- one line, and the votes to justify it are already recorded.
+
+    The slot-level `agreement` is the mean of the per-value agreements, so
+    `_overall_confidence` reads it exactly as it reads a single slot's.
+```
+
+After (this commit, describes majority-merge as shipped):
+
+```
+    A value enters the merged SET only if it holds a MAJORITY of runs
+    (`c * 2 > n`) -- a value seen in fewer than half the same-image runs is
+    observation noise on a repeated read, not a co-true axis value (measured:
+    a 1/3 fluke lifted conic to a false runner-up against dominant_type). Every
+    value's agreement, kept or dropped, is still recorded in `votes` and
+    `per_value_agreement` for audit -- the drop is from the set, not the log.
+    TUNING NOTE: N=3 so majority = 2/3; revisit this threshold if N changes.
+
+    The slot-level `agreement` is the mean of the per-value agreements (over
+    ALL observed values, not just the kept majority), so `_overall_confidence`
+    reads it exactly as it reads a single slot's.
+```
+
+Text-only correction, bundled in the same commit as the majority-merge logic change (both were authored together last session; the docstring already matched the shipped code by the time this commit was made -- no separate no-op commit needed).
