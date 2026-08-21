@@ -130,6 +130,8 @@ query_engine + chart_calculator → astrologer → session_manager
 `resolve_house_counting_lagna()` is the canonical house-counting reference for any Varshaphal-derived bhav calculation (prefers AstroSage parsed Lagna, year-matched; else computed + boundary flag); call it rather than reading Lagna directly off `varshaphal_data`.
 
 ## Palm Diagnostic Principles (2026-08-06)
+Cheirognomy hand-type = VLM-only arm (`agent/cheirognomy/`), disclosed assumption, NOT a line-reading modifier yet. See `data/palm_rules/_doctrine/CHEIROGNOMY_HAND_TYPE.md` (S96).
+
 Learnings from the head/life-line descriptor fixes (width, direction) and the extraction incompleteness-retry guard, this session.
 
 1. **Silent-feature diagnostic ladder** — before calling a silent palm feature a "coverage gap", walk in order: (a) does `palm_processor.describe_palm_image`'s vision descriptor even ask for the dimension the rule keys on? (b) did the extractor produce that token, or drop it / file it under the wrong attribute? (c) does a rule key on that exact token/value? (d) is the silence actually CORRECT (no classical doctrine covers it)? Do not assume "coverage gap" before walking (a)->(d).
