@@ -130,6 +130,42 @@ _HAND_PRIMITIVES = (
     "finger_palm_ratio",
 )
 
+# Human-readable gloss per prompted primitive, so the prompt's WHOLE HAND block
+# can be generated from _HAND_PRIMITIVES rather than hand-listed (which is what
+# lets a view omit one cleanly instead of special-casing it).
+_HAND_PRIMITIVE_LABELS = {
+    "palm":               "palm (overall palm shape)",
+    "finger_character":   "finger_character",
+    "joint_knottiness":   "joint_knottiness",
+    "nail_length":        "nail_length",
+    "broad_point":        "broad_point (where the palm is broadest)",
+    "overall_proportion": "overall_proportion",
+    "finger_palm_ratio":  "finger_palm_ratio (finger length against palm length)",
+}
+
+# -- VIEW GATING --------------------------------------------------------------
+# Which camera view a primitive requires to be physically observable at all.
+# Nails sit on the BACK of the hand: in a palmar shot they are not merely hard
+# to see, they are not in frame. Asking anyway invites the model to guess from
+# fingertip shape, and a guessed value is indistinguishable downstream from an
+# observed one. So the field is omitted from the prompt entirely and the
+# primitive takes the existing "legally unobserved" path (value None), which
+# `_score_types` already skips as not-evaluable.
+#
+# This is a STRUCTURAL absence, not an abstention: the model was never asked.
+# The two are reported separately so the disclosure never implies the model
+# looked and could not tell.
+_VALID_VIEWS = ("palmar", "dorsal")
+_PRIMITIVE_REQUIRES_VIEW = {"nail_length": "dorsal"}
+
+
+def omitted_primitives(view):
+    """Prompted primitives that this view cannot physically show, in prompt order."""
+    return tuple(
+        p for p in _HAND_PRIMITIVES
+        if p in _PRIMITIVE_REQUIRES_VIEW and _PRIMITIVE_REQUIRES_VIEW[p] != view
+    )
+
 
 class CheirognomyDoctrineError(RuntimeError):
     """The doctrine file is missing, unreadable, or has lost a section this module parses."""
@@ -448,10 +484,23 @@ def load_doctrine(path=None):
 # Prompt assembly -- built from the parsed menus, never from a paraphrase
 # =============================================================================
 
-def build_system_prompt(doc):
-    """Render the closed menus into the observer instruction. Every listed value is doctrine-sourced."""
+def build_system_prompt(doc, view="palmar"):
+    """
+    Render the closed menus into the observer instruction. Every listed value is
+    doctrine-sourced.
+
+    Primitives this `view` cannot physically show are OMITTED entirely -- not
+    asked, not listed in the JSON shape. The model cannot guess at what it is
+    never shown a field for.
+    """
+    if view not in _VALID_VIEWS:
+        raise VLMArmError(f"vlm_arm: view must be one of {_VALID_VIEWS}, got {view!r}.")
+
     def menu(key):
         return " | ".join(doc.menus[key] + (UNREADABLE,))
+
+    omitted = omitted_primitives(view)
+    asked = [p for p in _HAND_PRIMITIVES if p not in omitted]
 
     lines = [
         "You are a trained observer recording HAND SHAPE notes for a Cheiro-tradition "
@@ -470,17 +519,19 @@ def build_system_prompt(doc):
         "  jupiter = index (1st), saturn = middle (2nd), apollo = ring (3rd), mercury = little (4th)",
         f"  fingertip_form: {menu('fingertip_form')}",
         "",
-        "WHOLE HAND:",
-        f"  palm (overall palm shape): {menu('palm')}",
-        f"  finger_character: {menu('finger_character')}",
-        f"  joint_knottiness: {menu('joint_knottiness')}",
-        f"  nail_length: {menu('nail_length')}",
-        f"  broad_point (where the palm is broadest): {menu('broad_point')}",
-        f"  overall_proportion: {menu('overall_proportion')}",
-        f"  finger_palm_ratio (finger length against palm length): {menu('finger_palm_ratio')}",
+        f"WHOLE HAND (this is a {view} view):",
+        *[f"  {_HAND_PRIMITIVE_LABELS[p]}: {menu(p)}" for p in asked],
         "",
         "INTER-FINGER SPACING at rest, one value per gap "
-        f"({', '.join(doc.spacing_keys)} = the gaps between adjacent fingers 1-2, 2-3, 3-4):",
+        f"({', '.join(doc.spacing_keys)} = the gaps between adjacent fingers 1-2, 2-3, 3-4).",
+        # Measurement-site directive, NOT a menu change. S7 treats spread as a
+        # structural signal, but the tip gap is dominated by how far the subject
+        # happened to splay their fingers for the photo. The gap where the
+        # fingers join the palm is set by hand structure and barely moves with
+        # pose, so naming the site is what makes the two hands comparable.
+        "  Judge each gap at the LOWER THIRD of the fingers, where they join the palm -- "
+        "NOT at the fingertips. The base gap is structural; the tip gap mostly reflects how "
+        "far the fingers happen to be spread in this photo.",
         f"  {menu('inter_finger_spacing')}",
         "",
         "Set hand_present to false if the image does not show a human hand, or if the hand "
@@ -493,7 +544,7 @@ def build_system_prompt(doc):
         '  "fingers": {'
         + ", ".join(f'"{k}": {{"fingertip_form": "..."}}' for k in doc.finger_keys)
         + "},",
-        '  "hand": {' + ", ".join(f'"{k}": "..."' for k in _HAND_PRIMITIVES) + "},",
+        '  "hand": {' + ", ".join(f'"{k}": "..."' for k in asked) + "},",
         '  "inter_finger_spacing": {'
         + ", ".join(f'"{k}": "..."' for k in doc.spacing_keys)
         + "}",
@@ -514,7 +565,7 @@ def _encode_image(image_bytes):
     return mime, base64.b64encode(image_bytes).decode("utf-8")
 
 
-def _classify_once(image_bytes, doc, client, run_index):
+def _classify_once(image_bytes, doc, client, run_index, view="palmar"):
     """
     One vision call. Returns (payload, off_menu) where payload holds ONLY on-menu
     values and off_menu records every rejected value verbatim.
@@ -527,7 +578,7 @@ def _classify_once(image_bytes, doc, client, run_index):
         response = client.chat.completions.create(
             model=_MODEL,
             messages=[
-                {"role": "system", "content": build_system_prompt(doc)},
+                {"role": "system", "content": build_system_prompt(doc, view)},
                 {
                     "role": "user",
                     "content": [
@@ -581,7 +632,16 @@ def _classify_once(image_bytes, doc, client, run_index):
         payload["fingers"][fkey] = take("fingertip_form", raw_val, f"fingers.{fkey}.fingertip_form")
 
     hand_in = parsed.get("hand") or {}
+    omitted = omitted_primitives(view)
     for pkey in _HAND_PRIMITIVES:
+        if pkey in omitted:
+            # Structurally unobservable in this view -- never asked for, so an
+            # unsolicited value is discarded WITHOUT being logged as off-menu
+            # (the model broke no rule; the field simply does not apply). This
+            # takes the same value=None path an unreadable answer takes, which
+            # `_score_types` already skips as not-evaluable.
+            payload["hand"][pkey] = None
+            continue
         payload["hand"][pkey] = take(pkey, hand_in.get(pkey), f"hand.{pkey}")
 
     spacing_in = parsed.get("inter_finger_spacing") or {}
@@ -790,7 +850,8 @@ def _overall_confidence(primitives, dominant, doc):
     return round(mean_agreement * clarity, 3), mean_agreement
 
 
-def _disclosure_text(dominant, reasons, disagreement_flags, unobserved, confidence, doc):
+def _disclosure_text(dominant, reasons, disagreement_flags, unobserved, confidence, doc,
+                     structurally_unobserved=(), view="palmar"):
     """S1/S5: the type is a DISCLOSED, user-correctable ASSUMPTION -- say so in words."""
     parts = []
     if dominant == doc.fallback_type:
@@ -810,6 +871,16 @@ def _disclosure_text(dominant, reasons, disagreement_flags, unobserved, confiden
         )
     if unobserved:
         parts.append("Not clearly visible in this photo: " + ", ".join(unobserved) + ".")
+    if structurally_unobserved:
+        # Deliberately worded so it can never be read as "the model looked and
+        # could not tell" -- it was never asked.
+        parts.append(
+            "Not assessed at all in a " + view + " view: "
+            + ", ".join(structurally_unobserved)
+            + " -- these features are not in frame from this angle, so they were not asked for "
+            "and count toward no hand type either way. A dorsal (back-of-hand) photo would "
+            "capture them."
+        )
     parts.append(
         f"Confidence {confidence} is a self-consistency measure, not an accuracy measure: "
         "no verified hand-type reference exists, so this reflects only how repeatably the "
@@ -839,7 +910,9 @@ class CheirognomyResult:
     confidence: float = 0.0
     mean_agreement: float = 0.0
     disagreement_flags: list = field(default_factory=list)
-    unobserved: list = field(default_factory=list)
+    unobserved: list = field(default_factory=list)              # asked, but not seen
+    structurally_unobserved: list = field(default_factory=list)  # never asked -- wrong view
+    view: str = "palmar"
     disclosed_assumption_text: str = ""
 
     @property
@@ -895,7 +968,7 @@ class CheirognomyResult:
         }
 
 
-def _rejected(image_hash, label, reason):
+def _rejected(image_hash, label, reason, view="palmar"):
     """A hard capture failure: quality_flag set, and NOTHING else populated."""
     return CheirognomyResult(
         image_hash=image_hash,
@@ -903,6 +976,7 @@ def _rejected(image_hash, label, reason):
         n_runs=_N_RUNS,
         temperature=_TEMPERATURE,
         quality_flag=reason,
+        view=view,
         disclosed_assumption_text=(
             f"No hand type was derived from this image: {reason} "
             "No features were recorded -- a partial or guessed reading is not offered."
@@ -914,7 +988,8 @@ def _rejected(image_hash, label, reason):
 # Public entry point
 # =============================================================================
 
-def classify_hand(image_bytes, label="hand", client=None, doctrine_path=None, n_runs=None):
+def classify_hand(image_bytes, label="hand", client=None, doctrine_path=None, n_runs=None,
+                  view="palmar"):
     """
     Capture cheirognomy primitives from one hand image and derive its type.
 
@@ -925,6 +1000,9 @@ def classify_hand(image_bytes, label="hand", client=None, doctrine_path=None, n_
         client:        Optional OpenAI client (injected in tests).
         doctrine_path: Optional override for the rubric file.
         n_runs:        Optional override for the self-consistency run count.
+        view:          "palmar" (default) or "dorsal". Primitives the view cannot
+                       physically show are never asked for and come back as
+                       structurally unobserved -- see `_PRIMITIVE_REQUIRES_VIEW`.
 
     Returns:
         CheirognomyResult. Either `quality_flag` is set and nothing else is
@@ -935,6 +1013,8 @@ def classify_hand(image_bytes, label="hand", client=None, doctrine_path=None, n_
         VLMArmError:              every vision run failed (no silent fallback).
     """
     doc = load_doctrine(doctrine_path)
+    if view not in _VALID_VIEWS:
+        raise VLMArmError(f"vlm_arm: view must be one of {_VALID_VIEWS}, got {view!r}.")
     runs_wanted = _N_RUNS if n_runs is None else int(n_runs)
     if runs_wanted < 1:
         raise VLMArmError(f"vlm_arm: n_runs must be >= 1, got {runs_wanted}.")
@@ -944,13 +1024,14 @@ def classify_hand(image_bytes, label="hand", client=None, doctrine_path=None, n_
     # Ingestion / readability gate -- reused, not reimplemented.
     gate = validate_palm_image(image_bytes, label)
     if gate["hard_reject"]:
-        return _rejected(image_hash, label, gate["reject_message"] or "image rejected by the quality gate.")
+        return _rejected(image_hash, label,
+                         gate["reject_message"] or "image rejected by the quality gate.", view)
 
     client = client or OpenAI()
     payloads, off_menu, run_errors = [], [], []
     for i in range(runs_wanted):
         try:
-            payload, run_off_menu = _classify_once(image_bytes, doc, client, i + 1)
+            payload, run_off_menu = _classify_once(image_bytes, doc, client, i + 1, view)
         except VLMArmError as exc:
             logger.warning("vlm_arm: %s", exc)
             run_errors.append(str(exc))
@@ -971,6 +1052,7 @@ def classify_hand(image_bytes, label="hand", client=None, doctrine_path=None, n_
         return _rejected(
             image_hash, label,
             f"the model did not see a readable hand ({hand_votes}/{len(payloads)} runs reported one).",
+            view,
         )
 
     primitives = _majority(payloads, doc)
@@ -982,6 +1064,7 @@ def classify_hand(image_bytes, label="hand", client=None, doctrine_path=None, n_
             image_hash, label,
             "no observation survived the closed vocabulary "
             f"({len(off_menu)} off-menu values rejected, none coerced).",
+            view,
         )
 
     dominant, modifiers, ranking, reasons, finger_form = _derive_type(primitives, doc)
@@ -991,7 +1074,17 @@ def classify_hand(image_bytes, label="hand", client=None, doctrine_path=None, n_
         path for path, p in primitives.items()
         if p["tied"] or (p["value"] is not None and p["agreement"] < 1.0)
     ]
-    unobserved = [path for path, p in primitives.items() if p["value"] is None and not p["tied"]]
+    # A view-omitted primitive is None for a STRUCTURAL reason, not because the
+    # model looked and could not tell -- keep the two lists apart so the
+    # disclosure never conflates "not in frame" with "could not see".
+    structural_paths = [f"hand.{p}" for p in omitted_primitives(view)]
+    unobserved = [
+        path for path, p in primitives.items()
+        if p["value"] is None and not p["tied"] and path not in structural_paths
+    ]
+    structurally_unobserved = [
+        path for path in structural_paths if primitives.get(path, {}).get("value") is None
+    ]
 
     if off_menu:
         modifiers.append(f"{len(off_menu)} off-menu value(s) rejected, never coerced")
@@ -1013,9 +1106,12 @@ def classify_hand(image_bytes, label="hand", client=None, doctrine_path=None, n_
         mean_agreement=mean_agreement,
         disagreement_flags=disagreement_flags,
         unobserved=unobserved,
+        structurally_unobserved=structurally_unobserved,
+        view=view,
     )
     result.disclosed_assumption_text = _disclosure_text(
-        dominant, reasons, disagreement_flags, unobserved, confidence, doc
+        dominant, reasons, disagreement_flags, unobserved, confidence, doc,
+        structurally_unobserved, view,
     )
     return result
 
