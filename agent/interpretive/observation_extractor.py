@@ -743,12 +743,31 @@ def _build_user_prompt(entries: list[tuple[str, str, str]]) -> str:
     return "\n\n".join(blocks) + "\n\nExtract observations per your instructions."
 
 
-def _call_llm(client, model: str, messages: list[dict], ontology_features: list[str]) -> str:
+def _call_llm(
+    client, model: str, messages: list[dict], ontology_features: list[str],
+    *, capture: dict | None = None, max_tokens_override: int | None = None,
+) -> str:
     """Single try/except boundary around the one API call this module ever
     makes. A failure here is re-raised as a RuntimeError naming the whole
     feature batch this call was for -- never swallowed into a silent
-    empty result."""
+    empty result.
+
+    capture: optional out-param dict; when passed, populated with this
+        call's `finish_reason` (via getattr, defaulting None for any
+        test double that doesn't model it). Kept as an out-param rather
+        than widening the return type so the str-only return contract
+        stays unchanged for this function's signature in general, even
+        though it currently has exactly one caller (the parse-failure
+        retry below uses this to log truncation vs malformation).
+    max_tokens_override: when set, replaces ASTRO_EXTRACT_MAX_TOKENS for
+        this call only -- used by the parse-failure retry to raise the
+        cap on a resample without touching the module-wide default.
+    """
     start = time.monotonic()
+    max_tokens = (
+        max_tokens_override if max_tokens_override is not None
+        else int(os.getenv("ASTRO_EXTRACT_MAX_TOKENS", "1500"))
+    )
     try:
         response = client.chat.completions.create(
             model=model,
@@ -761,8 +780,9 @@ def _call_llm(client, model: str, messages: list[dict], ontology_features: list[
             timeout=float(os.getenv("ASTRO_EXTRACT_TIMEOUT_S", "60")),
             # max_tokens=1500: well-formed response for <=10 features is a few hundred
             # tokens; 1500 caps runaway generation. If hit mid-JSON, _parse_response
-            # raises ValueError -> existing fail-closed decline path (correct).
-            max_tokens=int(os.getenv("ASTRO_EXTRACT_MAX_TOKENS", "1500")),
+            # raises ValueError -> the parse-failure retry below (correct); a resample
+            # of that retry raises this cap via max_tokens_override.
+            max_tokens=max_tokens,
         )
     except Exception as exc:  # noqa: BLE001 -- re-raised immediately, named, not swallowed
         raise RuntimeError(
@@ -773,6 +793,8 @@ def _call_llm(client, model: str, messages: list[dict], ontology_features: list[
         "observation_extractor._call_llm: elapsed=%.2fs for feature batch %s",
         time.monotonic() - start, sorted(ontology_features),
     )
+    if capture is not None:
+        capture["finish_reason"] = getattr(response.choices[0], "finish_reason", None)
     return response.choices[0].message.content
 
 
@@ -807,6 +829,76 @@ def _parse_response(raw: str) -> tuple[dict, dict]:
         unmapped_raw = {}
 
     return observations, unmapped_raw
+
+
+# ─── Parse-failure guard -- bounded resample on malformed/truncated JSON ─
+# `_parse_response` raises ValueError on EITHER a JSONDecodeError or a
+# well-formed-but-wrong-shape response. Left unguarded, that raise used to
+# escape from inside the dropped-feature retry loop below BEFORE that
+# loop's own retry logic ever ran -- a malformed/truncated response crashed
+# the whole extraction instead of getting a chance to resample. Real-hand
+# dogfood hit this live (manually retrying the same call succeeded).
+# Distinct from the dropped-feature guard: that one handles a well-formed
+# response that's missing a feature; this one handles a response that
+# never parsed as JSON at all.
+
+def _call_llm_and_parse(
+    client, model: str, messages: list[dict], ontology_features: list[str],
+) -> tuple[dict, dict]:
+    """Wraps one `_call_llm` + `_parse_response` pair with a bounded
+    resample on ValueError (parse failure). THRESHOLD:
+    ASTRO_EXTRACT_PARSE_RETRIES=2 (2 resamples, 3 attempts total for this
+    parse-failure path alone) -- absorbs one transient malformation
+    without unbounded cost; consistent with this module's other
+    ASTRO_EXTRACT_* retry env knobs. Env-overridable.
+
+    Each resample does BOTH, since either truncation or genuine
+    malformation could be the cause: (a) raises max_tokens for the retry
+    call only, via `max_tokens_override` (the 1500 default cap is the
+    likely truncation cause -- 2400 is truncation headroom, not a tuned
+    value), (b) appends a corrective instruction asking for complete
+    valid JSON. Logs `finish_reason` + `len(raw)` on every parse failure
+    at INFO -- this is how truncation (finish_reason=='length') vs
+    genuine malformation gets told apart for real, over time.
+
+    On exhaustion, re-raises the SAME ValueError `_parse_response` raised
+    (fail-closed, unchanged failure contract -- never fabricates a result;
+    whether to degrade gracefully instead of raising is a separate,
+    undecided product question, not addressed here)."""
+    parse_retries = int(os.getenv("ASTRO_EXTRACT_PARSE_RETRIES", "2"))
+    current_messages = messages
+    last_exc: ValueError | None = None
+
+    for parse_attempt in range(parse_retries + 1):
+        capture: dict[str, object] = {}
+        max_tokens_override = (
+            int(os.getenv("ASTRO_EXTRACT_PARSE_RETRY_MAX_TOKENS", "2400"))
+            if parse_attempt > 0 else None
+        )
+        raw = _call_llm(
+            client, model, current_messages, ontology_features,
+            capture=capture, max_tokens_override=max_tokens_override,
+        )
+        try:
+            return _parse_response(raw)
+        except ValueError as exc:
+            last_exc = exc
+            logger.info(
+                "observation_extractor.extract_observation: parse failure on attempt "
+                "%d/%d for feature batch %s -- finish_reason=%r, len(raw)=%d.",
+                parse_attempt + 1, parse_retries + 1, sorted(ontology_features),
+                capture.get("finish_reason"), len(raw),
+            )
+            if parse_attempt < parse_retries:
+                current_messages = messages + [{
+                    "role": "user",
+                    "content": (
+                        "Your previous reply was not valid complete JSON. Return a "
+                        "single complete, valid JSON object and nothing else."
+                    ),
+                }]
+
+    raise last_exc
 
 
 # ─── Incompleteness guard -- retry the whole batched call ────────────────
@@ -1071,8 +1163,9 @@ def extract_observation(
     current_messages = messages
 
     for attempt_num in range(1, max_retries + 2):
-        raw = _call_llm(client, model, current_messages, ontology_features)
-        observations_raw, unmapped_raw = _parse_response(raw)
+        observations_raw, unmapped_raw = _call_llm_and_parse(
+            client, model, current_messages, ontology_features,
+        )
         attempt_features = _build_features_from_response(
             observations_raw, unmapped_raw, ontology_features, text_by_feature, requested,
         )

@@ -4,9 +4,11 @@ Tests for agent/interpretive/observation_extractor.py's extract_observation()
 and to_vision_payload() -- the capture-complete ObservationRecord contract.
 MOCKS the LLM throughout -- no live API call. Fake OpenAI client classes
 transplanted from tests/interpretive/test_claim_extraction.py (same
-client.chat.completions.create(...) surface, same responses=[(content,
-exception), ...] call-order convention, simplified here since this module
-makes at most ONE call, never a retry).
+client.chat.completions.create(...) surface, same call-order-indexed
+`responses=[content, ...]` convention -- content-only here, no per-call
+exception slot, since this module's only raised-from-the-API-call error
+is the whole-call RuntimeError in `_call_llm`, not exercised per-attempt
+the way test_claim_extraction.py's does).
 
 Hardest case first, per project convention: real captured life-line prose
 ("deep, long, curves around the base of the thumb, no breaks") where a
@@ -51,18 +53,30 @@ class _FakeResponse:
 
 
 class _FakeCompletions:
-    def __init__(self, content: str | None = None):
+    """`responses`, if given, is a list of content strings consumed in call
+    order -- lets a single fake answer the first attempt and a retry
+    attempt differently (e.g. malformed JSON then valid JSON), matching
+    test_claim_extraction.py's call-order convention. Past the end of
+    `responses`, the LAST entry is reused (clamped index) -- a test
+    proving "never a further call" must assert `len(.calls)` explicitly,
+    not rely on this clamping to crash."""
+
+    def __init__(self, content: str | None = None, responses: list[str] | None = None):
         self._content = content
+        self._responses = responses
         self.calls: list[dict] = []
 
     def create(self, **kwargs):
         self.calls.append(kwargs)
+        if self._responses is not None:
+            idx = min(len(self.calls) - 1, len(self._responses) - 1)
+            return _FakeResponse(self._responses[idx])
         return _FakeResponse(self._content)
 
 
 class _FakeClient:
-    def __init__(self, content: str | None = None):
-        self.completions = _FakeCompletions(content=content)
+    def __init__(self, content: str | None = None, responses: list[str] | None = None):
+        self.completions = _FakeCompletions(content=content, responses=responses)
         self.chat = type("_FakeChat", (), {"completions": self.completions})()
 
 
@@ -293,6 +307,63 @@ def test_missing_unmapped_key_does_not_raise_defaults_empty():
     }))
     record = extract_observation({"life line": ["long"]}, client=fake)
     assert record.features["Line of Life"].unmapped == []
+
+
+# ─── Parse-failure crash fix: bounded resample regression tests ─────────
+# Real-hand dogfood hit a malformed/truncated-JSON response escaping
+# `_parse_response`'s ValueError before the (separate) dropped-feature
+# retry logic ever ran, crashing the whole extraction; a manual retry of
+# the same call succeeded. `_call_llm_and_parse` fixes this with a
+# bounded resample scoped to parse failures. Input text here ("long") is
+# deliberately short/trivial -- `_is_substantive_prose`'s 15-char floor
+# keeps it out of the SEPARATE dropped-feature retry loop, so these
+# tests isolate the parse-failure path from that other retry mechanism.
+
+
+def test_parse_failure_recovers_on_resample():
+    # T1 RECOVERY: malformed JSON on attempt 1, valid JSON on attempt 2.
+    valid = _response(observations={"Line of Life": {"Length": {"value": "long"}}})
+    fake = _FakeClient(responses=["not valid json at all", valid])
+    record = extract_observation({"life line": ["long"]}, client=fake)
+    assert record.features["Line of Life"].tokens["Length"]["value"] == "long"
+    # exactly 2 calls: attempt 1 (malformed) + 1 resample (valid) -- proves
+    # the resample fired and recovery came from it, not a lucky first try.
+    assert len(fake.completions.calls) == 2
+
+
+def test_parse_failure_exhausts_retries_and_raises_same_value_error():
+    # T2 FAIL-CLOSED: malformed JSON on EVERY attempt.
+    fake = _FakeClient(content="still not valid json")
+    with pytest.raises(ValueError, match="not valid json"):
+        # pytest.raises proves extract_observation raised rather than
+        # returning any value -- no fabricated/empty ObservationRecord
+        # is ever produced on final parse-failure exhaustion.
+        extract_observation({"life line": ["long"]}, client=fake)
+    # ASTRO_EXTRACT_PARSE_RETRIES default is 2 -> 3 attempts total (initial
+    # + 2 resamples) for this parse-failure path; only ONE outer
+    # dropped-feature-retry iteration runs (trivial "long" prose never
+    # triggers that separate loop), so this is also the TOTAL call count.
+    assert len(fake.completions.calls) == 3
+
+
+def test_parse_failure_resample_raises_max_tokens_and_appends_corrective_message():
+    # T3 RETRY SHAPE: cleanly assertable via `.calls`' recorded kwargs.
+    valid = _response(observations={"Line of Life": {"Length": {"value": "long"}}})
+    fake = _FakeClient(responses=["not valid json at all", valid])
+    extract_observation({"life line": ["long"]}, client=fake)
+    assert len(fake.completions.calls) == 2
+    first_call, retry_call = fake.completions.calls
+    # Canary literals -- must track _call_llm's ASTRO_EXTRACT_MAX_TOKENS
+    # default (1500) and _call_llm_and_parse's ASTRO_EXTRACT_PARSE_RETRY_
+    # MAX_TOKENS default (2400); not derived from the source to keep this
+    # a real regression check rather than a tautology.
+    assert first_call["max_tokens"] == 1500
+    assert retry_call["max_tokens"] == 2400
+    # retry's message list = original + exactly one corrective message
+    assert len(retry_call["messages"]) == len(first_call["messages"]) + 1
+    corrective = retry_call["messages"][-1]
+    assert corrective["role"] == "user"
+    assert "valid complete JSON" in corrective["content"]
 
 
 # ─── Confidence: prose hedging lowers it, else defaults to 1.0 ──────────
