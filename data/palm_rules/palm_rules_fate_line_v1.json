@@ -442,8 +442,67 @@
       "schema_flags": [
         "MODIFIER-FOLD: doctrine_fate.md F033b ('It denotes two distinct careers which the subject will follow.') is a consequence-elaboration of this same antecedent -- folded into claim prose only, not a separate rule. F033c ('This is much more important if they go to different mounts.') is PARKED_RELATION per doctrine_fate.md (compound dual-termination condition) and is NOT authored here."
       ]
+    },
+    {
+      "rule_id": "FT_014",
+      "doctrine_sentence_ids": ["F022"],
+      "source_page": 104,
+      "topic_group": "line_fate",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Line of Fate",
+          "attribute": "Branching",
+          "value": null,
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Mount of Jupiter"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A fate line that at any point throws a branch toward Jupiter shows more than usual success at that particular stage of life.",
+      "source_quote": "If the line of fate should at any point throw a branch in that direction, namely, toward Jupiter, it shows more than usual success at that particular stage of life.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
+      "schema_flags": [
+        "BRANCHING RULING (Sulabh): Fate Branching = directed (BRANCHES_TO landmark). This rule's relation_target maps directly onto the vision BRANCHES_TO field's 'toward Jupiter' semantics -- a clean directional fit, unlike F017a (see parked_pending's FT_P04 note, same array).",
+        "REACHABILITY RE-ASSERT (this authoring pass): Branching is attribute-legal for Line of Fate (attribute_feature_mapping) and Mount of Jupiter is a relation_target_registry member -- PASS, no unreachable token."
+      ]
     }
   ],
-  "parked_pending_relation_target": [],
+  "parked_pending": [
+    {
+      "rule_id": "FT_P01",
+      "source_page": 104,
+      "reason": "relation_target",
+      "note": "doctrine F018 (p104, 'any other mount'): 'any other mount' is a generic target, not a named landmark; BRANCHES_TO requires a specific registry landmark.",
+      "disposition": "future_relation_target"
+    },
+    {
+      "rule_id": "FT_P02",
+      "source_page": 103,
+      "reason": "gender_conditioned",
+      "note": "doctrine F017b (p103, 'on a woman's hand'): gender-conditioned -- inherits the conditioning ceiling, same class as hand-type scope-out.",
+      "disposition": "do_not_author"
+    },
+    {
+      "rule_id": "FT_P03",
+      "source_page": 105,
+      "reason": "ontology_gap_branch",
+      "note": "doctrine F030 (p105, branch from Luna + branch from Venus simultaneously): dual simultaneous branch; Branching is single-valued (multi-value frozen to palm+finger_character in S96).",
+      "disposition": "future_branch"
+    },
+    {
+      "rule_id": "FT_P04",
+      "source_page": 103,
+      "reason": "relation_target",
+      "note": "doctrine F017a (p103, 'a branch run in and join it from the Mount of Luna'): BRANCHES_TO is toward-only; incoming-from-Luna branch not expressible. GUARD RESOLVED: this authoring pass verified the vision BRANCHES_TO field's own text ('landmark(s) any branch is directed toward') and observation_extractor's _RELATIONAL_ATTRIBUTE_MAP (BRANCHES_TO -> Branching) both encode toward-only directionality; F017a's branch originates AT Luna and runs IN to join the already-established fate line -- the reverse direction -- so FT_015 was not authored, per the instructing prompt's own guard.",
+      "disposition": "future_relation_target"
+    }
+  ],
   "retired_superseded": []
 }
