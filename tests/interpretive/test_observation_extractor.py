@@ -28,6 +28,7 @@ from agent.interpretive.observation_extractor import (
     _FEATURE_ALIAS,
     ObservationRecord,
     all_aliased_features,
+    extract_convergence_targets,
     extract_observation,
     extract_relational_targets,
     merge_relational_targets,
@@ -522,3 +523,152 @@ def test_existing_observation_extraction_unchanged_alongside_relational_parsing(
     assert record.features["Line of Head"].tokens == {
         "Direction": {"value": "straight", "confidence": 1.0}
     }
+
+
+# ─── Convergence targets -- Pattern C step 2a (S98) ──────────────────────
+# extract_convergence_targets is a fresh, standalone function -- these
+# tests exercise it in isolation. Step 2b (a separate future task) wires
+# it into merge_relational_targets alongside extract_relational_targets;
+# not done here.
+
+
+def test_convergence_noncanonical_emission_flips_owner_to_alphabetically_first():
+    """HEART LINE emits the convergence, but "Line of Head" sorts before
+    "Line of Heart" -- owner must be the canonical feature, not whichever
+    block happened to emit the statement."""
+    text = (
+        "HEART LINE RELATIONAL:\n"
+        "  CONVERGENCE: Line of Head\n"
+    )
+    targets = extract_convergence_targets(text)
+    assert targets == {"Line of Head": {"Convergence": "Line of Heart"}}
+
+
+def test_convergence_emitted_from_both_blocks_is_idempotent_no_conflict():
+    """The SAME real convergence stated from EITHER line's own block must
+    collapse to one identical canonical entry, not two entries or a
+    conflicting overwrite."""
+    text = (
+        "HEAD LINE RELATIONAL:\n"
+        "  CONVERGENCE: Line of Heart\n"
+        "\n"
+        "HEART LINE RELATIONAL:\n"
+        "  CONVERGENCE: Line of Head\n"
+    )
+    targets = extract_convergence_targets(text)
+    assert targets == {"Line of Head": {"Convergence": "Line of Heart"}}
+
+
+def test_convergence_location_before_convergence_resolves_correct_owner():
+    """LOCATION appearing BEFORE CONVERGENCE in source order must still be
+    filed under the block's eventual canonical owner, not dropped or
+    misfiled under the emitting (non-canonical) feature."""
+    text = (
+        "FATE LINE RELATIONAL:\n"
+        "  CONVERGENCE_LOCATION: Mount of Jupiter\n"
+        "  CONVERGENCE: Line of Heart\n"
+    )
+    targets = extract_convergence_targets(text)
+    assert targets == {
+        "Line of Fate": {
+            "Convergence": "Line of Heart",
+            "Convergence_Location": "Mount of Jupiter",
+        }
+    }
+
+
+def test_convergence_f025b_shape_fate_heart_ascend_jupiter():
+    """F025b: Fate and Heart converge and ascend together to Mount of
+    Jupiter -- owner is Line of Fate ("Fate" < "Heart" alphabetically)."""
+    text = (
+        "FATE LINE RELATIONAL:\n"
+        "  CONVERGENCE: Line of Heart\n"
+        "  CONVERGENCE_LOCATION: Mount of Jupiter\n"
+    )
+    targets = extract_convergence_targets(text)
+    assert targets == {
+        "Line of Fate": {
+            "Convergence": "Line of Heart",
+            "Convergence_Location": "Mount of Jupiter",
+        }
+    }
+
+
+def test_convergence_target_not_in_registry_drops_convergence_and_its_location():
+    """Drop case 1: an invalid CONVERGENCE target drops the convergence AND
+    its block's location -- no owner ever resolves, so the location has
+    nothing to canonicalize against."""
+    text = (
+        "FATE LINE RELATIONAL:\n"
+        "  CONVERGENCE: Not A Real Landmark\n"
+        "  CONVERGENCE_LOCATION: Mount of Jupiter\n"
+    )
+    assert extract_convergence_targets(text) == {}
+
+
+def test_convergence_self_convergence_is_dropped():
+    """Drop case 2: a feature stating convergence with itself is invalid --
+    dropped, no owner resolves."""
+    text = (
+        "FATE LINE RELATIONAL:\n"
+        "  CONVERGENCE: Line of Fate\n"
+    )
+    assert extract_convergence_targets(text) == {}
+
+
+def test_convergence_location_orphan_with_no_convergence_in_block_is_dropped():
+    """Drop case 3: CONVERGENCE_LOCATION with no valid CONVERGENCE anywhere
+    in the same block is an orphan -- dropped, nothing filed."""
+    text = (
+        "FATE LINE RELATIONAL:\n"
+        "  CONVERGENCE_LOCATION: Mount of Jupiter\n"
+    )
+    assert extract_convergence_targets(text) == {}
+
+
+def test_convergence_location_not_in_registry_drops_location_only():
+    """Drop case 4: an invalid CONVERGENCE_LOCATION drops only the
+    location -- the block's own valid CONVERGENCE is unaffected."""
+    text = (
+        "FATE LINE RELATIONAL:\n"
+        "  CONVERGENCE: Line of Heart\n"
+        "  CONVERGENCE_LOCATION: Not A Real Landmark\n"
+    )
+    targets = extract_convergence_targets(text)
+    assert targets == {"Line of Fate": {"Convergence": "Line of Heart"}}
+
+
+def test_convergence_malformed_empty_none_na_values_are_dropped():
+    """Drop case 5: 'none'/'n-a'/empty values are dropped the same way
+    extract_relational_targets treats them -- for both subfields, and
+    across separate blocks in the same call."""
+    text = (
+        "FATE LINE RELATIONAL:\n"
+        "  CONVERGENCE: none\n"
+        "  CONVERGENCE_LOCATION: n/a\n"
+        "\n"
+        "HEAD LINE RELATIONAL:\n"
+        "  CONVERGENCE: \n"
+    )
+    assert extract_convergence_targets(text) == {}
+
+
+def test_convergence_empty_raw_text_returns_empty_dict_no_raise():
+    assert extract_convergence_targets("") == {}
+
+
+def test_convergence_targets_empty_for_text_without_convergence_subfields():
+    assert extract_convergence_targets("HAND SHAPE: elongated palm, medium build") == {}
+
+
+def test_convergence_raises_typeerror_for_non_str_input():
+    with pytest.raises(TypeError):
+        extract_convergence_targets(None)
+
+
+def test_convergence_inline_line_header_format_also_recognized():
+    """The inline "<LINE>:" header format (no separate RELATIONAL: block)
+    must be recognized identically to the RELATIONAL: block format."""
+    text = "FATE LINE: present, deep\n  CONVERGENCE: Line of Heart\n"
+    targets = extract_convergence_targets(text)
+    assert targets == {"Line of Fate": {"Convergence": "Line of Heart"}}

@@ -628,6 +628,235 @@ def merge_relational_targets(
     return merged
 
 
+# ─── Convergence targets -- Pattern C step 2a (S98) ──────────────────────
+# Parses NEW CONVERGENCE / CONVERGENCE_LOCATION subfields (registry-legal
+# since ontology_registry.json's change_log 1.6.0, but not yet emitted by
+# any live vision prompt -- that is step 3) into the SAME
+# `{feature: {attribute: landmark}}` shape extract_relational_targets
+# produces, so step 2b's wiring into merge_relational_targets is a
+# one-line addition.
+#
+# Deliberately duplicates the minimal header/subfield matcher locally
+# rather than reusing _RELATIONAL_HEADER / _LINE_HEADER /
+# _RELATIONAL_LINE_ALIAS / _RELATIONAL_SUBFIELD above: extract_relational_
+# targets must stay byte-identical in BEHAVIOR (15 live Fate rules depend
+# on it), not just in source text. "Line of Health" is one of the four
+# in-scope Convergence owners per the 1.6.0 canonical_owner_rule, but it
+# has no header at all in _LINE_HEADER's alternation (that regex only
+# recognizes LIFE/HEAD/HEART/FATE LINE plus the non-line sections) --
+# widening the SHARED regex to add "HEALTH LINE" would change extract_
+# relational_targets' runtime behavior on any real input containing a
+# HEALTH LINE section (today such a line falls through as an ignored
+# continuation of whatever feature preceded it; matching it as a header
+# would reset current_feature to None instead), even though that
+# function's own source line would not change. A fresh, local, narrower
+# matcher set avoids that risk entirely and needs no reuse discipline
+# with extract_proximity_observations either, since PROXIMITY is not this
+# function's concern.
+
+_CONVERGENCE_RELATIONAL_HEADER = re.compile(r"^([A-Z][A-Z ]*) RELATIONAL:\s*$")
+
+# LIFE/HEAD/HEART/FATE LINE mirror _LINE_HEADER's existing line set;
+# HEALTH LINE is added here only (forward-looking -- no live vision prompt
+# emits a HEALTH LINE header yet, but it is an in-scope Convergence owner
+# per the ontology and must not be silently unreachable once step 3 wires
+# vision emission for it).
+_CONVERGENCE_LINE_HEADER = re.compile(
+    r"^(LIFE LINE|HEAD LINE|HEART LINE|FATE LINE|HEALTH LINE):"
+)
+
+_CONVERGENCE_LINE_ALIAS: dict[str, str] = {
+    "life line": "Line of Life",
+    "head line": "Line of Head",
+    "heart line": "Line of Heart",
+    "fate line": "Line of Fate",
+    "health line": "Line of Health",
+}
+
+_CONVERGENCE_SUBFIELD = re.compile(r"^(CONVERGENCE|CONVERGENCE_LOCATION):\s*(.*)$")
+
+
+def _canonicalize_convergence(emitting_feature: str, target_landmark: str) -> tuple[str, str]:
+    """Returns (owner, other) for a convergence between the block's
+    emitting feature and its stated target landmark, per ontology_registry.
+    json's change_log 1.6.0 canonical_owner_rule: owner = min(A, B) by
+    plain string sort, other = the remaining one. Pure string comparison --
+    no hardcoded feature list -- because "Line of Life" happens to sort
+    after every in-scope owner (Fate/Head/Health/Heart all share the
+    common "Line of H"/"Line of F" prefix and are alphabetically earlier
+    than "Line of Life"'s "Li"), so Life is naturally never the owner
+    without this function needing to special-case it."""
+    if emitting_feature <= target_landmark:
+        return emitting_feature, target_landmark
+    return target_landmark, emitting_feature
+
+
+def extract_convergence_targets(raw_text: str) -> dict[str, dict[str, str]]:
+    """Parses ONE vision description string's CONVERGENCE / CONVERGENCE_
+    LOCATION subfields (either the separate "<LINE> RELATIONAL:" header
+    format or the inline "<LINE>:" format -- same two shapes extract_
+    relational_targets accepts) into `{ontology_feature: {"Convergence":
+    landmark, "Convergence_Location": landmark}}` -- the shape palm_rules_
+    table.match()'s `targets` param already consumes.
+
+    CANONICALIZATION: a "CONVERGENCE: <landmark>" line under feature F is
+    filed under owner=min(F, landmark) (string sort), with the OTHER
+    feature as the value -- so a non-canonical emission (e.g. the HEART
+    LINE block stating "CONVERGENCE: Line of Head") is filed under the
+    canonical owner ("Line of Head") regardless of which block emitted
+    it, and the SAME real-world convergence stated from either line's
+    block collapses to one identical entry (idempotent, no conflict).
+    "CONVERGENCE_LOCATION: <landmark>" is filed under that SAME block's
+    resolved canonical owner -- buffered per-block if LOCATION appears
+    BEFORE CONVERGENCE in the source text, resolved once CONVERGENCE
+    lands (or dropped as an orphan if the block ends without ever
+    producing a valid CONVERGENCE -- see fail-closed rules below).
+
+    Fail-closed per sub-field, never per call (mirrors extract_relational_
+    targets' discipline, applied to this disjoint attribute pair):
+      - a CONVERGENCE target that is empty/'none'/'n/a'/malformed, or not
+        a relation_target_registry member, is DROPPED -- and since no
+        owner can be resolved, that block's CONVERGENCE_LOCATION (buffered
+        or arriving later in the same block) is dropped too, logged as an
+        orphan.
+      - a CONVERGENCE target equal to its own emitting feature (self-
+        convergence, e.g. "FATE LINE: CONVERGENCE: Line of Fate") is
+        DROPPED the same way -- same orphan consequence for that block's
+        LOCATION.
+      - a CONVERGENCE_LOCATION that is empty/'none'/'n/a'/malformed, or
+        not a relation_target_registry member, is DROPPED on its own,
+        independent of whether that block's CONVERGENCE was valid.
+      - a CONVERGENCE_LOCATION with no valid CONVERGENCE anywhere in the
+        same block (the block ends, or a new block/blank line starts,
+        before one ever resolves) is an ORPHAN -- dropped, logged, nothing
+        filed for it. Never carried across a block boundary.
+
+    Never raises for a missing/malformed CONVERGENCE block or an
+    unparseable raw_text -- returns {} in that case, same as "no signal"
+    convention as extract_relational_targets / extract_proximity_
+    observations.
+    """
+    if not isinstance(raw_text, str):
+        raise TypeError(
+            "observation_extractor.extract_convergence_targets: raw_text "
+            f"must be a str, got {type(raw_text).__name__}"
+        )
+
+    targets: dict[str, dict[str, str]] = {}
+    current_feature: str | None = None
+    # This block's canonicalized owner, once a valid CONVERGENCE resolves
+    # one -- reset to None at every block boundary (blank line or new
+    # header), never carried from a prior block.
+    block_owner: str | None = None
+    # A CONVERGENCE_LOCATION value seen before this block's CONVERGENCE
+    # has resolved an owner -- buffered here, filed once the owner
+    # resolves, or dropped as an orphan at block end if it never does.
+    pending_location: str | None = None
+
+    def _flush_block_boundary() -> None:
+        nonlocal current_feature, block_owner, pending_location
+        if pending_location is not None:
+            logger.info(
+                "observation_extractor.extract_convergence_targets: dropped "
+                "orphan CONVERGENCE_LOCATION=%r for feature=%r -- no valid "
+                "CONVERGENCE resolved in the same block.",
+                pending_location, current_feature,
+            )
+        current_feature = None
+        block_owner = None
+        pending_location = None
+
+    for line in raw_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            _flush_block_boundary()
+            continue
+
+        header = _CONVERGENCE_RELATIONAL_HEADER.match(stripped)
+        if header:
+            _flush_block_boundary()
+            line_label = header.group(1).strip().lower()
+            current_feature = _CONVERGENCE_LINE_ALIAS.get(line_label)
+            continue
+
+        line_header = _CONVERGENCE_LINE_HEADER.match(stripped)
+        if line_header:
+            _flush_block_boundary()
+            line_label = line_header.group(1).strip().lower()
+            current_feature = _CONVERGENCE_LINE_ALIAS.get(line_label)
+            continue
+
+        if current_feature is None:
+            continue
+
+        sub = _CONVERGENCE_SUBFIELD.match(stripped)
+        if not sub:
+            continue
+
+        field, raw_value = sub.group(1), sub.group(2).strip()
+        value = raw_value.strip()
+
+        if not value or value.lower() in ("none", "n/a"):
+            logger.info(
+                "observation_extractor.extract_convergence_targets: dropped "
+                "feature=%r field=%r -- empty/none/n-a value.",
+                current_feature, field,
+            )
+            continue
+
+        if field == "CONVERGENCE":
+            if value not in _RELATION_TARGET_REGISTRY:
+                logger.info(
+                    "observation_extractor.extract_convergence_targets: dropped "
+                    "feature=%r CONVERGENCE target=%r -- not in "
+                    "relation_target_registry.",
+                    current_feature, value,
+                )
+                continue
+            if value == current_feature:
+                logger.info(
+                    "observation_extractor.extract_convergence_targets: dropped "
+                    "self-convergence for feature=%r.", current_feature,
+                )
+                continue
+
+            owner, other = _canonicalize_convergence(current_feature, value)
+            targets.setdefault(owner, {})["Convergence"] = other
+            block_owner = owner
+
+            if pending_location is not None:
+                if pending_location not in _RELATION_TARGET_REGISTRY:
+                    logger.info(
+                        "observation_extractor.extract_convergence_targets: dropped "
+                        "buffered CONVERGENCE_LOCATION=%r for feature=%r -- not in "
+                        "relation_target_registry.",
+                        pending_location, current_feature,
+                    )
+                else:
+                    targets.setdefault(block_owner, {})["Convergence_Location"] = pending_location
+                pending_location = None
+            continue
+
+        # field == "CONVERGENCE_LOCATION"
+        if value not in _RELATION_TARGET_REGISTRY:
+            logger.info(
+                "observation_extractor.extract_convergence_targets: dropped "
+                "feature=%r CONVERGENCE_LOCATION=%r -- not in "
+                "relation_target_registry.",
+                current_feature, value,
+            )
+            continue
+
+        if block_owner is not None:
+            targets.setdefault(block_owner, {})["Convergence_Location"] = value
+        else:
+            pending_location = value
+
+    _flush_block_boundary()  # flush end-of-text: log a still-pending orphan location
+
+    return targets
+
+
 # ─── Confidence -- prose hedge-word detection (module docstring point 6) ──
 
 _HEDGE_WORDS: tuple[str, ...] = (
