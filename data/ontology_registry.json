@@ -1,11 +1,11 @@
 {
   "meta": {
-    "version": "1.4.0",
+    "version": "1.5.0",
     "source": "Cheiro's Language of the Hand",
     "description": "Closed vocabulary registry for deterministic palmistry rule extraction. All feature, attribute, and value tokens used in rule generation MUST exist in this registry.",
     "total_features": 68,
     "total_attributes": 42,
-    "total_values": 214,
+    "total_values": 215,
     "total_comparators": 3
   },
   "synonyms": {
@@ -344,6 +344,7 @@
     ],
     "continuity_values": [
       "broken",
+      "broken_overlapping",
       "chained",
       "unbroken",
       "continuous",
@@ -1061,6 +1062,16 @@
       "author": "chat, awaiting Sulabh validation",
       "change": "5b-pre: add 'Junction of First and Second Fingers' relation_target for Cheiro heart-line junction origin (p156).",
       "rationale": "Orphaned landmark that was fail-closed-dropped by observation_extractor; unblocks heart ORIGIN menu."
+    },
+    {
+      "version": "1.5.0",
+      "date": "2026-08-22",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "Add 'broken_overlapping' to continuity_values (after 'broken'). Registry-legal only -- NOT yet added to any vision-prompt menu or rule file; unreachable until a separate wiring task.",
+      "value_gloss": {
+        "broken_overlapping": "a broken Line of Fate whose second portion begins before the first leaves off (Cheiro, 'Language of the Hand', p105, line ~1113) -- the self-repairing break, distinct from a clean 'broken'. Denotes a complete change in life, not merely loss."
+      },
+      "rationale": "doctrine_fate.md F032b flagged a value-granularity gap: no continuity_value token distinguished an overlapping-resumption break from a plain gap-break. This value closes that gap at the registry level only."
     }
   ],
   "relation_target_registry": [
