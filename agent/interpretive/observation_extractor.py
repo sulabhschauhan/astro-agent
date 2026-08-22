@@ -296,7 +296,7 @@ _CLOSED_VOCAB: dict[str, dict[str, tuple[str, ...]]] = _build_closed_vocab()
 # ontology_registry.json feature token. Hardcoded (not derived from the
 # registry's `synonyms` block, which covers a different vocabulary --
 # alternate NAMES for the same canonical feature, not this module's
-# prose-label-to-canonical-feature mapping). Two of the ten have NO
+# prose-label-to-canonical-feature mapping). Two of the nineteen have NO
 # ontology counterpart and map to None -- captured as unmappable prose
 # (see `ObservationRecord.unmappable_prose_features`), never raised:
 #   - "fingers": the registry only models individual First/Second/Third/
@@ -315,6 +315,20 @@ _FEATURE_ALIAS: dict[str, str | None] = {
     "fingers": None,
     "mount of venus": "Mount of Venus",
     "mount of jupiter": "Mount of Jupiter",
+    # S96: the 7 remaining registry mounts made emission-reachable. Additive
+    # only -- no existing key's mapping changed. Two Cheiro synonyms collapse
+    # onto one canonical feature each ("mount of apollo" -> Mount of the Sun,
+    # "mount of the moon" -> Mount of Luna); every right-hand side is a
+    # verbatim member of ontology_registry.json's features.mounts.
+    "mount of saturn": "Mount of Saturn",
+    "mount of the sun": "Mount of the Sun",
+    "mount of apollo": "Mount of the Sun",
+    "mount of mercury": "Mount of Mercury",
+    "upper mount of mars": "Upper Mount of Mars",
+    "lower mount of mars": "Lower Mount of Mars",
+    "mount of luna": "Mount of Luna",
+    "mount of the moon": "Mount of Luna",
+    "plain of mars": "Plain of Mars",
     "markings/other features": None,
 }
 

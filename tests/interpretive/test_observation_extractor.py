@@ -73,11 +73,17 @@ def _response(observations: dict, unmapped: dict | None = None) -> str:
 # ─── Sanity: registry-derived constants sane before relying on them ──────
 
 
-def test_alias_table_has_ten_keys_eight_mapped_two_none():
-    assert len(_FEATURE_ALIAS) == 10
+def test_alias_table_has_nineteen_keys_seventeen_mapped_two_none():
+    # S96: 9 more mount aliases (7 new mounts + 2 extra Cheiro synonyms --
+    # "mount of apollo" and "mount of the moon" -- collapsing onto an
+    # already-mapped canonical feature) landed alongside the original 10-key
+    # table's 8 mapped + 2 None entries. Measured, not assumed: 19 total
+    # keys, 17 mapped (to 15 DISTINCT ontology features, since two of the
+    # mapped keys are synonyms of another mapped key), 2 still None.
+    assert len(_FEATURE_ALIAS) == 19
     mapped = {k: v for k, v in _FEATURE_ALIAS.items() if v is not None}
     unmapped = {k: v for k, v in _FEATURE_ALIAS.items() if v is None}
-    assert len(mapped) == 8
+    assert len(mapped) == 17
     assert set(unmapped) == {"fingers", "markings/other features"}
     for ontology_feature in mapped.values():
         assert ontology_feature in _CLOSED_VOCAB
@@ -183,12 +189,18 @@ def test_feature_texts_with_only_blank_strings_returns_empty_record_no_llm_call(
 def test_all_aliased_features_is_the_non_none_value_set_of_feature_alias():
     """DERIVATION, not a literal list: must equal every non-None value in
     `_FEATURE_ALIAS`, so a future alias addition widens this with no code
-    edit at any call site. The literal set is asserted too, as a canary."""
+    edit at any call site. The literal set is asserted too, as a canary --
+    15 DISTINCT features (S96), not 17: "mount of apollo"/"mount of the
+    moon" are Cheiro synonyms collapsing onto "Mount of the Sun"/"Mount of
+    Luna", each already reached by another key."""
     expected = frozenset(f for f in _FEATURE_ALIAS.values() if f is not None)
     assert all_aliased_features() == expected
     assert all_aliased_features() == frozenset({
         "Line of Life", "Line of Head", "Line of Heart", "Line of Fate",
         "Line of Sun", "Thumb", "Mount of Venus", "Mount of Jupiter",
+        "Mount of Saturn", "Mount of the Sun", "Mount of Mercury",
+        "Upper Mount of Mars", "Lower Mount of Mars", "Mount of Luna",
+        "Plain of Mars",
     })
     # The two None entries ("fingers", "markings/other features") must
     # never surface here -- they have no ontology counterpart to unblock.
