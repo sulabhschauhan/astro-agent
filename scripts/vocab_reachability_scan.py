@@ -127,7 +127,11 @@ _VISION_TERMINATION_MENU: dict[str, frozenset[str]] = {
     "Line of Fate": frozenset({"Mount of Saturn", "Mount of Jupiter", "Line of Heart", "Line of Head"}),
 }
 
-_RELATIONAL_ATTRS = frozenset(oe._RELATIONAL_ATTRIBUTE_MAP.values())  # Starting_Point/Proximity/Position/Branching
+_RELATIONAL_ATTRS = oe.EMITTED_RELATION_ATTRS  # derived from SSOT; any new
+# relational attribute declared in observation_extractor is picked up
+# automatically, no edit here.
+
+_RELATIONAL_ATTR_TO_FIELD = oe.RELATION_ATTR_TO_FIELD  # derived from SSOT
 _RELATIONAL_FEATURES = frozenset(oe._RELATIONAL_LINE_ALIAS.values())  # Line of Head/Heart/Fate
 _ALL_ONTOLOGY_FEATURE_NAMES: frozenset[str] = frozenset(
     f for category in oe._REGISTRY["features"].values() for f in category
@@ -266,7 +270,7 @@ def classify_antecedent(feature: str, attribute: str, value, relation_target) ->
                 "nearest": _nearest(relation_target, oe._RELATION_TARGET_REGISTRY),
             }
         else:
-            field = {v: k for k, v in oe._RELATIONAL_ATTRIBUTE_MAP.items()}[attribute]
+            field = _RELATIONAL_ATTR_TO_FIELD[attribute]
             caveat = _origin_termination_menu_caveat(field, feature, relation_target) if field in ("ORIGIN", "TERMINATION") else None
             rel_result = {
                 "status": "yes",

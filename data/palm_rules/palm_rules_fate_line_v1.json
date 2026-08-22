@@ -452,7 +452,9 @@
     },
     {
       "rule_id": "FT_014",
-      "doctrine_sentence_ids": ["F022"],
+      "doctrine_sentence_ids": [
+        "F022"
+      ],
       "source_page": 104,
       "topic_group": "line_fate",
       "is_compound": false,
@@ -482,7 +484,9 @@
     },
     {
       "rule_id": "FT_015",
-      "doctrine_sentence_ids": ["F027a"],
+      "doctrine_sentence_ids": [
+        "F027a"
+      ],
       "source_page": 104,
       "topic_group": "line_fate",
       "is_compound": false,
@@ -509,6 +513,47 @@
         "UNPARKED (menu-widen arc): doctrine F027a was PARKED_RELATION for menu-completeness only (Plain of Mars is relation_target_registry-legal but was absent from the FATE LINE ORIGIN closed menu in agent/palm_processor.py). ORIGIN menu widened to add 'Plain of Mars' in a prior bundled emission-edit task (same pass that added the FATE LINE LENGTH EXTENT field for FT_006) -- this rule is authored now that the menu offers the token.",
         "REACHABILITY RE-ASSERT (this authoring pass): 'Plain of Mars' confirmed present in relation_target_registry; 'Line of Fate' confirmed present in attribute_feature_mapping['Starting_Point'] -- PASS, no unreachable token.",
         "UNPROVEN: whether GPT-4o's vision call can correctly identify a Plain-of-Mars origin (as opposed to a neighboring ORIGIN menu option, e.g. Wrist or Mount of Luna) in a real photograph is untested -- no real or synthetic image has been validated against the widened menu."
+      ]
+    },
+    {
+      "rule_id": "FT_016",
+      "doctrine_sentence_ids": [
+        "F025b"
+      ],
+      "source_page": 104,
+      "topic_group": "line_fate",
+      "is_compound": true,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Line of Fate",
+          "attribute": "Convergence",
+          "value": null,
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Heart"
+        },
+        {
+          "feature": "Line of Fate",
+          "attribute": "Convergence_Location",
+          "value": null,
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Mount of Jupiter"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "When the fate line joins the line of heart and the two ascend together to the Mount of Jupiter, the subject's highest ambition is gratified through the affections.",
+      "source_quote": "when, however, it joins the line of heart and they together ascend Jupiter, the subject will have his or her high­est ambition gratified through the affections {h-h, Plate XIX.).",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
+      "schema_flags": [
+        "LOWER-CONFIDENCE: convergence-location vision reliability (positive detection of a fate+heart join ascending to Jupiter) is untested on real images; dogfood n=1 covered only the no-convergence negative path (S98).",
+        "Pattern C first authored rule (S98): fires via match() targets channel on Convergence + Convergence_Location antecedents."
       ]
     }
   ],

@@ -654,6 +654,21 @@ def merge_relational_targets(
 # with extract_proximity_observations either, since PROXIMITY is not this
 # function's concern.
 
+_CONVERGENCE_ATTR = "Convergence"
+_CONVERGENCE_LOCATION_ATTR = "Convergence_Location"
+
+# SSOT: every attribute an extractor emits with a relation_target -> the
+# vision subfield LABEL it's emitted under. Add a NEW relational attribute
+# HERE once; all consumers (vocab_reachability_scan, future fields, the
+# Pattern D set-valued Convergence work) derive from this -- no hardcoded
+# copies to keep in sync anywhere else.
+RELATION_ATTR_TO_FIELD: dict[str, str] = {
+    **{attr: label for label, attr in _RELATIONAL_ATTRIBUTE_MAP.items()},  # 4 directional, derived
+    _CONVERGENCE_ATTR: "CONVERGENCE",
+    _CONVERGENCE_LOCATION_ATTR: "CONVERGENCE_LOCATION",
+}
+EMITTED_RELATION_ATTRS: frozenset[str] = frozenset(RELATION_ATTR_TO_FIELD)
+
 _CONVERGENCE_RELATIONAL_HEADER = re.compile(r"^([A-Z][A-Z ]*) RELATIONAL:\s*$")
 
 # LIFE/HEAD/HEART/FATE LINE mirror _LINE_HEADER's existing line set;
@@ -821,7 +836,7 @@ def extract_convergence_targets(raw_text: str) -> dict[str, dict[str, str]]:
                 continue
 
             owner, other = _canonicalize_convergence(current_feature, value)
-            targets.setdefault(owner, {})["Convergence"] = other
+            targets.setdefault(owner, {})[_CONVERGENCE_ATTR] = other
             block_owner = owner
 
             if pending_location is not None:
@@ -833,7 +848,7 @@ def extract_convergence_targets(raw_text: str) -> dict[str, dict[str, str]]:
                         pending_location, current_feature,
                     )
                 else:
-                    targets.setdefault(block_owner, {})["Convergence_Location"] = pending_location
+                    targets.setdefault(block_owner, {})[_CONVERGENCE_LOCATION_ATTR] = pending_location
                 pending_location = None
             continue
 
@@ -848,7 +863,7 @@ def extract_convergence_targets(raw_text: str) -> dict[str, dict[str, str]]:
             continue
 
         if block_owner is not None:
-            targets.setdefault(block_owner, {})["Convergence_Location"] = value
+            targets.setdefault(block_owner, {})[_CONVERGENCE_LOCATION_ATTR] = value
         else:
             pending_location = value
 
