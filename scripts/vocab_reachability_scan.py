@@ -83,6 +83,7 @@ treat this column as a hint to manually verify, not an auto-fix.
 """
 from __future__ import annotations
 
+import argparse
 import difflib
 import json
 import sys
@@ -91,6 +92,7 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
 
+# Default scan target. --rules overrides it per-run; this global is never mutated.
 _RULES_PATH = _REPO_ROOT / "data" / "palm_rules" / "palm_rules_head_heart_v1.json"
 _REPORT_PATH = _REPO_ROOT / "diagnostics" / "latest_run.md"
 
@@ -261,14 +263,16 @@ def classify_antecedent(feature: str, attribute: str, value, relation_target) ->
     return {"status": overall_status, "detail": detail, "nearest": nearest, "caveat": caveat}
 
 
-def load_scanned_rules() -> list[dict]:
+def load_scanned_rules(rules_path: Path) -> list[dict]:
+    """`rules_path` is the resolved rules file for THIS run (see main()'s
+    --rules); the module-level _RULES_PATH default is not read here."""
     try:
-        with open(_RULES_PATH, encoding="utf-8") as f:
+        with open(rules_path, encoding="utf-8") as f:
             data = json.load(f)
     except OSError as exc:
-        raise OSError(f"vocab_reachability_scan: could not read {_RULES_PATH}: {exc}") from exc
+        raise OSError(f"vocab_reachability_scan: could not read {rules_path}: {exc}") from exc
     except json.JSONDecodeError as exc:
-        raise ValueError(f"vocab_reachability_scan: {_RULES_PATH} is not valid JSON: {exc}") from exc
+        raise ValueError(f"vocab_reachability_scan: {rules_path} is not valid JSON: {exc}") from exc
     return [r for r in data.get("validated_candidates", []) if not r.get("needs_remodel")]
 
 
@@ -315,8 +319,10 @@ def _trigger_token_str(row: dict) -> str:
     return "".join(parts) + f" (on {row['feature']})"
 
 
-def _format_report(all_rows: list[dict], rule_ids_scanned: list[str]) -> str:
+def _format_report(all_rows: list[dict], rule_ids_scanned: list[str], rules_path: Path) -> str:
     lines = ["# Latest Run: vocabulary reachability scan (validated_candidates, needs_remodel skipped)\n"]
+    # Named up front so a Life-line run can never be misread as a head/heart run.
+    lines.append(f"**Rules file scanned:** `{rules_path}`\n")
     lines.append(f"Rules scanned: {len(rule_ids_scanned)}. Read-only, no LLM, no network. See module docstring in scripts/vocab_reachability_scan.py for the full three-gate methodology.\n")
 
     lines.append("## 1. Per-antecedent trigger-token table\n")
@@ -372,14 +378,32 @@ def _format_report(all_rows: list[dict], rule_ids_scanned: list[str]) -> str:
     return "\n".join(lines)
 
 
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Vocabulary reachability scan over one palm rules file's "
+            "validated_candidates. Read-only; writes diagnostics/latest_run.md."
+        )
+    )
+    parser.add_argument(
+        "--rules",
+        type=Path,
+        default=_RULES_PATH,
+        help=f"Path to the rules JSON to scan (default: {_RULES_PATH}).",
+    )
+    return parser.parse_args(argv)
+
+
 def main() -> None:
-    rules = load_scanned_rules()
+    args = _parse_args()
+    rules_path = args.rules
+    rules = load_scanned_rules(rules_path)
     rule_ids = [r["rule_id"] for r in rules]
     all_rows: list[dict] = []
     for rule in rules:
         all_rows.extend(scan_rule(rule))
 
-    report = _format_report(all_rows, rule_ids)
+    report = _format_report(all_rows, rule_ids, rules_path)
     try:
         _REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
         with open(_REPORT_PATH, "w", encoding="utf-8") as f:
@@ -387,6 +411,7 @@ def main() -> None:
     except OSError as exc:
         raise OSError(f"vocab_reachability_scan: could not write report to {_REPORT_PATH}: {exc}") from exc
 
+    print(f"Rules file scanned: {rules_path}")
     print(f"Scanned {len(rule_ids)} rules, {len(all_rows)} antecedents.")
     print(f"Wrote report to {_REPORT_PATH}")
 
