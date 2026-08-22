@@ -351,11 +351,11 @@ def all_aliased_features() -> frozenset[str]:
 # emits for HEAD/HEART/FATE (ORIGIN / PROXIMITY <degree> to <landmark> /
 # TERMINATION / BRANCHES_TO) into the `{feature: {attribute: landmark}}`
 # shape palm_rules_table.match()'s `targets` param already accepts and
-# consults for any antecedent whose own relation_target is not None. INERT
-# on the currently-loaded rule set: no loaded rule sets a relation_target,
-# so this dict is built and threaded through but never actually consulted
-# yet -- proving the vision->extractor->engine path ahead of the migration
-# that will add the first directed rule.
+# consults for any antecedent whose own relation_target is not None. LIVE
+# since S92 (H_027, the first directed relational rule) -- as of S97 this
+# drives 15 live Line of Fate relational antecedents (ORIGIN/TERMINATION/
+# PROXIMITY/BRANCHES_TO) plus the earlier head/heart relational rules; no
+# longer a proving-only path.
 #
 # Deliberately separate from extract_observation()'s LLM-mediated token
 # extraction: this is a pure deterministic string parse of the vision

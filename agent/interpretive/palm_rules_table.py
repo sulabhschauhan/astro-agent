@@ -250,9 +250,10 @@ def match(
     predating this parameter pass exactly 3 args and are unaffected).
     Maps feature -> attribute -> the directed relation_target actually
     observed, e.g. {"Line of Head": {"Proximity": "Line of Life"}}. Only
-    consulted for antecedents whose own relation_target is not None; no
-    currently-loaded rule sets one, so this is presently a no-op in
-    production."""
+    consulted for antecedents whose own relation_target is not None; LIVE
+    since S92 (H_027) and, as of S97, driving 15 live Line of Fate
+    relational antecedents (ORIGIN/TERMINATION/PROXIMITY/BRANCHES_TO) in
+    production, not a no-op."""
     targets = targets or {}
     fired = []
     for rule in rules:
