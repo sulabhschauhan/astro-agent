@@ -1,10 +1,10 @@
 {
   "meta": {
-    "version": "1.5.0",
+    "version": "1.6.0",
     "source": "Cheiro's Language of the Hand",
     "description": "Closed vocabulary registry for deterministic palmistry rule extraction. All feature, attribute, and value tokens used in rule generation MUST exist in this registry.",
     "total_features": 68,
-    "total_attributes": 42,
+    "total_attributes": 44,
     "total_values": 215,
     "total_comparators": 3
   },
@@ -226,7 +226,9 @@
       "Clarity",
       "Proximity",
       "Branching",
-      "Formation"
+      "Formation",
+      "Convergence",
+      "Convergence_Location"
     ],
     "mount_attributes": [
       "Height",
@@ -1014,6 +1016,18 @@
       "Quadrangle",
       "Plain of Mars",
       "Hollow of Hand"
+    ],
+    "Convergence": [
+      "Line of Fate",
+      "Line of Head",
+      "Line of Health",
+      "Line of Heart"
+    ],
+    "Convergence_Location": [
+      "Line of Fate",
+      "Line of Head",
+      "Line of Health",
+      "Line of Heart"
     ]
   },
   "attribute_value_binding": {
@@ -1072,6 +1086,14 @@
         "broken_overlapping": "a broken Line of Fate whose second portion begins before the first leaves off (Cheiro, 'Language of the Hand', p105, line ~1113) -- the self-repairing break, distinct from a clean 'broken'. Denotes a complete change in life, not merely loss."
       },
       "rationale": "doctrine_fate.md F032b flagged a value-granularity gap: no continuity_value token distinguished an overlapping-resumption break from a plain gap-break. This value closes that gap at the registry level only."
+    },
+    {
+      "version": "1.6.0",
+      "date": "2026-08-22",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "Add relation attributes 'Convergence' and 'Convergence_Location' (Pattern C, symmetric two-line convergence). Pure relation attributes: value=null, relation_target drawn from relation_target_registry, matched via palm_rules_table match()'s existing targets channel. Symmetry handled by CANONICALIZATION at extraction time (owner = alphabetically-first feature of the pair, target = the other). Convergence = 'line A meets line B'; Convergence_Location (single generic slot) = a third landmark associated with that convergence (either the meeting point or a shared continuation landmark, e.g. F025b fate+heart ascend Jupiter) -- disambiguated in claim prose, NOT structurally split, because vision (gpt-4o) reliability on meet-at vs continue-to is below floor; all location-gated C rules carry a LOWER-CONFIDENCE flag. Registry-legal only -- NOT yet in any vision-prompt menu, extractor label map, or rule file; unreachable until STEP 2 (extractor) and STEP 3 (vision) wiring. attribute_value_binding deliberately UNTOUCHED.",
+      "canonical_owner_rule": "For any convergence pair {A, B}, owner = min(A, B) by string sort, relation_target = the other. In-scope owners: Line of Fate, Line of Head, Line of Health, Line of Heart. Line of Life is never an owner among in-scope pairs.",
+      "unlocks": "Fate F025b (PARKED_RELATION) becomes authorable once STEP 3 lands."
     }
   ],
   "relation_target_registry": [
