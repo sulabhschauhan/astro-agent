@@ -30,7 +30,9 @@ from agent.interpretive.observation_extractor import (
     all_aliased_features,
     extract_convergence_targets,
     extract_observation,
+    extract_proximity_observations,
     extract_relational_targets,
+    extract_relations,
     merge_relational_targets,
     to_vision_payload,
 )
@@ -672,3 +674,115 @@ def test_convergence_inline_line_header_format_also_recognized():
     text = "FATE LINE: present, deep\n  CONVERGENCE: Line of Heart\n"
     targets = extract_convergence_targets(text)
     assert targets == {"Line of Fate": {"Convergence": "Line of Heart"}}
+
+
+# ─── extract_relations differential gate -- Generalization step 2a (S98) ──
+# extract_relations() is a NEW, registry-driven unified parser that must
+# reproduce the COMBINED output of extract_relational_targets +
+# extract_convergence_targets ("targets") and extract_proximity_observations
+# ("proximity") exactly. This is the differential proof that it is safe to
+# retire the three bespoke functions later (NOT done here -- all three stay,
+# untouched). >=25 cases; ANY mismatch is a hard failure of this test, not
+# something a future edit is allowed to quietly work around.
+#
+# Realistic full-palm case reuses the shape of a real captured dogfood run
+# (diagnostics/dogfood_capture.md-style output, no blank lines between
+# sections -- the actual GPT shape) so the OTHER LINES/MOUNTS/MARKS
+# non-relational-header quirk (the convergence tracker does NOT reset on
+# those headers, the directional tracker DOES -- both trackers' original,
+# independent quirks) gets exercised for real, not just in isolated cases.
+
+_DIFFERENTIAL_BATTERY: list[tuple[str, str]] = [
+    ("head_origin_line_of_life", "HEAD LINE RELATIONAL:\n  ORIGIN: Line of Life\n"),
+    ("head_origin_mount_of_jupiter", "HEAD LINE RELATIONAL:\n  ORIGIN: Mount of Jupiter\n"),
+    ("head_termination_percussion", "HEAD LINE RELATIONAL:\n  TERMINATION: Percussion\n"),
+    ("heart_origin_mount_of_saturn", "HEART LINE RELATIONAL:\n  ORIGIN: Mount of Saturn\n"),
+    ("heart_termination_mount_of_mercury", "HEART LINE RELATIONAL:\n  TERMINATION: Mount of Mercury\n"),
+    ("fate_origin_plain_of_mars", "FATE LINE RELATIONAL:\n  ORIGIN: Plain of Mars\n"),
+    ("fate_termination_mount_of_jupiter", "FATE LINE RELATIONAL:\n  TERMINATION: Mount of Jupiter\n"),
+    ("branches_to_populated", "HEAD LINE RELATIONAL:\n  BRANCHES_TO: Line of Heart\n"),
+    ("branches_to_none", "HEAD LINE RELATIONAL:\n  BRANCHES_TO: none\n"),
+    ("proximity_touching", "HEAD LINE RELATIONAL:\n  PROXIMITY: touching to Line of Life\n"),
+    ("proximity_medium", "HEART LINE RELATIONAL:\n  PROXIMITY: medium to Line of Head\n"),
+    ("proximity_distant", "FATE LINE RELATIONAL:\n  PROXIMITY: distant to Line of Life\n"),
+    ("proximity_na", "HEAD LINE RELATIONAL:\n  PROXIMITY: n/a to none\n"),
+    ("proximity_malformed_no_to_separator", "HEAD LINE RELATIONAL:\n  PROXIMITY: touching\n"),
+    ("convergence_positive_fate",
+     "FATE LINE RELATIONAL:\n  CONVERGENCE: Line of Heart\n  CONVERGENCE_LOCATION: Mount of Jupiter\n"),
+    ("convergence_positive_life", "LIFE LINE:\n  CONVERGENCE: Line of Health\n"),
+    ("convergence_canon_from_head", "HEAD LINE RELATIONAL:\n  CONVERGENCE: Line of Heart\n"),
+    ("convergence_canon_from_heart", "HEART LINE RELATIONAL:\n  CONVERGENCE: Line of Head\n"),
+    ("convergence_drop_invalid_target", "FATE LINE RELATIONAL:\n  CONVERGENCE: Not A Real Landmark\n"),
+    ("convergence_drop_self", "FATE LINE RELATIONAL:\n  CONVERGENCE: Line of Fate\n"),
+    ("convergence_drop_orphan_location", "FATE LINE RELATIONAL:\n  CONVERGENCE_LOCATION: Mount of Jupiter\n"),
+    ("convergence_drop_invalid_location",
+     "FATE LINE RELATIONAL:\n  CONVERGENCE: Line of Heart\n  CONVERGENCE_LOCATION: Not A Real Landmark\n"),
+    ("convergence_drop_malformed_none_na",
+     "FATE LINE RELATIONAL:\n  CONVERGENCE: none\n  CONVERGENCE_LOCATION: n/a\n"),
+    ("convergence_empty_value", "FATE LINE RELATIONAL:\n  CONVERGENCE: \n"),
+    ("convergence_location_before_convergence",
+     "FATE LINE RELATIONAL:\n  CONVERGENCE_LOCATION: Mount of Jupiter\n  CONVERGENCE: Line of Heart\n"),
+    ("convergence_multi_per_block",
+     "FATE LINE RELATIONAL:\n  CONVERGENCE: Line of Heart\n  CONVERGENCE_LOCATION: Mount of Jupiter\n"
+     "  CONVERGENCE: Line of Head\n"),
+    ("off_menu_directional_head_origin", "HEAD LINE RELATIONAL:\n  ORIGIN: Mount of Saturn\n"),
+    ("off_menu_convergence_fate", "FATE LINE RELATIONAL:\n  CONVERGENCE: Wrist\n"),
+    ("directional_none_value", "HEAD LINE RELATIONAL:\n  ORIGIN: none\n"),
+    ("empty_text", ""),
+    ("inline_format_fate_origin", "FATE LINE: present, deep\n  ORIGIN: Wrist\n"),
+    ("full_realistic_palm",
+     "HAND SHAPE: elongated palm, overall build is medium\n"
+     "FINGERS: medium length relative to palm, straight, rounded fingertips, medium spacing\n"
+     "THUMB: medium size, set low, wide angle from the palm\n"
+     "LIFE LINE: present, deep, narrow, long, curves around the base of the thumb\n"
+     "  CONVERGENCE: none\n"
+     "HEAD LINE: present, deep, narrow, long, straight across\n"
+     "  SLOPE: straight\n"
+     "  ORIGIN: Line of Life\n"
+     "  TERMINATION: Percussion\n"
+     "  PROXIMITY: touching to Line of Life\n"
+     "  BRANCHES_TO: none\n"
+     "HEART LINE: present, deep, narrow, long, slightly curved\n"
+     "  SLOPE: upward\n"
+     "  ORIGIN: Mount of Jupiter\n"
+     "  TERMINATION: Percussion\n"
+     "  PROXIMITY: medium to Line of Head\n"
+     "  BRANCHES_TO: none\n"
+     "FATE LINE: present, deep, narrow, long\n"
+     "  SLOPE: upward\n"
+     "  ORIGIN: Wrist\n"
+     "  TERMINATION: Mount of Saturn\n"
+     "  PROXIMITY: medium to Line of Head\n"
+     "  BRANCHES_TO: none\n"
+     "  BREAK TYPE: n/a\n"
+     "  LENGTH EXTENT: n/a\n"
+     "  CONVERGENCE: Line of Heart\n"
+     "  CONVERGENCE_LOCATION: Mount of Jupiter\n"
+     "OTHER LINES: sun line visible\n"
+     "MOUNTS: Mount of Venus developed, others unremarkable\n"
+     "MARKS: not clearly visible\n"),
+]
+
+
+@pytest.mark.parametrize("case_id,text", _DIFFERENTIAL_BATTERY, ids=[c[0] for c in _DIFFERENTIAL_BATTERY])
+def test_extract_relations_matches_the_three_source_functions_combined(case_id, text):
+    result = extract_relations(text)
+    expected_targets = merge_relational_targets(
+        extract_relational_targets(text), extract_convergence_targets(text)
+    )
+    expected_proximity = extract_proximity_observations(text)
+    assert result["targets"] == expected_targets, (
+        f"[{case_id}] targets mismatch: {result['targets']!r} != {expected_targets!r}"
+    )
+    assert result["proximity"] == expected_proximity, (
+        f"[{case_id}] proximity mismatch: {result['proximity']!r} != {expected_proximity!r}"
+    )
+
+
+def test_extract_relations_raises_typeerror_for_non_str_input():
+    with pytest.raises(TypeError):
+        extract_relations(None)
+
+
+def test_extract_relations_battery_has_at_least_25_cases():
+    assert len(_DIFFERENTIAL_BATTERY) >= 25

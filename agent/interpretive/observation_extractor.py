@@ -669,6 +669,32 @@ RELATION_ATTR_TO_FIELD: dict[str, str] = {
 }
 EMITTED_RELATION_ATTRS: frozenset[str] = frozenset(RELATION_ATTR_TO_FIELD)
 
+# Reverse of RELATION_ATTR_TO_FIELD -- subfield LABEL -> attribute. Used by
+# extract_relations() (Generalization step 2a, S98) to go from a matched
+# subfield ("ORIGIN"/"PROXIMITY"/"TERMINATION"/"BRANCHES_TO"/"CONVERGENCE"/
+# "CONVERGENCE_LOCATION") to the attribute it fills, then to that
+# attribute's parse STRATEGY via _RELATION_TYPES below.
+_RELATIONAL_FIELD_TO_ATTR: dict[str, str] = {v: k for k, v in RELATION_ATTR_TO_FIELD.items()}
+
+# Registry-derived: attribute -> parse strategy ("directional"/"proximity"/
+# "symmetric", ontology_registry.json's "relation_types" block, Generalization
+# step 1). Bare bracket access -- this key is foundational once declared and
+# MUST exist, same convention as every other _REGISTRY-derived constant above.
+_RELATION_TYPES: dict[str, str] = dict(_REGISTRY["relation_types"])
+
+# Registry-derived: feature -> {vision subfield LABEL -> [legal target
+# tokens]} (ontology_registry.json's "vision_relational_menus" block,
+# Generalization step 1). Carries a stray "_note" top-level key (documentation,
+# not a feature) -- harmless here since every lookup is a targeted `.get(
+# feature, {})` by real feature name, never a blind iteration over all keys.
+# ADVISORY ONLY (see extract_relations()'s docstring point on this): a token
+# absent from a feature's menu here is logged, never rejected -- the actual
+# accept/reject gate stays relation_target_registry membership everywhere,
+# matching this exact codebase's own established precedent for this class of
+# check (scripts/vocab_reachability_scan.py's _VISION_ORIGIN_MENU/
+# _VISION_TERMINATION_MENU: "never changes a yes/NO verdict").
+_VISION_RELATIONAL_MENUS: dict[str, dict[str, list[str]]] = dict(_REGISTRY["vision_relational_menus"])
+
 _CONVERGENCE_RELATIONAL_HEADER = re.compile(r"^([A-Z][A-Z ]*) RELATIONAL:\s*$")
 
 # LIFE/HEAD/HEART/FATE LINE mirror _LINE_HEADER's existing line set;
@@ -870,6 +896,310 @@ def extract_convergence_targets(raw_text: str) -> dict[str, dict[str, str]]:
     _flush_block_boundary()  # flush end-of-text: log a still-pending orphan location
 
     return targets
+
+
+# ─── Unified relational parser -- Generalization step 2a (S98) ──────────
+# extract_relations() reproduces the COMBINED output of the three functions
+# above (extract_relational_targets + extract_convergence_targets -> its
+# "targets" key; extract_proximity_observations -> its "proximity" key),
+# driven by the registry's "relation_types"/"vision_relational_menus" blocks
+# (Generalization step 1) instead of a bespoke per-attribute function each.
+# ADDS ALONGSIDE the three -- none of them are modified or retired here; see
+# this module's docstring discrepancy-log convention below for the one real
+# design deviation from this task's literal wording.
+#
+# === Deviation from this task's own prompt (flagged per project convention) ===
+# The instructing prompt's literal wording for the directional/symmetric
+# strategies says to "validate ... against vision_relational_menus[feature]
+# [label] when that closed menu exists, else against relation_target_registry".
+# Read literally as a REJECTION gate, this would make extract_relations STRICTER
+# than the three original functions for any feature/label pair that now has a
+# closed menu (ORIGIN/TERMINATION on Head/Heart/Fate; CONVERGENCE/CONVERGENCE_
+# LOCATION on Fate/Life) -- none of those closed menus existed before
+# Generalization step 1, so no original function has ever consulted one; each
+# one only ever checked plain relation_target_registry membership. Implementing
+# the menu as a hard gate would therefore REJECT an off-menu-but-registry-legal
+# landmark (e.g. Head LINE's ORIGIN emitting the registry-legal "Mount of
+# Saturn", which is not in Head's own {Mount of Jupiter, Line of Life, Lower
+# Mount of Mars} menu) that every original function currently ACCEPTS --
+# failing this task's own stated goal ("PROVEN BYTE-IDENTICAL to the 3
+# existing relational extractors") on exactly the "off-menu tokens" battery
+# case the task itself requires covering.
+#
+# Resolved by treating the menu check as ADVISORY ONLY, never a rejection
+# gate: the actual accept/reject decision for every strategy stays plain
+# relation_target_registry membership (byte-identical to all three original
+# functions, unconditionally); when a closed menu exists for the (feature-or-
+# emitting-feature, label) pair AND the accepted landmark is not a member of
+# that specific menu, an INFO-level caveat is logged and nothing else changes.
+# This mirrors an established precedent already in this exact codebase --
+# scripts/vocab_reachability_scan.py's own _VISION_ORIGIN_MENU/_VISION_
+# TERMINATION_MENU, documented there as "Used ONLY for the soft prompt-menu
+# caveat ... never changes a yes/NO verdict." Differential parity (this
+# task's real crux) is preserved by construction; the menu consultation the
+# prompt asked for still happens, and still has an observable effect (the log
+# line), just not a rejection effect.
+
+
+def _log_off_menu_caveat(feature: str, label: str, value: str) -> None:
+    """Advisory-only: logs when an ACCEPTED (registry-legal) value is not a
+    member of its feature/label's closed vision_relational_menus entry, if
+    one exists. Never called for a value that failed the registry gate --
+    see the module-docstring deviation note above for why this never
+    changes accept/reject."""
+    menu = _VISION_RELATIONAL_MENUS.get(feature, {}).get(label)
+    if menu is not None and value not in menu:
+        logger.info(
+            "observation_extractor.extract_relations: feature=%r label=%r "
+            "value=%r is registry-legal but NOT a member of its closed vision "
+            "menu %r -- accepted anyway (advisory only, never a rejection gate).",
+            feature, label, value, menu,
+        )
+
+
+def extract_relations(raw_text: str) -> dict[str, dict]:
+    """Registry-driven unified relational parser. Returns `{"targets":
+    {feature: {attribute: landmark}}, "proximity": {feature: {"Proximity":
+    {"value": degree, "confidence": 1.0}}}}` -- reproduces, in ONE pass over
+    `raw_text`, the exact combined output of:
+        merge_relational_targets(extract_relational_targets(raw_text),
+                                  extract_convergence_targets(raw_text))
+        -> this function's "targets"
+        extract_proximity_observations(raw_text)
+        -> this function's "proximity"
+
+    Runs the SAME two header-detection state machines the three source
+    functions each already use, in parallel within one loop (never a new,
+    third header regime): `_RELATIONAL_HEADER`/`_LINE_HEADER`/
+    `_RELATIONAL_LINE_ALIAS` (directional + proximity landmark/degree,
+    exactly as extract_relational_targets/extract_proximity_observations
+    track blocks) and `_CONVERGENCE_RELATIONAL_HEADER`/
+    `_CONVERGENCE_LINE_HEADER`/`_CONVERGENCE_LINE_ALIAS` (symmetric
+    convergence, exactly as extract_convergence_targets tracks blocks,
+    including its Life/Health line support and its own quirk that non-
+    relational section headers like "OTHER LINES:"/"MARKS:" do NOT reset
+    its tracker -- both trackers are independent state, each reset only by
+    its OWN original header logic, so this quirk-for-quirk asymmetry
+    between the two channels is preserved exactly as it is when the three
+    functions run separately).
+
+    For each matched subfield label, looks up its attribute via
+    `_RELATIONAL_FIELD_TO_ATTR` (the reverse of the public
+    `RELATION_ATTR_TO_FIELD` SSOT), then its parse strategy via
+    `_RELATION_TYPES[attribute]` (ontology_registry.json's "relation_types"
+    block):
+      - "directional" (Starting_Point/Position/Branching): landmark filed
+        into targets if relation_target_registry-legal, else dropped --
+        identical gate to extract_relational_targets. See the module
+        docstring deviation note above for why `vision_relational_menus` is
+        consulted as an advisory caveat only, never narrowing this gate.
+      - "proximity" (Proximity): landmark half handled exactly as the
+        directional case (registry gate only, no menu -- PROXIMITY's
+        landmark is explicitly excluded from vision_relational_menus per
+        that block's own "_note"); degree half split via
+        `_proximity_degree`/`_proximity_landmark` and validated against
+        `_PROXIMITY_DEGREE_VALUES`, filed into "proximity" -- both halves
+        processed independently, exactly mirroring the two original
+        functions' independence from each other (a dropped landmark never
+        suppresses the degree, and vice versa).
+      - "symmetric" (Convergence/Convergence_Location): identical
+        canonicalization, per-block `pending_location` buffering, and all 5
+        fail-closed drops (invalid registry target, self-convergence,
+        orphan location, invalid location, empty/'none'/'n/a') as
+        extract_convergence_targets -- the vision_relational_menus check
+        (when one exists) is consulted keyed by the EMITTING feature,
+        pre-canonicalization, as an advisory caveat only (same non-gating
+        rule as the directional case).
+
+    Never raises for a missing/malformed relational block or an unparseable
+    raw_text -- returns `{"targets": {}, "proximity": {}}` in that case, same
+    "no signal" convention as all three source functions.
+    """
+    if not isinstance(raw_text, str):
+        raise TypeError(
+            "observation_extractor.extract_relations: raw_text must be a "
+            f"str, got {type(raw_text).__name__}"
+        )
+
+    targets: dict[str, dict[str, str]] = {}
+    proximity: dict[str, dict[str, dict[str, object]]] = {}
+
+    # Directional + proximity tracker -- mirrors extract_relational_targets/
+    # extract_proximity_observations' shared block-detection exactly.
+    current_feature_rel: str | None = None
+
+    # Symmetric/convergence tracker -- mirrors extract_convergence_targets'
+    # own block-detection exactly (independent of the tracker above).
+    current_feature_conv: str | None = None
+    block_owner: str | None = None
+    pending_location: str | None = None
+
+    def _flush_conv_block_boundary() -> None:
+        nonlocal current_feature_conv, block_owner, pending_location
+        if pending_location is not None:
+            logger.info(
+                "observation_extractor.extract_relations: dropped orphan "
+                "CONVERGENCE_LOCATION=%r for feature=%r -- no valid "
+                "CONVERGENCE resolved in the same block.",
+                pending_location, current_feature_conv,
+            )
+        current_feature_conv = None
+        block_owner = None
+        pending_location = None
+
+    for line in raw_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            current_feature_rel = None
+            _flush_conv_block_boundary()
+            continue
+
+        rel_header_matched = False
+        header = _RELATIONAL_HEADER.match(stripped)
+        if header:
+            rel_header_matched = True
+            line_label = header.group(1).strip().lower()
+            current_feature_rel = _RELATIONAL_LINE_ALIAS.get(line_label)
+        else:
+            line_header = _LINE_HEADER.match(stripped)
+            if line_header:
+                rel_header_matched = True
+                line_label = line_header.group(1).strip().lower()
+                current_feature_rel = _RELATIONAL_LINE_ALIAS.get(line_label)
+
+        conv_header_matched = False
+        conv_header = _CONVERGENCE_RELATIONAL_HEADER.match(stripped)
+        if conv_header:
+            conv_header_matched = True
+            _flush_conv_block_boundary()
+            line_label = conv_header.group(1).strip().lower()
+            current_feature_conv = _CONVERGENCE_LINE_ALIAS.get(line_label)
+        else:
+            conv_line_header = _CONVERGENCE_LINE_HEADER.match(stripped)
+            if conv_line_header:
+                conv_header_matched = True
+                _flush_conv_block_boundary()
+                line_label = conv_line_header.group(1).strip().lower()
+                current_feature_conv = _CONVERGENCE_LINE_ALIAS.get(line_label)
+
+        if rel_header_matched or conv_header_matched:
+            # A header line's text can never also match a subfield regex
+            # (disjoint shapes by construction) -- skipping mirrors the
+            # `continue` each source function takes after its own header
+            # match, with an identical net effect.
+            continue
+
+        # --- directional / proximity subfield ---
+        sub = _RELATIONAL_SUBFIELD.match(stripped)
+        if sub and current_feature_rel is not None:
+            field, raw_value = sub.group(1), sub.group(2).strip()
+            attr = _RELATIONAL_FIELD_TO_ATTR[field]
+            strategy = _RELATION_TYPES[attr]
+
+            landmark = _proximity_landmark(raw_value) if field == "PROXIMITY" else raw_value
+            if landmark not in _RELATION_TARGET_REGISTRY:
+                logger.info(
+                    "observation_extractor.extract_relations: dropped "
+                    "feature=%r field=%r landmark=%r -- not in "
+                    "relation_target_registry (or 'none'/'n/a').",
+                    current_feature_rel, field, landmark,
+                )
+            else:
+                targets.setdefault(current_feature_rel, {})[attr] = landmark
+                if strategy == "directional":
+                    _log_off_menu_caveat(current_feature_rel, field, landmark)
+
+            if strategy == "proximity":
+                # try/except/else mirrors extract_proximity_observations'
+                # original try/except-continue + if-continue structure
+                # exactly: on exception, ONLY the exception log fires (the
+                # "not in {touching, medium, distant}" log is skipped, same
+                # as the original's `continue` skipping it); on no
+                # exception, the degree is validated and either filed or
+                # logged as dropped -- degree=None is not special-cased and
+                # falls into the same "not in {...}" drop log as any other
+                # invalid degree string, identical to the original.
+                try:
+                    degree = _proximity_degree(raw_value)
+                except Exception as exc:  # noqa: BLE001 -- never a bare traceback for a parse slip
+                    logger.info(
+                        "observation_extractor.extract_relations: failed "
+                        "splitting PROXIMITY value %r for feature=%r: %s",
+                        raw_value, current_feature_rel, exc,
+                    )
+                else:
+                    if degree not in _PROXIMITY_DEGREE_VALUES:
+                        logger.info(
+                            "observation_extractor.extract_relations: dropped "
+                            "feature=%r degree=%r -- not in {touching, medium, "
+                            "distant} (or 'n/a'/missing).",
+                            current_feature_rel, degree,
+                        )
+                    else:
+                        proximity.setdefault(current_feature_rel, {})["Proximity"] = {
+                            "value": degree, "confidence": 1.0,
+                        }
+
+        # --- symmetric / convergence subfield ---
+        sub_conv = _CONVERGENCE_SUBFIELD.match(stripped)
+        if sub_conv and current_feature_conv is not None:
+            field, raw_value = sub_conv.group(1), sub_conv.group(2).strip()
+            value = raw_value.strip()
+
+            if not value or value.lower() in ("none", "n/a"):
+                logger.info(
+                    "observation_extractor.extract_relations: dropped "
+                    "feature=%r field=%r -- empty/none/n-a value.",
+                    current_feature_conv, field,
+                )
+            elif field == "CONVERGENCE":
+                if value not in _RELATION_TARGET_REGISTRY:
+                    logger.info(
+                        "observation_extractor.extract_relations: dropped "
+                        "feature=%r CONVERGENCE target=%r -- not in "
+                        "relation_target_registry.",
+                        current_feature_conv, value,
+                    )
+                elif value == current_feature_conv:
+                    logger.info(
+                        "observation_extractor.extract_relations: dropped "
+                        "self-convergence for feature=%r.", current_feature_conv,
+                    )
+                else:
+                    _log_off_menu_caveat(current_feature_conv, "CONVERGENCE", value)
+                    owner, other = _canonicalize_convergence(current_feature_conv, value)
+                    targets.setdefault(owner, {})[_CONVERGENCE_ATTR] = other
+                    block_owner = owner
+
+                    if pending_location is not None:
+                        if pending_location not in _RELATION_TARGET_REGISTRY:
+                            logger.info(
+                                "observation_extractor.extract_relations: dropped "
+                                "buffered CONVERGENCE_LOCATION=%r for feature=%r -- "
+                                "not in relation_target_registry.",
+                                pending_location, current_feature_conv,
+                            )
+                        else:
+                            targets.setdefault(block_owner, {})[_CONVERGENCE_LOCATION_ATTR] = pending_location
+                        pending_location = None
+            else:  # field == "CONVERGENCE_LOCATION"
+                if value not in _RELATION_TARGET_REGISTRY:
+                    logger.info(
+                        "observation_extractor.extract_relations: dropped "
+                        "feature=%r CONVERGENCE_LOCATION=%r -- not in "
+                        "relation_target_registry.",
+                        current_feature_conv, value,
+                    )
+                else:
+                    _log_off_menu_caveat(current_feature_conv, "CONVERGENCE_LOCATION", value)
+                    if block_owner is not None:
+                        targets.setdefault(block_owner, {})[_CONVERGENCE_LOCATION_ATTR] = value
+                    else:
+                        pending_location = value
+
+    _flush_conv_block_boundary()  # flush end-of-text: log a still-pending orphan location
+
+    return {"targets": targets, "proximity": proximity}
 
 
 # ─── Confidence -- prose hedge-word detection (module docstring point 6) ──

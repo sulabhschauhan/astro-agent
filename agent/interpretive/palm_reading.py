@@ -2229,24 +2229,22 @@ def prepare_palm_reading(
 
     if _deterministic_rules_enabled():
         from agent.interpretive import observation_extractor  # local -- see _prepare_claims_from_rules
-        # Convergence/Convergence_Location (Pattern C, S98) are disjoint attribute
-        # keys from the directional set (Starting_Point/Proximity/Position/
-        # Branching) -- appending them last here cannot collide across axes,
-        # only right-hand-priority within the SAME axis (per feature/attribute).
+        # Generalization step 2b (S98): both hands' directional + convergence
+        # + proximity signal now come from ONE call each to the unified,
+        # registry-driven extract_relations() (Generalization step 2a),
+        # instead of 3 separate bespoke calls per hand. Right-hand priority
+        # preserved (right merged after left) -- targets' directional and
+        # convergence attribute keys stay disjoint, matching old behavior.
+        left_rel = observation_extractor.extract_relations(palm_left or "")
+        right_rel = observation_extractor.extract_relations(palm_right or "")
         targets = observation_extractor.merge_relational_targets(
-            observation_extractor.extract_relational_targets(palm_left or ""),
-            observation_extractor.extract_relational_targets(palm_right or ""),
-            observation_extractor.extract_convergence_targets(palm_left or ""),
-            observation_extractor.extract_convergence_targets(palm_right or ""),
+            left_rel["targets"],
+            right_rel["targets"],
         )
         try:
             proximity_observations = observation_extractor.merge_relational_targets(
-                _flatten_proximity_degrees(
-                    observation_extractor.extract_proximity_observations(palm_left or "")
-                ),
-                _flatten_proximity_degrees(
-                    observation_extractor.extract_proximity_observations(palm_right or "")
-                ),
+                _flatten_proximity_degrees(left_rel["proximity"]),
+                _flatten_proximity_degrees(right_rel["proximity"]),
             )
         except Exception as exc:  # noqa: BLE001 -- fail-closed, mirrors
             # _prepare_claims_from_rules' own posture: a P-parse failure
