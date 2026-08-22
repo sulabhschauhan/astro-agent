@@ -108,7 +108,7 @@
         },
         {
           "feature": "Line of Fate",
-          "attribute": "Ending_Point",
+          "attribute": "Position",
           "value": null,
           "condition_type": "standard",
           "comparator": null,
@@ -123,7 +123,9 @@
       "verifier": "Sulabh",
       "verified_date": "2026-08-22",
       "source_fidelity": "fulltext_exact",
-      "schema_flags": []
+      "schema_flags": [
+        "REACHABILITY FIX S97: termination attribute Ending_Point->Position (extractor emits Position; Ending_Point was unfireable). Claim/source unchanged, verification intact."
+      ]
     },
     {
       "rule_id": "FT_004",
@@ -170,7 +172,7 @@
       "antecedents": [
         {
           "feature": "Line of Fate",
-          "attribute": "Ending_Point",
+          "attribute": "Position",
           "value": null,
           "condition_type": "standard",
           "comparator": null,
@@ -187,7 +189,8 @@
       "source_fidelity": "fulltext_exact",
       "schema_flags": [
         "MODIFIER-FOLD: doctrine_fate.md F021c ('Such people are born to climb up higher ...') is a consequence-elaboration of this same antecedent -- folded into claim prose only, not a separate rule.",
-        "DUPLICATE-RECONCILED: doctrine_fate.md F023 (p104, 'If the line of fate terminate by crossing its own mount and reaching Jupiter ...') keys the same Ending_Point=Mount of Jupiter primitive and was flagged a near-duplicate of F021a, not a distinct claim -- reconciled here, not separately authored. F023's 'crossing its own mount' precondition is not separately encodable in the current schema and is not represented by this rule."
+        "DUPLICATE-RECONCILED: doctrine_fate.md F023 (p104, 'If the line of fate terminate by crossing its own mount and reaching Jupiter ...') keys the same Ending_Point=Mount of Jupiter primitive and was flagged a near-duplicate of F021a, not a distinct claim -- reconciled here, not separately authored. F023's 'crossing its own mount' precondition is not separately encodable in the current schema and is not represented by this rule.",
+        "REACHABILITY FIX S97: termination attribute Ending_Point->Position (extractor emits Position; Ending_Point was unfireable). Claim/source unchanged, verification intact."
       ]
     },
     {
@@ -233,7 +236,7 @@
       "antecedents": [
         {
           "feature": "Line of Fate",
-          "attribute": "Ending_Point",
+          "attribute": "Position",
           "value": null,
           "condition_type": "standard",
           "comparator": null,
@@ -248,7 +251,9 @@
       "verifier": "Sulabh",
       "verified_date": "2026-08-22",
       "source_fidelity": "fulltext_exact",
-      "schema_flags": []
+      "schema_flags": [
+        "REACHABILITY FIX S97: termination attribute Ending_Point->Position (extractor emits Position; Ending_Point was unfireable). Claim/source unchanged, verification intact."
+      ]
     },
     {
       "rule_id": "FT_008",
@@ -262,7 +267,7 @@
       "antecedents": [
         {
           "feature": "Line of Fate",
-          "attribute": "Ending_Point",
+          "attribute": "Position",
           "value": null,
           "condition_type": "standard",
           "comparator": null,
@@ -277,7 +282,9 @@
       "verifier": "Sulabh",
       "verified_date": "2026-08-22",
       "source_fidelity": "fulltext_exact",
-      "schema_flags": []
+      "schema_flags": [
+        "REACHABILITY FIX S97: termination attribute Ending_Point->Position (extractor emits Position; Ending_Point was unfireable). Claim/source unchanged, verification intact."
+      ]
     },
     {
       "rule_id": "FT_009",
