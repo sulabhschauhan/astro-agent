@@ -2,7 +2,9 @@
   "validated_candidates": [
     {
       "rule_id": "FT_001",
-      "doctrine_sentence_ids": ["F014a"],
+      "doctrine_sentence_ids": [
+        "F014a"
+      ],
       "source_page": 103,
       "topic_group": "line_fate",
       "is_compound": true,
@@ -29,17 +31,19 @@
       "logic_join": "AND",
       "claim": "A fate line rising from the line of life and strong from that point on brings success and riches won by personal merit.",
       "source_quote": "If the fate-line rise from the line of life and from that point on is strong, success and riches will be won by personal merit;",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": [
         "NAMING-MISMATCH: source says 'is strong' (no literal 'strong' token in any value pool) -- mapped to Depth=well_marked as the nearest closed-vocab match. Verify live-phrasing at Step 2 before treating as fireable; raise for Sulabh if a dedicated 'strong' token is preferred instead."
       ]
     },
     {
       "rule_id": "FT_002",
-      "doctrine_sentence_ids": ["F014b"],
+      "doctrine_sentence_ids": [
+        "F014b"
+      ],
       "source_page": 103,
       "topic_group": "line_fate",
       "is_compound": true,
@@ -67,17 +71,19 @@
       "logic_join": "AND",
       "claim": "A fate line starting low near the wrist and held close by the side of the life line means the subject's early life is sacrificed to the wishes of parents or relatives.",
       "source_quote": "but if the line be marked low down near the wrist and tied down, as it were, by the side of the life-line, it tells that the early portion of the subject’s life will be sacrificed to the wishes of parents or relatives (g-g, Plate XX.).",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": [
         "NAMING-MISMATCH: source says 'tied down ... by the side of the life-line' (no literal degree word) -- mapped to Proximity=touching (the closest of the 3 closed degree values: touching/medium/distant) as an interpretive choice, not a literal match. Verify at Step 2."
       ]
     },
     {
       "rule_id": "FT_003",
-      "doctrine_sentence_ids": ["F015"],
+      "doctrine_sentence_ids": [
+        "F015"
+      ],
       "source_page": 103,
       "topic_group": "line_fate",
       "is_compound": true,
@@ -113,15 +119,18 @@
       "logic_join": "AND",
       "claim": "A fate line rising from the wrist and running straight to the Mount of Saturn is a sign of extreme good fortune and success.",
       "source_quote": "When the line of fate rises from the wrist and proceeds straight up the hand to its destination on the Mount of Saturn, it is a sign of extreme good fortune and success.",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": []
     },
     {
       "rule_id": "FT_004",
-      "doctrine_sentence_ids": ["F016a", "F016b"],
+      "doctrine_sentence_ids": [
+        "F016a",
+        "F016b"
+      ],
       "source_page": 103,
       "topic_group": "line_fate",
       "is_compound": false,
@@ -140,17 +149,20 @@
       "logic_join": "AND",
       "claim": "A fate line rising from the Mount of Luna makes fate and success more or less dependent on the fancy and caprice of other people -- often seen in public favorites.",
       "source_quote": "Rising from the Mount of Luna, fate and success will be more or less dependent on the fancy and caprice of other people.",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": [
         "MODIFIER-FOLD: doctrine_fate.md F016b ('This is very often found in the case of public favorites.') is a consequence-elaboration of this same antecedent, not authored as a separate rule -- folded into claim prose only."
       ]
     },
     {
       "rule_id": "FT_005",
-      "doctrine_sentence_ids": ["F021a", "F021c"],
+      "doctrine_sentence_ids": [
+        "F021a",
+        "F021c"
+      ],
       "source_page": 104,
       "topic_group": "line_fate",
       "is_compound": false,
@@ -169,10 +181,10 @@
       "logic_join": "AND",
       "claim": "A fate line ascending to the center of the Mount of Jupiter brings unusual distinction and power into the subject's life -- such people are born to climb higher than their fellows through enormous energy, ambition, and determination.",
       "source_quote": "If the line of fate ascend to the center of the Mount of Jupiter, unusual distinction and power will come into the subject’s life.",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": [
         "MODIFIER-FOLD: doctrine_fate.md F021c ('Such people are born to climb up higher ...') is a consequence-elaboration of this same antecedent -- folded into claim prose only, not a separate rule.",
         "DUPLICATE-RECONCILED: doctrine_fate.md F023 (p104, 'If the line of fate terminate by crossing its own mount and reaching Jupiter ...') keys the same Ending_Point=Mount of Jupiter primitive and was flagged a near-duplicate of F021a, not a distinct claim -- reconciled here, not separately authored. F023's 'crossing its own mount' precondition is not separately encodable in the current schema and is not represented by this rule."
@@ -180,7 +192,9 @@
     },
     {
       "rule_id": "FT_006",
-      "doctrine_sentence_ids": ["F024a"],
+      "doctrine_sentence_ids": [
+        "F024a"
+      ],
       "source_page": 104,
       "topic_group": "line_fate",
       "is_compound": false,
@@ -203,12 +217,15 @@
       "verified_date": null,
       "source_fidelity": "chunk_exact",
       "schema_flags": [
-        "LOWER-CONFIDENCE (per doctrine_fate.md F024a): 'cutting_into_finger_of_Saturn' is registry-legal and Length is attribute-legal for Line of Fate, but the FATE LINE vision-prompt block only solicits generic 'same attributes' free text -- this exact extreme-length phrasing is never explicitly prompted for. Recommend confirming live-phrasing reachability at Step 2 (vocab_reachability_scan.py) before treating as fireable."
+        "LOWER-CONFIDENCE (per doctrine_fate.md F024a): 'cutting_into_finger_of_Saturn' is registry-legal and Length is attribute-legal for Line of Fate, but the FATE LINE vision-prompt block only solicits generic 'same attributes' free text -- this exact extreme-length phrasing is never explicitly prompted for. Recommend confirming live-phrasing reachability at Step 2 (vocab_reachability_scan.py) before treating as fireable.",
+        "HELD (Sulabh): fidelity-verified but Length=cutting_into_finger_of_Saturn is NOT emitted by the fate vision block -- inert until emission wired. Verify-flip deferred to a reachability-wiring arc."
       ]
     },
     {
       "rule_id": "FT_007",
-      "doctrine_sentence_ids": ["F025a"],
+      "doctrine_sentence_ids": [
+        "F025a"
+      ],
       "source_page": 104,
       "topic_group": "line_fate",
       "is_compound": false,
@@ -227,15 +244,17 @@
       "logic_join": "AND",
       "claim": "A fate line abruptly stopped by the line of heart means success will be ruined through the affections.",
       "source_quote": "When the line of fate is abruptly stopped by the line of heart, success will be ruined through the affections;",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": []
     },
     {
       "rule_id": "FT_008",
-      "doctrine_sentence_ids": ["F026"],
+      "doctrine_sentence_ids": [
+        "F026"
+      ],
       "source_page": 104,
       "topic_group": "line_fate",
       "is_compound": false,
@@ -254,15 +273,17 @@
       "logic_join": "AND",
       "claim": "A fate line stopped by the line of head means success will be thwarted by some stupidity or blunder of the head.",
       "source_quote": "When stopped by the line of head, it foretells that success will be thwarted by some stupidity or blunder of the head.",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": []
     },
     {
       "rule_id": "FT_009",
-      "doctrine_sentence_ids": ["F028"],
+      "doctrine_sentence_ids": [
+        "F028"
+      ],
       "source_page": 104,
       "topic_group": "line_fate",
       "is_compound": true,
@@ -289,10 +310,10 @@
       "logic_join": "AND",
       "claim": "A fate line rising from a well-marked line of head means success will be won late in life, after a hard struggle and through the subject's own talents.",
       "source_quote": "If the line of fate rise from the line of head, and that line be well marked, then success will be won late in life, after a hard struggle and through the subject’s talents.",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": [
         "CROSS-FEATURE ANTECEDENT: second antecedent keys on Line of Head's own Depth attribute, not Line of Fate -- 'that line be well marked' is a literal, non-mismatched match to depth_values' 'well_marked' token. Confirmed structurally supported: agent/interpretive/palm_rules_table.py's _antecedent_fires() reads antecedent.feature per-antecedent (line ~228), independent of the rule's own primary feature, so a mixed-feature antecedent list is not an engine limitation -- just previously unused in the head/heart file.",
         "CROSS-LINE INDEX: per data/palm_rules/README.md, this is a cross-line rule and its statement belongs in _doctrine/cross_line_index.md -- NOT added here (out of this task's single-deliverable-file scope); flagged in the run report as an open item."
@@ -300,7 +321,9 @@
     },
     {
       "rule_id": "FT_010",
-      "doctrine_sentence_ids": ["F029"],
+      "doctrine_sentence_ids": [
+        "F029"
+      ],
       "source_page": 104,
       "topic_group": "line_fate",
       "is_compound": false,
@@ -319,15 +342,17 @@
       "logic_join": "AND",
       "claim": "A fate line rising from the line of heart extremely late in life means success will be won only after a difficult struggle.",
       "source_quote": "When it rises from the line of heart extremely late in life, after a difficult struggle success will be won.",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": []
     },
     {
       "rule_id": "FT_011",
-      "doctrine_sentence_ids": ["F031"],
+      "doctrine_sentence_ids": [
+        "F031"
+      ],
       "source_page": 105,
       "topic_group": "line_fate",
       "is_compound": false,
@@ -345,10 +370,10 @@
       "logic_join": "AND",
       "claim": "A broken and irregular fate line means an uncertain career -- the ups and downs of success and failure, full of light and shadow.",
       "source_quote": "V hen broken and irregular, the career will be uncertain; the ups and downs of success and failm*e full of light and shadow.",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": [
         "OCR ARTIFACT: source line reads 'V hen' (OCR misread of 'When') and 'failm*e' (OCR misread of 'failure') -- preserved verbatim per chunk_exact convention, not corrected.",
         "ANTECEDENT SIMPLIFICATION: source names two qualities, 'broken and irregular'. Authored as a single Continuity=broken antecedent only -- ANDing a second Continuity=irregular antecedent on the SAME feature/attribute would create a self-contradictory, permanently-unfireable rule (an attribute can hold only one observed value; _antecedent_fires does plain equality per antecedent). 'irregular' is treated as a descriptive qualifier of the same break, folded into claim prose, not modeled as a second hard antecedent.",
@@ -357,7 +382,9 @@
     },
     {
       "rule_id": "FT_012",
-      "doctrine_sentence_ids": ["F032a"],
+      "doctrine_sentence_ids": [
+        "F032a"
+      ],
       "source_page": 105,
       "topic_group": "line_fate",
       "is_compound": false,
@@ -375,10 +402,10 @@
       "logic_join": "AND",
       "claim": "A fate-line break where the second portion begins before the first one ends is not simple misfortune and loss but denotes a complete change in life -- one more in accordance with the subject's own wishes, in position and success, if the overlap is very pronounced.",
       "source_quote": "When there is a break in the line, it is a sure sign of misfortune and loss; but if the second portion of the line begin before the other leaves off, it de¬ notes a complete change in life, and if very decided it will mean a change more in accordance with the subject’s own wishes in the way of position and success (a-a, Plate XXI.).",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": [
         "RE-POINTED (Step 3 of 3): was Continuity=broken (misfortune/loss claim, duplicating FT_011's antecedent); now Continuity=broken_overlapping, reachability re-asserted against registry v1.5.0 -- Continuity is unbound (flat pool) and legal for Line of Fate; 'broken_overlapping' confirmed present in the flat value pool. source_quote widened to the FULL line-1113 sentence (both the general 'misfortune and loss' clause and the contrasting 'but if the second portion ... begin before the other leaves off' clause) because the overlap-specific claim only makes sense as a contrast against the general-break clause it overrides -- not extracted as an isolated fragment.",
         "RESOLVED DESIGN POINT (Sulabh's ruling): FT_011 (Continuity=broken) and FT_012 (Continuity=broken_overlapping) are mutually exclusive values of the SAME single-valued attribute -- a fate line's Continuity observation can equal only one of them at a time, so they can never both fire on one hand. No precedence/defeat rule is needed between them; base-vs-specific is handled entirely by value granularity, not by a subset-demotion mechanism.",
@@ -387,7 +414,10 @@
     },
     {
       "rule_id": "FT_013",
-      "doctrine_sentence_ids": ["F033", "F033b"],
+      "doctrine_sentence_ids": [
+        "F033",
+        "F033b"
+      ],
       "source_page": 105,
       "topic_group": "line_fate",
       "is_compound": false,
@@ -405,10 +435,10 @@
       "logic_join": "AND",
       "claim": "A double or sister fate line is an excellent sign, denoting two distinct careers which the subject will follow.",
       "source_quote": "A double or sister fate-line is an excellent sign.",
-      "verified": false,
-      "verifier": null,
-      "verified_date": null,
-      "source_fidelity": "chunk_exact",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-22",
+      "source_fidelity": "fulltext_exact",
       "schema_flags": [
         "MODIFIER-FOLD: doctrine_fate.md F033b ('It denotes two distinct careers which the subject will follow.') is a consequence-elaboration of this same antecedent -- folded into claim prose only, not a separate rule. F033c ('This is much more important if they go to different mounts.') is PARKED_RELATION per doctrine_fate.md (compound dual-termination condition) and is NOT authored here."
       ]
