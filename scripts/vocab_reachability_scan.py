@@ -161,9 +161,15 @@ def _origin_termination_menu_caveat(field: str, feature: str, target: str) -> st
 
 
 def classify_antecedent(feature: str, attribute: str, value, relation_target) -> dict:
-    """Returns {"status": "yes"|"NO"|"INTERPRETED-TERM", "detail": str,
-    "nearest": str|None, "caveat": str|None}. See module docstring for the
-    full methodology this implements."""
+    """Returns {"status": "yes"|"NO"|"UNEMITTABLE"|"INTERPRETED-TERM",
+    "detail": str, "nearest": str|None, "caveat": str|None}. See module
+    docstring for the full methodology this implements.
+
+    UNEMITTABLE is its own status, distinct from NO: it fires purely on
+    relation_target presence + _RELATIONAL_ATTRS non-membership,
+    regardless of whether the attribute is otherwise registry-legal (see
+    the CI gate below) -- the S97 Ending_Point/Position class, where
+    registry legality alone was the false-pass surface."""
     # --- feature/attribute schema existence (shared by both branches) ---
     if feature not in _ALL_ONTOLOGY_FEATURE_NAMES:
         return {
@@ -205,6 +211,35 @@ def classify_antecedent(feature: str, attribute: str, value, relation_target) ->
             "nearest": None,
             "caveat": None,
         }
+
+    # --- CI GATE (S97): relation_target present on an attribute never
+    # emitted through the relational parse channel -- the Ending_Point/
+    # Position dead-rule bug class (real-hand dogfood found it live; this
+    # gate makes it a mechanical, pre-dogfood check instead). Placed here,
+    # AFTER the registry-legality checks above have already passed, so it
+    # fires even when the attribute IS registry-legal -- registry legality
+    # was exactly the false-pass surface this bug exploited. Does not
+    # alter or replace the existing rel_result "NO" branch below (which
+    # still runs for every other relation_target shape); this returns
+    # early only for this one specific, more dangerous shape.
+    try:
+        if relation_target is not None and attribute not in _RELATIONAL_ATTRS:
+            return {
+                "status": "UNEMITTABLE",
+                "detail": (
+                    f"attribute {attribute!r} carries a relation_target but is not "
+                    "emitted by any extractor path (_RELATIONAL_ATTRIBUTE_MAP emits "
+                    f"only {sorted(_RELATIONAL_ATTRS)}); registry-legal but "
+                    "permanently unfireable -- the Ending_Point/Position S97 bug class."
+                ),
+                "nearest": None,
+                "caveat": None,
+            }
+    except Exception as exc:  # noqa: BLE001 -- fail loud, never silently skip the gate
+        raise RuntimeError(
+            f"vocab_reachability_scan.classify_antecedent: UNEMITTABLE gate failed for "
+            f"feature={feature!r} attribute={attribute!r} relation_target={relation_target!r}: {exc}"
+        ) from exc
 
     rel_result = None
     if relation_target is not None:
@@ -344,6 +379,7 @@ def _format_report(all_rows: list[dict], rule_ids_scanned: list[str], rules_path
     total = len(rule_ids_scanned)
     fully_reachable = [rid for rid in rule_ids_scanned if all(r["status"] == "yes" for r in by_rule.get(rid, []))]
     has_no = [rid for rid in rule_ids_scanned if any(r["status"] == "NO" for r in by_rule.get(rid, []))]
+    has_unemittable = [rid for rid in rule_ids_scanned if any(r["status"] == "UNEMITTABLE" for r in by_rule.get(rid, []))]
     has_interpreted = [rid for rid in rule_ids_scanned if any(r["status"] == "INTERPRETED-TERM" for r in by_rule.get(rid, []))]
 
     def pct(n: int) -> str:
@@ -352,6 +388,7 @@ def _format_report(all_rows: list[dict], rule_ids_scanned: list[str], rules_path
     lines.append("## 2. Summary counts\n")
     lines.append(f"- Rules fully-reachable (every antecedent yes): {pct(len(fully_reachable))}")
     lines.append(f"- Rules with >=1 NO (naming-mismatch): {pct(len(has_no))}")
+    lines.append(f"- Rules with >=1 UNEMITTABLE (relation_target on non-emitted attribute, S97 bug class): {pct(len(has_unemittable))}")
     lines.append(f"- Rules with >=1 INTERPRETED-TERM: {pct(len(has_interpreted))}")
     lines.append("")
 
@@ -359,6 +396,16 @@ def _format_report(all_rows: list[dict], rule_ids_scanned: list[str], rules_path
     if has_no:
         for rid in has_no:
             bad = [r for r in by_rule[rid] if r["status"] == "NO"]
+            for r in bad:
+                lines.append(f"- {rid}: {_trigger_token_str(r)} -- {r['detail']}")
+    else:
+        lines.append("(none)")
+    lines.append("")
+
+    lines.append("## 3a2. FLAG: UNEMITTABLE rules (relation_target on non-emitted attribute -- S97 bug class)\n")
+    if has_unemittable:
+        for rid in has_unemittable:
+            bad = [r for r in by_rule[rid] if r["status"] == "UNEMITTABLE"]
             for r in bad:
                 lines.append(f"- {rid}: {_trigger_token_str(r)} -- {r['detail']}")
     else:
@@ -411,8 +458,11 @@ def main() -> None:
     except OSError as exc:
         raise OSError(f"vocab_reachability_scan: could not write report to {_REPORT_PATH}: {exc}") from exc
 
+    unemittable_count = sum(1 for r in all_rows if r["status"] == "UNEMITTABLE")
+
     print(f"Rules file scanned: {rules_path}")
     print(f"Scanned {len(rule_ids)} rules, {len(all_rows)} antecedents.")
+    print(f"Unemittable antecedents (relation_target on non-emitted attribute, S97 bug class): {unemittable_count}")
     print(f"Wrote report to {_REPORT_PATH}")
 
 
