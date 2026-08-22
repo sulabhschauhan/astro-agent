@@ -2229,9 +2229,15 @@ def prepare_palm_reading(
 
     if _deterministic_rules_enabled():
         from agent.interpretive import observation_extractor  # local -- see _prepare_claims_from_rules
+        # Convergence/Convergence_Location (Pattern C, S98) are disjoint attribute
+        # keys from the directional set (Starting_Point/Proximity/Position/
+        # Branching) -- appending them last here cannot collide across axes,
+        # only right-hand-priority within the SAME axis (per feature/attribute).
         targets = observation_extractor.merge_relational_targets(
             observation_extractor.extract_relational_targets(palm_left or ""),
             observation_extractor.extract_relational_targets(palm_right or ""),
+            observation_extractor.extract_convergence_targets(palm_left or ""),
+            observation_extractor.extract_convergence_targets(palm_right or ""),
         )
         try:
             proximity_observations = observation_extractor.merge_relational_targets(
