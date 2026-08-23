@@ -383,12 +383,12 @@ _RELATIONAL_LINE_ALIAS: dict[str, str] = {
 # RELATIONAL sub-field label -> the line_attribute it targets. Degree
 # (PROXIMITY's "<degree> to") is NOT captured by this map -- only the
 # target landmark carries signal here. The degree token is separately
-# captured as an observation VALUE by extract_proximity_observations()
-# below. S89's "dead axis" finding (model says "medium" universally) is
-# RETIRED: the 2026-08-12/13 dogfood showed the vision emitting both
-# 'touching' (head->life) and 'medium' (heart/fate->head); the degree is
-# captured and live as of 5c step 1 (extract_proximity_observations ->
-# flat observation Proximity).
+# captured as an observation VALUE by extract_relations()'s "proximity"
+# strategy branch. S89's "dead axis" finding (model says "medium"
+# universally) is RETIRED: the 2026-08-12/13 dogfood showed the vision
+# emitting both 'touching' (head->life) and 'medium' (heart/fate->head);
+# the degree is captured and live as of 5c step 1 (-> flat observation
+# Proximity).
 _RELATIONAL_ATTRIBUTE_MAP: dict[str, str] = {
     "ORIGIN": "Starting_Point",
     "PROXIMITY": "Proximity",
@@ -419,8 +419,7 @@ def _proximity_landmark(value: str) -> str:
     """PROXIMITY's raw value is '<degree> to <landmark>' -- returns just
     the landmark half, dropping the degree (see module note above). A
     value with no ' to ' separator (malformed) is returned as-is and will
-    simply fail the registry-membership check in
-    extract_relational_targets."""
+    simply fail the registry-membership check in extract_relations."""
     if " to " in value:
         return value.split(" to ", 1)[1].strip()
     return value.strip()
@@ -444,172 +443,6 @@ def _proximity_degree(value: str) -> str | None:
     if " to " in value:
         return value.split(" to ", 1)[0].strip()
     return None
-
-
-def extract_relational_targets(raw_text: str) -> dict[str, dict[str, str]]:
-    """Parses ONE vision description string's HEAD/HEART/FATE LINE
-    RELATIONAL blocks into `{ontology_feature: {attribute: landmark}}` --
-    the shape palm_rules_table.match()'s `targets` param consumes. Accepts
-    either the separate "<LINE> RELATIONAL:" header format or the inline
-    format (subfields directly under the line's own "<LINE>:" header).
-
-    Fail-closed per landmark, not per call: a landmark that is 'none',
-    'n/a', empty, malformed, or simply not a `relation_target_registry`
-    member is DROPPED (that attribute key is omitted entirely) rather
-    than coerced to a nearest match or a sentinel -- mirroring
-    _build_features_from_response's closed-vocabulary discipline for
-    VALUE tokens, applied here to relation targets instead. A feature
-    with no accepted landmarks at all is simply absent from the returned
-    dict. Does NOT emit any observation VALUE token -- value/pool/binding
-    changes belong to the migration this wiring precedes.
-
-    Never raises for a missing/malformed RELATIONAL block (the common
-    case for input that doesn't carry one at all -- e.g. hand_detail's
-    freeform prose, which never carries this block) -- returns {} in that
-    case, same as "no signal" anywhere else in this module.
-    """
-    if not isinstance(raw_text, str):
-        raise TypeError(
-            "observation_extractor.extract_relational_targets: raw_text "
-            f"must be a str, got {type(raw_text).__name__}"
-        )
-
-    targets: dict[str, dict[str, str]] = {}
-    current_feature: str | None = None
-
-    for line in raw_text.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            current_feature = None
-            continue
-
-        header = _RELATIONAL_HEADER.match(stripped)
-        if header:
-            line_label = header.group(1).strip().lower()
-            current_feature = _RELATIONAL_LINE_ALIAS.get(line_label)
-            continue
-
-        line_header = _LINE_HEADER.match(stripped)
-        if line_header:
-            line_label = line_header.group(1).strip().lower()
-            # .get() returns None for non-relational sections (LIFE LINE,
-            # MARKS, etc.) -- this both switches current_feature on for
-            # head/heart/fate and resets it on any other section, so a
-            # later non-relational section's subfields (e.g. LIFE LINE's
-            # own "ORIGIN:") never bleed into the prior relational feature.
-            current_feature = _RELATIONAL_LINE_ALIAS.get(line_label)
-            continue
-
-        if current_feature is None:
-            continue
-
-        sub = _RELATIONAL_SUBFIELD.match(stripped)
-        if not sub:
-            continue
-
-        field, raw_value = sub.group(1), sub.group(2).strip()
-        landmark = _proximity_landmark(raw_value) if field == "PROXIMITY" else raw_value
-        if landmark not in _RELATION_TARGET_REGISTRY:
-            logger.info(
-                "observation_extractor.extract_relational_targets: dropped "
-                "feature=%r field=%r landmark=%r -- not in "
-                "relation_target_registry (or 'none'/'n/a').",
-                current_feature, field, landmark,
-            )
-            continue
-
-        attribute = _RELATIONAL_ATTRIBUTE_MAP[field]
-        targets.setdefault(current_feature, {})[attribute] = landmark
-
-    return targets
-
-
-def extract_proximity_observations(raw_text: str) -> dict[str, dict[str, dict[str, object]]]:
-    """Parses ONE vision description string's HEAD/HEART/FATE LINE
-    PROXIMITY subfields (same header detection as extract_relational_targets
-    -- both the separate "<LINE> RELATIONAL:" format and the inline
-    "<LINE>:" format) into `{ontology_feature: {"Proximity": {"value":
-    <degree>, "confidence": 1.0}}}`.
-
-    Deliberately separate from extract_relational_targets: that function
-    owns PROXIMITY's landmark half (-> targets[feature]["Proximity"]) and
-    is UNCHANGED by this addition -- this function owns the DEGREE half
-    only, previously discarded entirely (see the _RELATIONAL_ATTRIBUTE_MAP
-    comment above). Does NOT bind attribute_value_binding and does NOT
-    touch the registry -- bind-last law, a separate future step.
-
-    Fail-closed per degree, not per call: a degree that is 'n/a', missing
-    (no ' to ' separator), or not one of {touching, medium, distant} is
-    DROPPED -- no "Proximity" entry is written for that feature, rather
-    than invented or coerced. A feature with no accepted degree is simply
-    absent from the returned dict.
-
-    Never raises for a missing/malformed PROXIMITY subfield or an
-    unparseable raw_text -- returns {} in that case, same as "no signal"
-    anywhere else in this module.
-    """
-    if not isinstance(raw_text, str):
-        raise TypeError(
-            "observation_extractor.extract_proximity_observations: raw_text "
-            f"must be a str, got {type(raw_text).__name__}"
-        )
-
-    observations: dict[str, dict[str, dict[str, object]]] = {}
-    current_feature: str | None = None
-
-    for line in raw_text.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            current_feature = None
-            continue
-
-        header = _RELATIONAL_HEADER.match(stripped)
-        if header:
-            line_label = header.group(1).strip().lower()
-            current_feature = _RELATIONAL_LINE_ALIAS.get(line_label)
-            continue
-
-        line_header = _LINE_HEADER.match(stripped)
-        if line_header:
-            line_label = line_header.group(1).strip().lower()
-            current_feature = _RELATIONAL_LINE_ALIAS.get(line_label)
-            continue
-
-        if current_feature is None:
-            continue
-
-        sub = _RELATIONAL_SUBFIELD.match(stripped)
-        if not sub:
-            continue
-
-        field, raw_value = sub.group(1), sub.group(2).strip()
-        if field != "PROXIMITY":
-            continue
-
-        try:
-            degree = _proximity_degree(raw_value)
-        except Exception as exc:  # noqa: BLE001 -- never a bare traceback for a parse slip
-            logger.info(
-                "observation_extractor.extract_proximity_observations: failed "
-                "splitting PROXIMITY value %r for feature=%r: %s",
-                raw_value, current_feature, exc,
-            )
-            continue
-
-        if degree not in _PROXIMITY_DEGREE_VALUES:
-            logger.info(
-                "observation_extractor.extract_proximity_observations: dropped "
-                "feature=%r degree=%r -- not in {touching, medium, distant} "
-                "(or 'n/a'/missing).",
-                current_feature, degree,
-            )
-            continue
-
-        observations.setdefault(current_feature, {})["Proximity"] = {
-            "value": degree, "confidence": 1.0,
-        }
-
-    return observations
 
 
 def merge_relational_targets(
@@ -732,181 +565,17 @@ def _canonicalize_convergence(emitting_feature: str, target_landmark: str) -> tu
     return target_landmark, emitting_feature
 
 
-def extract_convergence_targets(raw_text: str) -> dict[str, dict[str, str]]:
-    """Parses ONE vision description string's CONVERGENCE / CONVERGENCE_
-    LOCATION subfields (either the separate "<LINE> RELATIONAL:" header
-    format or the inline "<LINE>:" format -- same two shapes extract_
-    relational_targets accepts) into `{ontology_feature: {"Convergence":
-    landmark, "Convergence_Location": landmark}}` -- the shape palm_rules_
-    table.match()'s `targets` param already consumes.
-
-    CANONICALIZATION: a "CONVERGENCE: <landmark>" line under feature F is
-    filed under owner=min(F, landmark) (string sort), with the OTHER
-    feature as the value -- so a non-canonical emission (e.g. the HEART
-    LINE block stating "CONVERGENCE: Line of Head") is filed under the
-    canonical owner ("Line of Head") regardless of which block emitted
-    it, and the SAME real-world convergence stated from either line's
-    block collapses to one identical entry (idempotent, no conflict).
-    "CONVERGENCE_LOCATION: <landmark>" is filed under that SAME block's
-    resolved canonical owner -- buffered per-block if LOCATION appears
-    BEFORE CONVERGENCE in the source text, resolved once CONVERGENCE
-    lands (or dropped as an orphan if the block ends without ever
-    producing a valid CONVERGENCE -- see fail-closed rules below).
-
-    Fail-closed per sub-field, never per call (mirrors extract_relational_
-    targets' discipline, applied to this disjoint attribute pair):
-      - a CONVERGENCE target that is empty/'none'/'n/a'/malformed, or not
-        a relation_target_registry member, is DROPPED -- and since no
-        owner can be resolved, that block's CONVERGENCE_LOCATION (buffered
-        or arriving later in the same block) is dropped too, logged as an
-        orphan.
-      - a CONVERGENCE target equal to its own emitting feature (self-
-        convergence, e.g. "FATE LINE: CONVERGENCE: Line of Fate") is
-        DROPPED the same way -- same orphan consequence for that block's
-        LOCATION.
-      - a CONVERGENCE_LOCATION that is empty/'none'/'n/a'/malformed, or
-        not a relation_target_registry member, is DROPPED on its own,
-        independent of whether that block's CONVERGENCE was valid.
-      - a CONVERGENCE_LOCATION with no valid CONVERGENCE anywhere in the
-        same block (the block ends, or a new block/blank line starts,
-        before one ever resolves) is an ORPHAN -- dropped, logged, nothing
-        filed for it. Never carried across a block boundary.
-
-    Never raises for a missing/malformed CONVERGENCE block or an
-    unparseable raw_text -- returns {} in that case, same as "no signal"
-    convention as extract_relational_targets / extract_proximity_
-    observations.
-    """
-    if not isinstance(raw_text, str):
-        raise TypeError(
-            "observation_extractor.extract_convergence_targets: raw_text "
-            f"must be a str, got {type(raw_text).__name__}"
-        )
-
-    targets: dict[str, dict[str, str]] = {}
-    current_feature: str | None = None
-    # This block's canonicalized owner, once a valid CONVERGENCE resolves
-    # one -- reset to None at every block boundary (blank line or new
-    # header), never carried from a prior block.
-    block_owner: str | None = None
-    # A CONVERGENCE_LOCATION value seen before this block's CONVERGENCE
-    # has resolved an owner -- buffered here, filed once the owner
-    # resolves, or dropped as an orphan at block end if it never does.
-    pending_location: str | None = None
-
-    def _flush_block_boundary() -> None:
-        nonlocal current_feature, block_owner, pending_location
-        if pending_location is not None:
-            logger.info(
-                "observation_extractor.extract_convergence_targets: dropped "
-                "orphan CONVERGENCE_LOCATION=%r for feature=%r -- no valid "
-                "CONVERGENCE resolved in the same block.",
-                pending_location, current_feature,
-            )
-        current_feature = None
-        block_owner = None
-        pending_location = None
-
-    for line in raw_text.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            _flush_block_boundary()
-            continue
-
-        header = _CONVERGENCE_RELATIONAL_HEADER.match(stripped)
-        if header:
-            _flush_block_boundary()
-            line_label = header.group(1).strip().lower()
-            current_feature = _CONVERGENCE_LINE_ALIAS.get(line_label)
-            continue
-
-        line_header = _CONVERGENCE_LINE_HEADER.match(stripped)
-        if line_header:
-            _flush_block_boundary()
-            line_label = line_header.group(1).strip().lower()
-            current_feature = _CONVERGENCE_LINE_ALIAS.get(line_label)
-            continue
-
-        if current_feature is None:
-            continue
-
-        sub = _CONVERGENCE_SUBFIELD.match(stripped)
-        if not sub:
-            continue
-
-        field, raw_value = sub.group(1), sub.group(2).strip()
-        value = raw_value.strip()
-
-        if not value or value.lower() in ("none", "n/a"):
-            logger.info(
-                "observation_extractor.extract_convergence_targets: dropped "
-                "feature=%r field=%r -- empty/none/n-a value.",
-                current_feature, field,
-            )
-            continue
-
-        if field == "CONVERGENCE":
-            if value not in _RELATION_TARGET_REGISTRY:
-                logger.info(
-                    "observation_extractor.extract_convergence_targets: dropped "
-                    "feature=%r CONVERGENCE target=%r -- not in "
-                    "relation_target_registry.",
-                    current_feature, value,
-                )
-                continue
-            if value == current_feature:
-                logger.info(
-                    "observation_extractor.extract_convergence_targets: dropped "
-                    "self-convergence for feature=%r.", current_feature,
-                )
-                continue
-
-            owner, other = _canonicalize_convergence(current_feature, value)
-            targets.setdefault(owner, {})[_CONVERGENCE_ATTR] = other
-            block_owner = owner
-
-            if pending_location is not None:
-                if pending_location not in _RELATION_TARGET_REGISTRY:
-                    logger.info(
-                        "observation_extractor.extract_convergence_targets: dropped "
-                        "buffered CONVERGENCE_LOCATION=%r for feature=%r -- not in "
-                        "relation_target_registry.",
-                        pending_location, current_feature,
-                    )
-                else:
-                    targets.setdefault(block_owner, {})[_CONVERGENCE_LOCATION_ATTR] = pending_location
-                pending_location = None
-            continue
-
-        # field == "CONVERGENCE_LOCATION"
-        if value not in _RELATION_TARGET_REGISTRY:
-            logger.info(
-                "observation_extractor.extract_convergence_targets: dropped "
-                "feature=%r CONVERGENCE_LOCATION=%r -- not in "
-                "relation_target_registry.",
-                current_feature, value,
-            )
-            continue
-
-        if block_owner is not None:
-            targets.setdefault(block_owner, {})[_CONVERGENCE_LOCATION_ATTR] = value
-        else:
-            pending_location = value
-
-    _flush_block_boundary()  # flush end-of-text: log a still-pending orphan location
-
-    return targets
-
-
 # ─── Unified relational parser -- Generalization step 2a (S98) ──────────
-# extract_relations() reproduces the COMBINED output of the three functions
-# above (extract_relational_targets + extract_convergence_targets -> its
-# "targets" key; extract_proximity_observations -> its "proximity" key),
+# extract_relations() is the sole relational parser -- it originally reproduced
+# the combined output of three now-retired functions (extract_relational_
+# targets, extract_convergence_targets, extract_proximity_observations;
+# retired at Generalization 2c-ii, S98, once a 32-case differential battery
+# proved it byte-identical to their combined output -- see commit history)
+# into its "targets" and "proximity" keys respectively,
 # driven by the registry's "relation_types"/"vision_relational_menus" blocks
 # (Generalization step 1) instead of a bespoke per-attribute function each.
-# ADDS ALONGSIDE the three -- none of them are modified or retired here; see
-# this module's docstring discrepancy-log convention below for the one real
-# design deviation from this task's literal wording.
+# See this module's docstring discrepancy-log convention below for the one
+# real design deviation from the task that originally authored this function.
 #
 # === Deviation from this task's own prompt (flagged per project convention) ===
 # The instructing prompt's literal wording for the directional/symmetric
