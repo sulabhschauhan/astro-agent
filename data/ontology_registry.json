@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "1.9.0",
+    "version": "1.10.0",
     "source": "Cheiro's Language of the Hand",
     "description": "Closed vocabulary registry for deterministic palmistry rule extraction. All feature, attribute, and value tokens used in rule generation MUST exist in this registry.",
     "total_features": 68,
@@ -1117,6 +1117,13 @@
       "change": "Generic convergence emission, step 1 (registry + prompt + test, landed atomically -- NOT data-only, see coupling note below): add top-level 'convergence_lines' (['Line of Life','Line of Head','Line of Heart','Line of Fate','Line of Health']) -- the ONE place the convergence-participating line set is declared. vision_relational_menus' per-pair CONVERGENCE literals (Line of Fate->['Line of Heart'], Line of Life->['Line of Health']) are REMOVED -- CONVERGENCE is no longer looked up per line at all; it is derived generically as convergence_lines MINUS the given line, at prompt-build time in agent/palm_processor.py's _menu(). 'Line of Life' removed entirely from vision_relational_menus (it had no other keys once its CONVERGENCE literal was removed). Line of Fate's CONVERGENCE_LOCATION stays scalar, unchanged. New '_convergence_note'/'_location_note' keys document the derivation convention and the scalar-vs-future-list location shape (S98-ratified).",
       "coupling_note": "This registry edit is NOT safely data-only in isolation -- confirmed by direct simulation before landing: agent/palm_processor.py's _menu() does a bare _VISION_RELATIONAL_MENUS[feature]['CONVERGENCE'] lookup, called unconditionally on every _build_description_system_prompt() run (both hands, every live describe_palm_image() call, and at tests/interpretive/test_palm_processor.py's own module-import time). Removing the literals without _menu() growing a CONVERGENCE-specific derivation path raises KeyError immediately -- proven via an in-memory simulation against the live function before this entry was written. This entry therefore lands in the SAME commit as the agent/palm_processor.py and tests/interpretive/test_palm_processor.py changes that add the derivation and update the prompt/tests to match -- never split across commits in a way that leaves the prompt build broken.",
       "prompt_change_note": "The vision prompt's CONVERGENCE field itself changes wording (not byte-identical to before this step): Head and Heart gain a CONVERGENCE field for the first time (previously absent); Fate's and Life's CONVERGENCE field wording is generalized to a single uniform template across all four blocks, dropping Fate's old F025b-specific 'ascend together' phrasing from the shared field (that phrasing's substance is preserved on Fate's separate, unchanged CONVERGENCE_LOCATION field). This is an intentional widening, not a regression -- see the palm_processor.py commit for the prompt diff and the reasoning for why 'comma-separated' phrasing was NOT used (extractor accepts repeated per-line CONVERGENCE statements, not a comma-joined value, confirmed by direct test against the live extractor)."
+    },
+    {
+      "version": "1.10.0",
+      "date": "2026-08-23",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "Typed-relationship arc, Step 1 (data-only, additive): add 8 new keys to 'relation_types' (joins_at_origin/meets/cuts/cut_by/touches/stopped_by/takes_possession_of/branch_in) and the same 8 to 'relation_cardinality', plus a new top-level '_typed_relations_note' string. Subsumes today's untyped Convergence/Convergence_Location per the S98 typed-relationship-model ratification (see CLAUDE.md Locked Decisions, 'Convergence is set-valued (n-way) but UNTYPED'). Closed vocabulary: joins_at_origin/meets/touches/stopped_by/takes_possession_of/branch_in are new relation kinds; cuts/cut_by are the directional pair distinguishing a crossing line's two roles.",
+      "no_code_consumes_yet": "Both additions are registry-legal only. No prompt, scan, or extractor reads any of these 8 keys as of this commit -- confirmed by this task's own differential gate (byte-identical before/after capture of the vision prompt string, the scan's ORIGIN/TERMINATION menus, and the extractor's EMITTED_RELATION_ATTRS/RELATION_ATTR_TO_FIELD/_RELATION_TYPES/_RELATION_CARDINALITY dumps) plus a full green test-suite run at the pre-existing baseline count."
     }
   ],
   "relation_target_registry": [
@@ -1185,7 +1192,15 @@
     "Branching": "directional",
     "Proximity": "proximity",
     "Convergence": "symmetric",
-    "Convergence_Location": "symmetric"
+    "Convergence_Location": "symmetric",
+    "joins_at_origin": "symmetric",
+    "meets": "symmetric",
+    "cuts": "directional",
+    "cut_by": "directional",
+    "touches": "directional",
+    "stopped_by": "directional",
+    "takes_possession_of": "directional",
+    "branch_in": "directional"
   },
   "relation_cardinality": {
     "Starting_Point": "single",
@@ -1193,8 +1208,17 @@
     "Branching": "single",
     "Proximity": "single",
     "Convergence": "multi",
-    "Convergence_Location": "single"
+    "Convergence_Location": "single",
+    "joins_at_origin": "multi",
+    "meets": "multi",
+    "cuts": "multi",
+    "cut_by": "multi",
+    "touches": "multi",
+    "stopped_by": "single",
+    "takes_possession_of": "single",
+    "branch_in": "single"
   },
+  "_typed_relations_note": "Closed typed-relationship vocabulary introduced S99 Step 1, ADDITIVE -- not yet wired to prompt/extractor/engine. Convergence/Convergence_Location remain the live join channel until Step 5 migration.",
   "convergence_lines": [
     "Line of Life",
     "Line of Head",
