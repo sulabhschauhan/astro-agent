@@ -165,17 +165,27 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
 
 
 _ONTOLOGY_REGISTRY_PATH = Path(__file__).resolve().parent.parent / "data" / "ontology_registry.json"
-_VISION_RELATIONAL_MENUS: dict[str, dict[str, list[str]]] = json.loads(
-    _ONTOLOGY_REGISTRY_PATH.read_text(encoding="utf-8")
-)["vision_relational_menus"]
+_ONTOLOGY_REGISTRY: dict = json.loads(_ONTOLOGY_REGISTRY_PATH.read_text(encoding="utf-8"))
+_VISION_RELATIONAL_MENUS: dict[str, dict[str, list[str]]] = _ONTOLOGY_REGISTRY["vision_relational_menus"]
+# The ONE place the convergence-participating line set is declared (Generic
+# convergence emission step, S98) -- CONVERGENCE menus are DERIVED from this,
+# never hand-listed per line; adding a line here auto-participates with zero
+# further vision-prompt edits.
+_CONVERGENCE_LINES: list[str] = list(_ONTOLOGY_REGISTRY["convergence_lines"])
 
 
 def _menu(feature: str, field: str) -> str:
-    """Formats ontology_registry.json's vision_relational_menus[feature][field]
-    token list as the "{tok1 | tok2 | ...}" brace-and-pipe shape describe_palm_
-    image's per-line ORIGIN/TERMINATION/CONVERGENCE/CONVERGENCE_LOCATION prompt
-    menus use (Generalization step 3, S98) -- registry is the sole source of
-    the token list; every other word in the prompt line stays a literal."""
+    """Formats a per-line vision-prompt token menu as the "{tok1 | tok2 | ...}"
+    brace-and-pipe shape describe_palm_image's prompt uses (Generalization
+    step 3, S98). CONVERGENCE is DERIVED, not looked up (Generic convergence
+    emission step, S98): convergence_lines minus `feature` itself -- so any
+    line may converge against every OTHER participating line, multi-select,
+    with no per-pair hardcoding. Every other field (ORIGIN/TERMINATION/
+    CONVERGENCE_LOCATION) still reads ontology_registry.json's
+    vision_relational_menus[feature][field] directly -- registry is the sole
+    source of the token list either way."""
+    if field == "CONVERGENCE":
+        return "{" + " | ".join(line for line in _CONVERGENCE_LINES if line != feature) + "}"
     return "{" + " | ".join(_VISION_RELATIONAL_MENUS[feature][field]) + "}"
 
 
@@ -198,12 +208,12 @@ def _build_description_system_prompt(hand: str) -> str:
         "LIFE LINE: presence, depth, width (narrow/thin vs broad/thick), length, "
         "course, origin and end, breaks/\n"
         "chains/forks/islands if visible\n"
-        f"  CONVERGENCE: exactly one of {_menu('Line of Life', 'CONVERGENCE')} or 'none' — only if the "
-        "health/hepatica line clearly MEETS or joins the life line at some distinct "
-        "point; do not report a faint or ambiguous meeting, write 'none' if not "
-        "clearly visible\n"
+        f"  CONVERGENCE: for each other line this one clearly crosses or joins, write "
+        f"a separate \"CONVERGENCE: <line>\" line choosing only from {_menu('Line of Life', 'CONVERGENCE')} "
+        "-- repeat this line once per additional crossing; if none clearly visible, "
+        "write \"CONVERGENCE: none\"\n"
         "For HEAD, HEART, and FATE lines, after SLOPE also give ORIGIN, TERMINATION, "
-        "PROXIMITY, BRANCHES_TO as separate indented lines. ORIGIN/TERMINATION: pick "
+        "PROXIMITY, BRANCHES_TO, CONVERGENCE as separate indented lines. ORIGIN/TERMINATION: pick "
         "ONLY from that line's listed menu, else 'none'. HEART LINE DIRECTION LAW: the "
         "finger/mount end is ORIGIN and the percussion is TERMINATION (even though common "
         "convention calls the percussion the start). PROXIMITY/BRANCHES_TO landmark names: "
@@ -217,12 +227,20 @@ def _build_description_system_prompt(hand: str) -> str:
         f"  TERMINATION: exactly one of {_menu('Line of Head', 'TERMINATION')} or 'none' if the line is short and ends mid-palm\n"
         "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
         "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
+        f"  CONVERGENCE: for each other line this one clearly crosses or joins, write "
+        f"a separate \"CONVERGENCE: <line>\" line choosing only from {_menu('Line of Head', 'CONVERGENCE')} "
+        "-- repeat this line once per additional crossing; if none clearly visible, "
+        "write \"CONVERGENCE: none\"\n"
         "HEART LINE: same attributes (depth, width, length, direction, breaks/chains/forks/islands)\n"
         "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
         f"  ORIGIN: exactly one of {_menu('Line of Heart', 'ORIGIN')} or 'none'\n"
         f"  TERMINATION: exactly one of {_menu('Line of Heart', 'TERMINATION')} or 'none'\n"
         "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
         "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
+        f"  CONVERGENCE: for each other line this one clearly crosses or joins, write "
+        f"a separate \"CONVERGENCE: <line>\" line choosing only from {_menu('Line of Heart', 'CONVERGENCE')} "
+        "-- repeat this line once per additional crossing; if none clearly visible, "
+        "write \"CONVERGENCE: none\"\n"
         "FATE LINE: same attributes (state plainly if absent or barely visible)\n"
         "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
         f"  ORIGIN: exactly one of {_menu('Line of Fate', 'ORIGIN')} or 'none'\n"
@@ -236,9 +254,10 @@ def _build_description_system_prompt(hand: str) -> str:
         "  LENGTH EXTENT: if the fate line runs beyond the palm's edge and visibly continues into "
         "the base of the Second Finger (Saturn finger), write 'cutting_into_finger_of_Saturn'. If "
         "the line ends within the palm, write 'n/a'.\n"
-        f"  CONVERGENCE: exactly one of {_menu('Line of Fate', 'CONVERGENCE')} or 'none' — only if the fate line "
-        "clearly JOINS the heart line AND the joined line then continues together upward "
-        "toward a mount; if not clearly visible, write 'none'\n"
+        f"  CONVERGENCE: for each other line this one clearly crosses or joins, write "
+        f"a separate \"CONVERGENCE: <line>\" line choosing only from {_menu('Line of Fate', 'CONVERGENCE')} "
+        "-- repeat this line once per additional crossing; if none clearly visible, "
+        "write \"CONVERGENCE: none\"\n"
         f"  CONVERGENCE_LOCATION: exactly one of {_menu('Line of Fate', 'CONVERGENCE_LOCATION')} or 'none' — the mount "
         "the joined fate+heart line ascends to together; write 'none' if CONVERGENCE is "
         "'none' or not clearly visible\n"
