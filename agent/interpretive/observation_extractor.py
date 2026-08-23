@@ -446,18 +446,27 @@ def _proximity_degree(value: str) -> str | None:
 
 
 def merge_relational_targets(
-    *target_dicts: dict[str, dict[str, str]]
-) -> dict[str, dict[str, str]]:
-    """Merges multiple extract_relational_targets() outputs (e.g. one per
-    hand image) into one targets dict. Later args win on a per-(feature,
-    attribute) collision -- callers passing (left, right) get right-hand
-    priority on conflict. Documented as a real behavioral choice (there is
-    no established convention for this axis yet), not an accident of
-    dict.update order."""
-    merged: dict[str, dict[str, str]] = {}
+    *target_dicts: dict[str, dict[str, object]]
+) -> dict[str, dict[str, object]]:
+    """Merges multiple extract_relations()['targets'] outputs (e.g. one per
+    hand image) into one targets dict -- cardinality-aware (Pattern D step
+    3). For a MULTI attribute (Convergence) whose value is a set, later
+    dicts UNION into the running set -- both hands' partners are combined,
+    never overwritten. For a SINGLE attribute (Convergence_Location + all
+    directional attrs), later args win on a per-(feature, attribute)
+    collision -- callers passing (left, right) get right-hand priority on
+    conflict, exactly as before this step. Documented as a real behavioral
+    choice (there is no established convention for this axis yet), not an
+    accident of dict.update order."""
+    merged: dict[str, dict[str, object]] = {}
     for targets in target_dicts:
         for feature, attrs in targets.items():
-            merged.setdefault(feature, {}).update(attrs)
+            bucket = merged.setdefault(feature, {})
+            for attr, value in attrs.items():
+                if _is_multi(attr) and isinstance(value, (set, frozenset)):
+                    bucket.setdefault(attr, set()).update(value)
+                else:
+                    bucket[attr] = value
     return merged
 
 
@@ -514,6 +523,21 @@ _RELATIONAL_FIELD_TO_ATTR: dict[str, str] = {v: k for k, v in RELATION_ATTR_TO_F
 # step 1). Bare bracket access -- this key is foundational once declared and
 # MUST exist, same convention as every other _REGISTRY-derived constant above.
 _RELATION_TYPES: dict[str, str] = dict(_REGISTRY["relation_types"])
+
+# Registry-derived: attribute -> cardinality ("single"/"multi",
+# ontology_registry.json's "relation_cardinality" block, Pattern D step 1).
+# Same bare-bracket-access convention as _RELATION_TYPES above -- keys match
+# 1:1 (asserted at that block's own declaration time, S98).
+_RELATION_CARDINALITY: dict[str, str] = dict(_REGISTRY["relation_cardinality"])
+
+
+def _is_multi(attr: str) -> bool:
+    """True if `attr` is declared 'multi' cardinality in relation_cardinality
+    (Pattern D) -- Convergence only, today. Everything else (Convergence_
+    Location + all directional attrs) is 'single', matched by plain
+    equality/overwrite, unchanged from pre-Pattern-D behavior."""
+    return _RELATION_CARDINALITY.get(attr) == "multi"
+
 
 # Registry-derived: feature -> {vision subfield LABEL -> [legal target
 # tokens]} (ontology_registry.json's "vision_relational_menus" block,
@@ -702,9 +726,18 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
     current_feature_conv: str | None = None
     block_owner: str | None = None
     pending_location: str | None = None
+    # Pattern D step 3: per-block convergence count + which owner (if any)
+    # currently holds a bound location -- together they gate the location
+    # edge case (Convergence_Location binds ONLY when the block has
+    # resolved exactly ONE convergence; a location can't be disambiguated
+    # across partners once a second convergence lands, so it is dropped,
+    # fail-closed, with a warning). Reset at every block boundary alongside
+    # the state above.
+    conv_count_this_block = 0
+    location_owner: str | None = None
 
     def _flush_conv_block_boundary() -> None:
-        nonlocal current_feature_conv, block_owner, pending_location
+        nonlocal current_feature_conv, block_owner, pending_location, conv_count_this_block, location_owner
         if pending_location is not None:
             logger.info(
                 "observation_extractor.extract_relations: dropped orphan "
@@ -715,6 +748,8 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
         current_feature_conv = None
         block_owner = None
         pending_location = None
+        conv_count_this_block = 0
+        location_owner = None
 
     for line in raw_text.splitlines():
         stripped = line.strip()
@@ -837,10 +872,41 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
                 else:
                     _log_off_menu_caveat(current_feature_conv, "CONVERGENCE", value)
                     owner, other = _canonicalize_convergence(current_feature_conv, value)
-                    targets.setdefault(owner, {})[_CONVERGENCE_ATTR] = other
+                    if _is_multi(_CONVERGENCE_ATTR):
+                        targets.setdefault(owner, {}).setdefault(_CONVERGENCE_ATTR, set()).add(other)
+                    else:
+                        targets.setdefault(owner, {})[_CONVERGENCE_ATTR] = other
                     block_owner = owner
+                    conv_count_this_block += 1
 
-                    if pending_location is not None:
+                    if conv_count_this_block > 1:
+                        # Second-or-later convergence in this block: the
+                        # location can no longer be attributed to a single
+                        # partner -- drop anything already bound or still
+                        # pending, fail-closed, warned (never silent).
+                        if location_owner is not None:
+                            dropped_loc = targets.get(location_owner, {}).pop(_CONVERGENCE_LOCATION_ATTR, None)
+                            if dropped_loc is not None:
+                                logger.warning(
+                                    "observation_extractor.extract_relations: dropped "
+                                    "already-bound CONVERGENCE_LOCATION=%r for feature=%r "
+                                    "-- block now has %d convergences, location cannot "
+                                    "be disambiguated across partners.",
+                                    dropped_loc, current_feature_conv, conv_count_this_block,
+                                )
+                            location_owner = None
+                        if pending_location is not None:
+                            logger.warning(
+                                "observation_extractor.extract_relations: dropped "
+                                "buffered CONVERGENCE_LOCATION=%r for feature=%r -- "
+                                "block now has %d convergences, location cannot be "
+                                "disambiguated across partners.",
+                                pending_location, current_feature_conv, conv_count_this_block,
+                            )
+                            pending_location = None
+                    elif pending_location is not None:
+                        # First (and so far only) convergence in this block --
+                        # normal single-convergence binding, unchanged (F025b).
                         if pending_location not in _RELATION_TARGET_REGISTRY:
                             logger.info(
                                 "observation_extractor.extract_relations: dropped "
@@ -850,6 +916,7 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
                             )
                         else:
                             targets.setdefault(block_owner, {})[_CONVERGENCE_LOCATION_ATTR] = pending_location
+                            location_owner = block_owner
                         pending_location = None
             else:  # field == "CONVERGENCE_LOCATION"
                 if value not in _RELATION_TARGET_REGISTRY:
@@ -859,10 +926,21 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
                         "relation_target_registry.",
                         current_feature_conv, value,
                     )
+                elif conv_count_this_block > 1:
+                    # Block already has >1 convergence -- never bind, same
+                    # fail-closed rule as the CONVERGENCE-side check above.
+                    logger.warning(
+                        "observation_extractor.extract_relations: dropped "
+                        "CONVERGENCE_LOCATION=%r for feature=%r -- block already "
+                        "has %d convergences, location cannot be disambiguated "
+                        "across partners.",
+                        value, current_feature_conv, conv_count_this_block,
+                    )
                 else:
                     _log_off_menu_caveat(current_feature_conv, "CONVERGENCE_LOCATION", value)
                     if block_owner is not None:
                         targets.setdefault(block_owner, {})[_CONVERGENCE_LOCATION_ATTR] = value
+                        location_owner = block_owner
                     else:
                         pending_location = value
 

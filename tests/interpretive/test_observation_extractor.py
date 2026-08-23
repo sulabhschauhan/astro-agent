@@ -540,7 +540,7 @@ def test_convergence_noncanonical_emission_flips_owner_to_alphabetically_first()
         "  CONVERGENCE: Line of Head\n"
     )
     targets = extract_relations(text)["targets"]
-    assert targets == {"Line of Head": {"Convergence": "Line of Heart"}}
+    assert targets == {"Line of Head": {"Convergence": {"Line of Heart"}}}
 
 
 def test_convergence_emitted_from_both_blocks_is_idempotent_no_conflict():
@@ -555,7 +555,7 @@ def test_convergence_emitted_from_both_blocks_is_idempotent_no_conflict():
         "  CONVERGENCE: Line of Head\n"
     )
     targets = extract_relations(text)["targets"]
-    assert targets == {"Line of Head": {"Convergence": "Line of Heart"}}
+    assert targets == {"Line of Head": {"Convergence": {"Line of Heart"}}}
 
 
 def test_convergence_location_before_convergence_resolves_correct_owner():
@@ -570,7 +570,7 @@ def test_convergence_location_before_convergence_resolves_correct_owner():
     targets = extract_relations(text)["targets"]
     assert targets == {
         "Line of Fate": {
-            "Convergence": "Line of Heart",
+            "Convergence": {"Line of Heart"},
             "Convergence_Location": "Mount of Jupiter",
         }
     }
@@ -587,7 +587,7 @@ def test_convergence_f025b_shape_fate_heart_ascend_jupiter():
     targets = extract_relations(text)["targets"]
     assert targets == {
         "Line of Fate": {
-            "Convergence": "Line of Heart",
+            "Convergence": {"Line of Heart"},
             "Convergence_Location": "Mount of Jupiter",
         }
     }
@@ -634,7 +634,7 @@ def test_convergence_location_not_in_registry_drops_location_only():
         "  CONVERGENCE_LOCATION: Not A Real Landmark\n"
     )
     targets = extract_relations(text)["targets"]
-    assert targets == {"Line of Fate": {"Convergence": "Line of Heart"}}
+    assert targets == {"Line of Fate": {"Convergence": {"Line of Heart"}}}
 
 
 def test_convergence_malformed_empty_none_na_values_are_dropped():
@@ -670,7 +670,7 @@ def test_convergence_inline_line_header_format_also_recognized():
     must be recognized identically to the RELATIONAL: block format."""
     text = "FATE LINE: present, deep\n  CONVERGENCE: Line of Heart\n"
     targets = extract_relations(text)["targets"]
-    assert targets == {"Line of Fate": {"Convergence": "Line of Heart"}}
+    assert targets == {"Line of Fate": {"Convergence": {"Line of Heart"}}}
 
 
 # ─── extract_relations -- Generalization step 2a (S98) ───────────────────
