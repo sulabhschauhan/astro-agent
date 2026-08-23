@@ -231,7 +231,14 @@ def _antecedent_fires(antecedent: Antecedent, observation: dict, magnitudes: dic
         # value:null AND target:null would fire unconditionally -- a
         # degenerate antecedent that must never be authored; non-firing.
         return antecedent.value is not None
-    return targets.get(antecedent.feature, {}).get(antecedent.attribute) == antecedent.relation_target
+    stored = targets.get(antecedent.feature, {}).get(antecedent.attribute)
+    # set/list -> membership (multi-cardinality, e.g. Convergence w/ several
+    # partners, Pattern D); scalar -> equality (single-cardinality, unchanged).
+    # A 1-element set matches exactly as the old equality did, so this is a
+    # zero-behavior-change step until the extractor begins emitting sets (step 3).
+    if isinstance(stored, (set, list, tuple)):
+        return antecedent.relation_target in stored
+    return stored == antecedent.relation_target
 
 
 def match(
