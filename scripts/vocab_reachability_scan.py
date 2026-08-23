@@ -105,26 +105,34 @@ except Exception as exc:  # noqa: BLE001 -- fail loud, per task's "STOP rather t
         f"emitted vocabulary without it, refusing to guess: {exc}"
     ) from exc
 
-# --- palm_processor.py's own per-line ORIGIN/TERMINATION menus, transcribed
-# verbatim from its vision system prompt (agent/palm_processor.py,
-# describe_palm_image). PROXIMITY/BRANCHES_TO deliberately excluded -- the
-# prompt gives those ONE shared landmark list across all three lines
-# ("PROXIMITY/BRANCHES_TO landmark names: Line of Life/Head/Heart/Fate/Sun;
-# Mount of Jupiter/Saturn/the Sun/Mercury/Venus/Luna; Upper Mount of Mars;
-# Lower Mount of Mars; Junction of First and Second Fingers; Wrist;
-# Percussion."), not a per-line menu, so there is nothing narrower to check
-# them against beyond the registry membership gate itself. Used ONLY for
-# the soft prompt-menu caveat (see module docstring) -- never changes a
-# yes/NO verdict.
+# --- palm_processor.py's own per-line ORIGIN/TERMINATION menus. DERIVED
+# (Generalization step 4-scan, S98) from ontology_registry.json's
+# vision_relational_menus block via oe._REGISTRY -- the SAME SSOT
+# palm_processor.py's own _menu() helper reads to build the vision prompt
+# (Generalization step 3), no longer a hardcoded transcription that can
+# silently drift from it (this is exactly how "Line of Fate" ORIGIN's
+# "Plain of Mars" token went missing here previously -- a real prompt-menu
+# member the old hardcoded copy never had). PROXIMITY/BRANCHES_TO
+# deliberately excluded -- the prompt gives those ONE shared landmark list
+# across all three lines ("PROXIMITY/BRANCHES_TO landmark names: Line of
+# Life/Head/Heart/Fate/Sun; Mount of Jupiter/Saturn/the Sun/Mercury/Venus/
+# Luna; Upper Mount of Mars; Lower Mount of Mars; Junction of First and
+# Second Fingers; Wrist; Percussion."), not a per-line menu, so there is
+# nothing narrower to check them against beyond the registry membership
+# gate itself; the registry's vision_relational_menus block excludes them
+# on this same basis (see its own "_note" key). Used ONLY for the soft
+# prompt-menu caveat (see module docstring) -- never changes a yes/NO
+# verdict.
+_vrm = oe._REGISTRY["vision_relational_menus"]
 _VISION_ORIGIN_MENU: dict[str, frozenset[str]] = {
-    "Line of Head": frozenset({"Mount of Jupiter", "Line of Life", "Lower Mount of Mars"}),
-    "Line of Heart": frozenset({"Mount of Jupiter", "Junction of First and Second Fingers", "Mount of Saturn"}),
-    "Line of Fate": frozenset({"Line of Life", "Wrist", "Mount of Luna", "Line of Head", "Line of Heart"}),
+    f: frozenset(fields["ORIGIN"])
+    for f, fields in _vrm.items()
+    if not f.startswith("_") and "ORIGIN" in fields  # skip _note and any non-feature keys
 }
 _VISION_TERMINATION_MENU: dict[str, frozenset[str]] = {
-    "Line of Head": frozenset({"Mount of Luna", "Percussion", "Upper Mount of Mars"}),
-    "Line of Heart": frozenset({"Percussion", "Mount of Mercury"}),
-    "Line of Fate": frozenset({"Mount of Saturn", "Mount of Jupiter", "Line of Heart", "Line of Head"}),
+    f: frozenset(fields["TERMINATION"])
+    for f, fields in _vrm.items()
+    if not f.startswith("_") and "TERMINATION" in fields
 }
 
 _RELATIONAL_ATTRS = oe.EMITTED_RELATION_ATTRS  # derived from SSOT; any new
