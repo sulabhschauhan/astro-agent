@@ -650,6 +650,162 @@ def _log_off_menu_caveat(feature: str, label: str, value: str) -> None:
         )
 
 
+# ─── Typed RELATIONSHIP parsing -- typed-relationship arc Step 3 (S99) ───
+# Parses the NEW "RELATIONSHIP: <type> <target> [at <mount>]" lines Step 2
+# (agent/palm_processor.py) added to the Head/Heart/Fate/Health/Marriage
+# blocks. Fully additive: a distinct header regex, alias map, subfield
+# regex, and store function, all local to this section -- none of the
+# existing directional/proximity/convergence trackers, regexes, or state
+# are touched, so their behavior stays byte-identical (see the regression
+# gate in this task's own report).
+#
+# HEADER-TEXT FINDING (flagged per project convention -- verify against
+# code, don't assume): the pre-existing _CONVERGENCE_LINE_HEADER constant
+# above already anticipates a future "HEALTH LINE:" header ("forward-
+# looking -- no live vision prompt emits a HEALTH LINE header yet"), but
+# Step 2's actual prompt text emits "LINE OF HEALTH:" and "LINE OF
+# MARRIAGE:" (verified directly against agent/palm_processor.py, not
+# assumed) -- a different string shape, not a superset/subset of the old
+# guess. Reusing _CONVERGENCE_LINE_HEADER here would silently never match
+# real vision output for Health/Marriage. This section therefore declares
+# its OWN local header regex matching what Step 2 actually emits, per the
+# same "deliberately duplicates ... locally" precedent _CONVERGENCE_LINE_
+# HEADER's own comment block established for exactly this class of risk
+# (a shared regex whose behavior must stay byte-identical for existing
+# callers must never be widened for a new caller).
+_RELATIONSHIP_LINE_HEADER = re.compile(
+    r"^(HAND SHAPE|FINGERS|THUMB|LIFE LINE|HEAD LINE|HEART LINE|FATE LINE"
+    r"|LINE OF HEALTH|LINE OF MARRIAGE|OTHER LINES|MARKS):"
+)
+_RELATIONSHIP_LINE_ALIAS: dict[str, str] = {
+    "head line": "Line of Head",
+    "heart line": "Line of Heart",
+    "fate line": "Line of Fate",
+    "line of health": "Line of Health",
+    "line of marriage": "Line of Marriage",
+}
+_RELATIONSHIP_SUBFIELD = re.compile(r"^RELATIONSHIP:\s*(.*)$")
+
+# Registry-derived, NOT a hardcoded list (DO #3): the 8 typed tokens are
+# exactly relation_types' keys minus the pre-existing legacy attrs
+# (EMITTED_RELATION_ATTRS: Starting_Point/Position/Branching/Proximity/
+# Convergence/Convergence_Location). Adding a 9th typed token to the
+# registry in a future step is picked up here automatically, no edit
+# needed.
+_RELATIONSHIP_TOKENS: frozenset[str] = frozenset(_RELATION_TYPES) - EMITTED_RELATION_ATTRS
+
+
+def _parse_relationship_value(value: str) -> tuple[str, str, str | None] | None:
+    """Splits a RELATIONSHIP subfield's raw value "<type> <target> [at
+    <mount>]" into (type_token, target, mount_or_None). Returns None for an
+    empty/'none'/'n/a' value (no interaction reported for this line -- same
+    "honest absence" convention as every other relational field in this
+    module). Raises ValueError if no space separates a type token from a
+    target (can't even isolate the two halves) -- the caller wraps this in
+    try/except (DO #4) so one malformed line never kills the rest of the
+    block. Targets never contain the literal substring " at " (verified
+    against every line/mount name in relation_target_registry), so a plain
+    first-occurrence split is unambiguous -- mirrors _proximity_landmark's
+    identical " to "-split reasoning for PROXIMITY above."""
+    value = value.strip()
+    if not value or value.lower() in ("none", "n/a"):
+        return None
+    if " " not in value:
+        raise ValueError(
+            f"RELATIONSHIP value {value!r} has no <type> <target> split point"
+        )
+    type_token, rest = value.split(" ", 1)
+    rest = rest.strip()
+    if " at " in rest:
+        target, mount = rest.split(" at ", 1)
+        target, mount = target.strip(), mount.strip()
+    else:
+        target, mount = rest, None
+    return type_token, target, mount
+
+
+def _store_relationship(
+    targets: dict[str, dict[str, object]],
+    feature: str,
+    type_token: str,
+    target: str,
+    mount: str | None,
+) -> None:
+    """Files one parsed RELATIONSHIP interaction into `targets[feature]
+    [type_token]` (Step 3 DO #1/#2). MULTI cardinality (joins_at_origin/
+    meets/cuts/cut_by/touches, per registry relation_cardinality) accumulates
+    `target` into a set -- union, never overwrite, the same accumulate-
+    don't-overwrite pattern Pattern D established for Convergence. SINGLE
+    cardinality (stopped_by/takes_possession_of/branch_in) is scalar: a
+    second target for the same (feature, type) is REJECTED, keeping the
+    first-seen value, with a warning -- never a silent overwrite.
+
+    LOCATION ("at <mount>", DO #2): stored index-aligned per interaction at
+    `targets[feature][f"{type_token}__location"][target] = mount`, so a
+    future consumer can look up the specific crossing mount for one
+    (type, target) pair. Only populated when this call's line supplied a
+    mount AND the (type, target) reading was actually accepted -- a
+    duplicate-rejected SINGLE-cardinality line's mount is discarded
+    alongside its rejected target, never filed under the surviving first
+    reading.
+
+    Fail-closed (DO #3): an unregistered type token or an off-registry
+    target/mount is dropped with a log line, never guessed or coerced --
+    identical fail-closed posture to every other relational gate in this
+    module (relation_target_registry membership)."""
+    if type_token not in _RELATIONSHIP_TOKENS:
+        logger.info(
+            "observation_extractor.extract_relations: dropped RELATIONSHIP "
+            "type=%r for feature=%r -- not a registry-legal typed-"
+            "relationship token (ontology_registry.json's relation_types).",
+            type_token, feature,
+        )
+        return
+    if target not in _RELATION_TARGET_REGISTRY:
+        logger.info(
+            "observation_extractor.extract_relations: dropped RELATIONSHIP "
+            "feature=%r type=%r target=%r -- not in relation_target_registry.",
+            feature, type_token, target,
+        )
+        return
+
+    bucket = targets.setdefault(feature, {})
+    if _is_multi(type_token):
+        bucket.setdefault(type_token, set()).add(target)
+    else:
+        if type_token in bucket:
+            logger.warning(
+                "observation_extractor.extract_relations: duplicate SINGLE-"
+                "cardinality RELATIONSHIP type=%r for feature=%r -- keeping "
+                "first-seen target=%r, ignoring new target=%r.",
+                type_token, feature, bucket[type_token], target,
+            )
+            return
+        bucket[type_token] = target
+
+    if mount is None:
+        return
+    if mount not in _RELATION_TARGET_REGISTRY:
+        logger.info(
+            "observation_extractor.extract_relations: dropped RELATIONSHIP "
+            "location mount=%r for feature=%r type=%r target=%r -- not in "
+            "relation_target_registry.",
+            mount, feature, type_token, target,
+        )
+        return
+    loc_key = f"{type_token}__location"
+    loc_bucket = bucket.setdefault(loc_key, {})
+    if target in loc_bucket and loc_bucket[target] != mount:
+        logger.info(
+            "observation_extractor.extract_relations: duplicate RELATIONSHIP "
+            "location for feature=%r type=%r target=%r -- keeping first-seen "
+            "mount=%r, ignoring new mount=%r.",
+            feature, type_token, target, loc_bucket[target], mount,
+        )
+        return
+    loc_bucket[target] = mount
+
+
 def extract_relations(raw_text: str) -> dict[str, dict]:
     """Registry-driven unified relational parser. Returns `{"targets":
     {feature: {attribute: landmark}}, "proximity": {feature: {"Proximity":
@@ -707,6 +863,23 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
     Never raises for a missing/malformed relational block or an unparseable
     raw_text -- returns `{"targets": {}, "proximity": {}}` in that case, same
     "no signal" convention as all three source functions.
+
+    TYPED RELATIONSHIP (Step 3, S99, additive -- everything above this
+    paragraph is byte-identical pre/post this step): a THIRD, fully
+    independent tracker (`current_feature_typed`, its own local
+    `_RELATIONSHIP_LINE_HEADER`/`_RELATIONSHIP_LINE_ALIAS`/
+    `_RELATIONSHIP_SUBFIELD`) parses "RELATIONSHIP: <type> <target> [at
+    <mount>]" lines under the Head/Heart/Fate/Health/Marriage blocks Step 2
+    emits. Each typed token (registry-derived: relation_types minus the
+    legacy EMITTED_RELATION_ATTRS, never hardcoded) is filed into
+    `targets[feature][type_token]` -- a set (union) for MULTI cardinality
+    (joins_at_origin/meets/cuts/cut_by/touches), a scalar for SINGLE
+    (stopped_by/takes_possession_of/branch_in, first-seen wins on a
+    duplicate, warned). An optional "at <mount>" clause is stored index-
+    aligned at `targets[feature][f"{type_token}__location"][target] =
+    mount`. A malformed RELATIONSHIP line is caught and logged, never
+    propagated -- it cannot kill parsing of the rest of the block. See the
+    dedicated section above `extract_relations` for the full mechanics.
     """
     if not isinstance(raw_text, str):
         raise TypeError(
@@ -720,6 +893,14 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
     # Directional + proximity tracker -- mirrors extract_relational_targets/
     # extract_proximity_observations' shared block-detection exactly.
     current_feature_rel: str | None = None
+
+    # Typed RELATIONSHIP tracker -- typed-relationship arc Step 3 (S99),
+    # independent of both trackers above, using its OWN local header regex/
+    # alias (_RELATIONSHIP_LINE_HEADER/_RELATIONSHIP_LINE_ALIAS) since
+    # Health/Marriage's actual header text ("LINE OF HEALTH:"/"LINE OF
+    # MARRIAGE:") is not recognized by either existing header regex -- see
+    # that section's own header-text finding comment above.
+    current_feature_typed: str | None = None
 
     # Symmetric/convergence tracker -- mirrors extract_convergence_targets'
     # own block-detection exactly (independent of the tracker above).
@@ -755,6 +936,7 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
         stripped = line.strip()
         if not stripped:
             current_feature_rel = None
+            current_feature_typed = None
             _flush_conv_block_boundary()
             continue
 
@@ -786,12 +968,36 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
                 line_label = conv_line_header.group(1).strip().lower()
                 current_feature_conv = _CONVERGENCE_LINE_ALIAS.get(line_label)
 
-        if rel_header_matched or conv_header_matched:
+        typed_header_matched = False
+        typed_header = _RELATIONSHIP_LINE_HEADER.match(stripped)
+        if typed_header:
+            typed_header_matched = True
+            line_label = typed_header.group(1).strip().lower()
+            current_feature_typed = _RELATIONSHIP_LINE_ALIAS.get(line_label)
+
+        if rel_header_matched or conv_header_matched or typed_header_matched:
             # A header line's text can never also match a subfield regex
             # (disjoint shapes by construction) -- skipping mirrors the
             # `continue` each source function takes after its own header
             # match, with an identical net effect.
             continue
+
+        # --- typed RELATIONSHIP subfield (Step 3, S99) ---
+        sub_typed = _RELATIONSHIP_SUBFIELD.match(stripped)
+        if sub_typed and current_feature_typed is not None:
+            raw_value = sub_typed.group(1)
+            try:
+                parsed = _parse_relationship_value(raw_value)
+            except Exception as exc:  # noqa: BLE001 -- malformed line must not kill the rest of the block (DO #4)
+                logger.info(
+                    "observation_extractor.extract_relations: failed parsing "
+                    "RELATIONSHIP value=%r for feature=%r: %s",
+                    raw_value, current_feature_typed, exc,
+                )
+            else:
+                if parsed is not None:
+                    type_token, target, mount = parsed
+                    _store_relationship(targets, current_feature_typed, type_token, target, mount)
 
         # --- directional / proximity subfield ---
         sub = _RELATIONAL_SUBFIELD.match(stripped)
