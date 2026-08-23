@@ -173,6 +173,34 @@ _VISION_RELATIONAL_MENUS: dict[str, dict[str, list[str]]] = _ONTOLOGY_REGISTRY["
 # further vision-prompt edits.
 _CONVERGENCE_LINES: list[str] = list(_ONTOLOGY_REGISTRY["convergence_lines"])
 
+# Typed-relationship closed vocabulary (typed-relationship arc Step 2, S99) --
+# the 8 tokens added to ontology_registry.json's "relation_types" block at
+# Step 1. Asserted present here, fail-closed: a partial vocab must never
+# silently degrade the vision prompt (Working Style #22, vocabulary contract).
+_TYPED_RELATION_TOKENS: tuple[str, ...] = (
+    "joins_at_origin", "meets", "cuts", "cut_by", "touches",
+    "stopped_by", "takes_possession_of", "branch_in",
+)
+_missing_typed_relations = [
+    tok for tok in _TYPED_RELATION_TOKENS
+    if tok not in _ONTOLOGY_REGISTRY["relation_types"]
+]
+if _missing_typed_relations:
+    raise RuntimeError(
+        "palm_processor: typed-relationship vocabulary incomplete in "
+        f"ontology_registry.json's 'relation_types' block -- missing "
+        f"{_missing_typed_relations}. Refusing to build a vision prompt "
+        "against a partial typed-relationship vocabulary (S99 Step 2 "
+        "fail-closed contract)."
+    )
+
+# Registry-derived mount landmark menu for RELATIONSHIP's optional "at
+# <mount>" clause -- filtered from relation_target_registry (the same SSOT
+# CONVERGENCE/ORIGIN/TERMINATION already draw from), never hand-listed.
+_MOUNT_TARGETS: list[str] = [
+    t for t in _ONTOLOGY_REGISTRY["relation_target_registry"] if "Mount" in t
+]
+
 
 def _menu(feature: str, field: str) -> str:
     """Formats a per-line vision-prompt token menu as the "{tok1 | tok2 | ...}"
@@ -187,6 +215,48 @@ def _menu(feature: str, field: str) -> str:
     if field == "CONVERGENCE":
         return "{" + " | ".join(line for line in _CONVERGENCE_LINES if line != feature) + "}"
     return "{" + " | ".join(_VISION_RELATIONAL_MENUS[feature][field]) + "}"
+
+
+def _relationship_type_menu() -> str:
+    """Closed {type1 | type2 | ...} menu of the 8 typed-relationship tokens
+    (S99 Step 2) -- identical for every line, since the type vocabulary is
+    global, not per-line."""
+    return "{" + " | ".join(_TYPED_RELATION_TOKENS) + "}"
+
+
+def _relationship_target_menu(feature: str) -> str:
+    """RELATIONSHIP <target> menu (S99 Step 2): every OTHER convergence-
+    participating line, DERIVED by the exact same mechanism as CONVERGENCE's
+    menu (convergence_lines minus `feature`, S98) -- plus every registry-
+    derived mount landmark (_MOUNT_TARGETS). Union, never hand-listed per
+    feature or per pair."""
+    lines = [line for line in _CONVERGENCE_LINES if line != feature]
+    return "{" + " | ".join(lines + _MOUNT_TARGETS) + "}"
+
+
+def _mount_menu() -> str:
+    """Closed {mount1 | mount2 | ...} menu for RELATIONSHIP's optional "at
+    <mount>" clause -- same _MOUNT_TARGETS SSOT as _relationship_target_menu,
+    never a separately hand-listed mount list."""
+    return "{" + " | ".join(_MOUNT_TARGETS) + "}"
+
+
+def _relationship_field(feature: str) -> str:
+    """Builds the RELATIONSHIP field block text for `feature` (S99 Step 2).
+    Additive alongside the existing CONVERGENCE field on every line that
+    carries one -- Step 5 migrates CONVERGENCE onto this typed channel; until
+    then a real crossing may legitimately be reported on both fields at
+    once (double-reporting is expected and fine this step)."""
+    return (
+        "  RELATIONSHIP: for each other line or mount this line clearly "
+        "interacts with, write a separate \"RELATIONSHIP: <type> <target> "
+        "[at <mount>]\" line. <type> is exactly one of "
+        f"{_relationship_type_menu()}. <target> is exactly one of "
+        f"{_relationship_target_menu(feature)}. Append \"at <mount>\" ONLY "
+        "for cuts/cut_by/meets where the crossing mount is legible (choose "
+        f"from {_mount_menu()}); omit it otherwise. If none clearly "
+        "visible, write \"RELATIONSHIP: none\".\n"
+    )
 
 
 def _build_description_system_prompt(hand: str) -> str:
@@ -213,7 +283,7 @@ def _build_description_system_prompt(hand: str) -> str:
         "-- repeat this line once per additional crossing; if none clearly visible, "
         "write \"CONVERGENCE: none\"\n"
         "For HEAD, HEART, and FATE lines, after SLOPE also give ORIGIN, TERMINATION, "
-        "PROXIMITY, BRANCHES_TO, CONVERGENCE as separate indented lines. ORIGIN/TERMINATION: pick "
+        "PROXIMITY, BRANCHES_TO, CONVERGENCE, RELATIONSHIP as separate indented lines. ORIGIN/TERMINATION: pick "
         "ONLY from that line's listed menu, else 'none'. HEART LINE DIRECTION LAW: the "
         "finger/mount end is ORIGIN and the percussion is TERMINATION (even though common "
         "convention calls the percussion the start). PROXIMITY/BRANCHES_TO landmark names: "
@@ -231,6 +301,7 @@ def _build_description_system_prompt(hand: str) -> str:
         f"a separate \"CONVERGENCE: <line>\" line choosing only from {_menu('Line of Head', 'CONVERGENCE')} "
         "-- repeat this line once per additional crossing; if none clearly visible, "
         "write \"CONVERGENCE: none\"\n"
+        f"{_relationship_field('Line of Head')}"
         "HEART LINE: same attributes (depth, width, length, direction, breaks/chains/forks/islands)\n"
         "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
         f"  ORIGIN: exactly one of {_menu('Line of Heart', 'ORIGIN')} or 'none'\n"
@@ -241,6 +312,7 @@ def _build_description_system_prompt(hand: str) -> str:
         f"a separate \"CONVERGENCE: <line>\" line choosing only from {_menu('Line of Heart', 'CONVERGENCE')} "
         "-- repeat this line once per additional crossing; if none clearly visible, "
         "write \"CONVERGENCE: none\"\n"
+        f"{_relationship_field('Line of Heart')}"
         "FATE LINE: same attributes (state plainly if absent or barely visible)\n"
         "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
         f"  ORIGIN: exactly one of {_menu('Line of Fate', 'ORIGIN')} or 'none'\n"
@@ -261,7 +333,12 @@ def _build_description_system_prompt(hand: str) -> str:
         f"  CONVERGENCE_LOCATION: exactly one of {_menu('Line of Fate', 'CONVERGENCE_LOCATION')} or 'none' — the mount "
         "the joined fate+heart line ascends to together; write 'none' if CONVERGENCE is "
         "'none' or not clearly visible\n"
-        "OTHER LINES: sun/health/marriage lines only if clearly visible\n"
+        f"{_relationship_field('Line of Fate')}"
+        "LINE OF HEALTH: presence, only if clearly visible\n"
+        f"{_relationship_field('Line of Health')}"
+        "LINE OF MARRIAGE: presence, only if clearly visible\n"
+        f"{_relationship_field('Line of Marriage')}"
+        "OTHER LINES: sun/intuition lines only if clearly visible\n"
         "MOUNTS: which pads appear developed, flat, or unremarkable\n"
         "MARKS: crosses, stars, grilles, squares, moles — only if clearly visible\n"
         "For any attribute not clearly visible, write 'not clearly visible' — "
