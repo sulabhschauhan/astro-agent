@@ -2164,7 +2164,7 @@ def _prepare_deterministic_prep(
 def _flatten_proximity_degrees(
     proximity_observations: dict[str, dict[str, dict[str, object]]]
 ) -> dict[str, dict[str, str]]:
-    """Drops extract_proximity_observations()'s {value, confidence} wrapper
+    """Drops extract_relations()'s proximity {value, confidence} wrapper
     down to the bare {feature: {"Proximity": <degree-string>}} shape
     merge_relational_targets() (and, downstream, the flat `observation`
     dict) both expect -- confidence is not consumed on this path."""

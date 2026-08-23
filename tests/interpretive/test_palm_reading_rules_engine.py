@@ -953,7 +953,7 @@ def test_proximity_degree_reaches_flat_observation_through_p_wiring(
     rules_engine_on, no_llm_extraction, monkeypatch
 ):
     """Proves the 5c step-1 P-wiring is live end to end (inline PROXIMITY
-    subfield -> extract_proximity_observations -> _flatten_proximity_degrees
+    subfield -> extract_relations()'s proximity path -> _flatten_proximity_degrees
     -> merged into the flat `observation` dict) using an EMPTY LLM
     observation response as the isolation lever: with nothing coming from
     the LLM, any "Proximity" token reaching `observation` can only have

@@ -453,7 +453,7 @@ MARKS: none clearly visible
 """
 
 
-def test_extract_relational_targets_builds_correct_mapping_from_validated_athira_output():
+def test_extract_relations_builds_correct_mapping_from_validated_athira_output():
     # TERMINATION's raw value "Mount of Mars" is not itself a
     # relation_target_registry member (only "Upper Mount of Mars"/"Lower
     # Mount of Mars" are) -- correctly fail-closed dropped, not coerced.
@@ -476,7 +476,7 @@ def test_extract_relational_targets_builds_correct_mapping_from_validated_athira
     }
 
 
-def test_extract_relational_targets_drops_none_and_out_of_registry_landmarks():
+def test_extract_relations_drops_none_and_out_of_registry_landmarks():
     text = (
         "HEAD LINE RELATIONAL:\n"
         "  ORIGIN: none\n"
@@ -488,11 +488,11 @@ def test_extract_relational_targets_drops_none_and_out_of_registry_landmarks():
     assert targets == {"Line of Head": {"Branching": "Line of Head"}}
 
 
-def test_extract_relational_targets_empty_for_text_without_relational_block():
+def test_extract_relations_empty_for_text_without_relational_block():
     assert extract_relations("HAND SHAPE: elongated palm, medium build")["targets"] == {}
 
 
-def test_extract_relational_targets_raises_typeerror_for_non_str_input():
+def test_extract_relations_targets_raises_typeerror_for_non_str_input():
     with pytest.raises(TypeError):
         extract_relations(None)["targets"]
 
