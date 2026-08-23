@@ -1,56 +1,65 @@
-# S96 close-out — docs only, git tree confirmation
+# Latest Run — S98 session close-out: reconcile, docs handover, push
 
-Docs-only session close. No source-code edit made or touched this task. Fixed one incidental
-issue: an earlier `Bash` command in this session used backtick-quoted inline text (`` `Hand`/`Palm` ``
-etc.) inside a double-quoted `python -c "..."` shell argument — bash expands backticks as command
-substitution even inside double quotes, so those spans got silently replaced with empty/error
-output when first appended to `SESSION_LOG.md`, and a stray 0-byte file named `n` was dropped in
-the repo root as debris from the same broken command. Both caught and fixed before commit:
-`SESSION_LOG.md` was truncated back to its pre-corruption byte size (209075) and the S96 entry
-was re-appended by reading it from a separate file instead of inlining backticks in a shell
-string; the stray `n` file was removed (untracked, 0 bytes, created this session — not prior work).
+Model: Sonnet 5. RATIFIED authorized for all S98 work. Docs commit + push completed.
 
-## What was committed
+## 1. State reconciliation (before any action)
 
-1. `SESSION_LOG.md` — new `## S96` entry: palm-lines retirements/reconciliation (L_003/L_020/L_021
-   retired, 8 parked stubs reconciled, 7 mounts wired into `_FEATURE_ALIAS`), the 3-chapter
-   scope-out register, Fate step-0 inventory (deferred, not authored), and the Cheirognomy VLM
-   hand-type arm (shipped this arc, validated n=2: Sulabh square/0.898, Athira conic reproduced
-   twice at an identical score vector), plus open carry-forward items.
-2. `CLAUDE.md` — one-line pointer added under "Palm Diagnostic Principles": Cheirognomy hand-type
-   is a VLM-only arm (`agent/cheirognomy/`), disclosed assumption, not yet a line-reading modifier.
-   The S96 scope-out register (marks/hand-types/nails) was already present in this file (the
-   "Palm chapter scope-out (S96)" paragraph, in-scope-surface line) — confirmed, not re-added.
+`git log --oneline -12` showed the full Pattern D chain already committed locally, ending at `a668732` (L_026 + its integration test) — the authoring task's own commit had already landed correctly; nothing needed re-committing there.
 
-## Git log (last 6)
+`git status --short` showed exactly one relevant pending item: `data/palm_rules/_doctrine/line_relationship_census.md` untracked (from the requirement-census task). All other untracked files (`diagnostics/cheirognomy_labels_TEMPLATE.csv`, `fate_verification_worksheet.md`, `validate_ending_point_fix.py`, `validate_fate_006_015.py`, `scripts/cheirognomy_*.py`, `scripts/soft_*.py`) predate this session's S98 work entirely (present in the very first `git status` of the conversation) and are out of scope — left untouched, exactly as every prior commit this session did.
+
+`git log --oneline origin/wip/interpretive-pilot..HEAD` (before this task's docs commit) confirmed 6 commits local-only, not yet pushed: `38a10ff` → `15adf50` → `afa36b7` → `9715d90` → `7a82aff` → `a668732` (the full Pattern D arc + L_026). Remote was at `fa4b061`.
+
+**Nothing needed committing beyond the docs handover** — the census doc was folded into that commit, per instruction.
+
+## 2. SESSION_LOG.md
+
+Appended the verbatim S98 entry (exactly as specified) via Python file append (never Read the 228KB target file first, per Working Style #15). 3554 chars added. Verified via `tail`/`grep` — clean append, one blank-line separator from the prior `## S97` section, no fusion (file already ended with a trailing newline).
+
+## 3. CLAUDE.md
+
+Two exact-string patches (assert count==1 each, no full-file read):
+- **Current Session Focus** one-liner replaced: the stale `S82 CLOSED...` line → `S98 CLOSED: Pattern C + registry-generalization + Pattern D n-way machinery COMPLETE and pushed (HEAD a668732 -> pushed this session); typed-relationship model RATIFIED, not started. See SESSION_LOG.md S98 for full detail.`
+- **5 new Locked Decisions entries** inserted after the S92 entry, before `## Windows Paths`: (a) registry-is-single-source; (b) Convergence set-valued-but-untyped + the ratified typed-relationship-model next arc; (c) the known real-vision gap (ORIGIN-misrouting, honest `none`, Health/Marriage emitter gap); (d) the 6 S98 method learnings as standing design rules; (e) the parked list (L_P10, dual-branch F030-class, dual-origin FT_P03).
+
+## 4. Commit
 
 ```
-2b1818d docs(S96): session log + cheirognomy pointer [S96]
-6754f8a docs(cheirognomy): append commit record to latest_run.md [S96]
-b0f0e78 feat(cheirognomy): multi-value palm+finger_character, OR-match + per-value majority merge; square no-regression gate held [S96]
-cf1e46f feat(cheirognomy): multi-value palm + finger_character with OR-match scoring; no-regression square gate [S96]
-dc45061 fix(cheirognomy): view-gate nail_length (no palmar guessing) + spacing base-gap directive [S96]
-013739f feat(cheirognomy): VLM-only hand-type arm — per-finger fingertip_form + derive + N=3 self-consistency; doctrine-parsed menus + parse-check guard [S96]
+d5fa8307f55de95ae908488b715247b1111609a7
+docs(S98): session log + CLAUDE.md handover; typed-relationship arc ratified [S98]
+```
+```
+ CLAUDE.md                                          |   7 +-
+ SESSION_LOG.md                                     |  11 +
+ .../_doctrine/line_relationship_census.md          | 321 +++++++++++++++++++++
+ 3 files changed, 338 insertions(+), 1 deletion(-)
+```
+Confirmed: exactly the three intended files (`CLAUDE.md`, `SESSION_LOG.md`, the census doc, added as new).
+
+## 5. Push
+
+```
+fa4b061..d5fa830  wip/interpretive-pilot -> wip/interpretive-pilot
 ```
 
-**Remote HEAD** (`origin/wip/interpretive-pilot`): `2b1818d` — matches local, pushed.
+## 6. Full pushed range this session (`fa4b061..HEAD`)
 
-## Status of the two other-work dirty files (left untouched, NOT committed)
+```
+d5fa830 docs(S98): session log + CLAUDE.md handover; typed-relationship arc ratified [S98]
+a668732 feat(rule): author L_026 3-way join (life+head+heart) — first n-way convergence rule, fires end-to-end (Pattern D done) [S98]
+7a82aff feat(vision): generic n-way convergence emission — derived per-line menu (all other lines), uniform CONVERGENCE field on every block (Pattern D) [S98]
+9715d90 feat(extractor): set-valued Convergence — accumulate multi partners, cardinality-aware union merge (Pattern D step 3) [S98]
+afa36b7 feat(diagnostics): JSON-safe targets export (set->sorted list) for Pattern D readiness (Pattern D pre-step) [S98]
+15adf50 feat(engine): shape-tolerant relation-target match — set=membership, scalar=equality (Pattern D step 2) [S98]
+38a10ff feat(ontology): declare relation_cardinality (Convergence=multi) (Pattern D step 1) [S98]
+```
 
-| file | change size | status |
-|---|---|---|
-| `agent/interpretive/observation_extractor.py` | +16/-1 | modified, uncommitted — pending from other work, not touched this session |
-| `scripts/vocab_reachability_scan.py` | +39/-8 | modified, uncommitted — pending from other work, not touched this session |
+## Final remote HEAD
 
-Both are carried forward exactly as found; next session should pick up whatever work they belong
-to. Also still untracked (pre-existing from before this task, not created or modified here):
-`diagnostics/cheirognomy_labels_TEMPLATE.csv`, `scripts/cheirognomy_consistency_set.py`,
-`scripts/cheirognomy_spacing_check.py`, `scripts/cheirognomy_view_gate_check.py`,
-`scripts/soft_anchor_by_line.py`, `scripts/soft_term_anchor_extract.py`.
+Local HEAD: `d5fa8307f55de95ae908488b715247b1111609a7`
+Remote HEAD (`origin/wip/interpretive-pilot`): `d5fa8307f55de95ae908488b715247b1111609a7`
+Match confirmed.
 
-## Tree confirmation
+`SESSION_LOG.md`, `CLAUDE.md`, and `data/palm_rules/_doctrine/line_relationship_census.md` are all committed and pushed.
 
-Nothing ratified is uncommitted. Everything staged and committed this session (`SESSION_LOG.md`,
-`CLAUDE.md`) is pushed and matches remote HEAD. The only working-tree changes remaining are the
-two files explicitly excluded by instruction, plus pre-existing untracked scratch/script files
-from prior sessions that this task was not asked to touch.
+## Status: DONE. Session S98 closed out. STOP.
