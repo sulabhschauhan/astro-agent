@@ -164,6 +164,92 @@ def validate_palm_image(image_bytes: bytes, slot: str) -> dict:
     }
 
 
+_ONTOLOGY_REGISTRY_PATH = Path(__file__).resolve().parent.parent / "data" / "ontology_registry.json"
+_VISION_RELATIONAL_MENUS: dict[str, dict[str, list[str]]] = json.loads(
+    _ONTOLOGY_REGISTRY_PATH.read_text(encoding="utf-8")
+)["vision_relational_menus"]
+
+
+def _menu(feature: str, field: str) -> str:
+    """Formats ontology_registry.json's vision_relational_menus[feature][field]
+    token list as the "{tok1 | tok2 | ...}" brace-and-pipe shape describe_palm_
+    image's per-line ORIGIN/TERMINATION/CONVERGENCE/CONVERGENCE_LOCATION prompt
+    menus use (Generalization step 3, S98) -- registry is the sole source of
+    the token list; every other word in the prompt line stays a literal."""
+    return "{" + " | ".join(_VISION_RELATIONAL_MENUS[feature][field]) + "}"
+
+
+def _build_description_system_prompt(hand: str) -> str:
+    """Builds describe_palm_image's system-message prompt text. Extracted out
+    of the inline API-call literal (Generalization step 3, S98) into this pure,
+    no-side-effect function purely so the registry-sourced menu substitution
+    could be proven byte-identical against the pre-refactor literal for both
+    hand values; the returned text is otherwise unchanged."""
+    return (
+        f"You are a trained observer preparing hand notes for a "
+        f"Cheiro-tradition palmist. You are NOT the palmist: record only "
+        f"what is physically visible in this {hand} hand image. No "
+        "meanings, no character traits, no predictions — never write "
+        "'indicating', 'suggesting', or any interpretation. Output "
+        "EXACTLY these labeled lines, in this order:\n"
+        "HAND SHAPE: palm proportions (square vs elongated), overall build\n"
+        "FINGERS: length relative to palm, straightness, fingertip shape, spacing\n"
+        "THUMB: relative size, how low or high it is set, angle from the palm\n"
+        "LIFE LINE: presence, depth, width (narrow/thin vs broad/thick), length, "
+        "course, origin and end, breaks/\n"
+        "chains/forks/islands if visible\n"
+        f"  CONVERGENCE: exactly one of {_menu('Line of Life', 'CONVERGENCE')} or 'none' — only if the "
+        "health/hepatica line clearly MEETS or joins the life line at some distinct "
+        "point; do not report a faint or ambiguous meeting, write 'none' if not "
+        "clearly visible\n"
+        "For HEAD, HEART, and FATE lines, after SLOPE also give ORIGIN, TERMINATION, "
+        "PROXIMITY, BRANCHES_TO as separate indented lines. ORIGIN/TERMINATION: pick "
+        "ONLY from that line's listed menu, else 'none'. HEART LINE DIRECTION LAW: the "
+        "finger/mount end is ORIGIN and the percussion is TERMINATION (even though common "
+        "convention calls the percussion the start). PROXIMITY/BRANCHES_TO landmark names: "
+        "Line of Life/Head/Heart/Fate/Sun; Mount of Jupiter/Saturn/the Sun/Mercury/Venus/"
+        "Luna; Upper Mount of Mars; Lower Mount of Mars; Junction of First and Second "
+        "Fingers; Wrist; Percussion. PROXIMITY format: \"<touching|medium|distant|n/a> to <landmark or none>\".\n"
+        "HEAD LINE: presence, depth, width, length, direction (straight across vs sloping "
+        "downward toward the wrist/Mount of Luna), breaks/chains/forks/islands\n"
+        "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
+        f"  ORIGIN: exactly one of {_menu('Line of Head', 'ORIGIN')} or 'none'\n"
+        f"  TERMINATION: exactly one of {_menu('Line of Head', 'TERMINATION')} or 'none' if the line is short and ends mid-palm\n"
+        "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
+        "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
+        "HEART LINE: same attributes (depth, width, length, direction, breaks/chains/forks/islands)\n"
+        "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
+        f"  ORIGIN: exactly one of {_menu('Line of Heart', 'ORIGIN')} or 'none'\n"
+        f"  TERMINATION: exactly one of {_menu('Line of Heart', 'TERMINATION')} or 'none'\n"
+        "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
+        "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
+        "FATE LINE: same attributes (state plainly if absent or barely visible)\n"
+        "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
+        f"  ORIGIN: exactly one of {_menu('Line of Fate', 'ORIGIN')} or 'none'\n"
+        f"  TERMINATION: exactly one of {_menu('Line of Fate', 'TERMINATION')} or 'none'\n"
+        "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
+        "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
+        "  BREAK TYPE: if the fate line has a break, exactly one of {broken | broken_overlapping} — "
+        "broken: the line stops and the next segment starts after a visible gap (clean break); "
+        "broken_overlapping: the second segment begins before the first one ends, so the two "
+        "segments run alongside for a short stretch. If the line has no break, write 'n/a'.\n"
+        "  LENGTH EXTENT: if the fate line runs beyond the palm's edge and visibly continues into "
+        "the base of the Second Finger (Saturn finger), write 'cutting_into_finger_of_Saturn'. If "
+        "the line ends within the palm, write 'n/a'.\n"
+        f"  CONVERGENCE: exactly one of {_menu('Line of Fate', 'CONVERGENCE')} or 'none' — only if the fate line "
+        "clearly JOINS the heart line AND the joined line then continues together upward "
+        "toward a mount; if not clearly visible, write 'none'\n"
+        f"  CONVERGENCE_LOCATION: exactly one of {_menu('Line of Fate', 'CONVERGENCE_LOCATION')} or 'none' — the mount "
+        "the joined fate+heart line ascends to together; write 'none' if CONVERGENCE is "
+        "'none' or not clearly visible\n"
+        "OTHER LINES: sun/health/marriage lines only if clearly visible\n"
+        "MOUNTS: which pads appear developed, flat, or unremarkable\n"
+        "MARKS: crosses, stars, grilles, squares, moles — only if clearly visible\n"
+        "For any attribute not clearly visible, write 'not clearly visible' — "
+        "never guess or fill in what a typical hand would show."
+    )
+
+
 def describe_palm_image(image_bytes: bytes, hand: str, temperature: float = 0.0) -> str:
     """
     Generate a textual palm reading description via GPT-4o vision.
@@ -194,69 +280,7 @@ def describe_palm_image(image_bytes: bytes, hand: str, temperature: float = 0.0)
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        f"You are a trained observer preparing hand notes for a "
-                        f"Cheiro-tradition palmist. You are NOT the palmist: record only "
-                        f"what is physically visible in this {hand} hand image. No "
-                        "meanings, no character traits, no predictions — never write "
-                        "'indicating', 'suggesting', or any interpretation. Output "
-                        "EXACTLY these labeled lines, in this order:\n"
-                        "HAND SHAPE: palm proportions (square vs elongated), overall build\n"
-                        "FINGERS: length relative to palm, straightness, fingertip shape, spacing\n"
-                        "THUMB: relative size, how low or high it is set, angle from the palm\n"
-                        "LIFE LINE: presence, depth, width (narrow/thin vs broad/thick), length, "
-                        "course, origin and end, breaks/\n"
-                        "chains/forks/islands if visible\n"
-                        "  CONVERGENCE: exactly one of {Line of Health} or 'none' — only if the "
-                        "health/hepatica line clearly MEETS or joins the life line at some distinct "
-                        "point; do not report a faint or ambiguous meeting, write 'none' if not "
-                        "clearly visible\n"
-                        "For HEAD, HEART, and FATE lines, after SLOPE also give ORIGIN, TERMINATION, "
-                        "PROXIMITY, BRANCHES_TO as separate indented lines. ORIGIN/TERMINATION: pick "
-                        "ONLY from that line's listed menu, else 'none'. HEART LINE DIRECTION LAW: the "
-                        "finger/mount end is ORIGIN and the percussion is TERMINATION (even though common "
-                        "convention calls the percussion the start). PROXIMITY/BRANCHES_TO landmark names: "
-                        "Line of Life/Head/Heart/Fate/Sun; Mount of Jupiter/Saturn/the Sun/Mercury/Venus/"
-                        "Luna; Upper Mount of Mars; Lower Mount of Mars; Junction of First and Second "
-                        "Fingers; Wrist; Percussion. PROXIMITY format: \"<touching|medium|distant|n/a> to <landmark or none>\".\n"
-                        "HEAD LINE: presence, depth, width, length, direction (straight across vs sloping "
-                        "downward toward the wrist/Mount of Luna), breaks/chains/forks/islands\n"
-                        "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
-                        "  ORIGIN: exactly one of {Mount of Jupiter | Line of Life | Lower Mount of Mars} or 'none'\n"
-                        "  TERMINATION: exactly one of {Mount of Luna | Percussion | Upper Mount of Mars} or 'none' if the line is short and ends mid-palm\n"
-                        "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
-                        "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
-                        "HEART LINE: same attributes (depth, width, length, direction, breaks/chains/forks/islands)\n"
-                        "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
-                        "  ORIGIN: exactly one of {Mount of Jupiter | Junction of First and Second Fingers | Mount of Saturn} or 'none'\n"
-                        "  TERMINATION: exactly one of {Percussion | Mount of Mercury} or 'none'\n"
-                        "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
-                        "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
-                        "FATE LINE: same attributes (state plainly if absent or barely visible)\n"
-                        "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
-                        "  ORIGIN: exactly one of {Line of Life | Wrist | Mount of Luna | Line of Head | Line of Heart | Plain of Mars} or 'none'\n"
-                        "  TERMINATION: exactly one of {Mount of Saturn | Mount of Jupiter | Line of Heart | Line of Head} or 'none'\n"
-                        "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
-                        "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
-                        "  BREAK TYPE: if the fate line has a break, exactly one of {broken | broken_overlapping} — "
-                        "broken: the line stops and the next segment starts after a visible gap (clean break); "
-                        "broken_overlapping: the second segment begins before the first one ends, so the two "
-                        "segments run alongside for a short stretch. If the line has no break, write 'n/a'.\n"
-                        "  LENGTH EXTENT: if the fate line runs beyond the palm's edge and visibly continues into "
-                        "the base of the Second Finger (Saturn finger), write 'cutting_into_finger_of_Saturn'. If "
-                        "the line ends within the palm, write 'n/a'.\n"
-                        "  CONVERGENCE: exactly one of {Line of Heart} or 'none' — only if the fate line "
-                        "clearly JOINS the heart line AND the joined line then continues together upward "
-                        "toward a mount; if not clearly visible, write 'none'\n"
-                        "  CONVERGENCE_LOCATION: exactly one of {Mount of Jupiter} or 'none' — the mount "
-                        "the joined fate+heart line ascends to together; write 'none' if CONVERGENCE is "
-                        "'none' or not clearly visible\n"
-                        "OTHER LINES: sun/health/marriage lines only if clearly visible\n"
-                        "MOUNTS: which pads appear developed, flat, or unremarkable\n"
-                        "MARKS: crosses, stars, grilles, squares, moles — only if clearly visible\n"
-                        "For any attribute not clearly visible, write 'not clearly visible' — "
-                        "never guess or fill in what a typical hand would show."
-                    ),
+                    "content": _build_description_system_prompt(hand),
                 },
                 {
                     "role": "user",
