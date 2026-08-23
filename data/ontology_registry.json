@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "1.6.0",
+    "version": "1.7.0",
     "source": "Cheiro's Language of the Hand",
     "description": "Closed vocabulary registry for deterministic palmistry rule extraction. All feature, attribute, and value tokens used in rule generation MUST exist in this registry.",
     "total_features": 68,
@@ -1094,6 +1094,14 @@
       "change": "Add relation attributes 'Convergence' and 'Convergence_Location' (Pattern C, symmetric two-line convergence). Pure relation attributes: value=null, relation_target drawn from relation_target_registry, matched via palm_rules_table match()'s existing targets channel. Symmetry handled by CANONICALIZATION at extraction time (owner = alphabetically-first feature of the pair, target = the other). Convergence = 'line A meets line B'; Convergence_Location (single generic slot) = a third landmark associated with that convergence (either the meeting point or a shared continuation landmark, e.g. F025b fate+heart ascend Jupiter) -- disambiguated in claim prose, NOT structurally split, because vision (gpt-4o) reliability on meet-at vs continue-to is below floor; all location-gated C rules carry a LOWER-CONFIDENCE flag. Registry-legal only -- NOT yet in any vision-prompt menu, extractor label map, or rule file; unreachable until STEP 2 (extractor) and STEP 3 (vision) wiring. attribute_value_binding deliberately UNTOUCHED.",
       "canonical_owner_rule": "For any convergence pair {A, B}, owner = min(A, B) by string sort, relation_target = the other. In-scope owners: Line of Fate, Line of Head, Line of Health, Line of Heart. Line of Life is never an owner among in-scope pairs.",
       "unlocks": "Fate F025b (PARKED_RELATION) becomes authorable once STEP 3 lands."
+    },
+    {
+      "version": "1.7.0",
+      "date": "2026-08-22",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "Generalization step 1 (data-only, zero behavior change): add two new top-level blocks. 'relation_types' maps each relational attribute to its parse STRATEGY (directional/proximity/symmetric) -- the closed dispatch set a future generic parser will switch on, replacing today's bespoke per-attribute parse functions (extract_relational_targets, extract_proximity_observations, extract_convergence_targets). 'vision_relational_menus' is the CLOSED per-line target menu (ORIGIN/TERMINATION/CONVERGENCE/CONVERGENCE_LOCATION only -- BRANCHES_TO and PROXIMITY's landmark half validate against the full relation_target_registry, not a per-line closed list, per the block's own '_note' key), transcribed VERBATIM from agent/palm_processor.py's live describe_palm_image prompt (the actual vision-facing source of truth), covering Line of Head/Heart/Fate/Life.",
+      "reconciliation_note": "3-way drift check against scripts/vocab_reachability_scan.py's _VISION_ORIGIN_MENU/_VISION_TERMINATION_MENU found ONE mismatch: the scan's Line of Fate ORIGIN set is missing 'Plain of Mars', which the live prompt offers. The prompt was taken as authoritative for this registry block (it is what vision actually receives); the scan itself is NOT edited by this task -- that drift is fixed when the scan is refactored to derive its menus from this registry block (a future step), not patched ad hoc here. No CONVERGENCE/ CONVERGENCE_LOCATION menu existed anywhere to compare against (scan has no per-line convergence menu at all yet) -- transcribed directly from the prompt with nothing to reconcile.",
+      "no_code_consumes_yet": "Both blocks are registry-legal only. No extractor, scan, or rule file reads 'relation_types' or 'vision_relational_menus' as of this commit -- confirmed by this task's own full-suite run (unchanged at the 22-baseline)."
     }
   ],
   "relation_target_registry": [
@@ -1155,5 +1163,66 @@
     "Skin",
     "Percussion",
     "Base of Thumb"
-  ]
+  ],
+  "relation_types": {
+    "Starting_Point": "directional",
+    "Position": "directional",
+    "Branching": "directional",
+    "Proximity": "proximity",
+    "Convergence": "symmetric",
+    "Convergence_Location": "symmetric"
+  },
+  "vision_relational_menus": {
+    "Line of Head": {
+      "ORIGIN": [
+        "Mount of Jupiter",
+        "Line of Life",
+        "Lower Mount of Mars"
+      ],
+      "TERMINATION": [
+        "Mount of Luna",
+        "Percussion",
+        "Upper Mount of Mars"
+      ]
+    },
+    "Line of Heart": {
+      "ORIGIN": [
+        "Mount of Jupiter",
+        "Junction of First and Second Fingers",
+        "Mount of Saturn"
+      ],
+      "TERMINATION": [
+        "Percussion",
+        "Mount of Mercury"
+      ]
+    },
+    "Line of Fate": {
+      "ORIGIN": [
+        "Line of Life",
+        "Wrist",
+        "Mount of Luna",
+        "Line of Head",
+        "Line of Heart",
+        "Plain of Mars"
+      ],
+      "TERMINATION": [
+        "Mount of Saturn",
+        "Mount of Jupiter",
+        "Line of Heart",
+        "Line of Head"
+      ],
+      "CONVERGENCE": [
+        "Line of Heart"
+      ],
+      "CONVERGENCE_LOCATION": [
+        "Mount of Jupiter"
+      ]
+    },
+    "Line of Life": {
+      "CONVERGENCE": [
+        "Line of Health"
+      ]
+    },
+    "_note": "Only closed per-line menus are listed here: ORIGIN, TERMINATION, CONVERGENCE, CONVERGENCE_LOCATION. BRANCHES_TO and the PROXIMITY landmark are deliberately excluded -- both validate against the full relation_target_registry (an open landmark-name pool shared across every relational line), not a per-line closed list; there is no per-line menu to transcribe for them."
+  }
 }
