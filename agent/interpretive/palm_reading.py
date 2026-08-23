@@ -1874,6 +1874,24 @@ _EMPTY_OBSERVATION_RECORD_DIAGNOSTICS: dict = {
 }
 
 
+def _json_safe_targets(targets: dict[str, dict[str, object]]) -> dict[str, dict[str, object]]:
+    """Converts any set/frozenset leaf value in `targets` to a SORTED list so
+    engine_diagnostics["targets"] stays JSON-serializable (Pattern D
+    readiness, S98) -- applied ONLY at this diagnostics-export boundary; the
+    real `targets` dict passed to palm_rules_table.match() is untouched, so
+    the engine's set-membership semantics stay intact everywhere else. A
+    no-op today (every stored value is still a scalar); becomes load-bearing
+    once extract_relations starts emitting set-valued Convergence (Pattern D
+    step 3)."""
+    return {
+        feature: {
+            attr: sorted(value) if isinstance(value, (set, frozenset)) else value
+            for attr, value in attrs.items()
+        }
+        for feature, attrs in targets.items()
+    }
+
+
 def _prepare_claims_from_rules(
     raw_texts_by_feature: dict[str, list[str]],
     client=None,
@@ -2046,7 +2064,7 @@ def _prepare_claims_from_rules(
     engine_diagnostics.update({
         "observation_record": record_diagnostics,
         "observation": observation,
-        "targets": targets or {},
+        "targets": _json_safe_targets(targets or {}),
         "proximity_observations": proximity_observations or {},
         "dropped_tokens": magnitudes.get("_dropped", []),
         "fired_rule_ids": [r.rule_id for r in fired],
