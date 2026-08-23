@@ -1008,3 +1008,66 @@ def test_proximity_degree_wins_over_llm_emitted_proximity(
 
     diag = _engine_diag(result)
     assert diag["observation"]["Line of Head"]["Proximity"] == "touching"  # P overwrote the LLM's 'medium'
+
+
+# ─── Pattern D: n-way convergence rule firing (L_026, S98) ──────────────
+# Definition-of-done for the Generalization/Pattern D arc: the 3-way
+# life+head+heart join rule (data/palm_rules/palm_rules_life_line_v1.json,
+# L_026) must actually FIRE from a real vision string, through the real
+# chain (extract_relations -> merge_relational_targets -> load_rule_set ->
+# match()) -- no LLM stub needed, since Convergence signal is 100%
+# deterministic (the targets channel), same as FT_016's own mechanism.
+
+
+def test_l_026_three_way_convergence_fires_end_to_end_from_vision_string():
+    """Positive: a HEAD LINE block emitting two repeated CONVERGENCE lines
+    (Heart, Life) and a HEART LINE block emitting one (Life) -- the
+    repeated-line format the extractor requires (a comma-joined value would
+    be silently dropped, see the registry/prompt commit this rule follows).
+    Proves the rule fires and its claim is directly readable off the fired
+    PalmRule object -- no claim_extraction/LLM path involved, matching how
+    palm_reading._prepare_claims_from_rules itself builds `targets`."""
+    text = (
+        "HEAD LINE RELATIONAL:\n"
+        "  CONVERGENCE: Line of Heart\n"
+        "  CONVERGENCE: Line of Life\n"
+        "\n"
+        "HEART LINE RELATIONAL:\n"
+        "  CONVERGENCE: Line of Life\n"
+    )
+    result = observation_extractor.extract_relations(text)
+    targets = observation_extractor.merge_relational_targets(result["targets"])
+
+    # Both pairwise crossings resolve under "Line of Head" as canonical
+    # owner (Head < Heart, Head < Life by plain string sort); the third
+    # (Heart<->Life) resolves under "Line of Heart" (Heart < Life).
+    assert targets == {
+        "Line of Head": {"Convergence": {"Line of Heart", "Line of Life"}},
+        "Line of Heart": {"Convergence": {"Line of Life"}},
+    }
+
+    rules = palm_rules_table.load_rule_set()
+    fired = palm_rules_table.match({}, {}, rules, targets=targets)
+    fired_ids = [r.rule_id for r in fired]
+    assert "L_026" in fired_ids
+
+    l_026 = next(r for r in fired if r.rule_id == "L_026")
+    assert l_026.claim == (
+        "When the lines of life, head, and heart are all joined together at "
+        "their commencement, it is regarded as a very unfortunate sign, "
+        "indicating a reckless temperament that rushes blindly into danger."
+    )
+
+
+def test_l_026_does_not_fire_with_only_two_of_three_pairwise_crossings():
+    """Negative: HEAD<->HEART only (the Life crossings entirely absent) --
+    L_026 requires all three pairwise antecedents (AND-of-all), so it must
+    NOT fire on a partial join."""
+    text = "HEAD LINE RELATIONAL:\n  CONVERGENCE: Line of Heart\n"
+    result = observation_extractor.extract_relations(text)
+    targets = observation_extractor.merge_relational_targets(result["targets"])
+    assert targets == {"Line of Head": {"Convergence": {"Line of Heart"}}}
+
+    rules = palm_rules_table.load_rule_set()
+    fired = palm_rules_table.match({}, {}, rules, targets=targets)
+    assert "L_026" not in [r.rule_id for r in fired]

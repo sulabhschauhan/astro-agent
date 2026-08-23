@@ -286,6 +286,55 @@
       "verified_date": "2026-08-04",
       "source_fidelity": null,
       "schema_flags": []
+    },
+    {
+      "rule_id": "L_026",
+      "source_page": 134,
+      "topic_group": "line_life",
+      "is_compound": true,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Convergence",
+          "value": null,
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Heart"
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Convergence",
+          "value": null,
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Life"
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Convergence",
+          "value": null,
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Life"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "When the lines of life, head, and heart are all joined together at their commencement, it is regarded as a very unfortunate sign, indicating a reckless temperament that rushes blindly into danger.",
+      "source_quote": "When the lines of life, head, and heart are all joined together at the commencement (a-a, Plate XVIII.), it is a very unfortunate sign, denoting that the subject, through a defect in temperament, rushes blindly into danger and catastrophe.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-23",
+      "source_fidelity": "fulltext_exact",
+      "schema_flags": [
+        "LOWER-CONFIDENCE: relies on vision emitting repeated CONVERGENCE lines for all three pairwise crossings; positive detection untested on real images; prompt-widening dogfood pending (S98).",
+        "Pattern D first n-way rule: 3 pairwise membership antecedents against set-valued Convergence.",
+        "Source quote spans corpus page_ref 134->135 (book's own printed pp.80-81) -- recorded source_page=134 (quote start), per this file's existing convention of citing the starting page_ref for a quote that continues onto the next chunk.",
+        "Corroborating cross-chapter restatement (NOT this rule's source_quote, cited for audit only): Heart-line chapter, corpus page_ref 160 (book p.100): \"When the lines of heart, head and life are very much joined together, it is an evil sign; in all matters of affection such a subject would stick at nothing to obtain his or her desires.\" Same doctrine, different specific consequence (romantic ruthlessness vs. general recklessness) -- this rule's claim follows the Life-chapter quote's own specific wording, not the Heart-chapter's, since only one source_quote can be cited and this file is the Life-line file."
+      ]
     }
   ],
   "parked_pending": [
