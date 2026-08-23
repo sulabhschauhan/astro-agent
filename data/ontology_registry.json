@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "1.7.0",
+    "version": "1.8.0",
     "source": "Cheiro's Language of the Hand",
     "description": "Closed vocabulary registry for deterministic palmistry rule extraction. All feature, attribute, and value tokens used in rule generation MUST exist in this registry.",
     "total_features": 68,
@@ -1102,6 +1102,13 @@
       "change": "Generalization step 1 (data-only, zero behavior change): add two new top-level blocks. 'relation_types' maps each relational attribute to its parse STRATEGY (directional/proximity/symmetric) -- the closed dispatch set a future generic parser will switch on, replacing today's bespoke per-attribute parse functions (extract_relational_targets, extract_proximity_observations, extract_convergence_targets). 'vision_relational_menus' is the CLOSED per-line target menu (ORIGIN/TERMINATION/CONVERGENCE/CONVERGENCE_LOCATION only -- BRANCHES_TO and PROXIMITY's landmark half validate against the full relation_target_registry, not a per-line closed list, per the block's own '_note' key), transcribed VERBATIM from agent/palm_processor.py's live describe_palm_image prompt (the actual vision-facing source of truth), covering Line of Head/Heart/Fate/Life.",
       "reconciliation_note": "3-way drift check against scripts/vocab_reachability_scan.py's _VISION_ORIGIN_MENU/_VISION_TERMINATION_MENU found ONE mismatch: the scan's Line of Fate ORIGIN set is missing 'Plain of Mars', which the live prompt offers. The prompt was taken as authoritative for this registry block (it is what vision actually receives); the scan itself is NOT edited by this task -- that drift is fixed when the scan is refactored to derive its menus from this registry block (a future step), not patched ad hoc here. No CONVERGENCE/ CONVERGENCE_LOCATION menu existed anywhere to compare against (scan has no per-line convergence menu at all yet) -- transcribed directly from the prompt with nothing to reconcile.",
       "no_code_consumes_yet": "Both blocks are registry-legal only. No extractor, scan, or rule file reads 'relation_types' or 'vision_relational_menus' as of this commit -- confirmed by this task's own full-suite run (unchanged at the 22-baseline)."
+    },
+    {
+      "version": "1.8.0",
+      "date": "2026-08-23",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "Pattern D step 1 (data-only, zero behavior change): add 'relation_cardinality', a new top-level block parallel to 'relation_types', declaring each relational attribute's cardinality as 'single' or 'multi'. 'Convergence' is 'multi' -- a line may converge with several others at once (the 3-way join life+head+heart, currently unrepresentable by the single-valued slot). 'Convergence_Location' stays 'single': the only in-scope multi case (3-way join) carries no location, and F025b (the single-partner case) has exactly one location; per-partner locations are out of scope (flag if a future doctrine needs them). All other relational attributes (Starting_Point/Position/Branching/Proximity) are 'single', matching their current directional/proximity parse behavior.",
+      "no_code_consumes_yet": "relation_cardinality is registry-legal only. No extractor, scan, or rule file reads this block as of this commit -- confirmed by this task's own full-suite run (unchanged at the 22-baseline). Note: meta.version bumps 1.7.0 -> 1.8.0, not 1.6.0 -> 1.7.0 as this task's instructing prompt assumed -- the registry had already advanced to 1.7.0 via the prior Generalization step 1 entry above; 1.8.0 is the correct next version."
     }
   ],
   "relation_target_registry": [
@@ -1171,6 +1178,14 @@
     "Proximity": "proximity",
     "Convergence": "symmetric",
     "Convergence_Location": "symmetric"
+  },
+  "relation_cardinality": {
+    "Starting_Point": "single",
+    "Position": "single",
+    "Branching": "single",
+    "Proximity": "single",
+    "Convergence": "multi",
+    "Convergence_Location": "single"
   },
   "vision_relational_menus": {
     "Line of Head": {
