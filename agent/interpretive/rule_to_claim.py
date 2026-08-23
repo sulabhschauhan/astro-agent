@@ -97,6 +97,7 @@ _TOPIC_GROUP_TO_FEATURE: dict[str, str] = {
     "line_head_types": "head line",
     "line_head_murder": "head line",
     "line_heart": "heart line",
+    "line_fate": "fate line",
 }
 
 
