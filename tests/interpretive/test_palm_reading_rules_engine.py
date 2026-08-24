@@ -683,14 +683,18 @@ def test_enabled_features_derived_from_the_loaded_rule_set():
     assert palm_reading.rule_engine_enabled_features() == derived
 
     assert derived == frozenset({
-        "Hand", "Line of Head", "Line of Heart", "Line of Life",
-        "Mount of Venus", "Palm", "Quadrangle", "Square",
+        "Hand", "Line of Fate", "Line of Head", "Line of Heart",
+        "Line of Life", "Mount of Venus", "Quadrangle",
     })
     # Real ontology features with no rule behind them are STILL excluded
     # from this rule-derived set -- that hasn't changed. What changed is
     # that the extraction seam no longer uses this set as its allow-list
-    # (see the tests below).
-    for unruled in ("Line of Sun", "Line of Fate", "Thumb", "Mount of Jupiter"):
+    # (see the tests below). "Line of Fate" moved OUT of this unruled list
+    # (S97 Fate-line chapter gave it real antecedent/comparator_feature
+    # behavior, confirmed above); "Palm"/"Square" are absent from `derived`
+    # too, but for a different reason -- their rules (L_003/L_020/L_021)
+    # were retired (S96), not merely "never ruled" like this list's members.
+    for unruled in ("Line of Sun", "Thumb", "Mount of Jupiter"):
         assert unruled not in derived
 
 

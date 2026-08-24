@@ -357,7 +357,11 @@ def test_load_rule_set_bad_dir_raises_naming_the_dir(tmp_path):
 
 def test_load_rule_set_real_data_merges_43_plus_13_with_unique_ids():
     merged = load_rule_set()
-    assert len(merged) == 60  # 47 head+heart (incl. H_026 + H_027 + H_017 + H_016 + H_014, -1 retired H_001) + 13 life-line
+    # 74 = 47 head+heart (22 line_head + 3 line_head_types + 1 line_head_murder
+    # + 21 line_heart, incl. H_026 + H_027 + H_017 + H_016 + H_014, -1 retired
+    # H_001) + 11 life-line (L_003/L_020/L_021 retired S96) + 16 fate-line
+    # (line_fate, S97 chapter addition -- CLAUDE.md "Fate line: ... rules LIVE").
+    assert len(merged) == 74
     ids = [r.rule_id for r in merged]
     assert len(set(ids)) == len(ids)  # all unique
 
@@ -377,7 +381,14 @@ def test_load_rule_set_baseline_field_present_and_correct():
     merged = load_rule_set()
     by_id = {r.rule_id: r for r in merged}
     assert by_id["L_001"].baseline is True
-    assert by_id["L_021"].baseline is True
+    # L_021 was also baseline=True but is now retired (S96 marks/signs
+    # scope-out: Square not emission-reachable, retired_reason/
+    # retired_session on the rule itself confirm it), so it no longer loads.
+    # L_001 is the ONLY baseline=True rule in the current data/palm_rules/
+    # *.json validated_candidates set (verified by scanning every loaded
+    # rule's .baseline field) -- there is no second currently-loaded
+    # baseline rule to substitute, so this assertion is not replaced with a
+    # fabricated one; L_001 above already covers the positive-baseline case.
     assert by_id["H_002"].baseline is False  # known head+heart id, non-baseline (H_001 retired 5c step 3, superseded_by H_027)
 
 
