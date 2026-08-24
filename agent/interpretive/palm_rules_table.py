@@ -38,6 +38,7 @@ wiring is a later prompt. NOT wired into palm_reading.py.
 
 from __future__ import annotations
 
+import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -50,17 +51,26 @@ _DEFAULT_RULES_PATH = (
     Path(__file__).resolve().parent.parent.parent / "data" / "palm_rules" / "palm_rules_head_heart_v1.json"
 )
 
+# Step 4 (S99): registry-derived legal-mount set for antecedent.location
+# validation, same SSOT observation_extractor.py's _RELATION_TARGET_
+# REGISTRY draws from -- a location must be a real relation_target_registry
+# entry (mounts included), never a hand-listed copy.
+_ONTOLOGY_REGISTRY_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "ontology_registry.json"
+_ONTOLOGY_REGISTRY: dict = json.loads(_ONTOLOGY_REGISTRY_PATH.read_text(encoding="utf-8"))
+_RELATION_TARGET_REGISTRY: frozenset[str] = frozenset(_ONTOLOGY_REGISTRY["relation_target_registry"])
+
 # Directory of top-level rule-book JSON files -- load_rule_set() globs this
 # directory ONLY (non-recursive), so data/palm_rules/_candidates/ (unratified
 # drafts like deterministic_rule_book.json) is never picked up automatically.
 _DEFAULT_RULES_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "palm_rules"
 
-# The 7 antecedent fields this task's schema specifies. Any OTHER key
-# present on a raw antecedent dict (e.g. H_011's "hand_side": "both") is
-# silently dropped when building an Antecedent -- not an error, just out
-# of this schema's scope; see the module's own report for the one
-# concrete instance this drops in the current data (H_011).
-_ANTECEDENT_FIELDS = ("feature", "attribute", "value", "condition_type", "comparator", "comparator_feature", "relation_target")
+# The antecedent fields this task's schema specifies (8, as of Step 4's
+# additive "location" field). Any OTHER key present on a raw antecedent
+# dict (e.g. H_011's "hand_side": "both") is silently dropped when
+# building an Antecedent -- not an error, just out of this schema's scope;
+# see the module's own report for the one concrete instance this drops in
+# the current data (H_011).
+_ANTECEDENT_FIELDS = ("feature", "attribute", "value", "condition_type", "comparator", "comparator_feature", "relation_target", "location")
 
 
 @dataclass(frozen=True)
@@ -72,6 +82,7 @@ class Antecedent:
     comparator: str | None
     comparator_feature: str | None
     relation_target: str | None = None
+    location: str | None = None
 
     def signature(self) -> tuple:
         """Hashable identity used for antecedent-SET comparison in
@@ -79,11 +90,27 @@ class Antecedent:
         only if every field matches, so a comparative antecedent (value
         is always None) is never confused with a standard one, and a
         directed antecedent (relation_target set) is never confused with
-        its undirected counterpart."""
-        return (
+        its undirected counterpart.
+
+        Step 4 (S99): `location` is APPENDED only when set, never appended
+        as a trailing None -- CRITICAL for byte-identical behavior on every
+        pre-Step-4 antecedent (location defaults to None on all of them):
+        appending `self.location` unconditionally would turn every existing
+        7-tuple into an 8-tuple ending in None, which is a real, visible
+        change (a 7-tuple and an 8-tuple-ending-in-None are never `==`) even
+        though the "meaning" looks unchanged -- exactly the regression the
+        signature/dedup gate below exists to catch. A location-bearing
+        antecedent still ends up DISTINCT from its location=None counterpart
+        for free: a shorter 7-tuple can never equal a longer 8-tuple that
+        shares its first 7 elements, so no extra distinguishing logic is
+        needed once location is actually set."""
+        base = (
             self.feature, self.attribute, self.value, self.condition_type,
             self.comparator, self.comparator_feature, self.relation_target,
         )
+        if self.location is None:
+            return base
+        return base + (self.location,)
 
 
 @dataclass(frozen=True)
@@ -107,6 +134,20 @@ class PalmRule:
 
 
 def _build_antecedent(raw: dict) -> Antecedent:
+    """Builds an Antecedent from a raw JSON dict. Step 4 (S99) fail-closed
+    gate: an antecedent's optional "location" key, if present, must be a
+    relation_target_registry-legal mount -- same reachability posture as
+    every other closed-vocabulary gate in this pipeline (never silently
+    accept an unregistered token). Absent "location" -> None, unvalidated
+    (nothing to check)."""
+    location = raw.get("location")
+    if location is not None and location not in _RELATION_TARGET_REGISTRY:
+        raise ValueError(
+            f"palm_rules_table._build_antecedent: antecedent location={location!r} "
+            f"(feature={raw.get('feature')!r}, attribute={raw.get('attribute')!r}) "
+            "is not a relation_target_registry-legal target -- fail-closed, "
+            "refusing to load a rule with an unregistered location."
+        )
     return Antecedent(**{k: raw.get(k) for k in _ANTECEDENT_FIELDS})
 
 
@@ -237,8 +278,24 @@ def _antecedent_fires(antecedent: Antecedent, observation: dict, magnitudes: dic
     # A 1-element set matches exactly as the old equality did, so this is a
     # zero-behavior-change step until the extractor begins emitting sets (step 3).
     if isinstance(stored, (set, list, tuple)):
-        return antecedent.relation_target in stored
-    return stored == antecedent.relation_target
+        if antecedent.relation_target not in stored:
+            return False
+    elif stored != antecedent.relation_target:
+        return False
+
+    # Step 4 (S99): location-aware match, consulted ONLY after the type+
+    # target membership check above has already passed. location=None ->
+    # behavior UNCHANGED from today (falls straight through to the final
+    # `return True`, identical to the pre-Step-4 function's own terminal
+    # return on this path).
+    if antecedent.location is not None:
+        loc_map = targets.get(antecedent.feature, {}).get(f"{antecedent.attribute}__location")
+        if loc_map is None or loc_map.get(antecedent.relation_target) is None:
+            # Fail-closed: location required but not observed for this
+            # specific (attribute, relation_target) interaction.
+            return False
+        return loc_map.get(antecedent.relation_target) == antecedent.location
+    return True
 
 
 def match(
