@@ -1447,6 +1447,38 @@
       "schema_flags": [
         "RELATION_TARGET: value:null + target Line of Heart; branch signal carried by BRANCHES_TO (vision menu + extractor both wired, verified). 'upward' Direction antecedent dropped as unreadable. KNOWN LIMITATION: multi-landmark BRANCHES_TO (comma list) currently dropped by extract_relational_targets -> tracked separately."
       ]
+    },
+    {
+      "rule_id": "H_028",
+      "doctrine_sentence_ids": [
+        "H146a"
+      ],
+      "source_page": 146,
+      "topic_group": "line_head",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Line of Head",
+          "attribute": "joins_at_origin",
+          "value": null,
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null,
+          "relation_target": "Line of Life"
+        }
+      ],
+      "logic_join": "AND",
+      "claim": "A head line rising from the commencement of the life line, and connected with it, indicates a sensitive and more nervous temperament, with an excess of caution that leads even clever people to hold themselves back too tightly.",
+      "source_quote": "The line of head from the commencement of the line of life, and connected with it (d-d, Plate XVI.), indicates a sensitive and more nervous temperament; it denotes excess of caution; even clever people with this mark rein themselves down too tightly.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-24",
+      "source_fidelity": "fulltext_exact",
+      "schema_flags": [
+        "doctrine_sentence_ids uses a locally-coined page-based ID (H146a), NOT drawn from a pre-existing head-line doctrine inventory -- no data/palm_rules/_doctrine/doctrine_head.md exists yet (unlike Fate's doctrine_fate.md, whose F014a-style ids ARE catalogued there); scoped to this rule only, flagged rather than silently implying a false provenance.",
+        "TYPED-RELATIONSHIP FIRST AUTHORED RULE (S99 Step 5a): first rule to use the joins_at_origin typed token (typed-relationship arc). source_quote whitespace-normalized from data/cheiro/cheiro_clean_v1.json's page-146 chunk (embedded PDF line-wrap newlines collapsed to spaces, zero wording change) -- cross-validated word-for-word identical against data/cheiro/cheiro_pdf_fulltext.md's independently-reflowed line 958 before landing."
+      ]
     }
   ],
   "parked_pending_relation_target": [
