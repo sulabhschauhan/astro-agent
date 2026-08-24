@@ -522,26 +522,18 @@
       ],
       "source_page": 104,
       "topic_group": "line_fate",
-      "is_compound": true,
+      "is_compound": false,
       "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Fate",
-          "attribute": "Convergence",
+          "attribute": "meets",
           "value": null,
           "condition_type": "standard",
           "comparator": null,
           "comparator_feature": null,
-          "relation_target": "Line of Heart"
-        },
-        {
-          "feature": "Line of Fate",
-          "attribute": "Convergence_Location",
-          "value": null,
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null,
-          "relation_target": "Mount of Jupiter"
+          "relation_target": "Line of Heart",
+          "location": "Mount of Jupiter"
         }
       ],
       "logic_join": "AND",
@@ -553,7 +545,7 @@
       "source_fidelity": "fulltext_exact",
       "schema_flags": [
         "LOWER-CONFIDENCE: convergence-location vision reliability (positive detection of a fate+heart join ascending to Jupiter) is untested on real images; dogfood n=1 covered only the no-convergence negative path (S98).",
-        "Pattern C first authored rule (S98): fires via match() targets channel on Convergence + Convergence_Location antecedents."
+        "S99 Step 5b MIGRATION: representation change only, doctrine/claim/source_quote/page/verified status unchanged. Replaced the original 2-antecedent Convergence+Convergence_Location pair (Pattern C, S98) with a single typed 'meets' antecedent carrying a location ('Mount of Jupiter') -- the Step-4 engine's location-aware match now expresses the same 'fate meets heart AT Jupiter' condition in one antecedent instead of two ANDed together. First Convergence->typed migration; sets the pattern for the rest of 5c."
       ]
     }
   ],
