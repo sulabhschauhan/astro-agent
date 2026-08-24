@@ -135,9 +135,21 @@ _VISION_TERMINATION_MENU: dict[str, frozenset[str]] = {
     if not f.startswith("_") and "TERMINATION" in fields
 }
 
-_RELATIONAL_ATTRS = oe.EMITTED_RELATION_ATTRS  # derived from SSOT; any new
-# relational attribute declared in observation_extractor is picked up
-# automatically, no edit here.
+_RELATIONAL_ATTRS = oe.EMITTED_RELATION_ATTRS | oe._RELATIONSHIP_TOKENS  # derived
+# from SSOT, UNION of BOTH real emission channels (Step 5-pre-2, S99):
+# EMITTED_RELATION_ATTRS is the OLD directional/proximity/convergence
+# tracker's 6 attrs; oe._RELATIONSHIP_TOKENS is the 8 typed-relationship
+# tokens Step 3 added as a second, independent parse channel
+# (joins_at_origin/meets/cuts/cut_by/touches/stopped_by/takes_possession_of/
+# branch_in) -- both are genuinely emittable, so both belong in this
+# classifier's notion of "an extractor path exists". Deliberately reaches
+# into oe.'s underscore-named _RELATIONSHIP_TOKENS rather than editing
+# EMITTED_RELATION_ATTRS/RELATION_ATTR_TO_FIELD themselves (those drive the
+# OLD field tracker -- touching them risks the extraction behavior this
+# scan must never affect); a future cleanup could expose a public union
+# accessor in observation_extractor.py instead of this file reaching past
+# its underscore. Any new relational attribute declared in EITHER channel
+# is still picked up automatically, no further edit here.
 
 _RELATIONAL_ATTR_TO_FIELD = oe.RELATION_ATTR_TO_FIELD  # derived from SSOT
 _RELATIONAL_FEATURES = frozenset(oe._RELATIONAL_LINE_ALIAS.values())  # Line of Head/Heart/Fate
@@ -278,11 +290,24 @@ def classify_antecedent(feature: str, attribute: str, value, relation_target) ->
                 "nearest": _nearest(relation_target, oe._RELATION_TARGET_REGISTRY),
             }
         else:
-            field = _RELATIONAL_ATTR_TO_FIELD[attribute]
+            # Step 5-pre-2 (S99): a typed-relationship token (e.g.
+            # joins_at_origin/meets) has NO entry in _RELATIONAL_ATTR_TO_
+            # FIELD -- that map is the OLD ORIGIN/TERMINATION/PROXIMITY/
+            # BRANCHES_TO/CONVERGENCE/CONVERGENCE_LOCATION field-label
+            # lookup, deliberately left untouched (see the _RELATIONAL_ATTRS
+            # union comment above). .get() rather than a bare [] lookup so a
+            # typed token classifies "yes" instead of raising KeyError.
+            # field=None also correctly skips the ORIGIN/TERMINATION menu
+            # caveat below -- Step 2's RELATIONSHIP menu is generically
+            # derived (convergence_lines minus self, unioned with mounts),
+            # not a fixed per-line closed menu the way ORIGIN/TERMINATION
+            # are, so there is no equivalent caveat check to run for it.
+            field = _RELATIONAL_ATTR_TO_FIELD.get(attribute)
             caveat = _origin_termination_menu_caveat(field, feature, relation_target) if field in ("ORIGIN", "TERMINATION") else None
+            field_label = field if field is not None else attribute
             rel_result = {
                 "status": "yes",
-                "detail": f"relation_target {relation_target!r} reachable via the {field} parse (registry-legal)",
+                "detail": f"relation_target {relation_target!r} reachable via the {field_label} parse (registry-legal)",
                 "nearest": None,
                 "caveat": caveat,
             }
