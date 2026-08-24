@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "1.10.0",
+    "version": "1.11.0",
     "source": "Cheiro's Language of the Hand",
     "description": "Closed vocabulary registry for deterministic palmistry rule extraction. All feature, attribute, and value tokens used in rule generation MUST exist in this registry.",
     "total_features": 68,
@@ -1028,6 +1028,15 @@
       "Line of Head",
       "Line of Health",
       "Line of Heart"
+    ],
+    "joins_at_origin": [
+      "Line of Head",
+      "Line of Heart",
+      "Line of Life"
+    ],
+    "meets": [
+      "Line of Fate",
+      "Line of Heart"
     ]
   },
   "attribute_value_binding": {
@@ -1124,6 +1133,13 @@
       "author": "chat, awaiting Sulabh validation",
       "change": "Typed-relationship arc, Step 1 (data-only, additive): add 8 new keys to 'relation_types' (joins_at_origin/meets/cuts/cut_by/touches/stopped_by/takes_possession_of/branch_in) and the same 8 to 'relation_cardinality', plus a new top-level '_typed_relations_note' string. Subsumes today's untyped Convergence/Convergence_Location per the S98 typed-relationship-model ratification (see CLAUDE.md Locked Decisions, 'Convergence is set-valued (n-way) but UNTYPED'). Closed vocabulary: joins_at_origin/meets/touches/stopped_by/takes_possession_of/branch_in are new relation kinds; cuts/cut_by are the directional pair distinguishing a crossing line's two roles.",
       "no_code_consumes_yet": "Both additions are registry-legal only. No prompt, scan, or extractor reads any of these 8 keys as of this commit -- confirmed by this task's own differential gate (byte-identical before/after capture of the vision prompt string, the scan's ORIGIN/TERMINATION menus, and the extractor's EMITTED_RELATION_ATTRS/RELATION_ATTR_TO_FIELD/_RELATION_TYPES/_RELATION_CARDINALITY dumps) plus a full green test-suite run at the pre-existing baseline count."
+    },
+    {
+      "version": "1.11.0",
+      "date": "2026-08-24",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "Typed-relationship arc, Step 5-pre (data-only, additive): add exactly 2 of the 8 Step-1 typed tokens to 'attribute_feature_mapping' -- 'joins_at_origin': ['Line of Head', 'Line of Heart', 'Line of Life'] and 'meets': ['Line of Fate', 'Line of Heart'] -- making them authoring-legal (palm_select's vocabulary reachability check now reports them REACHABLE). Scope is deliberately DEMAND-DRIVEN, not the full 8: only these 2 tokens have a concrete authoring/migration target queued for Step 5a/5b (FT_016's migration off untyped Convergence). The other 6 (cuts/cut_by/touches/stopped_by/takes_possession_of/branch_in) are intentionally NOT added here and must remain authoring-illegal until a rule actually needs one -- no consumer of them exists yet, and opening the authoring surface ahead of real demand is out of scope for this step.",
+      "no_code_consumes_yet": "Additive to attribute_feature_mapping only, no other block touched. Isolation gate (same discipline as Step 1): the generated vision prompt string, the scan-derived ORIGIN/TERMINATION menus, and the extractor's derived maps (EMITTED_RELATION_ATTRS/RELATION_ATTR_TO_FIELD/_RELATION_TYPES/_RELATION_CARDINALITY) are all byte-identical before/after this change -- none of them read attribute_feature_mapping for these tokens. Only palm_select's authoring-reachability check is affected, confirmed by a direct before/after REACHABLE/UNREACHABLE probe on 3 synthetic antecedents (2 positive, 1 negative control on 'cuts', proving the other 6 tokens stayed closed). Full suite unchanged at 3539 passed / 7 skipped / 0 failed."
     }
   ],
   "relation_target_registry": [
