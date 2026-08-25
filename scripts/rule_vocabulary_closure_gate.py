@@ -33,11 +33,16 @@ script was written):
    point) -- always reachable via value, regardless of POOL/AFM.
 
 3. relation_target is not None: reachable iff attribute is one of the
-   four relational attributes {Starting_Point, Proximity, Position,
-   Branching}, feature is one of the three relational-capable lines
-   {Line of Head, Line of Heart, Line of Fate}, AND relation_target is in
-   relation_target_registry (RTR) -- mirrors
-   observation_extractor.extract_relational_targets()'s own closed
+   relation-bearing attributes ANY real extractor channel can emit --
+   `_TARGET_ALLOWED_ATTRIBUTES`, SSOT-derived as
+   `oe.EMITTED_RELATION_ATTRS | oe._RELATIONSHIP_TOKENS` (the old
+   directional/proximity/convergence tracker's attrs, unioned with the 8
+   typed-relationship tokens Step 3, S99 added -- same derivation
+   scripts/vocab_reachability_scan.py's own `_RELATIONAL_ATTRS` uses, so
+   the two scripts cannot silently disagree again), feature is one of the
+   three relational-capable lines {Line of Head, Line of Heart, Line of
+   Fate}, AND relation_target is in relation_target_registry (RTR) --
+   mirrors observation_extractor.extract_relational_targets()'s own closed
    vocabulary + `_RELATIONAL_LINE_ALIAS` scope.
 
 An antecedent with BOTH a value and a relation_target must pass BOTH
@@ -71,10 +76,31 @@ REGISTRY_PATH = ROOT / "data" / "ontology_registry.json"
 RULES_GLOB_PATTERN = str(ROOT / "data" / "palm_rules" / "palm_rules_*.json")
 REPORT_PATH = ROOT / "diagnostics" / "latest_run.md"
 
+sys.path.insert(0, str(ROOT))
+try:
+    from agent.interpretive import observation_extractor as oe
+except Exception as exc:  # noqa: BLE001 -- fail loud, never silently fall back to a stale copy
+    raise RuntimeError(
+        "rule_vocabulary_closure_gate: could not import "
+        "agent.interpretive.observation_extractor -- cannot derive the "
+        f"target-reachable attribute set without it, refusing to guess: {exc}"
+    ) from exc
+
 _PROXIMITY_EXEMPT_VALUES = frozenset({"touching", "medium", "distant"})
-_TARGET_ALLOWED_ATTRIBUTES = frozenset(
-    {"Starting_Point", "Proximity", "Position", "Branching"}
-)
+# SSOT, NOT a hardcoded copy (was a stale literal frozenset({"Starting_Point",
+# "Proximity", "Position", "Branching"}) that never grew past the old 4
+# directional/proximity attrs -- missing Convergence entirely and every one
+# of the 8 typed-relationship tokens Step 3 (S99) added, so it false-flagged
+# H_028/FT_016/L_026 as DEAD-TARGET-UNREACHABLE even though the real
+# pipeline (agent/interpretive/palm_rules_table.py's `_antecedent_fires`,
+# proven via scripts/vocab_reachability_scan.py's own classify_antecedent)
+# can fire them). Same derivation scripts/vocab_reachability_scan.py already
+# uses (its own `_RELATIONAL_ATTRS`): the union of BOTH real emission
+# channels -- oe.EMITTED_RELATION_ATTRS (old directional/proximity/
+# convergence tracker) and oe._RELATIONSHIP_TOKENS (the 8 typed-relationship
+# tokens) -- so a new relational attribute declared in either channel is
+# picked up automatically here too, no further edit needed at this site.
+_TARGET_ALLOWED_ATTRIBUTES = oe.EMITTED_RELATION_ATTRS | oe._RELATIONSHIP_TOKENS
 _TARGET_ALLOWED_FEATURES = frozenset(
     {"Line of Head", "Line of Heart", "Line of Fate"}
 )
@@ -208,7 +234,8 @@ def classify_antecedent(
         if attribute not in _TARGET_ALLOWED_ATTRIBUTES:
             return (
                 "DEAD-TARGET-UNREACHABLE",
-                "attribute not in {Starting_Point,Proximity,Position,Branching}",
+                f"attribute not in _TARGET_ALLOWED_ATTRIBUTES "
+                f"({sorted(_TARGET_ALLOWED_ATTRIBUTES)})",
             )
         if feature not in _TARGET_ALLOWED_FEATURES:
             return (
