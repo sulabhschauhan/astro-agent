@@ -2889,3 +2889,60 @@ KEY REAL-IMAGE FINDING (the pivot): dogfood + user's own image inspection of pal
 REQUIREMENT CENSUS: line_relationship_census.md enumerates ~10 line-relationship types across all chapters; only PROXIMITY + ORIGIN/TERMINATION are properly captured; join/meet/cut/touch/stopped-by/takes-possession/branch-in all uncaptured or misrouted.
 RATIFIED NEXT ARC — TYPED RELATIONSHIP MODEL (design agreed, NOT started): one typed relationship per line = set of {type, target, location?}; type is first-class, closed vocab: joins_at_origin | meets | cuts | cut_by | touches | stopped_by | takes_possession_of | branch_in. Subsumes today's untyped Convergence (FT_016/L_026 migrate to type=joins/meets). Set-valued + per-interaction location (index-aligned; CUT needs location for real, p.137). Emitter blocks ADDED for Health + Marriage. Leave ORIGIN/TERMINATION/PROXIMITY as-is. Defer Hindu ray-line subsystem + line-of-influence (not modeled features). Set-valued Starting_Point/Branching PARKED.
 METHOD LEARNINGS (adopt as standing working rules): design OUTSIDE-IN (start from what vision must emit, trace vision->extractor->engine->claim before code); state the GENERIC capability not the immediate task; GENERALIZATION GATE — reject anything hardcoding per-line/per-pair/per-case; DEFINITION OF DONE = fires end-to-end from a palm, never "machinery complete"; load the standing principles into EVERY agent design pass as a fixed preamble; measure before park/build.
+
+## Session 99 (S99) — Typed-Relationship Arc Ship + Relational-Elicitation Investigation
+
+**SHIPPED (committed, HEAD `4a3e5e4`):** typed-relationship arc Steps 1-5d -- closed 8-token
+vocab (`joins_at_origin`/`meets`/`cuts`/`cut_by`/`touches`/`stopped_by`/`takes_possession_of`/
+`branch_in`); registry + extractor + engine + guards landed; `H_028` (Head `joins_at_origin`
+Life, p146) fires end-to-end on real images; `FT_016` migrated Convergence+Convergence_Location
+-> typed `meets`+location; `L_026` migrated 3x untyped Convergence -> 3x typed
+`joins_at_origin`; CONVERGENCE emission retired for Head/Heart/Fate (Life retained on the
+legacy channel, since Life has no RELATIONSHIP field to take over); reachability classifier
+(`vocab_reachability_scan.py`) and closure gate (`rule_vocabulary_closure_gate.py`) fixed to
+recognise the typed channel, both SSOT-derived (`oe.EMITTED_RELATION_ATTRS |
+oe._RELATIONSHIP_TOKENS`) so they cannot silently disagree again. Verified non-impacting:
+deterministic all-non-relational-rules diff vs. pre-arc baseline commit `723168e` (the S98
+close-out, immediately before Step 1) produced IDENTICAL fired rule_id sets on a frozen
+synthetic hand exercising >=1 verified rule per line (Head/Heart/Fate/Life); live two-hand
+real-image sanity (`palm_right_test.jpg`, `Athira Palm Right.jpeg`) clean, zero fabrication.
+
+**RELATIONAL ELICITATION -- INVESTIGATED, PARKED (evidence-complete), CORRECTED SCOPE:** this
+is a WHOLE-CHANNEL gap, not Fate-specific. On real hands the ONLY relationship that reliably
+elicits via the structured RELATIONSHIP field is `joins_at_origin(Head, Life)`; no line ever
+emits `cuts`/`touches`/`stopped_by`/`meets` against any other line under the production prompt.
+Three single-prompt isolation tests all failed to move it: more-directive RELATIONSHIP wording
+(0/12 fired), Fate-line context isolation (stripping the other lines' fields, 0/18), and
+anti-typical-hand guard removal (1/9 fired -- one weak "touches Head" hit, zero fabrication
+anywhere in any of the probes: back-of-hand images correctly refuse rather than confabulate a
+crossing, Health/Marriage never emit RELATIONSHIP content when absent, no faint/"not clearly
+visible" line ever gets a RELATIONSHIP assertion). A direct free-form question ("trace the fate
+line ... list every contact") DOES reliably elicit crossings on the SAME images (Fate x
+Head/Heart 5/6 stable runs; negative controls passed -- back-of-hand refused 0/3, marriage-line
+control question answered "no" cleanly 6/6) -- but that is a SEPARATE, focused vision call,
+RULED OUT by the one-unified-prompt constraint this pipeline requires. "cuts" fires nothing
+in-scope either way: the corpus's own p136 "where they cut the fate-line..." passage is the
+already-scoped-out Hindu ray-line/Line-of-Influence doctrine (CLAUDE.md S96 chapter scope-out),
+not a live authoring target.
+
+**NEW AUTHORABLE CANDIDATE (not authored yet):** Cheiro p164 "fate abruptly stopped by the line
+of heart -> success ruined through the affections" = `stopped_by(Fate, Heart)`, authorable the
+same way `H_028` was (typed token, target-only antecedent); p164's "when it joins the heart" =
+`meets`, already covered by `FT_016`. Any such rule would fire synthetic-only until the
+channel-wide elicitation gap above is closed -- **decision pending** whether to author against
+an as-yet-unreachable-on-real-hands token or wait.
+
+**PARKED (this session):**
+- Whole-channel relational elicitation itself -- no single-prompt fix found across 3 isolation
+  tests; the one format that DOES work (a direct, separate question) is ruled out by the
+  no-separate-vision-calls constraint.
+- Life's full migration onto a RELATIONSHIP field -- no rule currently needs it, so Life stays
+  on the legacy CONVERGENCE channel.
+- The extractor's CONVERGENCE parsing path -- dead code for Head/Heart/Fate (no vision-prompt
+  caller left), still live for Life; not removed (explicitly deferred to "a later step" per the
+  Step 5d task).
+- 8 pre-existing dead rules flagged by the closure gate (`DEAD-ATTR-UNMAPPED` x4,
+  `DEAD-VALUE-DRIFT` x4) -- unrelated to this arc, unchanged, still parked.
+- The duplicated hard/soft-attribute literal (`palm_select.py`'s and
+  `hard_soft_partition_scan.py`'s byte-identical `_HARD_ATTRS` frozensets, no shared SSOT) --
+  same drift-risk class as the closure-gate bug this arc fixed, flagged but not fixed.

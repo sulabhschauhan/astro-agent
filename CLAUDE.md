@@ -5,7 +5,7 @@
 Astrologer AI Agent with RAG — Vedic astrology + palmistry PDFs → OCR → embed → ChromaDB → LLM Q&A agent.
 
 ## Current Session Focus
-**S98 CLOSED: Pattern C + registry-generalization + Pattern D n-way machinery COMPLETE and pushed (HEAD a668732 -> pushed this session); typed-relationship model RATIFIED, not started. See SESSION_LOG.md S98 for full detail.**
+**S99 SHIPPED (HEAD 4a3e5e4): typed-relationship arc Steps 1-5d complete and pushed -- closed 8-token vocab (joins_at_origin/meets/cuts/cut_by/touches/stopped_by/takes_possession_of/branch_in); registry+extractor+engine+guards landed; H_028/FT_016/L_026 migrated and fire end-to-end on real images; CONVERGENCE emission retired for Head/Heart/Fate (Life retained on the legacy channel); closure gate + reachability classifier SSOT-fixed. RELATIONAL ELICITATION is a channel-wide open problem, not Fate-specific: on real hands only joins_at_origin(Head,Life) reliably elicits; three single-prompt isolation tests (wording, context-isolation, guard-removal) all failed to move it; a direct free-form question DOES elicit crossings but is RULED OUT by the hard constraint of no separate/direct vision calls outside the single unified describe_palm_image prompt. NEXT QUEUED: whole-crossing-matrix relational-elicitation measurement (decision pending on authoring stopped_by(Fate,Heart), p164, against an as-yet-unreachable-on-real-hands token). See SESSION_LOG.md S99 for full detail.**
 <!-- UPDATE THIS every session. One line only. -->
 
 ## Locked Decisions
