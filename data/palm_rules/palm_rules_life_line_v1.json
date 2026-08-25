@@ -296,7 +296,7 @@
       "antecedents": [
         {
           "feature": "Line of Head",
-          "attribute": "Convergence",
+          "attribute": "joins_at_origin",
           "value": null,
           "condition_type": "standard",
           "comparator": null,
@@ -305,7 +305,7 @@
         },
         {
           "feature": "Line of Head",
-          "attribute": "Convergence",
+          "attribute": "joins_at_origin",
           "value": null,
           "condition_type": "standard",
           "comparator": null,
@@ -314,7 +314,7 @@
         },
         {
           "feature": "Line of Heart",
-          "attribute": "Convergence",
+          "attribute": "joins_at_origin",
           "value": null,
           "condition_type": "standard",
           "comparator": null,
@@ -333,7 +333,8 @@
         "LOWER-CONFIDENCE: relies on vision emitting repeated CONVERGENCE lines for all three pairwise crossings; positive detection untested on real images; prompt-widening dogfood pending (S98).",
         "Pattern D first n-way rule: 3 pairwise membership antecedents against set-valued Convergence.",
         "Source quote spans corpus page_ref 134->135 (book's own printed pp.80-81) -- recorded source_page=134 (quote start), per this file's existing convention of citing the starting page_ref for a quote that continues onto the next chunk.",
-        "Corroborating cross-chapter restatement (NOT this rule's source_quote, cited for audit only): Heart-line chapter, corpus page_ref 160 (book p.100): \"When the lines of heart, head and life are very much joined together, it is an evil sign; in all matters of affection such a subject would stick at nothing to obtain his or her desires.\" Same doctrine, different specific consequence (romantic ruthlessness vs. general recklessness) -- this rule's claim follows the Life-chapter quote's own specific wording, not the Heart-chapter's, since only one source_quote can be cited and this file is the Life-line file."
+        "Corroborating cross-chapter restatement (NOT this rule's source_quote, cited for audit only): Heart-line chapter, corpus page_ref 160 (book p.100): \"When the lines of heart, head and life are very much joined together, it is an evil sign; in all matters of affection such a subject would stick at nothing to obtain his or her desires.\" Same doctrine, different specific consequence (romantic ruthlessness vs. general recklessness) -- this rule's claim follows the Life-chapter quote's own specific wording, not the Heart-chapter's, since only one source_quote can be cited and this file is the Life-line file.",
+        "S99 Step 5c MIGRATION: representation change only, doctrine/claim/source_quote/page/verified status unchanged. All three antecedents' attribute changed from Convergence to the typed joins_at_origin token (same feature/relation_target pairs, no location -- a commencement join carries no separate mount) -- second Convergence->typed migration, first on an n-way (3-antecedent AND) rule, extending the Step 5b pattern."
       ]
     }
   ],
