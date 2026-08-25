@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "1.11.0",
+    "version": "1.12.0",
     "source": "Cheiro's Language of the Hand",
     "description": "Closed vocabulary registry for deterministic palmistry rule extraction. All feature, attribute, and value tokens used in rule generation MUST exist in this registry.",
     "total_features": 68,
@@ -1140,6 +1140,13 @@
       "author": "chat, awaiting Sulabh validation",
       "change": "Typed-relationship arc, Step 5-pre (data-only, additive): add exactly 2 of the 8 Step-1 typed tokens to 'attribute_feature_mapping' -- 'joins_at_origin': ['Line of Head', 'Line of Heart', 'Line of Life'] and 'meets': ['Line of Fate', 'Line of Heart'] -- making them authoring-legal (palm_select's vocabulary reachability check now reports them REACHABLE). Scope is deliberately DEMAND-DRIVEN, not the full 8: only these 2 tokens have a concrete authoring/migration target queued for Step 5a/5b (FT_016's migration off untyped Convergence). The other 6 (cuts/cut_by/touches/stopped_by/takes_possession_of/branch_in) are intentionally NOT added here and must remain authoring-illegal until a rule actually needs one -- no consumer of them exists yet, and opening the authoring surface ahead of real demand is out of scope for this step.",
       "no_code_consumes_yet": "Additive to attribute_feature_mapping only, no other block touched. Isolation gate (same discipline as Step 1): the generated vision prompt string, the scan-derived ORIGIN/TERMINATION menus, and the extractor's derived maps (EMITTED_RELATION_ATTRS/RELATION_ATTR_TO_FIELD/_RELATION_TYPES/_RELATION_CARDINALITY) are all byte-identical before/after this change -- none of them read attribute_feature_mapping for these tokens. Only palm_select's authoring-reachability check is affected, confirmed by a direct before/after REACHABLE/UNREACHABLE probe on 3 synthetic antecedents (2 positive, 1 negative control on 'cuts', proving the other 6 tokens stayed closed). Full suite unchanged at 3539 passed / 7 skipped / 0 failed."
+    },
+    {
+      "version": "1.12.0",
+      "date": "2026-08-25",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "Typed-relationship arc, Step 5d (registry + prompt + tests, landed atomically -- one logical change, three coupled files, per the coupling-note discipline this file's own 1.9.0 entry established): retire the CONVERGENCE emission channel for Head/Heart/Fate, now fully superseded by the typed RELATIONSHIP channel (H_028/FT_016/L_026 already migrated, Steps 5a-5c). Concretely: removed 'vision_relational_menus'[\"Line of Fate\"][\"CONVERGENCE_LOCATION\"] (the only per-line CONVERGENCE-family key that ever existed in this block -- CONVERGENCE itself was NEVER a per-line vision_relational_menus entry for any line, Head/Heart/Fate included; it has been derived from the top-level 'convergence_lines' list since the 1.9.0 Generic-convergence-emission step, per '_convergence_note'). agent/palm_processor.py's CONVERGENCE/CONVERGENCE_LOCATION field-emission text for Head/Heart/Fate was removed in the same logical change (that prompt edit landed in the working tree ahead of this registry commit and is included in the same commit). 'convergence_lines' itself is UNCHANGED (still ['Line of Life','Line of Head','Line of Heart','Line of Fate','Line of Health']) -- Line of Life's own CONVERGENCE menu derivation depends on this list including all four other lines as candidate partners, and Life's field is explicitly RETAINED (Life has no RELATIONSHIP field to take over the channel). relation_types/relation_cardinality/attribute_feature_mapping are UNCHANGED -- Convergence stays a registry-legal attribute (Life still authors against it); deeper removal of the untyped Convergence vocabulary itself is a separate, later step, not done here. '_note'/'_convergence_note'/'_location_note' updated to state the retirement and that only Line of Life still consumes the CONVERGENCE-family menus.",
+      "coupling_note": "Same discipline as the 1.9.0 entry: this registry edit is not safely data-only in isolation from the palm_processor.py prompt edit and the tests/interpretive/test_palm_processor.py test updates that expect the new (post-retirement) prompt shape -- all three land in the SAME commit."
     }
   ],
   "relation_target_registry": [
@@ -1280,13 +1287,10 @@
         "Mount of Jupiter",
         "Line of Heart",
         "Line of Head"
-      ],
-      "CONVERGENCE_LOCATION": [
-        "Mount of Jupiter"
       ]
     },
-    "_note": "Only closed per-line menus are listed here: ORIGIN, TERMINATION, CONVERGENCE_LOCATION. CONVERGENCE is NOT listed here -- see '_convergence_note' below; it is derived from the top-level 'convergence_lines' block, never hand-listed per line. BRANCHES_TO and the PROXIMITY landmark are also deliberately excluded -- both validate against the full relation_target_registry (an open landmark-name pool shared across every relational line), not a per-line closed list; there is no per-line menu to transcribe for them.",
-    "_convergence_note": "CONVERGENCE menu for any line = convergence_lines MINUS that line itself, derived at prompt-build time (Generic convergence emission step, S98). Multi-select (a line may cross several other lines at once -- Pattern D). Not hand-listed per line here; adding a new line to convergence_lines auto-participates with zero further vision-prompt edits.",
-    "_location_note": "location is scalar today (Line of Fate's CONVERGENCE_LOCATION above, the single-partner F025b case); when multi-partner locations are needed, capture as a list index-aligned to the (ordered) partner list -- one location per crossing, same order (ratified S98)."
+    "_note": "Only closed per-line menus are listed here: ORIGIN, TERMINATION. CONVERGENCE and CONVERGENCE_LOCATION are NOT listed here -- see '_convergence_note'/'_location_note' below. BRANCHES_TO and the PROXIMITY landmark are also deliberately excluded -- both validate against the full relation_target_registry (an open landmark-name pool shared across every relational line), not a per-line closed list; there is no per-line menu to transcribe for them.",
+    "_convergence_note": "CONVERGENCE menu for any line = convergence_lines MINUS that line itself, derived at prompt-build time (Generic convergence emission step, S98). Multi-select (a line may cross several other lines at once -- Pattern D). Not hand-listed per line here; adding a new line to convergence_lines auto-participates with zero further vision-prompt edits. RETIRED for Head/Heart/Fate (typed-relationship arc Step 5d, S99) -- their CONVERGENCE field was removed from the vision prompt in favor of the typed RELATIONSHIP channel; the derivation mechanism itself is untouched, and this menu is still live for Line of Life ONLY (Life has no RELATIONSHIP field, so it still needs this channel).",
+    "_location_note": "RETIRED (typed-relationship arc Step 5d, S99) -- Line of Fate's CONVERGENCE_LOCATION menu (formerly listed above, the single-partner F025b case) was removed along with Fate's CONVERGENCE field, both superseded by the typed RELATIONSHIP channel's own 'at <mount>' clause. No line currently declares a CONVERGENCE_LOCATION menu; kept as a historical pointer in case a future line ever needs one again -- when multi-partner locations are needed, capture as a list index-aligned to the (ordered) partner list -- one location per crossing, same order (ratified S98)."
   }
 }
