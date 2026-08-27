@@ -651,13 +651,27 @@ def _log_off_menu_caveat(feature: str, label: str, value: str) -> None:
 
 
 # ─── Typed RELATIONSHIP parsing -- typed-relationship arc Step 3 (S99) ───
-# Parses the NEW "RELATIONSHIP: <type> <target> [at <mount>]" lines Step 2
+# EMISSION + PARSE-CALL RETIRED (S107): agent/palm_processor.py no longer
+# emits "RELATIONSHIP:" lines, and extract_relations no longer calls
+# _parse_relationship_value/matches _RELATIONSHIP_SUBFIELD against
+# raw_text (see the "TYPED RELATIONSHIP -- RETIRED" paragraph on
+# extract_relations' own docstring below for the full account). The
+# symbols below this comment SURVIVE as shared infrastructure:
+# `_RELATIONSHIP_TOKENS` (imported by contact_mapper.py),
+# `_RELATIONSHIP_LINE_HEADER`/`_RELATIONSHIP_LINE_ALIAS` (now driving only
+# the CONTACTS tracker, below), and `_store_relationship` (the bridge's
+# filing primitive, called from palm_reading._assemble_relational_
+# targets). `_RELATIONSHIP_SUBFIELD` is removed (no remaining caller);
+# `_parse_relationship_value` is kept only because a non-production probe
+# script still imports it -- its own production call site is gone.
+#
+# Historical framing below (Step 3, S99): originally parsed the "NEW
+# RELATIONSHIP: <type> <target> [at <mount>]" lines Step 2
 # (agent/palm_processor.py) added to the Head/Heart/Fate/Health/Marriage
-# blocks. Fully additive: a distinct header regex, alias map, subfield
-# regex, and store function, all local to this section -- none of the
-# existing directional/proximity/convergence trackers, regexes, or state
-# are touched, so their behavior stays byte-identical (see the regression
-# gate in this task's own report).
+# blocks. Fully additive at the time: a distinct header regex, alias map,
+# subfield regex, and store function, all local to this section -- none of
+# the existing directional/proximity/convergence trackers, regexes, or
+# state were touched, so their behavior stayed byte-identical.
 #
 # HEADER-TEXT FINDING (flagged per project convention -- verify against
 # code, don't assume): the pre-existing _CONVERGENCE_LINE_HEADER constant
@@ -684,7 +698,9 @@ _RELATIONSHIP_LINE_ALIAS: dict[str, str] = {
     "line of health": "Line of Health",
     "line of marriage": "Line of Marriage",
 }
-_RELATIONSHIP_SUBFIELD = re.compile(r"^RELATIONSHIP:\s*(.*)$")
+# _RELATIONSHIP_SUBFIELD (matched "^RELATIONSHIP:\s*(.*)$") removed S107
+# -- no remaining caller once the sub_typed parse-call block in
+# extract_relations was retired.
 
 # Registry-derived, NOT a hardcoded list (DO #3): the 8 typed tokens are
 # exactly relation_types' keys minus the pre-existing legacy attrs
@@ -706,7 +722,12 @@ def _parse_relationship_value(value: str) -> tuple[str, str, str | None] | None:
     block. Targets never contain the literal substring " at " (verified
     against every line/mount name in relation_target_registry), so a plain
     first-occurrence split is unambiguous -- mirrors _proximity_landmark's
-    identical " to "-split reasoning for PROXIMITY above."""
+    identical " to "-split reasoning for PROXIMITY above.
+
+    NO PRODUCTION CALLER as of S107 (RELATIONSHIP emission + the
+    extract_relations parse-call path that used to call this are both
+    retired) -- kept only because scripts/crossing_pass_second_call_probe.py
+    (a non-production scratch script) still imports it directly."""
     value = value.strip()
     if not value or value.lower() in ("none", "n/a"):
         return None
@@ -731,8 +752,12 @@ def _store_relationship(
     target: str,
     mount: str | None,
 ) -> None:
-    """Files one parsed RELATIONSHIP interaction into `targets[feature]
-    [type_token]` (Step 3 DO #1/#2). MULTI cardinality (joins_at_origin/
+    """Files one parsed relational interaction into `targets[feature]
+    [type_token]` (Step 3 DO #1/#2). The one filing primitive for BOTH the
+    original (now-retired) typed-RELATIONSHIP parse path and its S107
+    replacement, `palm_reading._assemble_relational_targets` (CONTACTS ->
+    contact_mapper.map_contact -> here) -- cardinality/registry-gate
+    behavior is unchanged either way. MULTI cardinality (joins_at_origin/
     meets/cuts/cut_by/touches, per registry relation_cardinality) accumulates
     `target` into a set -- union, never overwrite, the same accumulate-
     don't-overwrite pattern Pattern D established for Convergence. SINGLE
@@ -806,21 +831,22 @@ def _store_relationship(
     loc_bucket[target] = mount
 
 
-# ─── Free-verb CONTACTS parsing -- S104 Step 3 ────────────────────────────
-# Parses the NEW "CONTACTS: <target> | <verb> | <position> | <clarity>"
-# lines Step 2 (agent/palm_processor.py) added to the Head/Heart/Fate/
-# Health blocks, additive alongside the untouched RELATIONSHIP field this
-# section sits next to. Fully additive and ISOLATED: its own subfield
-# regex, vocab sets, parse/store functions, and tracker variable, all local
-# to this section -- none of the existing directional/proximity/
-# convergence/typed-RELATIONSHIP trackers, regexes, or state are touched,
-# so their behavior (and every rule that reads "targets"/"proximity")
-# stays byte-identical. The header event that flips `current_feature_
-# contacts` reuses _RELATIONSHIP_LINE_HEADER/_RELATIONSHIP_LINE_ALIAS
-# (CONTACTS appears in the exact same blocks RELATIONSHIP does) rather than
-# adding a third header regime -- a separate tracker variable is kept
-# anyway (not reusing current_feature_typed) so a future change to one
-# channel's tracking can never silently affect the other.
+# ─── Free-verb CONTACTS parsing -- S104 Step 3 (S107: now the SOLE
+# emitted relational-verb channel, RELATIONSHIP retired) ──────────────────
+# Parses the "CONTACTS: <target> | <verb> | <position> | <clarity>" lines
+# agent/palm_processor.py emits under the Head/Heart/Fate/Health blocks.
+# Originally additive alongside a RELATIONSHIP field (Step 3, S99) that
+# S107 removed (both its emission and its parse-call path -- see the
+# "TYPED RELATIONSHIP -- RETIRED" paragraph in extract_relations' own
+# docstring below). Its own subfield regex, vocab sets, parse/store
+# functions, and tracker variable stay local to this section -- none of the
+# existing directional/proximity/convergence tracker/regex/state are
+# touched by this channel, so their behavior (and every rule that reads
+# "targets"/"proximity") stays byte-identical. The header event that flips
+# `current_feature_contacts` reuses _RELATIONSHIP_LINE_HEADER/
+# _RELATIONSHIP_LINE_ALIAS (names kept post-retirement -- CONTACTS appears
+# in the exact same blocks RELATIONSHIP used to) rather than adding a new
+# header regime.
 #
 # DELIBERATELY DUMB: the <verb> field is captured 100% verbatim, no
 # mapping, no menu check -- Step 4 owns interpreting it. This parser's only
@@ -1005,45 +1031,49 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
     that case, same "no signal" convention as all three source functions
     ("contacts" added Step 3, S104 -- see that paragraph below).
 
-    TYPED RELATIONSHIP (Step 3, S99, additive -- everything above this
-    paragraph is byte-identical pre/post this step): a THIRD, fully
-    independent tracker (`current_feature_typed`, its own local
-    `_RELATIONSHIP_LINE_HEADER`/`_RELATIONSHIP_LINE_ALIAS`/
-    `_RELATIONSHIP_SUBFIELD`) parses "RELATIONSHIP: <type> <target> [at
-    <mount>]" lines under the Head/Heart/Fate/Health/Marriage blocks Step 2
-    emits. Each typed token (registry-derived: relation_types minus the
-    legacy EMITTED_RELATION_ATTRS, never hardcoded) is filed into
-    `targets[feature][type_token]` -- a set (union) for MULTI cardinality
-    (joins_at_origin/meets/cuts/cut_by/touches), a scalar for SINGLE
-    (stopped_by/takes_possession_of/branch_in, first-seen wins on a
-    duplicate, warned). An optional "at <mount>" clause is stored index-
-    aligned at `targets[feature][f"{type_token}__location"][target] =
-    mount`. A malformed RELATIONSHIP line is caught and logged, never
-    propagated -- it cannot kill parsing of the rest of the block. See the
-    dedicated section above `extract_relations` for the full mechanics.
+    TYPED RELATIONSHIP -- RETIRED (S107): this paragraph is historical.
+    Step 3 (S99) originally added a THIRD, fully independent tracker
+    (`current_feature_typed`, its own local `_RELATIONSHIP_LINE_HEADER`/
+    `_RELATIONSHIP_LINE_ALIAS`/`_RELATIONSHIP_SUBFIELD`) that parsed
+    "RELATIONSHIP: <type> <target> [at <mount>]" lines emitted under the
+    Head/Heart/Fate/Health/Marriage blocks, filing each typed token into
+    `targets[feature][type_token]` via `_store_relationship`. S107 removed
+    BOTH the emitted RELATIONSHIP field (`agent/palm_processor.py`) and
+    this parse-call path -- H_028/L_026 (the only two live rules that
+    keyed on a typed token besides parked FT_016) now fire via the
+    CONTACTS channel instead (`palm_reading._assemble_relational_targets`
+    -> `contact_mapper.map_contact` (S106-inflection-aware) -> this
+    module's own `_store_relationship`, unchanged and still the one
+    filing primitive for both the old and new path). `_RELATIONSHIP_
+    TOKENS`, `_RELATIONSHIP_LINE_HEADER`/`_RELATIONSHIP_LINE_ALIAS` (now
+    driving ONLY the CONTACTS tracker below), and `_store_relationship`
+    all survive this retirement as shared symbols -- `_RELATIONSHIP_
+    SUBFIELD` and `_parse_relationship_value`'s production call site do
+    not (see `contact_mapper.py` and the CONTACTS paragraph below for what
+    replaced them).
 
-    FREE-VERB CONTACTS (Step 3, S104, additive -- everything above this
-    paragraph, including the TYPED RELATIONSHIP paragraph above, is
-    byte-identical pre/post this step): a FOURTH, fully independent tracker
-    (`current_feature_contacts`, reusing `_RELATIONSHIP_LINE_HEADER`/
-    `_RELATIONSHIP_LINE_ALIAS` for header detection but never reusing
-    `current_feature_typed` itself) parses "CONTACTS: <target> | <verb> |
-    <position> | <clarity>" lines under the Head/Heart/Fate/Health blocks
-    Step 2 emits, into a THIRD, ISOLATED return key: `{"targets": ...,
-    "proximity": ..., "contacts": {feature: [{"target", "verb", "position",
-    "clarity"}, ...]}}`. No rule reads "contacts" -- it exists purely so a
-    future step (Step 4) can interpret the verbatim-captured free verb.
-    `<verb>` is stored completely untouched, no mapping, no menu check.
-    `<target>` is gated against a per-feature menu (narrower than
-    `_RELATION_TARGET_REGISTRY`); off-menu is quarantined. `<position>`/
-    `<clarity>` normalize to a closed vocab or 'unknown', logged either way,
-    never dropping the whole contact over an unclear side-field. A feature
-    is present in `contacts` (possibly as `[]`) the moment ANY CONTACTS
-    line is seen for it -- valid, malformed, or explicit 'none' -- and is
-    absent from the dict ONLY when no CONTACTS line was emitted for it at
-    all, so has-contacts / declared-none / missing are all distinguishable
-    downstream. See the dedicated section above `extract_relations` for the
-    full mechanics.
+    FREE-VERB CONTACTS (Step 3, S104 -- originally additive alongside
+    typed RELATIONSHIP, now the SOLE relational-verb tracker post-S107
+    retirement): parses "CONTACTS: <target> | <verb> | <position> |
+    <clarity>" lines under the Head/Heart/Fate/Health blocks Step 2 emits,
+    into an ISOLATED return key: `{"targets": ..., "proximity": ...,
+    "contacts": {feature: [{"target", "verb", "position", "clarity"}, ...]}}`.
+    No rule reads "contacts" directly -- palm_reading._assemble_relational_
+    targets (S107) is the one production consumer, mapping each entry
+    through contact_mapper.map_contact into the SAME `targets` shape the
+    (now-retired) typed RELATIONSHIP path used to produce, via this
+    module's own `_store_relationship`. `<verb>` is stored completely
+    untouched here, no mapping, no menu check -- contact_mapper owns
+    interpreting it. `<target>` is gated against a per-feature menu
+    (narrower than `_RELATION_TARGET_REGISTRY`); off-menu is quarantined.
+    `<position>`/`<clarity>` normalize to a closed vocab or 'unknown',
+    logged either way, never dropping the whole contact over an unclear
+    side-field. A feature is present in `contacts` (possibly as `[]`) the
+    moment ANY CONTACTS line is seen for it -- valid, malformed, or
+    explicit 'none' -- and is absent from the dict ONLY when no CONTACTS
+    line was emitted for it at all, so has-contacts / declared-none /
+    missing are all distinguishable downstream. See the dedicated section
+    above `extract_relations` for the full mechanics.
     """
     if not isinstance(raw_text, str):
         raise TypeError(
@@ -1061,19 +1091,16 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
     # extract_proximity_observations' shared block-detection exactly.
     current_feature_rel: str | None = None
 
-    # Typed RELATIONSHIP tracker -- typed-relationship arc Step 3 (S99),
-    # independent of both trackers above, using its OWN local header regex/
-    # alias (_RELATIONSHIP_LINE_HEADER/_RELATIONSHIP_LINE_ALIAS) since
-    # Health/Marriage's actual header text ("LINE OF HEALTH:"/"LINE OF
-    # MARRIAGE:") is not recognized by either existing header regex -- see
-    # that section's own header-text finding comment above.
-    current_feature_typed: str | None = None
-
-    # Free-verb CONTACTS tracker -- S104 Step 3, independent of every
-    # tracker above (kept as its own variable rather than reusing
-    # current_feature_typed, even though both flip on the same header
-    # event -- see the "Free-verb CONTACTS parsing" section's own comment
-    # for why a separate variable is deliberate here).
+    # Free-verb CONTACTS tracker -- S104 Step 3, independent of the
+    # directional/proximity tracker above, using its OWN local header regex/
+    # alias (_RELATIONSHIP_LINE_HEADER/_RELATIONSHIP_LINE_ALIAS -- names
+    # retained post-S107-retirement, see that section's own header-text
+    # finding comment above) since Health/Marriage's actual header text
+    # ("LINE OF HEALTH:"/"LINE OF MARRIAGE:") is not recognized by either
+    # existing header regex. (S107 retired the sibling typed-RELATIONSHIP
+    # tracker this comment used to distinguish itself from -- CONTACTS was
+    # always its own variable, kept separate from that tracker even while
+    # both existed, on purpose.)
     current_feature_contacts: str | None = None
 
     # Symmetric/convergence tracker -- mirrors extract_convergence_targets'
@@ -1110,7 +1137,6 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
         stripped = line.strip()
         if not stripped:
             current_feature_rel = None
-            current_feature_typed = None
             current_feature_contacts = None
             _flush_conv_block_boundary()
             continue
@@ -1148,9 +1174,11 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
         if typed_header:
             typed_header_matched = True
             line_label = typed_header.group(1).strip().lower()
-            current_feature_typed = _RELATIONSHIP_LINE_ALIAS.get(line_label)
-            # Same header event, same alias lookup -- CONTACTS appears in
-            # the identical blocks RELATIONSHIP does (S104 Step 3).
+            # S107 retired the sibling typed-RELATIONSHIP tracker that
+            # used to also flip here -- CONTACTS is now the only consumer
+            # of this header event, still reusing the same
+            # _RELATIONSHIP_LINE_HEADER/_RELATIONSHIP_LINE_ALIAS names
+            # (kept, see the CONTACTS tracker's own comment above for why).
             current_feature_contacts = _RELATIONSHIP_LINE_ALIAS.get(line_label)
 
         if rel_header_matched or conv_header_matched or typed_header_matched:
@@ -1159,23 +1187,6 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
             # `continue` each source function takes after its own header
             # match, with an identical net effect.
             continue
-
-        # --- typed RELATIONSHIP subfield (Step 3, S99) ---
-        sub_typed = _RELATIONSHIP_SUBFIELD.match(stripped)
-        if sub_typed and current_feature_typed is not None:
-            raw_value = sub_typed.group(1)
-            try:
-                parsed = _parse_relationship_value(raw_value)
-            except Exception as exc:  # noqa: BLE001 -- malformed line must not kill the rest of the block (DO #4)
-                logger.info(
-                    "observation_extractor.extract_relations: failed parsing "
-                    "RELATIONSHIP value=%r for feature=%r: %s",
-                    raw_value, current_feature_typed, exc,
-                )
-            else:
-                if parsed is not None:
-                    type_token, target, mount = parsed
-                    _store_relationship(targets, current_feature_typed, type_token, target, mount)
 
         # --- free-verb CONTACTS subfield (Step 3, S104) ---
         sub_contacts = _CONTACTS_SUBFIELD.match(stripped)

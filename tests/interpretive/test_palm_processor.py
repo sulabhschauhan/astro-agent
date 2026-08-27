@@ -24,7 +24,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent.palm_processor import _build_description_system_prompt, _menu, _relationship_field
+from agent.palm_processor import _build_description_system_prompt, _menu, _contacts_field
 
 _REGISTRY_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "ontology_registry.json"
 _REGISTRY: dict = json.loads(_REGISTRY_PATH.read_text(encoding="utf-8"))
@@ -61,15 +61,16 @@ def test_menu_helper_reproduces_the_same_string_for_every_registry_entry():
 
 def test_convergence_menu_is_derived_from_convergence_lines_for_line_of_life_only():
     """CONVERGENCE is retired for Head/Heart/Fate (typed-relationship arc
-    Step 5d, S99, superseded by the typed RELATIONSHIP channel) -- Line of
-    Life is now the ONLY line that still emits a CONVERGENCE field. Its
-    menu must still equal convergence_lines MINUS Life itself, and that
-    exact "{...}" string must appear verbatim in the built prompt for both
-    hands. Narrowed from the original 4-line tuple ("Line of Life",
-    "Line of Head", "Line of Heart", "Line of Fate") -- the parallel
-    assertion below preserves coverage for Head/Heart/Fate by confirming
-    each still carries its own RELATIONSHIP field, the channel that
-    replaced CONVERGENCE for those three lines."""
+    Step 5d, S99, superseded by the typed RELATIONSHIP channel -- itself
+    retired S107 in favor of CONTACTS) -- Line of Life is now the ONLY
+    line that still emits a CONVERGENCE field. Its menu must still equal
+    convergence_lines MINUS Life itself, and that exact "{...}" string
+    must appear verbatim in the built prompt for both hands. Narrowed from
+    the original 4-line tuple ("Line of Life", "Line of Head", "Line of
+    Heart", "Line of Fate") -- the parallel assertion below preserves
+    coverage for Head/Heart/Fate by confirming each still carries its own
+    CONTACTS field, the channel that now carries relational-verb reporting
+    for those three lines."""
     feature = "Line of Life"
     expected_tokens = [line for line in _CONVERGENCE_LINES if line != feature]
     expected = _expected_menu_string(expected_tokens)
@@ -81,32 +82,34 @@ def test_convergence_menu_is_derived_from_convergence_lines_for_line_of_life_onl
         )
 
     # Parallel assertion (coverage preserved, not lost): Head/Heart/Fate
-    # each still carry their own, distinctly-menued RELATIONSHIP field.
+    # each still carry their own, distinctly-menued CONTACTS field.
     for other_feature in ("Line of Head", "Line of Heart", "Line of Fate"):
-        expected_field = _relationship_field(other_feature)
+        expected_field = _contacts_field(other_feature)
         for hand, prompt in _PROMPTS.items():
             assert expected_field in prompt, (
-                f"{other_feature!r} RELATIONSHIP field not found in built "
+                f"{other_feature!r} CONTACTS field not found in built "
                 f"prompt for hand={hand!r}"
             )
 
 
-def test_head_and_heart_have_a_relationship_field():
+def test_head_and_heart_have_a_contacts_field():
     """Was test_head_and_heart_now_have_a_convergence_field, which proved
     Head/Heart each carried a CONVERGENCE field with its own distinct menu
     (added by the Generic convergence emission step, S98). Repurposed for
     CONVERGENCE's retirement on these two lines (typed-relationship arc
-    Step 5d, S99): now proves the opposite for CONVERGENCE (neither line's
-    old field sentence remains) and the equivalent presence+distinctness
-    for RELATIONSHIP, the field that took over the channel."""
+    Step 5d, S99): proved the opposite for CONVERGENCE (neither line's old
+    field sentence remains) and the equivalent presence+distinctness for
+    RELATIONSHIP, the field that took over the channel. S107 retired
+    RELATIONSHIP in turn -- CONTACTS is now the sole relational-verb
+    channel, so this test asserts against it instead."""
     head_convergence_menu = _expected_menu_string([l for l in _CONVERGENCE_LINES if l != "Line of Head"])
     heart_convergence_menu = _expected_menu_string([l for l in _CONVERGENCE_LINES if l != "Line of Heart"])
-    head_field = _relationship_field("Line of Head")
-    heart_field = _relationship_field("Line of Heart")
+    head_field = _contacts_field("Line of Head")
+    heart_field = _contacts_field("Line of Heart")
     assert head_field != heart_field  # distinct target menus prove these are two separate fields, not one shared string
     for hand, prompt in _PROMPTS.items():
-        assert head_field in prompt, f"Line of Head RELATIONSHIP field not found in built prompt for hand={hand!r}"
-        assert heart_field in prompt, f"Line of Heart RELATIONSHIP field not found in built prompt for hand={hand!r}"
+        assert head_field in prompt, f"Line of Head CONTACTS field not found in built prompt for hand={hand!r}"
+        assert heart_field in prompt, f"Line of Heart CONTACTS field not found in built prompt for hand={hand!r}"
         assert f'CONVERGENCE: for each other line this one clearly crosses or joins, write a separate "CONVERGENCE: <line>" line choosing only from {head_convergence_menu}' not in prompt
         assert f'CONVERGENCE: for each other line this one clearly crosses or joins, write a separate "CONVERGENCE: <line>" line choosing only from {heart_convergence_menu}' not in prompt
 

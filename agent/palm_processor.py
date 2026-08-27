@@ -241,30 +241,13 @@ def _mount_menu() -> str:
     return "{" + " | ".join(_MOUNT_TARGETS) + "}"
 
 
-def _relationship_field(feature: str) -> str:
-    """Builds the RELATIONSHIP field block text for `feature` (S99 Step 2).
-    Additive alongside the existing CONVERGENCE field on every line that
-    carries one -- Step 5 migrates CONVERGENCE onto this typed channel; until
-    then a real crossing may legitimately be reported on both fields at
-    once (double-reporting is expected and fine this step)."""
-    return (
-        "  RELATIONSHIP: for each other line or mount this line clearly "
-        "interacts with, write a separate \"RELATIONSHIP: <type> <target> "
-        "[at <mount>]\" line. <type> is exactly one of "
-        f"{_relationship_type_menu()}. <target> is exactly one of "
-        f"{_relationship_target_menu(feature)}. Append \"at <mount>\" ONLY "
-        "for cuts/cut_by/meets where the crossing mount is legible (choose "
-        f"from {_mount_menu()}); omit it otherwise. If none clearly "
-        "visible, write \"RELATIONSHIP: none\".\n"
-    )
-
-
 def _contacts_field(feature: str) -> str:
     """Builds the free-verb CONTACTS field block text for `feature` (S104
-    Step 2). Purely additive alongside the existing RELATIONSHIP field --
-    nothing consumes CONTACTS yet (Step 3 wires the extractor); RELATIONSHIP
-    stays byte-identical so the live typed-relationship rules keep firing on
-    the old path. Wording is the validated position-optional, contact-first
+    Step 2). S107 cutover retired the emitted RELATIONSHIP field (typed-
+    relationship rules now fire off CONTACTS via
+    palm_reading._assemble_relational_targets -> contact_mapper.map_contact,
+    S106-inflection-aware) -- this is now the SOLE emitted relational-verb
+    channel. Wording is the validated position-optional, contact-first
     form from the S103 recall-recovery probe (recall recovered to 3/3,
     position 6/6 real, zero fabrication)."""
     return (
@@ -306,7 +289,7 @@ def _build_description_system_prompt(hand: str) -> str:
         "-- repeat this line once per additional crossing; if none clearly visible, "
         "write \"CONVERGENCE: none\"\n"
         "For HEAD, HEART, and FATE lines, after SLOPE also give ORIGIN, TERMINATION, "
-        "PROXIMITY, BRANCHES_TO, RELATIONSHIP as separate indented lines. ORIGIN/TERMINATION: pick "
+        "PROXIMITY, BRANCHES_TO, CONTACTS as separate indented lines. ORIGIN/TERMINATION: pick "
         "ONLY from that line's listed menu, else 'none'. HEART LINE DIRECTION LAW: the "
         "finger/mount end is ORIGIN and the percussion is TERMINATION (even though common "
         "convention calls the percussion the start). FATE LINE DIRECTION LAW: the "
@@ -324,7 +307,6 @@ def _build_description_system_prompt(hand: str) -> str:
         f"  TERMINATION: exactly one of {_menu('Line of Head', 'TERMINATION')} or 'none' if the line is short and ends mid-palm\n"
         "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
         "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
-        f"{_relationship_field('Line of Head')}"
         f"{_contacts_field('Line of Head')}"
         "HEART LINE: same attributes (depth, width, length, direction, breaks/chains/forks/islands)\n"
         "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
@@ -332,7 +314,6 @@ def _build_description_system_prompt(hand: str) -> str:
         f"  TERMINATION: exactly one of {_menu('Line of Heart', 'TERMINATION')} or 'none'\n"
         "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
         "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
-        f"{_relationship_field('Line of Heart')}"
         f"{_contacts_field('Line of Heart')}"
         "FATE LINE: same attributes (state plainly if absent or barely visible)\n"
         "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
@@ -347,13 +328,10 @@ def _build_description_system_prompt(hand: str) -> str:
         "  LENGTH EXTENT: if the fate line runs beyond the palm's edge and visibly continues into "
         "the base of the Second Finger (Saturn finger), write 'cutting_into_finger_of_Saturn'. If "
         "the line ends within the palm, write 'n/a'.\n"
-        f"{_relationship_field('Line of Fate')}"
         f"{_contacts_field('Line of Fate')}"
         "LINE OF HEALTH: presence, only if clearly visible\n"
-        f"{_relationship_field('Line of Health')}"
         f"{_contacts_field('Line of Health')}"
         "LINE OF MARRIAGE: presence, only if clearly visible\n"
-        f"{_relationship_field('Line of Marriage')}"
         "OTHER LINES: sun/intuition lines only if clearly visible\n"
         "MOUNTS: which pads appear developed, flat, or unremarkable\n"
         "MARKS: crosses, stars, grilles, squares, moles — only if clearly visible\n"

@@ -1014,47 +1014,52 @@ def test_proximity_degree_wins_over_llm_emitted_proximity(
     assert diag["observation"]["Line of Head"]["Proximity"] == "touching"  # P overwrote the LLM's 'medium'
 
 
-# ─── Pattern D: n-way convergence rule firing (L_026, S98/S99) ──────────
+# ─── Pattern D: n-way convergence rule firing (L_026, S98/S99/S107) ─────
 # Definition-of-done for the Generalization/Pattern D arc: the 3-way
 # life+head+heart join rule (data/palm_rules/palm_rules_life_line_v1.json,
 # L_026) must actually FIRE from a real vision string, through the real
-# chain (extract_relations -> merge_relational_targets -> load_rule_set ->
-# match()) -- no LLM stub needed, since the joins_at_origin signal is 100%
-# deterministic (the targets channel), same as FT_016's own mechanism.
-# S99 Step 5c migrated the rule's own wording from untyped Convergence to
-# the typed joins_at_origin token (see the rule's own schema_flags); the
-# two tests below were updated to emit that typed wording accordingly.
+# chain (extract_relations -> palm_reading._assemble_relational_targets ->
+# merge_relational_targets -> load_rule_set -> match()) -- no LLM stub
+# needed, since the joins_at_origin signal is 100% deterministic (the
+# targets channel), same as FT_016's own mechanism. S99 Step 5c migrated
+# the rule's own wording from untyped Convergence to the typed
+# joins_at_origin token (see the rule's own schema_flags). S107 cut the
+# rule over again -- from the typed RELATIONSHIP field (retired) to the
+# free-verb CONTACTS field, mapped through contact_mapper.map_contact
+# (S106-inflection-aware) via palm_reading._assemble_relational_targets --
+# the tests below were updated to emit CONTACTS wording and route through
+# that bridge accordingly.
 
 
 def test_l_026_three_way_convergence_fires_end_to_end_from_vision_string():
-    """Positive: a HEAD LINE block emitting two typed RELATIONSHIP lines
-    (joins_at_origin Heart, joins_at_origin Life) and a HEART LINE block
-    emitting one (joins_at_origin Life) -- the S99 5c typed-wording
-    migration of this rule (Convergence -> joins_at_origin), mirroring the
-    exact real-image methodology Steps 5b/5c already used (H_028's own
-    "Line of Head" block reporting its own joins_at_origin, S99 Step 5a).
-    Unlike the old CONVERGENCE mechanism, the typed RELATIONSHIP parser
-    does NOT canonicalize by alphabetical owner -- a relation is filed
-    under whichever feature's block reports it, so the synthetic text
-    below reports each pairwise join from the same side the rule's own
-    antecedents key on (Head reports both its joins, Heart reports its
-    remaining one to Life).
+    """Positive: a HEAD LINE block emitting two CONTACTS lines (joins Heart
+    at start, joins Life at start) and a HEART LINE block emitting one
+    (joins Life at start) -- the S107 cutover of this rule's signal source
+    from typed RELATIONSHIP to free-verb CONTACTS, mirroring the exact
+    real-image methodology Steps 5b/5c already used for the typed wording
+    (H_028's own "Line of Head" block reporting its own joins_at_origin,
+    S99 Step 5a). Unlike the old CONVERGENCE mechanism, neither the typed
+    RELATIONSHIP parser nor its CONTACTS successor canonicalize by
+    alphabetical owner -- a relation is filed under whichever feature's
+    block reports it, so the synthetic text below reports each pairwise
+    join from the same side the rule's own antecedents key on (Head
+    reports both its joins, Heart reports its remaining one to Life).
     Proves the rule fires and its claim is directly readable off the fired
     PalmRule object -- no claim_extraction/LLM path involved, matching how
     palm_reading._prepare_claims_from_rules itself builds `targets`."""
     text = (
         "HEAD LINE: present\n"
-        "  RELATIONSHIP: joins_at_origin Line of Heart\n"
-        "  RELATIONSHIP: joins_at_origin Line of Life\n"
+        "  CONTACTS: Line of Heart | joins | at start | clear\n"
+        "  CONTACTS: Line of Life | joins | at start | clear\n"
         "\n"
         "HEART LINE: present\n"
-        "  RELATIONSHIP: joins_at_origin Line of Life\n"
+        "  CONTACTS: Line of Life | joins | at start | clear\n"
     )
     result = observation_extractor.extract_relations(text)
-    targets = observation_extractor.merge_relational_targets(result["targets"])
+    targets = palm_reading._assemble_relational_targets(result["contacts"])
 
     # Each pairwise join is filed under the feature whose block reported it
-    # (no canonicalization for typed RELATIONSHIP, unlike old CONVERGENCE):
+    # (no canonicalization, same as the retired typed-RELATIONSHIP path):
     # Head reports both its own joins (Heart, Life); Heart reports its
     # remaining one (Life).
     assert targets == {
@@ -1079,11 +1084,73 @@ def test_l_026_does_not_fire_with_only_two_of_three_pairwise_crossings():
     """Negative: HEAD<->HEART only (the Life crossings entirely absent) --
     L_026 requires all three pairwise antecedents (AND-of-all), so it must
     NOT fire on a partial join."""
-    text = "HEAD LINE: present\n  RELATIONSHIP: joins_at_origin Line of Heart\n"
+    text = "HEAD LINE: present\n  CONTACTS: Line of Heart | joins | at start | clear\n"
     result = observation_extractor.extract_relations(text)
-    targets = observation_extractor.merge_relational_targets(result["targets"])
+    targets = palm_reading._assemble_relational_targets(result["contacts"])
     assert targets == {"Line of Head": {"joins_at_origin": {"Line of Heart"}}}
 
     rules = palm_rules_table.load_rule_set()
     fired = palm_rules_table.match({}, {}, rules, targets=targets)
     assert "L_026" not in [r.rule_id for r in fired]
+
+
+# ─── H_028 single-antecedent typed-relationship rule firing (S107) ──────
+# H_028 (data/palm_rules/palm_rules_head_heart_v1.json) is the other of the
+# two rules the S107 cutover migrated -- a single joins_at_origin
+# antecedent (Head -> Life), unlike L_026's 3-way AND. Kept as its own
+# minimal fixture (Stage 0's "old-only" reference analogue) rather than
+# folded into the L_026 tests above, since it exercises the single-
+# antecedent, single-hand-block path the 3-way fixture doesn't cover.
+
+
+def test_h_028_fires_end_to_end_from_contacts_vision_string():
+    """Positive: a HEAD LINE block emitting one CONTACTS line (joins Life
+    at start) fires H_028 via the same extract_relations ->
+    palm_reading._assemble_relational_targets -> match() chain L_026 uses
+    above."""
+    text = "HEAD LINE: present\n  CONTACTS: Line of Life | joins | at start | clear\n"
+    result = observation_extractor.extract_relations(text)
+    targets = palm_reading._assemble_relational_targets(result["contacts"])
+    assert targets == {"Line of Head": {"joins_at_origin": {"Line of Life"}}}
+
+    rules = palm_rules_table.load_rule_set()
+    fired = palm_rules_table.match({}, {}, rules, targets=targets)
+    fired_ids = [r.rule_id for r in fired]
+    assert "H_028" in fired_ids
+
+    h_028 = next(r for r in fired if r.rule_id == "H_028")
+    assert h_028.claim == (
+        "A head line rising from the commencement of the life line, and "
+        "connected with it, indicates a sensitive and more nervous "
+        "temperament, with an excess of caution that leads even clever "
+        "people to hold themselves back too tightly."
+    )
+
+
+def test_h_028_does_not_fire_without_a_life_line_contact():
+    """Negative: a HEAD LINE block reporting a contact to a DIFFERENT line
+    (Heart, not Life) must not fire H_028, whose sole antecedent keys on
+    Line of Life specifically."""
+    text = "HEAD LINE: present\n  CONTACTS: Line of Heart | joins | at start | clear\n"
+    result = observation_extractor.extract_relations(text)
+    targets = palm_reading._assemble_relational_targets(result["contacts"])
+    assert targets == {"Line of Head": {"joins_at_origin": {"Line of Heart"}}}
+
+    rules = palm_rules_table.load_rule_set()
+    fired = palm_rules_table.match({}, {}, rules, targets=targets)
+    assert "H_028" not in [r.rule_id for r in fired]
+
+
+def test_h_028_fires_from_inflected_joined_via_s106_normalization():
+    """S106/S107 integration proof: the CONTACTS line uses the PAST-TENSE
+    "joined" (the exact verb-form that aborted the first S104 5b attempt)
+    -- must still resolve through contact_mapper's inflection map and fire
+    H_028 identically to the base-form "joins" case above."""
+    text = "HEAD LINE: present\n  CONTACTS: Line of Life | joined | at start | clear\n"
+    result = observation_extractor.extract_relations(text)
+    targets = palm_reading._assemble_relational_targets(result["contacts"])
+    assert targets == {"Line of Head": {"joins_at_origin": {"Line of Life"}}}
+
+    rules = palm_rules_table.load_rule_set()
+    fired = palm_rules_table.match({}, {}, rules, targets=targets)
+    assert "H_028" in [r.rule_id for r in fired]

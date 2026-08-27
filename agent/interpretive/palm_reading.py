@@ -2193,6 +2193,35 @@ def _flatten_proximity_degrees(
     }
 
 
+def _assemble_relational_targets(contacts: dict[str, list[dict]]) -> dict[str, dict[str, object]]:
+    """Bridge (S107): map each captured free-verb contact to a typed token via
+    contact_mapper.map_contact and file token!=None into a targets dict, reusing
+    observation_extractor._store_relationship (the one filing primitive:
+    cardinality + relation_target_registry gate). Policy (ratified): files ALL
+    resolved tokens regardless of confidence/clarity -- preserves byte-identical
+    equivalence with the retired RELATIONSHIP path (which had neither axis).
+    Unresolved (token=None) contacts are quarantined + logged, never guessed.
+    NO LLM here -- the LLM fallback on token=None is a separate later task; this
+    helper is its future insertion point (fallback wraps, never overrides, this)."""
+    from agent.interpretive.contact_mapper import map_contact  # local import -- avoids obs_extractor<->contact_mapper cycle
+    from agent.interpretive import observation_extractor          # local -- matches this file's existing observation_extractor import convention (prepare_palm_reading)
+    targets: dict[str, dict[str, object]] = {}
+    for feature, contact_list in (contacts or {}).items():
+        for c in contact_list:
+            try:
+                mapped = map_contact(c)
+            except Exception as exc:  # noqa: BLE001 -- a bad contact must quarantine, never crash the reading
+                logger.error("S107 bridge: map_contact raised on %r (%s) -- quarantined.", c, exc)
+                continue
+            if mapped.get("token") is None:
+                logger.info("S107 bridge: unresolved contact %r -- %s (quarantined).", c, mapped.get("reason"))
+                continue
+            observation_extractor._store_relationship(
+                targets, feature, mapped["token"], mapped["target"], None,  # mount=None: a commencement join carries no separate mount
+            )
+    return targets
+
+
 def prepare_palm_reading(
     palm_left: str | None,
     palm_right: str | None,
@@ -2255,9 +2284,17 @@ def prepare_palm_reading(
         # convergence attribute keys stay disjoint, matching old behavior.
         left_rel = observation_extractor.extract_relations(palm_left or "")
         right_rel = observation_extractor.extract_relations(palm_right or "")
+        # S107 bridge: CONTACTS-derived typed targets merge alongside the
+        # existing (directional/convergence/typed-RELATIONSHIP) targets --
+        # merge_relational_targets is variadic and cardinality-aware, so
+        # this is a pure additive merge, not a replacement.
+        left_ct = _assemble_relational_targets(left_rel["contacts"])
+        right_ct = _assemble_relational_targets(right_rel["contacts"])
         targets = observation_extractor.merge_relational_targets(
             left_rel["targets"],
             right_rel["targets"],
+            left_ct,
+            right_ct,
         )
         try:
             proximity_observations = observation_extractor.merge_relational_targets(
