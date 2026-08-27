@@ -2222,6 +2222,101 @@ def _assemble_relational_targets(contacts: dict[str, list[dict]]) -> dict[str, d
     return targets
 
 
+# S109 fallback audit dispositions logged for human review -- the AI-over-AI
+# checkpoint (CLAUDE.md Working Style #5). Deliberately excludes ONLY
+# "already_resolved_no_llm_needed" (purely deterministic, no AI decision
+# was made). "position_unresolved" (S109 amendment, ratified): an LLM DID
+# resolve a canonical join-family verb here, but the vision model gave no
+# usable position ("at start"/"mid-course"/"at end"), so the join-vs-meet
+# token stays honestly unresolved -- logged for VISIBILITY/measurement
+# only. No token is ever fired for it, and no second vision call is made
+# to recover a position; this is a pure logging widening, not a behavior
+# change.
+_FALLBACK_LOGGED_DISPOSITIONS = frozenset({
+    "resolved", "llm_unclear", "hallucination",
+    "batch_call_failed", "batch_malformed_response",
+    "position_unresolved",
+})
+
+
+def _log_fallback_audits(audits: list[dict]) -> None:
+    """Emits one structured WARNING log line per audit record whose
+    disposition represents an actual AI-involved decision. NOT a
+    capture-net file/API -- that is a separate, not-yet-built task
+    (logging only, an interim human-review surface until that lands)."""
+    for record in audits:
+        if record.get("disposition") not in _FALLBACK_LOGGED_DISPOSITIONS:
+            continue
+        logger.warning(
+            "S109 fallback audit: raw_verb=%r llm_choice=%r final_token=%r disposition=%r",
+            record.get("raw_verb"), record.get("llm_canonical_choice"),
+            record.get("final_token"), record.get("disposition"),
+        )
+
+
+def _assemble_relational_targets_with_fallback(
+    left_contacts: dict[str, list[dict]],
+    right_contacts: dict[str, list[dict]],
+    client,
+) -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]], list[dict]]:
+    """S109: client-gated rescue wrapper around _assemble_relational_targets.
+    _assemble_relational_targets itself is UNCHANGED (S107, no-LLM,
+    determinism-gate path) -- this is an ADDITIVE sibling, never a
+    replacement of it.
+
+    Flattens BOTH hands' contacts into ONE list, keeping an index-aligned
+    parallel list of (hand, feature) so results can be re-filed -- contact
+    dicts carry target/verb/position/clarity but NOT their own feature
+    (feature is the upstream dict key), so the parallel index is
+    mandatory. Makes exactly ONE contact_llm_fallback.
+    resolve_unresolved_contacts call for the whole reading: that function
+    internally re-runs map_contact first, so deterministically-resolvable
+    contacts (including S106-inflected forms) cost zero LLM and only
+    genuine residual token=None contacts ever enter the LLM batch -- the
+    FULL flat list is passed through, never pre-filtered here (S108's own
+    contract already does that filtering correctly).
+
+    Every result with token != None is filed into the correct hand's
+    targets dict under its (hand, feature) via observation_extractor.
+    _store_relationship(..., mount=None) -- the SAME filing primitive
+    _assemble_relational_targets itself uses, so cardinality/registry-gate
+    behavior is unchanged whether a token came from the deterministic
+    tables or the LLM rescue. token == None stays quarantined (the
+    resolver's own honest-silence contract) -- never guessed, never
+    logged again here (resolve_unresolved_contacts already logged its own
+    per-item quarantine reasoning; this function's caller logs the
+    AUDIT record, a separate concern from the resolver's own internal
+    logging).
+
+    Returns (left_targets, right_targets, audits) -- audits is the FULL
+    per-contact audit list from resolve_unresolved_contacts, in
+    flattening order, for the caller to log via _log_fallback_audits."""
+    from agent.interpretive.contact_llm_fallback import resolve_unresolved_contacts
+    from agent.interpretive import observation_extractor  # local -- matches this file's existing convention
+
+    flat_contacts: list[dict] = []
+    flat_locations: list[tuple[str, str]] = []  # (hand, feature), index-aligned with flat_contacts
+    for hand, contacts in (("left", left_contacts), ("right", right_contacts)):
+        for feature, contact_list in (contacts or {}).items():
+            for c in contact_list:
+                flat_contacts.append(c)
+                flat_locations.append((hand, feature))
+
+    results, audits = resolve_unresolved_contacts(flat_contacts, client)
+
+    left_targets: dict[str, dict[str, object]] = {}
+    right_targets: dict[str, dict[str, object]] = {}
+    for (hand, feature), result in zip(flat_locations, results):
+        if result.get("token") is None:
+            continue
+        bucket = left_targets if hand == "left" else right_targets
+        observation_extractor._store_relationship(
+            bucket, feature, result["token"], result["target"], None,  # mount=None: a commencement join carries no separate mount
+        )
+
+    return left_targets, right_targets, audits
+
+
 def prepare_palm_reading(
     palm_left: str | None,
     palm_right: str | None,
@@ -2284,12 +2379,38 @@ def prepare_palm_reading(
         # convergence attribute keys stay disjoint, matching old behavior.
         left_rel = observation_extractor.extract_relations(palm_left or "")
         right_rel = observation_extractor.extract_relations(palm_right or "")
-        # S107 bridge: CONTACTS-derived typed targets merge alongside the
-        # existing (directional/convergence/typed-RELATIONSHIP) targets --
-        # merge_relational_targets is variadic and cardinality-aware, so
-        # this is a pure additive merge, not a replacement.
-        left_ct = _assemble_relational_targets(left_rel["contacts"])
-        right_ct = _assemble_relational_targets(right_rel["contacts"])
+        # S107 bridge / S109 LLM-fallback rescue: CONTACTS-derived typed
+        # targets merge alongside the existing (directional/convergence/
+        # typed-RELATIONSHIP) targets -- merge_relational_targets is
+        # variadic and cardinality-aware, so this is a pure additive
+        # merge, not a replacement. client-gated: with a client, S109's
+        # _assemble_relational_targets_with_fallback handles BOTH hands in
+        # ONE LLM call (0 calls if nothing needs rescuing) and returns
+        # audits to log; with client=None, the S107 no-LLM path runs per
+        # hand exactly as before -- byte-identical to pre-S109 behavior in
+        # that branch (see the determinism gate in this task's own test
+        # suite). A fallback-assembly failure degrades to the
+        # deterministic-only result rather than breaking the reading.
+        fallback_audits: list[dict] = []
+        if client is not None:
+            try:
+                left_ct, right_ct, fallback_audits = _assemble_relational_targets_with_fallback(
+                    left_rel["contacts"], right_rel["contacts"], client,
+                )
+            except Exception as exc:  # noqa: BLE001 -- a fallback failure must degrade, never break the reading
+                logger.error(
+                    "palm_reading.prepare_palm_reading: S109 LLM fallback "
+                    "assembly failed (%s: %s) -- degrading to the "
+                    "deterministic-only S107 path for this reading.",
+                    type(exc).__name__, exc,
+                )
+                left_ct = _assemble_relational_targets(left_rel["contacts"])
+                right_ct = _assemble_relational_targets(right_rel["contacts"])
+                fallback_audits = []
+        else:
+            left_ct = _assemble_relational_targets(left_rel["contacts"])
+            right_ct = _assemble_relational_targets(right_rel["contacts"])
+        _log_fallback_audits(fallback_audits)
         targets = observation_extractor.merge_relational_targets(
             left_rel["targets"],
             right_rel["targets"],
