@@ -259,6 +259,29 @@ def _relationship_field(feature: str) -> str:
     )
 
 
+def _contacts_field(feature: str) -> str:
+    """Builds the free-verb CONTACTS field block text for `feature` (S104
+    Step 2). Purely additive alongside the existing RELATIONSHIP field --
+    nothing consumes CONTACTS yet (Step 3 wires the extractor); RELATIONSHIP
+    stays byte-identical so the live typed-relationship rules keep firing on
+    the old path. Wording is the validated position-optional, contact-first
+    form from the S103 recall-recovery probe (recall recovered to 3/3,
+    position 6/6 real, zero fabrication)."""
+    return (
+        "  CONTACTS: list EVERY other line or mount this line clearly and "
+        "visibly interacts with -- report the contact FIRST, do not withhold "
+        "a contact because you are unsure where it happens. For each write a "
+        "separate \"CONTACTS: <target> | <your own short word for how they "
+        "interact> | <position> | <faint|clear>\" line. <target> is exactly "
+        f"one of {_relationship_target_menu(feature)}. <position> is one of "
+        "'at start' / 'mid-course' / 'at end' per this line's DIRECTION LAW, "
+        "or 'unknown' if you cannot tell confidently -- never drop a contact "
+        "just because position is unknown. Use your own natural word for the "
+        "interaction; do NOT restrict it to a fixed list. If this line itself "
+        "is faint / not clearly visible, write \"CONTACTS: none\".\n"
+    )
+
+
 def _build_description_system_prompt(hand: str) -> str:
     """Builds describe_palm_image's system-message prompt text. Extracted out
     of the inline API-call literal (Generalization step 3, S98) into this pure,
@@ -302,6 +325,7 @@ def _build_description_system_prompt(hand: str) -> str:
         "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
         "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
         f"{_relationship_field('Line of Head')}"
+        f"{_contacts_field('Line of Head')}"
         "HEART LINE: same attributes (depth, width, length, direction, breaks/chains/forks/islands)\n"
         "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
         f"  ORIGIN: exactly one of {_menu('Line of Heart', 'ORIGIN')} or 'none'\n"
@@ -309,6 +333,7 @@ def _build_description_system_prompt(hand: str) -> str:
         "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
         "  BRANCHES_TO: landmark(s) any branch is directed toward, or 'none'\n"
         f"{_relationship_field('Line of Heart')}"
+        f"{_contacts_field('Line of Heart')}"
         "FATE LINE: same attributes (state plainly if absent or barely visible)\n"
         "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
         f"  ORIGIN: exactly one of {_menu('Line of Fate', 'ORIGIN')} or 'none'\n"
@@ -323,8 +348,10 @@ def _build_description_system_prompt(hand: str) -> str:
         "the base of the Second Finger (Saturn finger), write 'cutting_into_finger_of_Saturn'. If "
         "the line ends within the palm, write 'n/a'.\n"
         f"{_relationship_field('Line of Fate')}"
+        f"{_contacts_field('Line of Fate')}"
         "LINE OF HEALTH: presence, only if clearly visible\n"
         f"{_relationship_field('Line of Health')}"
+        f"{_contacts_field('Line of Health')}"
         "LINE OF MARRIAGE: presence, only if clearly visible\n"
         f"{_relationship_field('Line of Marriage')}"
         "OTHER LINES: sun/intuition lines only if clearly visible\n"
