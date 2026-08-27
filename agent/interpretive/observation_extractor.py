@@ -806,6 +806,146 @@ def _store_relationship(
     loc_bucket[target] = mount
 
 
+# ─── Free-verb CONTACTS parsing -- S104 Step 3 ────────────────────────────
+# Parses the NEW "CONTACTS: <target> | <verb> | <position> | <clarity>"
+# lines Step 2 (agent/palm_processor.py) added to the Head/Heart/Fate/
+# Health blocks, additive alongside the untouched RELATIONSHIP field this
+# section sits next to. Fully additive and ISOLATED: its own subfield
+# regex, vocab sets, parse/store functions, and tracker variable, all local
+# to this section -- none of the existing directional/proximity/
+# convergence/typed-RELATIONSHIP trackers, regexes, or state are touched,
+# so their behavior (and every rule that reads "targets"/"proximity")
+# stays byte-identical. The header event that flips `current_feature_
+# contacts` reuses _RELATIONSHIP_LINE_HEADER/_RELATIONSHIP_LINE_ALIAS
+# (CONTACTS appears in the exact same blocks RELATIONSHIP does) rather than
+# adding a third header regime -- a separate tracker variable is kept
+# anyway (not reusing current_feature_typed) so a future change to one
+# channel's tracking can never silently affect the other.
+#
+# DELIBERATELY DUMB: the <verb> field is captured 100% verbatim, no
+# mapping, no menu check -- Step 4 owns interpreting it. This parser's only
+# job is structure (4 pipe-fields) and the two closed side-channels
+# (position/clarity), plus the target gate below.
+_CONTACTS_SUBFIELD = re.compile(r"^CONTACTS:\s*(.*)$")
+_CONTACTS_POSITIONS: frozenset[str] = frozenset({"at start", "mid-course", "at end", "unknown"})
+_CONTACTS_CLARITIES: frozenset[str] = frozenset({"faint", "clear"})
+
+# Registry-derived per-feature CONTACTS target set, independently computed
+# from the SAME ontology_registry.json SSOT agent.palm_processor.
+# _relationship_target_menu draws from (convergence_lines minus `feature`,
+# plus every registry mount landmark) -- not imported from palm_processor
+# itself (this module builds parsing utilities; palm_processor builds
+# vision prompts -- no reverse dependency introduced here). Deliberately
+# NARROWER than _RELATION_TARGET_REGISTRY (the registry-wide gate every
+# other relational field in this module uses, advisory-only per this
+# module's own documented S99 deviation): the CONTACTS prompt field
+# explicitly instructs the model to pick from exactly this per-feature
+# menu, so an out-of-menu target here is a hallucination to quarantine,
+# not an off-menu-but-registry-legal value to accept.
+_CONVERGENCE_LINES_FOR_CONTACTS: tuple[str, ...] = tuple(_REGISTRY.get("convergence_lines", []))
+_MOUNT_TARGETS_FOR_CONTACTS: frozenset[str] = frozenset(
+    t for t in _RELATION_TARGET_REGISTRY if "Mount" in t
+)
+
+
+def _contacts_target_menu(feature: str) -> frozenset[str]:
+    """Per-feature legal CONTACTS <target> set -- see the module-section
+    comment above for the SSOT/dependency-direction rationale."""
+    return frozenset(
+        line for line in _CONVERGENCE_LINES_FOR_CONTACTS if line != feature
+    ) | _MOUNT_TARGETS_FOR_CONTACTS
+
+
+def _parse_contacts_value(value: str) -> tuple[str, str, str, str] | None:
+    """Splits a CONTACTS subfield's raw value "<target> | <verb> | <position>
+    | <clarity>" into its 4 raw pipe-fields (target, verb, position_raw,
+    clarity_raw) -- all still unvalidated/unnormalized strings; <verb> is
+    returned completely untouched by this function and every caller (Step 4
+    owns interpreting it). Returns None for an empty/'none'/'n/a' value
+    (explicit no-contacts declaration for this line -- same "honest
+    absence" convention as every other relational field in this module).
+    Raises ValueError if the pipe-split doesn't yield exactly 4 fields --
+    the caller wraps this in try/except (mirrors _parse_relationship_
+    value's malformed-line handling) so one garbled line never kills the
+    rest of the block."""
+    value = value.strip()
+    if not value or value.lower() in ("none", "n/a"):
+        return None
+    parts = [p.strip() for p in value.split("|")]
+    if len(parts) != 4:
+        raise ValueError(
+            f"CONTACTS value {value!r} split into {len(parts)} pipe-field(s) "
+            "on '|', expected 4"
+        )
+    return parts[0], parts[1], parts[2], parts[3]
+
+
+def _store_contact(
+    contacts: dict[str, list[dict[str, str]]],
+    feature: str,
+    target: str,
+    verb: str,
+    position_raw: str,
+    clarity_raw: str,
+) -> None:
+    """Files one parsed CONTACTS interaction into `contacts[feature]` (S104
+    Step 3) -- a plain append-only list of {target, verb, position,
+    clarity} dicts, never deduplicated or accumulated into a set/scalar
+    (the free-verb field carries no type token to key on, so two lines
+    naming the same target are two distinct observations to keep, unlike
+    _store_relationship's set/scalar accumulation by type).
+
+    <target> gate: _contacts_target_menu(feature) (narrower than
+    _RELATION_TARGET_REGISTRY -- see that function's docstring). Off-menu
+    -> dropped + logged (quarantine), never guessed.
+
+    <position>/<clarity>: normalized to their closed vocab; anything
+    off-vocab is stored as 'unknown' rather than dropping the whole
+    contact (an unclear position/clarity does not invalidate that a
+    contact was reported) -- logged either way, never silently coerced
+    without a trace.
+
+    Caller (extract_relations) is responsible for `contacts.setdefault(
+    feature, [])` at the point ANY "CONTACTS:" line is seen for `feature`
+    -- including a malformed or explicit-'none' line -- so a feature is
+    absent from `contacts` ONLY when no CONTACTS line was emitted for it at
+    all (the three-state has-contacts/declared-none/missing distinction).
+    This function also defensively setdefaults, as a no-op safeguard if
+    ever called without that caller-side guarantee."""
+    bucket = contacts.setdefault(feature, [])
+
+    if target not in _contacts_target_menu(feature):
+        logger.info(
+            "observation_extractor.extract_relations: dropped CONTACTS "
+            "feature=%r target=%r -- not in this feature's CONTACTS target "
+            "menu (quarantined).",
+            feature, target,
+        )
+        return
+
+    position = position_raw.strip().lower()
+    if position not in _CONTACTS_POSITIONS:
+        logger.info(
+            "observation_extractor.extract_relations: CONTACTS feature=%r "
+            "target=%r position=%r not in {at start, mid-course, at end, "
+            "unknown} -- stored as 'unknown'.",
+            feature, target, position_raw,
+        )
+        position = "unknown"
+
+    clarity = clarity_raw.strip().lower()
+    if clarity not in _CONTACTS_CLARITIES:
+        logger.info(
+            "observation_extractor.extract_relations: CONTACTS feature=%r "
+            "target=%r clarity=%r not in {faint, clear} -- stored as "
+            "'unknown'.",
+            feature, target, clarity_raw,
+        )
+        clarity = "unknown"
+
+    bucket.append({"target": target, "verb": verb, "position": position, "clarity": clarity})
+
+
 def extract_relations(raw_text: str) -> dict[str, dict]:
     """Registry-driven unified relational parser. Returns `{"targets":
     {feature: {attribute: landmark}}, "proximity": {feature: {"Proximity":
@@ -861,8 +1001,9 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
         rule as the directional case).
 
     Never raises for a missing/malformed relational block or an unparseable
-    raw_text -- returns `{"targets": {}, "proximity": {}}` in that case, same
-    "no signal" convention as all three source functions.
+    raw_text -- returns `{"targets": {}, "proximity": {}, "contacts": {}}` in
+    that case, same "no signal" convention as all three source functions
+    ("contacts" added Step 3, S104 -- see that paragraph below).
 
     TYPED RELATIONSHIP (Step 3, S99, additive -- everything above this
     paragraph is byte-identical pre/post this step): a THIRD, fully
@@ -880,6 +1021,29 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
     mount`. A malformed RELATIONSHIP line is caught and logged, never
     propagated -- it cannot kill parsing of the rest of the block. See the
     dedicated section above `extract_relations` for the full mechanics.
+
+    FREE-VERB CONTACTS (Step 3, S104, additive -- everything above this
+    paragraph, including the TYPED RELATIONSHIP paragraph above, is
+    byte-identical pre/post this step): a FOURTH, fully independent tracker
+    (`current_feature_contacts`, reusing `_RELATIONSHIP_LINE_HEADER`/
+    `_RELATIONSHIP_LINE_ALIAS` for header detection but never reusing
+    `current_feature_typed` itself) parses "CONTACTS: <target> | <verb> |
+    <position> | <clarity>" lines under the Head/Heart/Fate/Health blocks
+    Step 2 emits, into a THIRD, ISOLATED return key: `{"targets": ...,
+    "proximity": ..., "contacts": {feature: [{"target", "verb", "position",
+    "clarity"}, ...]}}`. No rule reads "contacts" -- it exists purely so a
+    future step (Step 4) can interpret the verbatim-captured free verb.
+    `<verb>` is stored completely untouched, no mapping, no menu check.
+    `<target>` is gated against a per-feature menu (narrower than
+    `_RELATION_TARGET_REGISTRY`); off-menu is quarantined. `<position>`/
+    `<clarity>` normalize to a closed vocab or 'unknown', logged either way,
+    never dropping the whole contact over an unclear side-field. A feature
+    is present in `contacts` (possibly as `[]`) the moment ANY CONTACTS
+    line is seen for it -- valid, malformed, or explicit 'none' -- and is
+    absent from the dict ONLY when no CONTACTS line was emitted for it at
+    all, so has-contacts / declared-none / missing are all distinguishable
+    downstream. See the dedicated section above `extract_relations` for the
+    full mechanics.
     """
     if not isinstance(raw_text, str):
         raise TypeError(
@@ -889,6 +1053,9 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
 
     targets: dict[str, dict[str, str]] = {}
     proximity: dict[str, dict[str, dict[str, object]]] = {}
+    # Isolated namespace, S104 Step 3 -- NO rule reads this key. See the
+    # "Free-verb CONTACTS parsing" section above for the full mechanics.
+    contacts: dict[str, list[dict[str, str]]] = {}
 
     # Directional + proximity tracker -- mirrors extract_relational_targets/
     # extract_proximity_observations' shared block-detection exactly.
@@ -901,6 +1068,13 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
     # MARRIAGE:") is not recognized by either existing header regex -- see
     # that section's own header-text finding comment above.
     current_feature_typed: str | None = None
+
+    # Free-verb CONTACTS tracker -- S104 Step 3, independent of every
+    # tracker above (kept as its own variable rather than reusing
+    # current_feature_typed, even though both flip on the same header
+    # event -- see the "Free-verb CONTACTS parsing" section's own comment
+    # for why a separate variable is deliberate here).
+    current_feature_contacts: str | None = None
 
     # Symmetric/convergence tracker -- mirrors extract_convergence_targets'
     # own block-detection exactly (independent of the tracker above).
@@ -937,6 +1111,7 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
         if not stripped:
             current_feature_rel = None
             current_feature_typed = None
+            current_feature_contacts = None
             _flush_conv_block_boundary()
             continue
 
@@ -974,6 +1149,9 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
             typed_header_matched = True
             line_label = typed_header.group(1).strip().lower()
             current_feature_typed = _RELATIONSHIP_LINE_ALIAS.get(line_label)
+            # Same header event, same alias lookup -- CONTACTS appears in
+            # the identical blocks RELATIONSHIP does (S104 Step 3).
+            current_feature_contacts = _RELATIONSHIP_LINE_ALIAS.get(line_label)
 
         if rel_header_matched or conv_header_matched or typed_header_matched:
             # A header line's text can never also match a subfield regex
@@ -998,6 +1176,32 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
                 if parsed is not None:
                     type_token, target, mount = parsed
                     _store_relationship(targets, current_feature_typed, type_token, target, mount)
+
+        # --- free-verb CONTACTS subfield (Step 3, S104) ---
+        sub_contacts = _CONTACTS_SUBFIELD.match(stripped)
+        if sub_contacts and current_feature_contacts is not None:
+            # Mark "a CONTACTS line was seen for this feature" regardless of
+            # parse outcome (valid / malformed / explicit 'none') -- this is
+            # what makes a feature's total ABSENCE from `contacts` mean
+            # "no CONTACTS line at all" (MISSING), distinct from "declared
+            # none" (present, empty list).
+            contacts.setdefault(current_feature_contacts, [])
+            raw_contacts_value = sub_contacts.group(1)
+            try:
+                parsed_contact = _parse_contacts_value(raw_contacts_value)
+            except Exception as exc:  # noqa: BLE001 -- malformed line must not kill the rest of the block
+                logger.info(
+                    "observation_extractor.extract_relations: failed parsing "
+                    "CONTACTS value=%r for feature=%r: %s -- quarantined.",
+                    raw_contacts_value, current_feature_contacts, exc,
+                )
+            else:
+                if parsed_contact is not None:
+                    c_target, c_verb, c_position_raw, c_clarity_raw = parsed_contact
+                    _store_contact(
+                        contacts, current_feature_contacts, c_target, c_verb,
+                        c_position_raw, c_clarity_raw,
+                    )
 
         # --- directional / proximity subfield ---
         sub = _RELATIONAL_SUBFIELD.match(stripped)
@@ -1152,7 +1356,7 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
 
     _flush_conv_block_boundary()  # flush end-of-text: log a still-pending orphan location
 
-    return {"targets": targets, "proximity": proximity}
+    return {"targets": targets, "proximity": proximity, "contacts": contacts}
 
 
 # ─── Confidence -- prose hedge-word detection (module docstring point 6) ──
