@@ -2946,3 +2946,29 @@ an as-yet-unreachable-on-real-hands token or wait.
 - The duplicated hard/soft-attribute literal (`palm_select.py`'s and
   `hard_soft_partition_scan.py`'s byte-identical `_HARD_ATTRS` frozensets, no shared SSOT) --
   same drift-risk class as the closure-gate bug this arc fixed, flagged but not fixed.
+
+## S104
+
+SHIPPED (committed + pushed on wip/interpretive-pilot):
+- Step 1 (cd45500): explicit Fate + Head DIRECTION LAWS mirroring the Heart law; origin/termination now direction-pinned for all 3 lines. Protects ~15 live origin/termination rules.
+- Step 2 (d0424eb): free-verb CONTACTS field (position-optional, contact-first wording) emitted alongside RELATIONSHIP; additive, emit-only.
+- Step 3 (dc1be28): extractor parses CONTACTS into an ISOLATED 'contacts' namespace (no rule reads it); verbatim verb capture, 3-state has-contacts/declared-none/missing, malformed->quarantine.
+- Step 4 (c9d3790): deterministic verb+position -> Cheiro-token mapper (agent/interpretive/contact_mapper.py + 14 tests). Distinct verb wins over position; join-family split by position (at start->joins_at_origin, mid-course->meets, at end->stopped_by low-conf); unresolvable/unknown verb -> None/quarantine. NO LLM fallback (deliberate: keep-it-simple; novel verbs surface in quarantine log for human add).
+
+KEY VALIDATED FINDINGS (do not re-litigate):
+- Closed-menu emission is DEAD in every form (single-call S99/S100, second-call S100 ARM E 0/15). Free-verb capture + post-hoc deterministic mapping is the production path. Verb "cross" is lexically stable; "join" family is not (join/merge/starts-together/touches) -> position disambiguates, not the word.
+- Position (start/mid/end) and mount (Jupiter/Saturn) are DIFFERENT axes. CONTACTS captures position + clarity but NOT mount. Mount capture deferred (no live payoff yet).
+- Direction laws stabilized origin/termination 3/3. Position-optional wording recovered contact recall to 3/3 (mandatory-position wording had suppressed it to 1/3). Production stays at 1 vision call.
+- Heart-endpoint: model alternates 'Percussion' vs 'Mount of Mercury' — these are DISTINCT features (edge vs pad), NOT synonyms; do NOT alias. No live rule depends on Heart terminus; parked.
+
+STEP 5 STATUS (designed, gate-tested, NOT executed):
+- 5a equivalence gate: H_028 (joins_at_origin Head-Life) and L_026 (3x joins_at_origin) PASS — new path reproduces old targets + fired-set byte-identical; live Head-Life fires via new path 3/3 on palm_left_test, zero quarantine.
+- FT_016 FAILS the gate: needs 'meets Heart at Mount Jupiter' (location), but CONTACTS has no mount channel.
+
+FT_016 EVIDENCE ARC (decisive — park it):
+- Fate<->Heart contact detected 0/3 on unfiltered, 0/3 vivid-cool filtered, 0/3 black-and-white — same physical hand (palm_right_test / _vivid_cool / _black_white). Filters gave no benefit; B&W gave no line-detection edge (clear=12 both, vs vivid 10).
+- Critical: the model reads the Fate line itself as 'clear' 3/3 yet still does NOT perceive its junction with the Heart line. So FT_016 is NOT faintness/image/build-limited — it is MODEL-PERCEPTION-LIMITED (same whole-channel junction blind spot as S99/S100). User confirms the contact is real on the hand. No image treatment can fix a perception gap upstream of visibility.
+
+DECISION RATIFIED: park FT_016 as MODEL-PERCEPTION-LIMITED (authored-but-dormant). Next session executes Step 5b: atomic cutover of H_028 + L_026 with FULL RELATIONSHIP retirement (FT_016 fired on real hands via NO channel, so retiring the old path costs nothing). Do NOT build mount capture or filter preprocessing for FT_016 — proven no payoff.
+
+OPEN (future, not now): dedicated multi-hand B&W A/B (tradeoff: possible geometry gain vs TOTAL loss of Cheiro line-COLOUR doctrine — red/pale/yellow rules go blind); mount-channel capture only if a strong-Fate hand ever surfaces AND perception limit is overcome.
