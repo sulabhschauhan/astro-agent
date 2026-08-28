@@ -236,12 +236,13 @@
       "antecedents": [
         {
           "feature": "Line of Fate",
-          "attribute": "Position",
+          "attribute": "stopped_by",
           "value": null,
           "condition_type": "standard",
           "comparator": null,
           "comparator_feature": null,
-          "relation_target": "Line of Heart"
+          "relation_target": "Line of Heart",
+          "location": null
         }
       ],
       "logic_join": "AND",
@@ -252,7 +253,8 @@
       "verified_date": "2026-08-22",
       "source_fidelity": "fulltext_exact",
       "schema_flags": [
-        "REACHABILITY FIX S97: termination attribute Ending_Point->Position (extractor emits Position; Ending_Point was unfireable). Claim/source unchanged, verification intact."
+        "REACHABILITY FIX S97: termination attribute Ending_Point->Position (extractor emits Position; Ending_Point was unfireable). Claim/source unchanged, verification intact.",
+        "S112 MIGRATION: detection change only, doctrine/claim/source_quote/page/verified unchanged. Antecedent moved from the TERMINATION landmark (Position -> target) to the typed stopped_by verb token (via free-verb CONTACTS + contact_mapper). Reason: a bare TERMINATION -> Line of Heart/Head cannot distinguish an abrupt HALT (this rule's doctrine) from a JOIN-AND-CONTINUE (FT_016's opposite, good-omen doctrine) at the same endpoint -- the old antecedent could false-positive the 'success ruined' claim on a hand whose fate line actually ascends to Jupiter. Requiring an explicit stopped_by report fires only on a confirmed halt; when only a landmark is available the rule now stays silent (honest-silence over confident-wrong). LOWER-CONFIDENCE: live stopped_by-verb emission is untested (no test hand halts the fate line at head/heart) -- fixture-only until such a hand is sourced; if a future real halt-hand shows vision emits a landmark but NOT the verb, revisit whether a second-call or compound antecedent is needed."
       ]
     },
     {
@@ -267,12 +269,13 @@
       "antecedents": [
         {
           "feature": "Line of Fate",
-          "attribute": "Position",
+          "attribute": "stopped_by",
           "value": null,
           "condition_type": "standard",
           "comparator": null,
           "comparator_feature": null,
-          "relation_target": "Line of Head"
+          "relation_target": "Line of Head",
+          "location": null
         }
       ],
       "logic_join": "AND",
@@ -283,7 +286,8 @@
       "verified_date": "2026-08-22",
       "source_fidelity": "fulltext_exact",
       "schema_flags": [
-        "REACHABILITY FIX S97: termination attribute Ending_Point->Position (extractor emits Position; Ending_Point was unfireable). Claim/source unchanged, verification intact."
+        "REACHABILITY FIX S97: termination attribute Ending_Point->Position (extractor emits Position; Ending_Point was unfireable). Claim/source unchanged, verification intact.",
+        "S112 MIGRATION: detection change only, doctrine/claim/source_quote/page/verified unchanged. Antecedent moved from the TERMINATION landmark (Position -> target) to the typed stopped_by verb token (via free-verb CONTACTS + contact_mapper). Reason: a bare TERMINATION -> Line of Heart/Head cannot distinguish an abrupt HALT (this rule's doctrine) from a JOIN-AND-CONTINUE (FT_016's opposite, good-omen doctrine) at the same endpoint -- the old antecedent could false-positive the 'success ruined' claim on a hand whose fate line actually ascends to Jupiter. Requiring an explicit stopped_by report fires only on a confirmed halt; when only a landmark is available the rule now stays silent (honest-silence over confident-wrong). LOWER-CONFIDENCE: live stopped_by-verb emission is untested (no test hand halts the fate line at head/heart) -- fixture-only until such a hand is sourced; if a future real halt-hand shows vision emits a landmark but NOT the verb, revisit whether a second-call or compound antecedent is needed."
       ]
     },
     {

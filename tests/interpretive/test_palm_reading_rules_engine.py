@@ -1154,3 +1154,125 @@ def test_h_028_fires_from_inflected_joined_via_s106_normalization():
     rules = palm_rules_table.load_rule_set()
     fired = palm_rules_table.match({}, {}, rules, targets=targets)
     assert "H_028" in [r.rule_id for r in fired]
+
+
+# ─── FT_007/FT_008: migrated to typed stopped_by, false-positive-fix (S112) ─
+# FT_007 (Fate stopped-by Heart, F025a) and FT_008 (Fate stopped-by Head,
+# F026) were migrated IN PLACE from the ambiguous TERMINATION-landmark
+# antecedent (attribute "Position" + relation_target, S97) to the typed
+# stopped_by verb token (via free-verb CONTACTS + contact_mapper) -- see
+# each rule's own S112 MIGRATION schema_flag in
+# data/palm_rules/palm_rules_fate_line_v1.json. Rule_ids, claims,
+# source_quotes, doctrine_sentence_ids, and verified status are all
+# UNCHANGED; only the antecedent's detection mechanism moved. The tests
+# below prove BOTH that the new mechanism fires correctly AND that the
+# false-positive the migration closes (a bare TERMINATION landmark, which
+# is ambiguous between "stopped" and "joined-and-continued") no longer
+# fires -- the false-positive-fix proof is the point of this section, not
+# just a firing smoke test.
+
+
+def _fired_ids_for_fate_contacts(text: str) -> tuple[dict, list[str]]:
+    """Shared helper: routes raw Fate-line text through the SAME
+    extract_relations -> merge_relational_targets(directional +
+    CONTACTS-bridge) chain prepare_palm_reading itself uses, and returns
+    (targets, fired_ids)."""
+    result = observation_extractor.extract_relations(text)
+    ct = palm_reading._assemble_relational_targets(result["contacts"])
+    targets = observation_extractor.merge_relational_targets(result["targets"], ct)
+    rules = palm_rules_table.load_rule_set()
+    fired = sorted(r.rule_id for r in palm_rules_table.match({}, {}, rules, targets=targets))
+    return targets, fired
+
+
+def test_ft007_fires_on_stopped_by_heart_ft008_does_not():
+    """Positive: an explicit "stopped by" CONTACTS report on Line of
+    Heart fires FT_007 (Fate stopped-by Heart) and NOT FT_008 (Head)."""
+    text = "FATE LINE: present\n  CONTACTS: Line of Heart | stopped by | at end | clear\n"
+    targets, fired = _fired_ids_for_fate_contacts(text)
+    assert targets == {"Line of Fate": {"stopped_by": "Line of Heart"}}
+    assert "FT_007" in fired
+    assert "FT_008" not in fired
+
+
+def test_ft008_fires_on_stopped_by_head_ft007_does_not():
+    """Positive: an explicit "stopped by" CONTACTS report on Line of
+    Head fires FT_008 (Fate stopped-by Head) and NOT FT_007 (Heart)."""
+    text = "FATE LINE: present\n  CONTACTS: Line of Head | stopped by | at end | clear\n"
+    targets, fired = _fired_ids_for_fate_contacts(text)
+    assert targets == {"Line of Fate": {"stopped_by": "Line of Head"}}
+    assert "FT_008" in fired
+    assert "FT_007" not in fired
+
+
+def test_ft007_false_positive_fix_landmark_only_stays_silent():
+    """THE REGRESSION-FIX PROOF (S112's whole point). A Fate line whose
+    TERMINATION lands on Line of Heart, with NO stopped_by CONTACTS
+    report -- the ambiguous "landmark only" case that could equally mean
+    "abruptly halted" (this rule's bad-omen doctrine) or "joined and
+    continued to Jupiter" (FT_016's opposite, good-omen doctrine). Under
+    the OLD (pre-S112) antecedent shape (`attribute: "Position", value:
+    null, relation_target: "Line of Heart"`), this exact `targets` dict
+    -- {"Line of Fate": {"Position": "Line of Heart"}} -- WOULD have
+    satisfied FT_007's single antecedent and fired the false "success
+    ruined" claim on what might genuinely be a good-omen hand. Under the
+    migrated `stopped_by` antecedent, this landmark-only signal does not
+    satisfy it -- FT_007 stays honestly silent instead of guessing."""
+    text = "FATE LINE: present\n  ORIGIN: Wrist\n  TERMINATION: Line of Heart\n  PROXIMITY: n/a to none\n  BRANCHES_TO: none\n  CONTACTS: none\n"
+    targets, fired = _fired_ids_for_fate_contacts(text)
+    # The OLD antecedent's exact trigger shape IS present in targets --
+    # proving this fixture genuinely exercises the ambiguous case, not a
+    # vacuously-different one.
+    assert targets["Line of Fate"]["Position"] == "Line of Heart"
+    assert "stopped_by" not in targets["Line of Fate"]
+    assert "FT_007" not in fired  # the false positive this migration closes
+    assert "FT_016" not in fired  # nor does the (unrelated) good-omen rule fire on a bare landmark
+
+
+def test_ft016_join_continue_scenario_does_not_trigger_ft007_bad_omen():
+    """DOCTRINAL-INTEGRITY PROOF: on the SAME Fate<->Heart interaction
+    that satisfies FT_016's positive "joins Heart and ascends to Jupiter"
+    doctrine (good omen), FT_007's migrated stopped_by antecedent must
+    NOT also fire the negative "success ruined" claim -- no bad-omen
+    claim on a good-omen hand. FT_016 itself requires a `location`
+    ("Mount of Jupiter") that free-verb CONTACTS structurally cannot
+    supply (S104/S107 finding: CONTACTS has no location/mount channel,
+    which is why FT_016 stays parked/unreachable from live CONTACTS text
+    -- unchanged by this migration). This constructs the targets dict
+    directly via observation_extractor._store_relationship, the SAME
+    filing primitive _assemble_relational_targets itself calls, rather
+    than routing through CONTACTS text (which cannot express this case)."""
+    targets: dict = {}
+    observation_extractor._store_relationship(
+        targets, "Line of Fate", "meets", "Line of Heart", "Mount of Jupiter",
+    )
+    assert targets == {
+        "Line of Fate": {
+            "meets": {"Line of Heart"},
+            "meets__location": {"Line of Heart": "Mount of Jupiter"},
+        }
+    }
+
+    rules = palm_rules_table.load_rule_set()
+    fired = sorted(r.rule_id for r in palm_rules_table.match({}, {}, rules, targets=targets))
+    assert "FT_016" in fired
+    assert "FT_007" not in fired
+
+
+def test_david_right_shape_neither_stopped_by_rule_fires():
+    """The real hand from S110's probe (David_right): Fate terminates at
+    Mount of Saturn, crosses Head mid-course -- the inert `cuts` signal
+    (no rule consumes it, per S110's own finding) must not trip either
+    stopped-by rule. Correct silence, not a pipeline gap."""
+    text = (
+        "FATE LINE: present\n"
+        "  ORIGIN: Wrist\n"
+        "  TERMINATION: Mount of Saturn\n"
+        "  PROXIMITY: medium to Line of Head\n"
+        "  BRANCHES_TO: none\n"
+        "  CONTACTS: Line of Head | crosses | mid-course | clear\n"
+    )
+    targets, fired = _fired_ids_for_fate_contacts(text)
+    assert targets["Line of Fate"]["cuts"] == {"Line of Head"}
+    assert "FT_007" not in fired
+    assert "FT_008" not in fired
