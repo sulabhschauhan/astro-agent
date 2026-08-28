@@ -1,36 +1,47 @@
 """
 scripts/gate_rule_citations.py
-S84 -- deterministic citation-verification gate for
-data/palm_rules/_candidates/deterministic_rule_book.json.
+S114 -- deterministic citation-verification gate for the LIVE palm rule
+files (data/palm_rules/palm_rules_*.json's own validated_candidates and
+parked_* sections).
 
-Independently re-derives whether each rule's source_quote is actually
-anchored in the corpus text at its claimed source_page (or +/-1), and
-flags four additional deterministic defect classes, all independent of
-citation match. ANNOTATES the rule book additively -- never edits any
-rule's antecedents/claim/source_quote/source_page, only adds new keys.
-Quarantine-only: humans (Sulabh) decide fixes; this script draws no
-conclusions beyond "does the citation check out" and "does this
-structural pattern appear."
+REPLACES the S84-era version of this script, which was hardcoded to
+data/palm_rules/_candidates/deterministic_rule_book.json (a legacy
+candidate pool with ZERO FT_/H_/L_ live rule_ids) and
+data/chunked_chunks.json, and matched a rule's printed source_page
+directly against the corpus's own page_ref field. Neither target guarded
+anything real: the live rules were never checked, and even a live rule's
+own printed source_page does not equal the corpus chunk's page_ref (a
+non-trivial, roughly-constant offset -- e.g. FT_007's source_page=104,
+its quote anchors at cheiro_clean_v1.json page_ref=164, offset +60).
+
+Independently re-derives whether each live/parked rule's source_quote is
+actually anchored SOMEWHERE in data/cheiro/cheiro_clean_v1.json's text --
+a WHOLE-CORPUS anchor search (substring, or the same >=6-token/>=0.85
+overlap primitive this script always used), not a source_page-vs-page_ref
+comparison. REPORT-ONLY: never writes to any data/palm_rules/ file --
+only diagnostics/latest_run.md. Quarantine-only in spirit: a
+NOT_FOUND_ANYWHERE rule is surfaced for Sulabh's human review, never
+auto-fixed or auto-flagged into the rule file itself.
 
 Design note on thresholds (CLAUDE.md Working Style #4, THRESHOLD
-DISCIPLINE): the instructing prompt fixed 0.85 and >=6 tokens itself, not
-derived here -- this script logs the overlap-score distribution to the
-report specifically so that number can be revisited against real data,
-per the prompt's own tuning note. Not re-justified here; treat 0.85 as
-provisional until diagnostics/latest_run.md's distribution is reviewed.
+DISCIPLINE): _MIN_TOKENS_FOR_OVERLAP=6 and _OVERLAP_THRESHOLD=0.85 are
+UNCHANGED from the original S84 script -- not retuned here, per this
+task's own explicit instruction. Still provisional in the same sense the
+original docstring flagged.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-RULE_BOOK_PATH = ROOT / "data" / "palm_rules" / "_candidates" / "deterministic_rule_book.json"
-CHUNKS_PATH = ROOT / "data" / "chunked_chunks.json"
+DEFAULT_RULES_GLOB = "data/palm_rules/palm_rules_*.json"
+DEFAULT_CORPUS_PATH = ROOT / "data" / "cheiro" / "cheiro_clean_v1.json"
 REPORT_PATH = ROOT / "diagnostics" / "latest_run.md"
 BOOK_NAME = "cheiroslanguageo00chei_1"
 
@@ -39,6 +50,10 @@ _OVERLAP_THRESHOLD = 0.85
 
 _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
 
+
+# ─── S114: UNCHANGED from the original S84 script (verbatim) ─────────────
+# Reused exactly as-is -- substring-or-overlap matching is correct and
+# already threshold-disciplined; this task does not retune it.
 
 def normalize(text: str) -> str:
     """Lowercase, non-alphanumerics -> space, collapse whitespace. OCR/
@@ -62,16 +77,6 @@ def token_overlap(quote_tokens: list[str], page_token_set: set[str]) -> float:
     return present / len(quote_tokens)
 
 
-def jaccard(tokens_a: list[str], tokens_b: list[str]) -> float:
-    set_a, set_b = set(tokens_a), set(tokens_b)
-    if not set_a and not set_b:
-        return 1.0
-    union = set_a | set_b
-    if not union:
-        return 0.0
-    return len(set_a & set_b) / len(union)
-
-
 def quote_matches_page(quote_norm: str, quote_tokens: list[str], page_norm: str, page_token_set: set[str]) -> tuple[bool, float | None]:
     """Returns (matched, overlap_score). overlap_score is None when the
     quote is too short for the overlap test (scope guard: >=6 tokens
@@ -84,10 +89,16 @@ def quote_matches_page(quote_norm: str, quote_tokens: list[str], page_norm: str,
     return score >= _OVERLAP_THRESHOLD, score
 
 
+# ─── S114: corpus loading -- whole-corpus, page-indexed AND concatenated ──
+
 def build_page_text_index(chunks: list[dict]) -> dict[int, str]:
-    """page_ref (int) -> normalized concatenation of every chunk's text
-    on that page (chunk order doesn't matter for a bag-of-tokens/
-    substring check; diagram chunks contribute empty text, harmless)."""
+    """page_ref (int) -> normalized concatenation of every chunk's text on
+    that page (chunk order doesn't matter for a bag-of-tokens/substring
+    check; diagram chunks contribute empty text, harmless). Filters to
+    BOOK_NAME defensively -- cheiro_clean_v1.json is 100% this one book
+    today (confirmed at S114 pre-flight), but a future multi-book merge
+    into this same file must not silently start matching against a
+    DIFFERENT book's text."""
     by_page: dict[int, list[str]] = defaultdict(list)
     for c in chunks:
         if c.get("book_name") != BOOK_NAME:
@@ -99,278 +110,317 @@ def build_page_text_index(chunks: list[dict]) -> dict[int, str]:
     return {page: normalize(" ".join(texts)) for page, texts in by_page.items()}
 
 
-def classify_citation(rule: dict, page_text: dict[int, str]) -> tuple[str, float | None, str | None]:
-    """Returns (citation_status, overlap_score_used, matched_page_kind).
-    matched_page_kind in {"same", "adjacent", None} -- diagnostic only."""
-    quote_raw = rule.get("source_quote", "") or ""
-    if quote_raw.strip().startswith("~"):
-        return "GENERATOR_PLACEHOLDER", None, None
+def build_full_corpus_text(page_text: dict[int, str]) -> str:
+    """Whole-book normalized text, pages concatenated in page_ref order --
+    the FALLBACK anchor search a per-page-only check would miss for a
+    quote that genuinely spans a page boundary (rare, but a per-page-only
+    search cannot find it even when it's genuinely present verbatim in
+    the book)."""
+    return " ".join(page_text[p] for p in sorted(page_text))
 
-    page = rule.get("source_page")
+
+# ─── S114: whole-corpus anchor classification (replaces the old
+# source_page-vs-page_ref +/-1 adjacency check) ───────────────────────────
+
+def classify_rule_citation(
+    rule: dict,
+    page_text: dict[int, str],
+    page_token_sets: dict[int, set[str]],
+    full_text: str,
+    full_token_set: set[str],
+) -> dict:
+    """Returns {"status": "CLEAN"|"NOT_FOUND_ANYWHERE"|"UNCITED"|
+    "GENERATOR_PLACEHOLDER", "matched_pages": [int, ...], "score": float|
+    None, "best_score_page": int|None, "implied_offsets": [int, ...]}.
+
+    UNCITED: no source_quote at all (report, never fail the run over it).
+    GENERATOR_PLACEHOLDER: quote starts with "~" (unchanged convention).
+    CLEAN: the quote anchors (substring, or the existing >=6-token/>=0.85
+    overlap primitive) on AT LEAST ONE page, OR -- failing every
+    individual page -- in the full-corpus concatenation (a page-spanning
+    quote). `matched_pages` lists every page_ref where it anchored
+    individually (empty if only the full-corpus fallback matched).
+    `implied_offsets` is `[page_ref - source_page for page_ref in
+    matched_pages]` when source_page is an int, else [].
+    NOT_FOUND_ANYWHERE: matched nowhere -- the genuine fabrication/
+    mis-transcription signal. `best_score_page`/`score` report the
+    nearest partial match (by overlap score) even though it fell below
+    threshold, for human review; both None if the quote was too short for
+    the overlap test at every page (substring-only, nothing to score)."""
+    quote_raw = (rule.get("source_quote") or "").strip()
+    if not quote_raw:
+        return {
+            "status": "UNCITED", "matched_pages": [], "score": None,
+            "best_score_page": None, "implied_offsets": [],
+        }
+    if quote_raw.startswith("~"):
+        return {
+            "status": "GENERATOR_PLACEHOLDER", "matched_pages": [], "score": None,
+            "best_score_page": None, "implied_offsets": [],
+        }
+
+    source_page = rule.get("source_page")
     quote_norm = normalize(quote_raw)
     quote_tokens = tokens_of(quote_norm)
 
-    same_page_norm = page_text.get(page, "")
-    same_page_tokens = set(tokens_of(same_page_norm))
-    matched, score = quote_matches_page(quote_norm, quote_tokens, same_page_norm, same_page_tokens)
+    matched_pages: list[int] = []
+    best_score: float | None = None
+    best_score_page: int | None = None
+    for page_ref, page_norm in page_text.items():
+        matched, score = quote_matches_page(quote_norm, quote_tokens, page_norm, page_token_sets[page_ref])
+        if score is not None and (best_score is None or score > best_score):
+            best_score, best_score_page = score, page_ref
+        if matched:
+            matched_pages.append(page_ref)
+
+    if matched_pages:
+        matched_pages.sort()
+        offsets = [p - source_page for p in matched_pages] if isinstance(source_page, int) else []
+        return {
+            "status": "CLEAN", "matched_pages": matched_pages, "score": best_score,
+            "best_score_page": best_score_page, "implied_offsets": offsets,
+        }
+
+    # Full-corpus fallback: catches a quote genuinely spanning a page boundary.
+    matched, score = quote_matches_page(quote_norm, quote_tokens, full_text, full_token_set)
+    if score is not None and (best_score is None or score > best_score):
+        best_score, best_score_page = score, None  # whole-corpus match has no single page to name
     if matched:
-        return "CLEAN", score, "same"
+        return {
+            "status": "CLEAN", "matched_pages": [], "score": best_score,
+            "best_score_page": None, "implied_offsets": [],
+        }
 
-    best_adjacent_score = score
-    for adj in (page - 1 if isinstance(page, int) else None, page + 1 if isinstance(page, int) else None):
-        if adj is None:
-            continue
-        adj_norm = page_text.get(adj, "")
-        adj_tokens = set(tokens_of(adj_norm))
-        adj_matched, adj_score = quote_matches_page(quote_norm, quote_tokens, adj_norm, adj_tokens)
-        if adj_score is not None and (best_adjacent_score is None or adj_score > best_adjacent_score):
-            best_adjacent_score = adj_score
-        if adj_matched:
-            return "ADJACENT", adj_score, "adjacent"
-
-    return "UNMATCHED", best_adjacent_score, None
+    return {
+        "status": "NOT_FOUND_ANYWHERE", "matched_pages": [], "score": best_score,
+        "best_score_page": best_score_page, "implied_offsets": [],
+    }
 
 
-def antecedent_key(antecedents: list[dict]) -> frozenset:
-    return frozenset(
-        (a.get("feature"), a.get("attribute"), a.get("value")) for a in antecedents
+# ─── S114: live rule-file loading -- section-generic, never per-file-hardcoded ──
+
+def load_rules_from_file(path: Path) -> tuple[list[dict], list[dict]]:
+    """Returns (live_rules, parked_rules) for ONE rule file. `live_rules`
+    is `validated_candidates` (the LIVE/fires set). `parked_rules` is the
+    union of every top-level key starting with "parked_" that is itself a
+    list (matches BOTH palm_rules_fate_line_v1.json's/palm_rules_life_
+    line_v1.json's "parked_pending" and palm_rules_head_heart_v1.json's
+    differently-named "parked_pending_relation_target" -- confirmed at
+    S114 pre-flight the section names differ across files -- generic
+    prefix match, no per-file hardcoding). `retired_superseded` is
+    deliberately skipped (dead rules, out of scope for this gate).
+    Non-list top-level keys (e.g. palm_rules_life_line_v1.json's own
+    "meta") are skipped defensively -- this function never assumes a
+    fixed section list."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    live = list(data.get("validated_candidates", []) or [])
+    parked: list[dict] = []
+    for key, value in data.items():
+        if key.startswith("parked_") and isinstance(value, list):
+            parked.extend(value)
+    return live, parked
+
+
+def _default_rule_files(rules_glob: str) -> list[Path]:
+    """Resolves the glob relative to ROOT. The default pattern
+    (data/palm_rules/palm_rules_*.json) is non-recursive -- it naturally
+    EXCLUDES data/palm_rules/_candidates/deterministic_rule_book.json
+    (a different directory, the legacy S84 pool) without needing an
+    explicit exclusion check."""
+    return sorted(ROOT.glob(rules_glob))
+
+
+# ─── CLI ───────────────────────────────────────────────────────────────
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Whole-corpus citation-anchor gate over the LIVE palm rule files "
+            "(validated_candidates + parked_*). Report-only -- writes only "
+            "diagnostics/latest_run.md, never a data/palm_rules/ file."
+        )
     )
-
-
-def compute_defect_flags(rules: list[dict]) -> dict[str, set[str]]:
-    """Returns rule_id -> set of defect flag names. All four checks are
-    independent of citation_status, per the instructing prompt."""
-    flags: dict[str, set[str]] = defaultdict(set)
-
-    # SHARED_QUOTE: group by normalized source_quote; flag the whole
-    # group if it has >=2 rules AND their claims are not all identical.
-    by_quote: dict[str, list[dict]] = defaultdict(list)
-    for r in rules:
-        by_quote[normalize(r.get("source_quote", "") or "")].append(r)
-    for quote_norm, group in by_quote.items():
-        if not quote_norm or len(group) < 2:
-            continue
-        claims = {r.get("claim") for r in group}
-        if len(claims) >= 2:
-            for r in group:
-                flags[r["rule_id"]].add("SHARED_QUOTE")
-
-    # DUPLICATE_SENTENCE: same source_page, quote-to-quote Jaccard
-    # overlap >= 0.85, but differing antecedents (feature+attribute+value
-    # set) -> flag both members of each such pair.
-    by_page: dict[int, list[dict]] = defaultdict(list)
-    for r in rules:
-        page = r.get("source_page")
-        if isinstance(page, int):
-            by_page[page].append(r)
-    for page, group in by_page.items():
-        n = len(group)
-        for i in range(n):
-            for j in range(i + 1, n):
-                r1, r2 = group[i], group[j]
-                q1 = tokens_of(normalize(r1.get("source_quote", "") or ""))
-                q2 = tokens_of(normalize(r2.get("source_quote", "") or ""))
-                if not q1 or not q2:
-                    continue
-                sim = jaccard(q1, q2)
-                if sim >= _OVERLAP_THRESHOLD and antecedent_key(r1["antecedents"]) != antecedent_key(r2["antecedents"]):
-                    flags[r1["rule_id"]].add("DUPLICATE_SENTENCE")
-                    flags[r2["rule_id"]].add("DUPLICATE_SENTENCE")
-
-    # NEEDS_RELATION_TARGET: any antecedent attribute=="Proximity" with
-    # value in {"close","distant"} (relational, no target-feature slot).
-    for r in rules:
-        for a in r.get("antecedents", []):
-            if a.get("attribute") == "Proximity" and a.get("value") in ("close", "distant"):
-                flags[r["rule_id"]].add("NEEDS_RELATION_TARGET")
-                break
-
-    # NEGATION_ABSENCE: any antecedent condition_type=="negation" whose
-    # rule's claim contains " without "/" absent "/" free from " (padded
-    # so a match at the very start/end of the claim string isn't missed).
-    negation_phrases = (" without ", " absent ", " free from ")
-    for r in rules:
-        has_negation = any(a.get("condition_type") == "negation" for a in r.get("antecedents", []))
-        if not has_negation:
-            continue
-        padded_claim = f" {(r.get('claim') or '').lower()} "
-        if any(p in padded_claim for p in negation_phrases):
-            flags[r["rule_id"]].add("NEGATION_ABSENCE")
-
-    return flags
+    parser.add_argument(
+        "--rules-glob",
+        default=DEFAULT_RULES_GLOB,
+        help=f"Glob (relative to repo root) for rule files to scan (default: {DEFAULT_RULES_GLOB}).",
+    )
+    parser.add_argument(
+        "--corpus",
+        type=Path,
+        default=DEFAULT_CORPUS_PATH,
+        help=f"Corpus JSON path to anchor-search against (default: {DEFAULT_CORPUS_PATH}).",
+    )
+    return parser.parse_args(argv)
 
 
 def main() -> None:
-    rule_book = json.loads(RULE_BOOK_PATH.read_text(encoding="utf-8"))
-    chunks = json.loads(CHUNKS_PATH.read_text(encoding="utf-8"))
+    args = _parse_args()
+    rule_files = _default_rule_files(args.rules_glob)
+    if not rule_files:
+        raise RuntimeError(
+            f"gate_rule_citations: glob {args.rules_glob!r} (relative to {ROOT}) "
+            "matched zero rule files -- refusing to report a false-clean empty run."
+        )
 
+    chunks = json.loads(args.corpus.read_text(encoding="utf-8"))
     page_text = build_page_text_index(chunks)
-    rules = rule_book["rules"]
+    if not page_text:
+        raise RuntimeError(
+            f"gate_rule_citations: {args.corpus} yielded zero pages for "
+            f"book_name={BOOK_NAME!r} -- corpus path or BOOK_NAME has drifted."
+        )
+    page_token_sets = {p: set(tokens_of(t)) for p, t in page_text.items()}
+    full_text = build_full_corpus_text(page_text)
+    full_token_set = set(tokens_of(full_text))
 
-    citation_results: dict[str, tuple[str, float | None, str | None]] = {}
-    overlap_scores: list[float] = []
-    for r in rules:
-        status, score, _kind = classify_citation(r, page_text)
-        citation_results[r["rule_id"]] = (status, score, _kind)
-        if score is not None:
-            overlap_scores.append(score)
+    # ── Classify every rule in every file, live and parked separately ──
+    per_file: dict[str, dict] = {}
+    all_not_found: list[dict] = []
+    all_clean_offsets: list[int] = []
+    per_file_clean_offsets: dict[str, list[int]] = {}
 
-    defect_flags = compute_defect_flags(rules)
+    for path in rule_files:
+        live, parked = load_rules_from_file(path)
+        file_result = {"live": [], "parked": []}
+        file_offsets: list[int] = []
+        for bucket_name, bucket in (("live", live), ("parked", parked)):
+            for rule in bucket:
+                result = classify_rule_citation(rule, page_text, page_token_sets, full_text, full_token_set)
+                row = {
+                    "rule_id": rule.get("rule_id"),
+                    "source_page": rule.get("source_page"),
+                    "source_quote": rule.get("source_quote"),
+                    **result,
+                }
+                file_result[bucket_name].append(row)
+                if result["status"] == "CLEAN":
+                    all_clean_offsets.extend(result["implied_offsets"])
+                    file_offsets.extend(result["implied_offsets"])
+                if result["status"] == "NOT_FOUND_ANYWHERE":
+                    all_not_found.append({"file": path.name, "bucket": bucket_name, **row})
+        per_file_clean_offsets[path.name] = file_offsets
+        per_file[path.name] = file_result
 
-    # ── Annotate additively ──────────────────────────────────────────
-    citation_counter: dict[str, int] = defaultdict(int)
-    defect_counter: dict[str, int] = defaultdict(int)
-    for r in rules:
-        status, score, _kind = citation_results[r["rule_id"]]
-        r["citation_status"] = status
-        citation_counter[status] += 1
-        this_defects = sorted(defect_flags.get(r["rule_id"], set()))
-        r["defect_flags"] = this_defects
-        for d in this_defects:
-            defect_counter[d] += 1
-        r["verified"] = False
-        r["verifier"] = None
-        r["verified_date"] = None
-        r["source_fidelity"] = None
-
-    rule_book["meta"]["status"] = "candidate_unverified"
-    rule_book["meta"]["gate_run_date"] = date.today().isoformat()
-    rule_book["meta"]["gate_summary"] = {
-        "citation_status_counts": dict(citation_counter),
-        "defect_flag_counts": dict(defect_counter),
-        "overlap_score_count": len(overlap_scores),
-        "overlap_threshold_used": _OVERLAP_THRESHOLD,
-        "min_tokens_for_overlap_test": _MIN_TOKENS_FOR_OVERLAP,
-    }
-
-    RULE_BOOK_PATH.write_text(
-        json.dumps(rule_book, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    # ── Report (report-only: no rule file is ever written) ─────────────
+    lines: list[str] = []
+    lines.append("# S114 rule-citation gate report (scripts/gate_rule_citations.py)\n")
+    lines.append(f"Run date: {date.today().isoformat()}. Corpus: `{args.corpus}`. "
+                 f"Rule files scanned: {len(rule_files)} ({', '.join(p.name for p in rule_files)}).\n")
+    lines.append(
+        "**REPORT-ONLY**: this run writes nothing except this report -- no "
+        "data/palm_rules/ file is read-and-rewritten. Whole-corpus anchor "
+        "search (not a source_page-vs-page_ref comparison): a quote is "
+        "CLEAN if it anchors on ANY page or in the full-corpus concatenation, "
+        "regardless of which page_ref that is -- printed source_page and the "
+        "corpus's own page_ref are different numbering schemes with a "
+        "non-trivial (roughly-constant per book) offset.\n"
     )
 
-    # ── Report ────────────────────────────────────────────────────────
-    lines: list[str] = []
-    lines.append("# S84 rule-citation gate report (scripts/gate_rule_citations.py)\n")
-    lines.append(f"Run date: {date.today().isoformat()}. Rule book: `{RULE_BOOK_PATH}` (annotated additively, in place).\n")
-
-    lines.append("## Gate-measured citation_status vs. generator's self-report\n")
-    gen_meta = rule_book["meta"]
-    lines.append("| status | gate-measured count | generator self-report field | generator count |")
-    lines.append("|---|---|---|---|")
-    lines.append(f"| CLEAN | {citation_counter.get('CLEAN', 0)} | clean_source_quotes | {gen_meta.get('clean_source_quotes')} |")
-    lines.append(f"| ADJACENT | {citation_counter.get('ADJACENT', 0)} | adjacent_page_source_quotes | {gen_meta.get('adjacent_page_source_quotes')} |")
-    lines.append(f"| UNMATCHED | {citation_counter.get('UNMATCHED', 0)} | unmatched_source_quotes | {gen_meta.get('unmatched_source_quotes')} |")
-    lines.append(f"| GENERATOR_PLACEHOLDER | {citation_counter.get('GENERATOR_PLACEHOLDER', 0)} | (no separate self-report field -- generator's own UNMATCHED/ADJACENT counts likely already include these) | -- |")
-    lines.append(f"\nTotal rules: {len(rules)} (generator's `total_rules`: {gen_meta.get('total_rules')})\n")
-
-    lines.append("## Defect flag counts (independent of citation_status)\n")
-    lines.append("| flag | count |")
-    lines.append("|---|---|")
-    for flag_name in ("SHARED_QUOTE", "DUPLICATE_SENTENCE", "NEEDS_RELATION_TARGET", "NEGATION_ABSENCE"):
-        lines.append(f"| {flag_name} | {defect_counter.get(flag_name, 0)} |")
+    lines.append("## Per-file citation-status counts\n")
+    lines.append("| file | bucket | CLEAN | NOT_FOUND_ANYWHERE | UNCITED | GENERATOR_PLACEHOLDER | total |")
+    lines.append("|---|---|---|---|---|---|---|")
+    for fname, buckets in per_file.items():
+        for bucket_name in ("live", "parked"):
+            rows = buckets[bucket_name]
+            counts = defaultdict(int)
+            for r in rows:
+                counts[r["status"]] += 1
+            label = "validated_candidates (LIVE)" if bucket_name == "live" else "parked_* (PARKED)"
+            lines.append(
+                f"| {fname} | {label} | {counts['CLEAN']} | {counts['NOT_FOUND_ANYWHERE']} | "
+                f"{counts['UNCITED']} | {counts['GENERATOR_PLACEHOLDER']} | {len(rows)} |"
+            )
     lines.append("")
 
-    trustworthy = sum(
-        1 for r in rules
-        if r["citation_status"] == "CLEAN" and not r["defect_flags"]
-    )
-    lines.append(
-        f"**Fully trustworthy (CLEAN citation AND zero defect flags): {trustworthy} / {len(rules)} "
-        f"({trustworthy / len(rules) * 100:.1f}%)** -- this is stricter than the generator's own "
-        f"292/393 CLEAN-only self-report, since it also excludes rules whose citation matched "
-        f"but which carry an independent structural defect (shared/duplicate quotes, unrepresentable "
-        f"relations, or negation-overload).\n"
-    )
+    # ── Prominent NOT_FOUND_ANYWHERE list (the point of the gate) ──────
+    lines.append("## NOT_FOUND_ANYWHERE -- every one, for human review (never auto-fixed)\n")
+    if all_not_found:
+        lines.append(f"**{len(all_not_found)} rule(s) with a source_quote that anchors NOWHERE in the corpus:**\n")
+        for row in sorted(all_not_found, key=lambda r: (r["file"], r["rule_id"] or "")):
+            nearest = (
+                f"page_ref {row['best_score_page']}, overlap score {row['score']:.3f}"
+                if row["best_score_page"] is not None and row["score"] is not None
+                else "(no partial match -- quote too short for overlap scoring, or zero token overlap anywhere)"
+            )
+            lines.append(f"### {row['file']} :: {row['rule_id']} ({row['bucket']}) -- source_page {row['source_page']}")
+            lines.append(f"- quote: {row['source_quote']!r}")
+            lines.append(f"- nearest partial match: {nearest}")
+            lines.append("")
+    else:
+        lines.append("**None. Every cited rule (live and parked) anchors somewhere in the corpus.**\n")
 
-    lines.append("## Overlap-score distribution (tuning note per instructing prompt)\n")
-    if overlap_scores:
-        s = sorted(overlap_scores)
+    # ── Implied-offset distribution across CLEAN rules ──────────────────
+    lines.append("## Implied-offset distribution (found page_ref - source_page), CLEAN rules only\n")
+    if all_clean_offsets:
+        s = sorted(all_clean_offsets)
         n = len(s)
-        def pct(p):
+        def pct(p: float) -> int:
             idx = min(n - 1, int(p * n))
             return s[idx]
-        lines.append(f"n={n} scores logged (quotes with >=6 tokens only; shorter quotes use substring-only match, no score)\n")
-        lines.append(f"- min: {s[0]:.3f}")
-        lines.append(f"- p25: {pct(0.25):.3f}")
-        lines.append(f"- median: {pct(0.50):.3f}")
-        lines.append(f"- p75: {pct(0.75):.3f}")
-        lines.append(f"- max: {s[-1]:.3f}")
-        buckets = [0, 0, 0, 0, 0]
-        edges = [0.0, 0.5, 0.7, 0.85, 0.95, 1.001]
-        for score in s:
-            for i in range(5):
-                if edges[i] <= score < edges[i + 1]:
-                    buckets[i] += 1
-                    break
-        lines.append("\nHistogram (score range -> count):")
-        for i in range(5):
-            lines.append(f"  [{edges[i]:.2f}, {edges[i+1]:.2f}) : {buckets[i]}")
+        lines.append(f"n={n} offset data points (a rule matching multiple pages contributes one point per matched page).\n")
+        lines.append(f"- min: {s[0]}")
+        lines.append(f"- p25: {pct(0.25)}")
+        lines.append(f"- median: {pct(0.50)}")
+        lines.append(f"- p75: {pct(0.75)}")
+        lines.append(f"- max: {s[-1]}")
+        top_offsets = Counter(s).most_common(5)
+        lines.append(f"\nMost common offset values: {', '.join(f'{v} (x{c})' for v, c in top_offsets)}")
     else:
-        lines.append("No overlap scores logged.")
+        lines.append("No CLEAN rules matched an individual page (either zero CLEAN rules, or every CLEAN match was full-corpus-only).")
     lines.append("")
 
-    lines.append("## Hardest-case proof (5 assertions)\n")
-
-    def status_of(rule_id: str) -> str:
-        return citation_results[rule_id][0]
-
-    def flags_of(rule_id: str) -> set[str]:
-        return defect_flags.get(rule_id, set())
-
-    assertions = []
-
-    s = status_of("R_233")
-    ok = s in ("UNMATCHED", "GENERATOR_PLACEHOLDER")
-    assertions.append(("R_233 -> UNMATCHED or GENERATOR_PLACEHOLDER", ok, f"actual citation_status={s}"))
-
-    shared = all("SHARED_QUOTE" in flags_of(rid) for rid in ("R_335", "R_336", "R_337"))
-    assertions.append(("R_335/R_336/R_337 -> SHARED_QUOTE group", shared,
-                        f"R_335={('SHARED_QUOTE' in flags_of('R_335'))}, R_336={('SHARED_QUOTE' in flags_of('R_336'))}, R_337={('SHARED_QUOTE' in flags_of('R_337'))}"))
-
-    dup = ("DUPLICATE_SENTENCE" in flags_of("R_152")) and ("DUPLICATE_SENTENCE" in flags_of("R_334"))
-    assertions.append(("R_152 vs R_334 -> DUPLICATE_SENTENCE (p160, soft-hand vs head-close)", dup,
-                        f"R_152 flags={sorted(flags_of('R_152'))}, R_334 flags={sorted(flags_of('R_334'))}"))
-
-    needs_rel = "NEEDS_RELATION_TARGET" in flags_of("R_342")
-    assertions.append(("R_342 -> NEEDS_RELATION_TARGET", needs_rel, f"R_342 flags={sorted(flags_of('R_342'))}"))
-
-    neg_abs = "NEGATION_ABSENCE" in flags_of("R_355")
-    assertions.append(("R_355 -> NEGATION_ABSENCE", neg_abs, f"R_355 flags={sorted(flags_of('R_355'))}"))
-
-    for label, ok, detail in assertions:
-        lines.append(f"- [{'PASS' if ok else 'FAIL'}] {label} -- {detail}")
-    lines.append("")
-
-    lines.append("## Quarantined rule_ids grouped by reason\n")
-    lines.append("A rule is quarantined if citation_status != CLEAN OR it carries any defect_flag.\n")
-
-    def rule_ids_with_status(status: str) -> list[str]:
-        return sorted(rid for rid, (s, _, _) in citation_results.items() if s == status)
-
-    def rule_ids_with_flag(flag: str) -> list[str]:
-        return sorted(rid for rid, fs in defect_flags.items() if flag in fs)
-
-    for status in ("ADJACENT", "UNMATCHED", "GENERATOR_PLACEHOLDER"):
-        ids = rule_ids_with_status(status)
-        lines.append(f"### citation_status = {status} ({len(ids)})")
-        lines.append(", ".join(ids) if ids else "(none)")
-        lines.append("")
-
-    for flag in ("SHARED_QUOTE", "DUPLICATE_SENTENCE", "NEEDS_RELATION_TARGET", "NEGATION_ABSENCE"):
-        ids = rule_ids_with_flag(flag)
-        lines.append(f"### defect_flag = {flag} ({len(ids)})")
-        lines.append(", ".join(ids) if ids else "(none)")
-        lines.append("")
-
-    quarantined_all = sorted(
-        rid for rid in citation_results
-        if citation_results[rid][0] != "CLEAN" or defect_flags.get(rid)
+    lines.append(
+        "**IMPORTANT per-file finding, not a single global offset**: the "
+        "combined distribution above blends together what are actually "
+        "TWO distinct, each internally-tight, per-file conventions -- "
+        "see the breakdown below. A future rule-authoring session should "
+        "know which convention its own chapter's `source_page` field is "
+        "already using before assuming a fixed +60.\n"
     )
-    lines.append(f"**Total distinct quarantined rule_ids: {len(quarantined_all)} / {len(rules)}**\n")
+    lines.append("### Per-file dominant offset\n")
+    lines.append("| file | n | dominant offset | count at dominant | other offsets seen |")
+    lines.append("|---|---|---|---|---|")
+    for fname, offsets in per_file_clean_offsets.items():
+        if not offsets:
+            lines.append(f"| {fname} | 0 | -- | -- | -- |")
+            continue
+        counts = Counter(offsets)
+        dominant, dom_count = counts.most_common(1)[0]
+        others = [f"{v} (x{c})" for v, c in counts.most_common() if v != dominant]
+        lines.append(
+            f"| {fname} | {len(offsets)} | {dominant:+d} | {dom_count}/{len(offsets)} | "
+            f"{', '.join(others) if others else '(none)'} |"
+        )
+    lines.append("")
+
+    # ── Spot-check: the rules this task names explicitly ────────────────
+    lines.append("## Spot-check: FT_007 / FT_008 / H_028 / L_026\n")
+    lines.append("| rule_id | file | bucket | status | matched_pages | implied_offsets |")
+    lines.append("|---|---|---|---|---|---|")
+    spot_check_ids = {"FT_007", "FT_008", "H_028", "L_026"}
+    found_spot_check: set[str] = set()
+    for fname, buckets in per_file.items():
+        for bucket_name in ("live", "parked"):
+            for row in buckets[bucket_name]:
+                if row["rule_id"] in spot_check_ids:
+                    found_spot_check.add(row["rule_id"])
+                    lines.append(
+                        f"| {row['rule_id']} | {fname} | {bucket_name} | {row['status']} | "
+                        f"{row['matched_pages']} | {row['implied_offsets']} |"
+                    )
+    missing_spot_check = spot_check_ids - found_spot_check
+    if missing_spot_check:
+        lines.append(f"\n**MISSING from scan: {sorted(missing_spot_check)}** -- rule_id not found in any scanned file/bucket.")
+    lines.append("")
 
     REPORT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"Wrote {REPORT_PATH} ; annotated {RULE_BOOK_PATH} in place.")
-    print(f"citation_status counts: {dict(citation_counter)}")
-    print(f"defect_flag counts: {dict(defect_counter)}")
+
+    total_live = sum(len(b["live"]) for b in per_file.values())
+    total_parked = sum(len(b["parked"]) for b in per_file.values())
+    print(f"Wrote {REPORT_PATH}")
+    print(f"Scanned {len(rule_files)} rule file(s): {total_live} live rule(s), {total_parked} parked rule(s).")
+    print(f"NOT_FOUND_ANYWHERE: {len(all_not_found)}")
 
 
 if __name__ == "__main__":
