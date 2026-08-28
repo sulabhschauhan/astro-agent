@@ -206,6 +206,66 @@ def classify_antecedent(feature: str, attribute: str, value, relation_target) ->
             "nearest": None,
             "caveat": None,
         }
+    # --- S113: typed-relationship tokens (oe._RELATIONSHIP_TOKENS) --
+    # classified via the RELATION registries directly, INTERCEPTED HERE
+    # (ahead of the value-attribute-map checks below) so they NEVER reach
+    # the value-attribute-map check. Root cause this closes:
+    # attribute_feature_mapping (AFM) is the VALUE-attribute map (drives
+    # value emission + the value guard below); the 8 typed relation
+    # tokens (joins_at_origin/meets/cuts/cut_by/touches/stopped_by/
+    # takes_possession_of/branch_in) are governed by a SEPARATE machinery
+    # -- relation_cardinality/relation_target_registry/
+    # vision_relational_menus/extract_relations -- and correctly do NOT
+    # live in AFM. Checking `attribute in oe._ATTRIBUTE_FEATURE_MAP` first
+    # (the old code path) therefore false-flagged any typed token AFM
+    # never happened to also carry as NO before ever reaching the relation
+    # branch that used to live further below. Two tokens (joins_at_origin,
+    # meets) were previously worked around by injecting them INTO AFM --
+    # conceptually wrong, and applied to only 2 of 8, leaving stopped_by
+    # (S112 finding), cuts (live since S110), cut_by, touches,
+    # takes_possession_of, and branch_in false-flagged. This branch routes
+    # ALL 8 through the SAME relation path consistently (mirrors
+    # rule_vocabulary_closure_gate.py's own classify_antecedent Rule 3 --
+    # same _RELATIONAL_FEATURES/relation_target_registry checks, so the
+    # two scripts cannot silently disagree), making the two leftover AFM
+    # entries irrelevant to this scanner going forward (their removal from
+    # the registry is a separate, deferred fix -- out of this script-only
+    # task's scope). Placed directly after the feature-existence check
+    # above (never after the AFM/aliased-features checks below, which are
+    # value-path-specific and must never gate a relation-path attribute).
+    if attribute in oe._RELATIONSHIP_TOKENS:
+        if relation_target is None:
+            return {
+                "status": "UNEMITTABLE",
+                "detail": (
+                    f"typed-relationship attribute {attribute!r} has no relation_target -- "
+                    "every one of the 8 typed tokens is target-bearing by construction; a "
+                    "missing target is a malformed antecedent, never fireable."
+                ),
+                "nearest": None,
+                "caveat": None,
+            }
+        if feature not in _RELATIONAL_FEATURES:
+            return {
+                "status": "NO",
+                "detail": f"feature {feature!r} never carries a RELATIONAL block (only Line of Head/Heart/Fate do)",
+                "nearest": None,
+                "caveat": None,
+            }
+        if relation_target not in oe._RELATION_TARGET_REGISTRY:
+            return {
+                "status": "NO",
+                "detail": f"relation_target {relation_target!r} is not a member of ontology_registry.json's relation_target_registry",
+                "nearest": _nearest(relation_target, oe._RELATION_TARGET_REGISTRY),
+                "caveat": None,
+            }
+        return {
+            "status": "yes",
+            "detail": f"relation_target {relation_target!r} reachable via the typed {attribute!r} parse (registry-legal)",
+            "nearest": None,
+            "caveat": None,
+        }
+
     if attribute not in oe._ATTRIBUTE_FEATURE_MAP:
         return {
             "status": "NO",

@@ -121,3 +121,136 @@ def test_all_rule_files_have_zero_unemittable_antecedents(rules_path: Path):
         "(relation_target on a non-emitted attribute -- the Ending_Point/"
         "Position S97 bug class):\n" + "\n".join(offenders)
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# S113: typed-relationship tokens classified via the RELATION registries,
+# not the value-attribute map (attribute_feature_mapping). Root cause:
+# classify_antecedent's early `attribute not in oe._ATTRIBUTE_FEATURE_MAP`
+# check ran BEFORE the relation branch, so any of the 8 typed tokens
+# (oe._RELATIONSHIP_TOKENS) NOT also injected into attribute_feature_
+# mapping false-flagged as unreachable. Only 2 of 8 (joins_at_origin,
+# meets) had been worked around that way; stopped_by (S112), cuts (live
+# since S110), cut_by, touches, takes_possession_of, and branch_in all
+# false-flagged. Fixed by intercepting `attribute in oe._RELATIONSHIP_
+# TOKENS` immediately after the feature-existence check, classifying via
+# relation_target_registry membership directly -- mirrors
+# rule_vocabulary_closure_gate.py's own classify_antecedent Rule 3.
+# ═══════════════════════════════════════════════════════════════════════
+
+_ALL_TYPED_RELATIONSHIP_TOKENS = (
+    "joins_at_origin", "meets", "cuts", "cut_by", "touches",
+    "stopped_by", "takes_possession_of", "branch_in",
+)
+
+
+def test_ft007_ft008_regression_now_classify_reachable_via_live_rules():
+    """HARDEST CASE FIRST: the exact S112 regression this fix closes.
+    FT_007 (Line of Fate, stopped_by, relation_target Line of Heart) and
+    FT_008 (relation_target Line of Head) were false-flagged NO/
+    unreachable before this fix (caught live in S113's own pre-flight).
+    Asserted against the LIVE rules file scan_rule() actually loads --
+    not just a synthetic antecedent -- so this proves the real committed
+    rule, not just the mechanism in isolation."""
+    fate_rules_path = _RULES_DIR / "palm_rules_fate_line_v1.json"
+    rules = load_scanned_rules(fate_rules_path)
+    by_id = {r["rule_id"]: r for r in rules}
+    assert "FT_007" in by_id and "FT_008" in by_id
+
+    ft007_rows = scan_rule(by_id["FT_007"])
+    ft008_rows = scan_rule(by_id["FT_008"])
+    assert len(ft007_rows) == 1 and len(ft008_rows) == 1
+    assert ft007_rows[0]["status"] == "yes", ft007_rows[0]["detail"]
+    assert ft008_rows[0]["status"] == "yes", ft008_rows[0]["detail"]
+    assert ft007_rows[0]["attribute"] == "stopped_by"
+    assert ft007_rows[0]["relation_target"] == "Line of Heart"
+    assert ft008_rows[0]["relation_target"] == "Line of Head"
+
+
+@pytest.mark.parametrize(
+    "token", ("cuts", "cut_by", "touches", "stopped_by", "takes_possession_of", "branch_in"),
+)
+def test_previously_missing_tokens_reachable_with_valid_relation_target(token: str):
+    """The 6 tokens that were NEVER worked around in attribute_feature_
+    mapping (unlike joins_at_origin/meets) -- each must now classify
+    reachable with a real relation_target_registry member."""
+    result = classify_antecedent("Line of Fate", token, None, "Line of Head")
+    assert result["status"] == "yes", result["detail"]
+    assert token in result["detail"]
+
+
+@pytest.mark.parametrize(
+    "token", ("cuts", "cut_by", "touches", "stopped_by", "takes_possession_of", "branch_in"),
+)
+def test_previously_missing_tokens_unreachable_with_invalid_relation_target(token: str):
+    """Proves the fix isn't blanket-permissive: the SAME 6 tokens with an
+    invalid relation_target (not in relation_target_registry) must still
+    classify NO, with a detail naming the registry-membership failure --
+    not silently accepted just because the attribute is now recognized."""
+    result = classify_antecedent("Line of Fate", token, None, "Not A Real Target")
+    assert result["status"] == "NO"
+    assert "relation_target_registry" in result["detail"]
+
+
+@pytest.mark.parametrize("token", ("joins_at_origin", "meets"))
+def test_formerly_workaround_tokens_still_reachable_via_relation_path_not_afm(token: str):
+    """joins_at_origin and meets were the 2 tokens previously injected
+    INTO attribute_feature_mapping as a workaround. Must still classify
+    reachable after this fix -- but now via the SAME relation path as the
+    other 6, proven by the detail text referencing "typed" (this
+    function's own relation-branch wording), not the old
+    attribute_feature_mapping-based message."""
+    feature = "Line of Head" if token == "joins_at_origin" else "Line of Fate"
+    target = "Line of Life" if token == "joins_at_origin" else "Line of Heart"
+    result = classify_antecedent(feature, token, None, target)
+    assert result["status"] == "yes", result["detail"]
+    assert "typed" in result["detail"]
+    assert "attribute_feature_mapping" not in result["detail"]
+
+
+def test_negative_guard_genuinely_unknown_value_attribute_still_unreachable():
+    """NEGATIVE GUARD: an attribute that is NOT one of the 8 typed
+    relationship tokens and NOT in attribute_feature_mapping must still
+    classify as unreachable (status "NO", the value-attribute-map's own
+    "attribute does not exist" branch) -- proves the S113 fix's new
+    early-return branch is narrowly scoped to oe._RELATIONSHIP_TOKENS
+    only and does not defeat the gate for a genuinely unknown attribute."""
+    result = classify_antecedent("Line of Fate", "totally_unknown_attr", "some_value", None)
+    assert result["status"] == "NO"
+    assert "totally_unknown_attr" in result["detail"]
+    assert "attribute_feature_mapping" in result["detail"]
+
+
+def test_relation_target_on_non_relational_attribute_still_hits_s97_gate_after_s113():
+    """Re-confirms (post-S113) that a relation_target on an attribute
+    that is NEITHER a typed-relationship token NOR an old directional
+    attribute still hits the pre-existing S97 CI-gate (UNEMITTABLE) --
+    the S113 fix's new branch is scoped to oe._RELATIONSHIP_TOKENS only
+    and must never swallow this case. Same shape as this file's original
+    S97 regression test above, re-asserted here to lock it against this
+    specific fix's own placement (the new branch sits ahead of this gate
+    in source order; a placement mistake could have made it swallow this
+    case too -- this test exists to catch exactly that class of error)."""
+    result = classify_antecedent("Line of Fate", "Ending_Point", None, "Line of Head")
+    assert result["status"] == "UNEMITTABLE"
+    assert "S97" in result["detail"]
+
+
+def test_typed_token_with_missing_relation_target_is_unemittable():
+    """Every one of the 8 typed tokens is target-bearing by construction
+    -- a typed-relationship attribute with relation_target=None is a
+    malformed antecedent, never fireable. Not expected on any real rule
+    (all typed-relationship rules declare a relation_target), but the
+    classifier must handle it explicitly rather than falling through."""
+    result = classify_antecedent("Line of Fate", "stopped_by", None, None)
+    assert result["status"] == "UNEMITTABLE"
+    assert "relation_target" in result["detail"]
+
+
+def test_old_directional_attributes_unaffected_by_s113_no_regression():
+    """Position/Starting_Point (the OLD ORIGIN/TERMINATION directional
+    channel) must still classify exactly as before -- the S113 fix only
+    intercepts oe._RELATIONSHIP_TOKENS, never touches this path."""
+    result = classify_antecedent("Line of Fate", "Position", None, "Mount of Saturn")
+    assert result["status"] == "yes"
+    assert "TERMINATION" in result["detail"]
