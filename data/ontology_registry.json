@@ -1028,15 +1028,6 @@
       "Line of Head",
       "Line of Health",
       "Line of Heart"
-    ],
-    "joins_at_origin": [
-      "Line of Head",
-      "Line of Heart",
-      "Line of Life"
-    ],
-    "meets": [
-      "Line of Fate",
-      "Line of Heart"
     ]
   },
   "attribute_value_binding": {
