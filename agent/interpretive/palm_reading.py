@@ -123,6 +123,7 @@ import os
 import json
 import logging
 import re
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -2304,6 +2305,17 @@ def _assemble_relational_targets_with_fallback(
 
     results, audits = resolve_unresolved_contacts(flat_contacts, client)
 
+    # Attach hand/feature to each audit via the aligned flat_locations index --
+    # in-place mutation is intended: audits is a fresh list local to this
+    # call with a single downstream consumer (the caller's capture-net log),
+    # so there's no key-collision or shared-state risk. setdefault so a
+    # future producer that already supplies its own hand/feature is not
+    # overwritten.
+    for (hand, feature), audit in zip(flat_locations, audits):
+        if audit is not None:
+            audit.setdefault("hand", hand)
+            audit.setdefault("feature", feature)
+
     left_targets: dict[str, dict[str, object]] = {}
     right_targets: dict[str, dict[str, object]] = {}
     for (hand, feature), result in zip(flat_locations, results):
@@ -2411,6 +2423,19 @@ def prepare_palm_reading(
             left_ct = _assemble_relational_targets(left_rel["contacts"])
             right_ct = _assemble_relational_targets(right_rel["contacts"])
         _log_fallback_audits(fallback_audits)
+        # S109 capture-net wiring: side by side with the WARNING log above,
+        # not a replacement -- one reading_id per prepare_palm_reading call,
+        # ephemeral (no storage lock implication, never persisted elsewhere).
+        reading_id = uuid.uuid4().hex
+        try:
+            from agent.interpretive import capture_net  # local -- matches this file's existing convention
+            capture_net.map_fallback_audits(fallback_audits, reading_id)
+        except Exception as exc:  # noqa: BLE001 -- belt-and-suspenders: capture_net is already fail-safe internally, but a capture failure must never break a reading
+            logger.warning(
+                "palm_reading.prepare_palm_reading: capture-net wiring "
+                "failed (%s: %s) -- reading proceeds unaffected.",
+                type(exc).__name__, exc,
+            )
         targets = observation_extractor.merge_relational_targets(
             left_rel["targets"],
             right_rel["targets"],

@@ -30,9 +30,24 @@ import json
 
 import pytest
 
-from agent.interpretive import palm_reading, observation_extractor, palm_rules_table
+from agent.interpretive import palm_reading, observation_extractor, palm_rules_table, capture_net
 from tests.interpretive.test_palm_reading import _FakeClient, _FakeSearch, _chunk
 from tests.interpretive.test_palm_reading_rules_engine import _observation_response
+
+
+# ─── Autouse: redirect capture_net's sink for EVERY test in this file ───────
+# prepare_palm_reading now unconditionally wires capture_net.map_fallback_
+# audits (S110 capture-net task) whenever the _DETERMINISTIC_RULES_ENABLED
+# block runs -- WITHOUT this, several pre-existing tests above (e.g. the
+# "resolved" H_028 wiring proof) would silently write into the real
+# diagnostics/capture_net/failures.jsonl on every suite run. Autouse so no
+# existing test needs editing to stay safe; module-scoped path is fine
+# since these tests never assert on this specific file's rows.
+
+
+@pytest.fixture(autouse=True)
+def _redirect_capture_net_sink(tmp_path, monkeypatch):
+    monkeypatch.setattr(capture_net, "_CAPTURE_NET_PATH", tmp_path / "_autouse_capture_net" / "failures.jsonl")
 
 
 # ─── Stub client for the LLM-fallback's own resolutions JSON shape ─────────
@@ -382,3 +397,199 @@ def test_log_fallback_audits_empty_list_logs_nothing(caplog):
     with caplog.at_level("WARNING"):
         palm_reading._log_fallback_audits([])
     assert not any("S109 fallback audit" in r.message for r in caplog.records)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CAPTURE-NET WIRING -- hand/feature fix (_assemble_relational_targets_
+# with_fallback) + prepare_palm_reading integration (capture_net.
+# map_fallback_audits, side by side with _log_fallback_audits). The real
+# diagnostics/capture_net/ dir is NEVER touched here -- every test
+# monkeypatches capture_net._CAPTURE_NET_PATH into tmp_path.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _read_capture_lines(path):
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+@pytest.fixture
+def capture_net_tmp_path(tmp_path, monkeypatch):
+    out_path = tmp_path / "capture_net" / "failures.jsonl"
+    monkeypatch.setattr(capture_net, "_CAPTURE_NET_PATH", out_path)
+    return out_path
+
+
+def test_mixed_dispositions_both_hands_capture_rows_carry_correct_hand_and_feature(capture_net_tmp_path):
+    """HARDEST CASE: proves hand/feature ALIGNMENT, not just presence --
+    three contacts spread across both hands and three different features,
+    resolving to three different dispositions (resolved/llm_unclear/
+    hallucination). Each capture-net row must carry the hand+feature of
+    ITS OWN contact, never a fixed, swapped, or missing one. Batch order
+    (left before right; right's features in text-appearance order Fate
+    then Heart) verified directly against extract_relations' dict-
+    insertion-order behavior before writing this test."""
+    left_text = "HEAD LINE: present\n  CONTACTS: Line of Life | fuses | at start | clear\n"
+    right_text = (
+        "FATE LINE: present\n  CONTACTS: Line of Head | wobbles | mid-course | clear\n"
+        "\n"
+        "HEART LINE: present\n  CONTACTS: Line of Head | melts | mid-course | clear\n"
+    )
+    left_rel = observation_extractor.extract_relations(left_text)
+    right_rel = observation_extractor.extract_relations(right_text)
+
+    # fuses(left, Line of Head)  -> merges     -> resolved
+    # wobbles(right, Line of Fate) -> unclear  -> llm_unclear
+    # melts(right, Line of Heart)  -> obliterates (off-vocabulary) -> hallucination
+    client = _resolutions_client(["merges", "unclear", "obliterates"])
+    left_ct, right_ct, audits = palm_reading._assemble_relational_targets_with_fallback(
+        left_rel["contacts"], right_rel["contacts"], client
+    )
+    assert len(audits) == 3
+    dispositions = {a["raw_verb"]: a["disposition"] for a in audits}
+    assert dispositions == {
+        "fuses": "resolved", "wobbles": "llm_unclear", "melts": "hallucination",
+    }
+
+    reading_id = "test-mixed-reading"
+    capture_net.map_fallback_audits(audits, reading_id)
+
+    rows = _read_capture_lines(capture_net_tmp_path)
+    assert len(rows) == 3
+    by_verb = {r["raw_verb"]: r for r in rows}
+
+    assert by_verb["fuses"]["hand"] == "left"
+    assert by_verb["fuses"]["feature"] == "Line of Head"
+    assert by_verb["fuses"]["trigger"] == "ai_decision"
+
+    assert by_verb["wobbles"]["hand"] == "right"
+    assert by_verb["wobbles"]["feature"] == "Line of Fate"
+    assert by_verb["wobbles"]["trigger"] == "silence"
+
+    assert by_verb["melts"]["hand"] == "right"
+    assert by_verb["melts"]["feature"] == "Line of Heart"
+    assert by_verb["melts"]["trigger"] == "wrong_source"
+
+    for row in rows:
+        assert row["reading_id"] == reading_id
+
+
+def test_prepare_palm_reading_client_none_capture_net_gets_empty_list_no_rows(
+    rules_engine_on, monkeypatch, capture_net_tmp_path,
+):
+    """client=None takes the S107 no-LLM path per hand -- fallback_audits
+    stays [] structurally, so capture_net.map_fallback_audits is called
+    with an empty list (or not meaningfully at all): no crash, no rows."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+
+    observation_json = _observation_response({})
+    client = _FakeClient(responses=[(observation_json, None)])
+
+    text = "HEAD LINE: present\n  CONTACTS: Line of Life | joins | at start | clear\n"
+    prep = palm_reading.prepare_palm_reading(palm_left=text, palm_right=None, client=client)
+
+    diag = prep.diagnostics["rules_engine"]
+    assert "H_028" in diag["fired_rule_ids"]  # reading completed normally
+    assert _read_capture_lines(capture_net_tmp_path) == []
+
+
+def test_prepare_palm_reading_fallback_assembly_raises_no_capture_rows_no_raise(
+    rules_engine_on, monkeypatch, capture_net_tmp_path, caplog,
+):
+    """The fallback assembly itself raises (mirrors the existing degrade-
+    safe test for _log_fallback_audits) -- fallback_audits degrades to
+    [], so capture_net receives nothing to write, and the wiring itself
+    must not raise despite the upstream failure."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+
+    def _explode(*args, **kwargs):
+        raise RuntimeError("simulated unexpected fallback assembly failure")
+
+    monkeypatch.setattr(palm_reading, "_assemble_relational_targets_with_fallback", _explode)
+
+    observation_json = _observation_response({})
+    client = _FakeClient(responses=[(observation_json, None)])
+
+    text = "HEAD LINE: present\n  CONTACTS: Line of Life | joins | at start | clear\n"
+    with caplog.at_level("ERROR"):
+        prep = palm_reading.prepare_palm_reading(palm_left=text, palm_right=None, client=client)
+
+    diag = prep.diagnostics["rules_engine"]
+    assert "H_028" in diag["fired_rule_ids"]  # reading still completed, deterministic result
+    assert _read_capture_lines(capture_net_tmp_path) == []
+
+
+def test_prepare_palm_reading_capture_net_raising_does_not_break_reading(
+    rules_engine_on, monkeypatch, capture_net_tmp_path, caplog,
+):
+    """Belt-and-suspenders proof: even if capture_net.map_fallback_audits
+    itself raises (capture_net.py is already fail-safe internally, but
+    this proves prepare_palm_reading's OWN wrapping holds regardless),
+    the reading must still complete, a WARNING is logged, and
+    _log_fallback_audits' own logging (which runs first, unmodified) is
+    unaffected -- the two run side by side, neither gates the other."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+
+    def _explode(*args, **kwargs):
+        raise RuntimeError("simulated capture-net failure")
+
+    monkeypatch.setattr(capture_net, "map_fallback_audits", _explode)
+
+    fallback_json = json.dumps({"resolutions": ["merges"]})
+    observation_json = _observation_response({})
+    client = _FakeClient(responses=[(fallback_json, None), (observation_json, None)])
+
+    text = "HEAD LINE: present\n  CONTACTS: Line of Life | fuses | at start | clear\n"
+    with caplog.at_level("WARNING"):
+        prep = palm_reading.prepare_palm_reading(palm_left=text, palm_right=None, client=client)
+
+    diag = prep.diagnostics["rules_engine"]
+    assert "H_028" in diag["fired_rule_ids"]  # reading still completed
+
+    warning_lines = [r.message for r in caplog.records if "capture-net wiring failed" in r.message]
+    assert len(warning_lines) == 1
+    assert "simulated capture-net failure" in warning_lines[0]
+
+    audit_lines = [r.message for r in caplog.records if "S109 fallback audit" in r.message]
+    assert len(audit_lines) == 1  # unaffected by the capture_net failure
+
+    assert _read_capture_lines(capture_net_tmp_path) == []  # the patched function never wrote anything
+
+
+def test_no_palm_text_leaks_into_capture_net_rows_end_to_end(
+    rules_engine_on, monkeypatch, capture_net_tmp_path,
+):
+    """Reuses the capture_net allow-list guarantee end-to-end through the
+    real prepare_palm_reading() call path: a distinctive marker string
+    embedded in the raw palm text must never appear in the written
+    capture-net file, and none of the raw-text-bearing keys ever appear
+    on a written row."""
+    chunk = _chunk()
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([chunk]))
+
+    fallback_json = json.dumps({"resolutions": ["merges"]})
+    observation_json = _observation_response({})
+    client = _FakeClient(responses=[(fallback_json, None), (observation_json, None)])
+
+    secret_marker = "SUPER_SECRET_PALM_DESCRIPTION_MARKER_XYZ"
+    text = (
+        "HEAD LINE: present\n"
+        "  CONTACTS: Line of Life | fuses | at start | clear\n"
+        f"NOTES: {secret_marker}\n"
+    )
+    prep = palm_reading.prepare_palm_reading(palm_left=text, palm_right=None, client=client)
+    diag = prep.diagnostics["rules_engine"]
+    assert "H_028" in diag["fired_rule_ids"]
+
+    rows = _read_capture_lines(capture_net_tmp_path)
+    assert len(rows) == 1  # the one genuine LLM resolution ("resolved" -> ai_decision)
+    assert rows[0]["trigger"] == "ai_decision"
+
+    raw_file_text = capture_net_tmp_path.read_text(encoding="utf-8")
+    assert secret_marker not in raw_file_text
+    forbidden_keys = {"palm_text", "left_palm_description", "palm_left", "image_bytes", "hand_detail"}
+    assert forbidden_keys.isdisjoint(rows[0].keys())
