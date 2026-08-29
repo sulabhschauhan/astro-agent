@@ -34,6 +34,7 @@ from agent.interpretive.observation_extractor import (
     extract_relations,
     merge_relational_targets,
     to_vision_payload,
+    translate_mount_development,
 )
 
 # ─── Fake OpenAI client -- transplanted from test_claim_extraction.py ────
@@ -89,17 +90,23 @@ def _response(observations: dict, unmapped: dict | None = None) -> str:
 # ─── Sanity: registry-derived constants sane before relying on them ──────
 
 
-def test_alias_table_has_nineteen_keys_seventeen_mapped_two_none():
+def test_alias_table_has_twenty_keys_eighteen_mapped_two_none():
     # S96: 9 more mount aliases (7 new mounts + 2 extra Cheiro synonyms --
     # "mount of apollo" and "mount of the moon" -- collapsing onto an
     # already-mapped canonical feature) landed alongside the original 10-key
-    # table's 8 mapped + 2 None entries. Measured, not assumed: 19 total
-    # keys, 17 mapped (to 15 DISTINCT ontology features, since two of the
-    # mapped keys are synonyms of another mapped key), 2 still None.
-    assert len(_FEATURE_ALIAS) == 19
+    # table's 8 mapped + 2 None entries (19 total, 17 mapped, 2 None).
+    # S117 added a 3RD synonym-collapse: "mount of mars positive"
+    # (palm_reading._FEATURE_REGISTRY's own S117 spelling, reconciled onto
+    # the pre-existing S96 "upper mount of mars" key -- same canonical
+    # Upper Mount of Mars feature, no new distinct feature added). Measured,
+    # not assumed: 20 total keys, 18 mapped (still 15 DISTINCT ontology
+    # features, since three of the mapped keys are now synonyms of another
+    # mapped key), 2 still None.
+    assert len(_FEATURE_ALIAS) == 20
     mapped = {k: v for k, v in _FEATURE_ALIAS.items() if v is not None}
     unmapped = {k: v for k, v in _FEATURE_ALIAS.items() if v is None}
-    assert len(mapped) == 17
+    assert len(mapped) == 18
+    assert len(set(mapped.values())) == 15  # distinct ontology features, synonyms collapse
     assert set(unmapped) == {"fingers", "markings/other features"}
     for ontology_feature in mapped.values():
         assert ontology_feature in _CLOSED_VOCAB
@@ -814,3 +821,38 @@ def test_extract_mount_development_raises_typeerror_for_non_str_input():
 
 def test_extract_mount_development_empty_for_text_without_any_development_line():
     assert extract_mount_development("HAND SHAPE: elongated palm, medium build") == {}
+
+
+# ─── translate_mount_development -- S117 wiring follow-up ────────────────
+
+
+def test_translate_mount_development_maps_all_five_graded_mounts_including_aliases():
+    """Every graded mount's registry-style key translates to the exact
+    ontology feature name every rule file's antecedents use -- including
+    the two renamed aliases (apollo -> Mount of the Sun, mars positive ->
+    Upper Mount of Mars, the S117 naming-gap fix)."""
+    raw = {
+        "mount of venus": {"Development": "well developed"},
+        "mount of jupiter": {"Development": "developed"},
+        "mount of saturn": {"Development": "unusually high"},
+        "mount of apollo": {"Development": "well developed"},
+        "mount of mars positive": {"Development": "large"},
+    }
+    assert translate_mount_development(raw) == {
+        "Mount of Venus": {"Development": "well developed"},
+        "Mount of Jupiter": {"Development": "developed"},
+        "Mount of Saturn": {"Development": "unusually high"},
+        "Mount of the Sun": {"Development": "well developed"},
+        "Upper Mount of Mars": {"Development": "large"},
+    }
+
+
+def test_translate_mount_development_drops_unrecognized_key_quarantined():
+    """A key with no _FEATURE_ALIAS entry is dropped, not guessed --
+    same quarantine posture as every other rejection path in this
+    module."""
+    assert translate_mount_development({"not a real mount": {"Development": "x"}}) == {}
+
+
+def test_translate_mount_development_empty_in_empty_out():
+    assert translate_mount_development({}) == {}

@@ -336,6 +336,19 @@ _FEATURE_ALIAS: dict[str, str | None] = {
     "mount of mercury": "Mount of Mercury",
     "upper mount of mars": "Upper Mount of Mars",
     "lower mount of mars": "Lower Mount of Mars",
+    # S117: `palm_reading._FEATURE_REGISTRY`/`_SUB_FEATURES` spell the two
+    # Mars mounts "mount of mars positive"/"mount of mars negative" --
+    # a DIFFERENT spelling from this dict's pre-existing S96 "upper mount
+    # of mars"/"lower mount of mars" keys above (never previously
+    # reconciled). Additive alias only, same canonical feature each --
+    # needed so `translate_mount_development` (below) can resolve
+    # `extract_mount_development`'s own "mount of mars positive" output
+    # key. "mount of mars negative" is NOT added here: Lower Mars is
+    # presence-only (extract_mount_development never emits a Development
+    # value for it, S117), so no caller needs that key today -- add it
+    # only if that ever changes, per the same "additive, no existing key
+    # touched" discipline as every other entry in this dict.
+    "mount of mars positive": "Upper Mount of Mars",
     "mount of luna": "Mount of Luna",
     "mount of the moon": "Mount of Luna",
     "plain of mars": "Plain of Mars",
@@ -1547,6 +1560,39 @@ def extract_mount_development(raw_text: str) -> dict[str, dict[str, str]]:
         vision_name, value_raw = m.group(1), m.group(2)
         _store_mount_development(development, vision_name, value_raw)
     return development
+
+
+def translate_mount_development(
+    mount_development: dict[str, dict[str, str]]
+) -> dict[str, dict[str, str]]:
+    """Translates `extract_mount_development`'s own `palm_reading.
+    _FEATURE_REGISTRY`-style keys (e.g. "mount of venus", "mount of
+    apollo") into the capitalized ontology feature names (e.g. "Mount of
+    Venus", "Mount of the Sun") every rule file's antecedents and the
+    `observation` dict `palm_rules_table.match()` reads are keyed by --
+    reusing `_FEATURE_ALIAS`, the SAME single source of truth
+    `_gather_feature_texts`'s own prose-to-ontology mapping and every
+    other consumer of this dict already use (generalization gate: no
+    second, independently-authored name map). `extract_mount_development`
+    itself is left unchanged -- this is a separate, additive translation
+    step, not a change to that function's own output contract (which its
+    existing tests assert against directly).
+
+    A key with no `_FEATURE_ALIAS` entry (should not happen for any of
+    the 5 currently-graded mounts, all covered above) is dropped and
+    logged rather than guessed -- same "never guess" posture as every
+    other rejection path in this module."""
+    translated: dict[str, dict[str, str]] = {}
+    for registry_key, attrs in mount_development.items():
+        ontology_feature = _FEATURE_ALIAS.get(registry_key)
+        if ontology_feature is None:
+            logger.info(
+                "observation_extractor.translate_mount_development: registry key "
+                "%r has no _FEATURE_ALIAS entry -- dropped.", registry_key,
+            )
+            continue
+        translated[ontology_feature] = dict(attrs)
+    return translated
 
 
 # ─── Confidence -- prose hedge-word detection (module docstring point 6) ──

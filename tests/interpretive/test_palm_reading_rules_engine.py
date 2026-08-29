@@ -1282,3 +1282,182 @@ def test_david_right_shape_neither_stopped_by_rule_fires():
     assert targets["Line of Fate"]["cuts"] == {"Line of Head"}
     assert "FT_007" not in fired
     assert "FT_008" not in fired
+
+
+# ─── S117 mount-development wiring: fires end to end from real text ─────
+#
+# All 5 tests use a MINIMAL palm_left containing ONLY a "  DEVELOPMENT
+# (<mount>): <value>" line (no HAND SHAPE/LIFE LINE/etc. fields at all,
+# same minimal-fixture precedent as _CAPTURED_LEFT_LIFE_LINE above) --
+# _parse_fields produces an empty fields dict for text shaped this way
+# (no preceding top-level field header for the bare DEVELOPMENT line to
+# attach to), so raw_texts_by_feature is empty for every feature and
+# extract_observation's `entries` list stays empty -- ZERO LLM calls are
+# ever attempted (verified directly, not assumed: `client.completions.
+# calls == []` on every test below). extract_mount_development itself
+# works directly off the raw palm_left/palm_right text regardless (it
+# never goes through _gather_feature_texts at all), so mount-development
+# behavior is fully exercised with no client response queued.
+#
+# Tested via `prepare_palm_reading` (not `generate_palm_reading`), per
+# the instructing prompt's own framing -- Stage 2 voicing is a separate
+# concern this wiring step does not touch.
+
+
+def test_mount_development_per_mount_menu_survives_full_path_no_cross_mount_leak(
+    rules_engine_on, monkeypatch,
+):
+    """HARDEST CASE first (project convention): proves the GLOBAL
+    attribute_value_binding.Development union (bound so the SEPARATE
+    LLM-mediated extract_observation path has a narrower-than-full-pool
+    guard -- see ontology_registry.json's 1.13.0 change_log entry) did
+    NOT loosen the REAL per-mount enforcement, which lives entirely in
+    extract_mount_development's own local _MOUNT_DEVELOPMENT_MENUS and
+    never reads that registry binding at all. 'full and large' is
+    Venus-legal but NOT Jupiter-legal; emitted under Jupiter's own
+    DEVELOPMENT line, it must be dropped before it ever reaches
+    `observation`, and fire nothing."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
+    client = _FakeClient(responses=[])
+
+    prep = palm_reading.prepare_palm_reading(
+        palm_left="  DEVELOPMENT (Jupiter): full and large\n", palm_right=None, client=client,
+    )
+
+    diag = prep.diagnostics["rules_engine"]
+    assert diag["failed"] is False
+    assert diag["mount_development"] == {}
+    assert "Mount of Jupiter" not in diag["observation"]
+    assert diag["fired_rule_ids"] == []
+    assert prep.claims == ()
+    assert client.completions.calls == []
+
+
+def test_mount_development_fires_end_to_end_definition_of_done(rules_engine_on, monkeypatch):
+    """DEFINITION-OF-DONE test (per the instructing prompt): a synthetic
+    hand-description text containing a DEVELOPMENT line flows through
+    prepare_palm_reading and a real mount rule FIRES end to end -- proving
+    the whole S117 chain (vision emission -> extract_mount_development ->
+    translate_mount_development -> merge into observation ->
+    palm_rules_table.match) is connected, not just unit-tested in
+    isolation.
+
+    DISCOVERED INTERACTION (correct, not a bug -- worth documenting):
+    M_001 (graded, baseline=false) AND M_009 (base, baseline=true) BOTH
+    raw-match (`fired_rule_ids` names both), since 'well developed'
+    satisfies each rule's single, identical antecedent. But
+    palm_rules_table.resolve_priority's PRE-EXISTING Tier-0 baseline-
+    suppression pass (same topic_group, a non-baseline survivor present)
+    then drops M_009 -- exactly the same "ideal-reading baseline yields
+    to whatever actually contradicts or refines it" doctrine already
+    established for Life-line's own baseline rows (see resolve_priority's
+    own docstring). Net effect: the SPECIFIC health claim (M_001) is what
+    the user actually sees; the GENERIC Venus-trait claim (M_009) only
+    ever surfaces when NO graded rule also fires for that mount (e.g.
+    'not notably developed' alone). This is a more useful reading than
+    literal duplication would give, and required no new mechanism --
+    the pre-existing engine already does this correctly once both rules
+    are authored to share one topic_group and the base row is flagged
+    baseline=true, exactly as authored."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
+    client = _FakeClient(responses=[])
+
+    prep = palm_reading.prepare_palm_reading(
+        palm_left="  DEVELOPMENT (Venus): well developed\n", palm_right=None, client=client,
+    )
+
+    diag = prep.diagnostics["rules_engine"]
+    assert diag["failed"] is False
+    assert diag["mount_development"] == {"Mount of Venus": {"Development": "well developed"}}
+    assert diag["observation"]["Mount of Venus"] == {"Development": "well developed"}
+    assert set(diag["fired_rule_ids"]) >= {"M_001", "M_009"}
+    assert diag["surviving_rule_ids"] == ["M_001"]
+    assert ("M_001", "M_009") in diag["suppression_log"]
+    assert len(prep.claims) == 1
+    assert "strong" in prep.claims[0].claim_text.lower()  # M_001's claim, not M_009's
+    assert client.completions.calls == []
+
+
+def test_mount_development_deficiency_gates_off_base_meaning_live(rules_engine_on, monkeypatch):
+    """Proves base gating works LIVE, not just in extract_mount_
+    development's own unit tests: a deficient Venus grade ('small') must
+    fire M_002 (the deficiency-specific rule) and must NOT fire any of
+    M_009-M_013 (the base-meaning siblings), since 'small' is in Venus's
+    OFF-set."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
+    client = _FakeClient(responses=[])
+
+    prep = palm_reading.prepare_palm_reading(
+        palm_left="  DEVELOPMENT (Venus): small\n", palm_right=None, client=client,
+    )
+
+    diag = prep.diagnostics["rules_engine"]
+    assert diag["failed"] is False
+    assert diag["fired_rule_ids"] == ["M_002"]
+    base_rows = {"M_009", "M_010", "M_011", "M_012", "M_013"}
+    assert base_rows.isdisjoint(diag["fired_rule_ids"])
+    assert client.completions.calls == []
+
+
+def test_mount_development_cannot_tell_and_absent_fire_nothing_break_nothing(
+    rules_engine_on, monkeypatch,
+):
+    """cannot-tell (measurement failure) and absent (no DEVELOPMENT line
+    at all) both fire NO RULE and break nothing. Not the same
+    `mount_development`/`observation` shape, though, and both are
+    asserted precisely rather than conflated: cannot-tell IS a legal
+    extract_mount_development value (part of every mount's menu) and
+    DOES get captured into `observation` -- it simply matches no rule's
+    antecedent value in this file (no rule triggers on "cannot-tell"),
+    unlike absent, where there is no observation captured at all because
+    no DEVELOPMENT line existed to parse."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
+
+    client_a = _FakeClient(responses=[])
+    prep_a = palm_reading.prepare_palm_reading(
+        palm_left="  DEVELOPMENT (Venus): cannot-tell\n", palm_right=None, client=client_a,
+    )
+    diag_a = prep_a.diagnostics["rules_engine"]
+    assert diag_a["failed"] is False
+    assert diag_a["mount_development"] == {"Mount of Venus": {"Development": "cannot-tell"}}
+    assert diag_a["observation"]["Mount of Venus"] == {"Development": "cannot-tell"}
+    assert diag_a["fired_rule_ids"] == []  # captured, but no rule triggers on "cannot-tell"
+
+    client_b = _FakeClient(responses=[])
+    prep_b = palm_reading.prepare_palm_reading(
+        palm_left="HAND SHAPE: square palm\n", palm_right=None, client=client_b,
+    )
+    diag_b = prep_b.diagnostics["rules_engine"]
+    assert diag_b["failed"] is False
+    assert diag_b["mount_development"] == {}
+    assert diag_b["fired_rule_ids"] == []
+
+
+def test_mount_development_extractor_raising_degrades_no_crash_no_mount_claims(
+    rules_engine_on, monkeypatch,
+):
+    """Degrade path: extract_mount_development raising must not break the
+    reading -- it must degrade to no mount-development signal, same
+    posture as the pre-existing proximity-degree-parse failure path
+    immediately above it in prepare_palm_reading. Uses a text that WOULD
+    otherwise fire M_001/M_009 (proving the raise is what suppressed
+    them, not merely that nothing was offered)."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
+
+    def _explode(*args, **kwargs):
+        raise RuntimeError("simulated extract_mount_development failure")
+
+    monkeypatch.setattr(observation_extractor, "extract_mount_development", _explode)
+    client = _FakeClient(responses=[])
+
+    prep = palm_reading.prepare_palm_reading(
+        palm_left="  DEVELOPMENT (Venus): well developed\n", palm_right=None, client=client,
+    )
+
+    diag = prep.diagnostics["rules_engine"]
+    assert diag["failed"] is False  # degraded, not fail-closed -- the engine itself still ran
+    assert diag["mount_development"] == {}
+    assert "M_001" not in diag["fired_rule_ids"]
+    assert "M_009" not in diag["fired_rule_ids"]
+    assert prep.claims == ()  # completed normally with zero claims, no exception propagated
+    assert client.completions.calls == []

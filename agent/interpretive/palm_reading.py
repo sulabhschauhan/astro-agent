@@ -1930,6 +1930,7 @@ def _prepare_claims_from_rules(
     client=None,
     targets: dict[str, dict[str, str]] | None = None,
     proximity_observations: dict[str, dict[str, str]] | None = None,
+    mount_development: dict[str, dict[str, str]] | None = None,
 ) -> tuple[tuple[Claim, ...], dict]:
     """Deterministic replacement for `claim_extraction.extract_claims` as
     the Stage-1 claim SOURCE (flag-gated, see
@@ -2027,6 +2028,7 @@ def _prepare_claims_from_rules(
             "phrase_promotions": [],
             "targets": {},
             "proximity_observations": {},
+            "mount_development": {},
         })
         return (), engine_diagnostics
 
@@ -2087,6 +2089,18 @@ def _prepare_claims_from_rules(
     for feature, attrs in (proximity_observations or {}).items():
         observation.setdefault(feature, {})["Proximity"] = attrs["Proximity"]
 
+    # S117: mount Development grades merge into the FLAT observation the
+    # SAME way and for the SAME reason as Proximity immediately above --
+    # extract_mount_development's per-mount menu enforcement already
+    # happened upstream (observation_extractor._MOUNT_DEVELOPMENT_MENUS),
+    # independent of to_tokens'/attribute_value_binding's global gate, so
+    # this merge must land AFTER to_tokens, not be routed through it.
+    # Development (deterministic) wins over any LLM-emitted Development
+    # value on collision, mirroring "P-wins over any LLM-emitted
+    # Proximity" above exactly.
+    for feature, attrs in (mount_development or {}).items():
+        observation.setdefault(feature, {})["Development"] = attrs["Development"]
+
     try:
         fired = palm_rules_table.match(observation, magnitudes, rules, targets=targets)
         survivors, suppression_log = palm_rules_table.resolve_priority(fired)
@@ -2099,6 +2113,7 @@ def _prepare_claims_from_rules(
         "observation": observation,
         "targets": _json_safe_targets(targets or {}),
         "proximity_observations": proximity_observations or {},
+        "mount_development": mount_development or {},
         "dropped_tokens": magnitudes.get("_dropped", []),
         "fired_rule_ids": [r.rule_id for r in fired],
         "surviving_rule_ids": [r.rule_id for r in survivors],
@@ -2145,6 +2160,7 @@ def _prepare_deterministic_prep(
     client=None,
     targets: dict[str, dict[str, str]] | None = None,
     proximity_observations: dict[str, dict[str, str]] | None = None,
+    mount_development: dict[str, dict[str, str]] | None = None,
 ) -> PalmReadingPrep:
     """Builds the SAME PalmReadingPrep shape the LLM Stage-1 path builds,
     with `claims` sourced from the deterministic rule engine. Everything
@@ -2178,6 +2194,7 @@ def _prepare_deterministic_prep(
     claims, engine_diagnostics = _prepare_claims_from_rules(
         raw_texts_by_feature, client=client, targets=targets,
         proximity_observations=proximity_observations,
+        mount_development=mount_development,
     )
     engine_diagnostics["final_outcome"] = (
         "rules_engine_failed" if engine_diagnostics.get("failed") else "rules_engine_ok"
@@ -2489,6 +2506,36 @@ def prepare_palm_reading(
                 type(exc).__name__, exc,
             )
             proximity_observations = {}
+        try:
+            # S117: per-mount DEVELOPMENT grades -- a pure deterministic
+            # parse of each hand's raw text (observation_extractor.
+            # extract_mount_development), same calling convention as
+            # extract_relations(palm_left or "")/extract_relations(
+            # palm_right or "") above. translate_mount_development maps
+            # each hand's result onto ontology feature names before the
+            # merge; merge_relational_targets is reused unchanged for the
+            # left/right merge (Development is a plain scalar attribute,
+            # never registered in relation_cardinality as "multi", so
+            # _is_multi's False branch applies -- right-hand wins on
+            # collision, same convention as targets/proximity above).
+            mount_development = observation_extractor.merge_relational_targets(
+                observation_extractor.translate_mount_development(
+                    observation_extractor.extract_mount_development(palm_left or "")
+                ),
+                observation_extractor.translate_mount_development(
+                    observation_extractor.extract_mount_development(palm_right or "")
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001 -- fail-closed, mirrors
+            # proximity_observations' own posture immediately above: a
+            # Development-parse failure must not crash the reading, only
+            # degrade to no mount-development signal.
+            logger.error(
+                "palm_reading.prepare_palm_reading: mount-development parse "
+                "failed (%s: %s) -- proceeding with no mount-development signal.",
+                type(exc).__name__, exc,
+            )
+            mount_development = {}
         return _prepare_deterministic_prep(
             raw_texts_by_feature,
             texts_by_feature,
@@ -2499,6 +2546,7 @@ def prepare_palm_reading(
             client=client,
             targets=targets,
             proximity_observations=proximity_observations,
+            mount_development=mount_development,
         )
 
     extraction_result = claim_extraction.extract_claims(
