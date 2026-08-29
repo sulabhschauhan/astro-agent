@@ -155,7 +155,14 @@ def test_report_only_no_rule_file_is_written(tmp_path, monkeypatch):
     """Runs the real main() end-to-end (via subprocess, the actual CLI
     entry point) and asserts every data/palm_rules/*.json file's mtime
     and content hash are UNCHANGED before/after -- the report-only
-    guarantee this task's own commit gate requires."""
+    guarantee this task's own commit gate requires. Also asserts the
+    script's own dedicated report file (diagnostics/gate_rule_citations_
+    report.md) is written -- this subprocess call is what was clobbering
+    the SHARED diagnostics/latest_run.md scratch file on every full-suite
+    pytest run before the report path was redirected off of it; this
+    assertion proves the redirect actually lands a file, not just that
+    the old shared file goes untouched (a separate, pre-existing
+    assertion below)."""
     import hashlib
     import subprocess
     import sys
@@ -177,6 +184,11 @@ def test_report_only_no_rule_file_is_written(tmp_path, monkeypatch):
 
     after = {p: (_hash(p), p.stat().st_mtime) for p in rule_files}
     assert before == after, "gate_rule_citations.py modified a data/palm_rules/ rule file -- must be report-only"
+
+    report_path = ROOT / "diagnostics" / "gate_rule_citations_report.md"
+    assert report_path.exists(), (
+        "gate_rule_citations.py should still write its own dedicated report file"
+    )
 
 
 # ─── Sanity: rule-file loading is section-generic, not per-file-hardcoded ──

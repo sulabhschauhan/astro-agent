@@ -19,9 +19,13 @@ actually anchored SOMEWHERE in data/cheiro/cheiro_clean_v1.json's text --
 a WHOLE-CORPUS anchor search (substring, or the same >=6-token/>=0.85
 overlap primitive this script always used), not a source_page-vs-page_ref
 comparison. REPORT-ONLY: never writes to any data/palm_rules/ file --
-only diagnostics/latest_run.md. Quarantine-only in spirit: a
-NOT_FOUND_ANYWHERE rule is surfaced for Sulabh's human review, never
-auto-fixed or auto-flagged into the rule file itself.
+only diagnostics/gate_rule_citations_report.md (redirected off the shared
+diagnostics/latest_run.md scratch file -- this script running as a
+subprocess inside test_gate_rule_citations.py was clobbering that
+overwrite-only-per-Code-run file on every full-suite pytest invocation;
+this script now owns its own dedicated report path instead). Quarantine-
+only in spirit: a NOT_FOUND_ANYWHERE rule is surfaced for Sulabh's human
+review, never auto-fixed or auto-flagged into the rule file itself.
 
 Design note on thresholds (CLAUDE.md Working Style #4, THRESHOLD
 DISCIPLINE): _MIN_TOKENS_FOR_OVERLAP=6 and _OVERLAP_THRESHOLD=0.85 are
@@ -42,7 +46,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_RULES_GLOB = "data/palm_rules/palm_rules_*.json"
 DEFAULT_CORPUS_PATH = ROOT / "data" / "cheiro" / "cheiro_clean_v1.json"
-REPORT_PATH = ROOT / "diagnostics" / "latest_run.md"
+REPORT_PATH = ROOT / "diagnostics" / "gate_rule_citations_report.md"
 BOOK_NAME = "cheiroslanguageo00chei_1"
 
 _MIN_TOKENS_FOR_OVERLAP = 6
@@ -237,7 +241,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description=(
             "Whole-corpus citation-anchor gate over the LIVE palm rule files "
             "(validated_candidates + parked_*). Report-only -- writes only "
-            "diagnostics/latest_run.md, never a data/palm_rules/ file."
+            "diagnostics/gate_rule_citations_report.md, never a data/palm_rules/ file."
         )
     )
     parser.add_argument(
