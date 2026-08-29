@@ -10,7 +10,17 @@ drops.
 
 Standalone, dependency-free module (stdlib + a lazily-imported `openai`
 client only) -- does NOT import palm_reading.py, palm_rules_table.py, or
-any engine file; not wired into any of them by this task.
+any engine file; not wired into any of them by this task. ONE narrow,
+deliberate exception: `_mount_feature_from_vision_name` (mount-DEVELOPMENT
+parsing section, below `extract_relations`) lazily imports
+`palm_reading._SUB_FEATURES` -- function-scoped, same "avoid tight
+load-time coupling" precedent as this module's own lazy `openai` import
+and `palm_reading.py`'s own lazy import of THIS module -- specifically to
+reuse that alias table as the single source of truth for vision-mount-name
+-> registry-feature-key mapping (generalization gate: no second,
+independently-authored name map). Paid only by callers of that one
+function; every other symbol in this module remains import-free of
+palm_reading.py.
 
 CONTRACT:
     extract_observation(feature_texts, *, enabled_features=None,
@@ -1368,6 +1378,175 @@ def extract_relations(raw_text: str) -> dict[str, dict]:
     _flush_conv_block_boundary()  # flush end-of-text: log a still-pending orphan location
 
     return {"targets": targets, "proximity": proximity, "contacts": contacts}
+
+
+# ─── Mount DEVELOPMENT grade parsing (S117 vision-emission follow-up) ─────
+# Parses the "  DEVELOPMENT (<mount>): <value>" lines agent/palm_processor.py
+# emits for the 5 GRADED mounts (Venus/Jupiter/Saturn/the Sun/Upper Mount of
+# Mars -- Mercury/Lower Mount of Mars/Luna are presence-only and never carry
+# one) into a `{registry_feature: {"Development": value}} `observation dict.
+#
+# WHY A NEW FUNCTION, NOT extract_relations()/extract_observation(): traced
+# both existing closed-vocab paths before writing this (per the instructing
+# prompt) and neither is a match --
+#   - SLOPE (head/heart) and FATE's BREAK TYPE have NO dedicated regex/line
+#     parse anywhere in this codebase. Both ride extract_observation()'s
+#     single whole-feature-prose LLM call: the vision line's text is just
+#     part of the joined raw_text handed to the extraction model, which
+#     independently judges the attribute's value from that prose, guarded
+#     post-hoc by `attribute_value_binding` (module docstring point 5). That
+#     guard is PER-ATTRIBUTE globally (`_values_for_attribute`), not
+#     per-feature -- it cannot express "Venus has a 10-value menu, Jupiter a
+#     3-value menu" for the same "Development" attribute at all, which the
+#     locked per-mount-menu design requires. (FATE LINE BREAK TYPE's own
+#     routing into Continuity is flagged elsewhere in this codebase as
+#     "not traced or tested" -- consistent with there being no dedicated
+#     parse to trace.)
+#   - DEVELOPMENT's line shape ("LABEL (<name>): <value>", self-naming its
+#     own feature inline) is structurally closest to this file's OTHER
+#     deterministic closed-vocab precedent instead: extract_relations()'s
+#     ORIGIN/TERMINATION/PROXIMITY/BRANCHES_TO parsing and (even more so,
+#     since DEVELOPMENT needs no surrounding-block context) _store_contact's
+#     per-feature target-menu gate ("off-menu -> dropped + logged
+#     (quarantine), never guessed" -- copied verbatim below). Pure
+#     deterministic regex over the vision model's own raw text, no LLM
+#     call, never raises for missing/malformed text -- same contract as
+#     extract_relations().
+#
+# NOT bound into ontology_registry.json's `attribute_value_binding` here
+# (bind-LAST discipline -- Step 4, atomic with rule authoring, owns that).
+# `_MOUNT_DEVELOPMENT_MENUS` below is a CODE-LOCAL guard scoped only to this
+# parse function, not a registry write.
+
+_DEVELOPMENT_LINE = re.compile(r"^DEVELOPMENT \(([^)]+)\):\s*(.+)$")
+
+# Per-mount closed menu, hand-mirrored from agent/palm_processor.py's Step 2
+# emission (no shared constant exists there to import from without touching
+# that file, which is out of THIS task's one-file scope) -- if that prompt's
+# menus ever change, this table must change with them. Keyed by
+# palm_reading._FEATURE_REGISTRY's own spelling (not this module's
+# capitalized ontology names), since that is the registry key the rules
+# layer will eventually read Development observations under (per the
+# instructing prompt's own worked examples: "the Sun -> mount of apollo",
+# "Upper Mount of Mars -> mount of mars positive"). "not notably developed"
+# and "cannot-tell" are present on every menu -- the two mandatory escape
+# hatches, never dropped.
+_MOUNT_DEVELOPMENT_MENUS: dict[str, frozenset[str]] = {
+    "mount of venus": frozenset({
+        "well developed", "small", "abnormally large", "full and large",
+        "very poor development", "not well developed", "depressed",
+        "very high", "not notably developed", "cannot-tell",
+    }),
+    "mount of jupiter": frozenset({
+        "developed", "not notably developed", "cannot-tell",
+    }),
+    "mount of saturn": frozenset({
+        "well developed", "unusually high", "not notably developed", "cannot-tell",
+    }),
+    "mount of apollo": frozenset({
+        "well developed", "not notably developed", "cannot-tell",
+    }),
+    "mount of mars positive": frozenset({
+        "large", "present", "not notably developed", "cannot-tell",
+    }),
+}
+
+
+def _mount_feature_from_vision_name(vision_name: str) -> str | None:
+    """Maps a DEVELOPMENT line's parenthetical (verbatim vision naming,
+    e.g. "the Sun", "Upper Mount of Mars") to its `palm_reading.
+    _FEATURE_REGISTRY` key, by reusing `palm_reading._SUB_FEATURES`'
+    needle table (S117) -- the SAME needle-substring technique
+    `palm_reading._gather_feature_texts` already uses to detect which
+    mount a MOUNTS-field clause names, restricted to MOUNTS-flat-label
+    entries only (excludes "sun line"'s own "sun" needle, a different
+    flat_label, so "the Sun" can never resolve to the sun LINE feature).
+    Generalization gate: no second, independently-authored name map.
+    Returns None for an unrecognized name (never guessed).
+
+    Lazy, function-scoped import of `palm_reading` -- see module docstring
+    for why this is the one deliberate exception to this module's
+    standalone contract."""
+    from agent.interpretive.palm_reading import _SUB_FEATURES  # local, see module docstring
+
+    name_low = vision_name.strip().lower()
+    for feature, flat_label, _bullet_label, needle in _SUB_FEATURES:
+        if flat_label == "MOUNTS" and needle in name_low:
+            return feature
+    return None
+
+
+def _store_mount_development(
+    development: dict[str, dict[str, str]],
+    vision_name: str,
+    value_raw: str,
+) -> None:
+    """Files one parsed DEVELOPMENT line into `development[feature]`.
+    Mirrors `_store_contact`'s gate-and-log shape exactly: an unrecognized
+    mount name, a presence-only mount (no menu at all), or an off-menu
+    value are each dropped + logged (quarantined), never guessed or
+    coerced. "cannot-tell"/"not notably developed" are ordinary menu
+    members here, not special-cased -- they pass straight through like
+    any other legal value."""
+    feature = _mount_feature_from_vision_name(vision_name)
+    if feature is None:
+        logger.info(
+            "observation_extractor.extract_mount_development: vision mount name "
+            "%r does not match any known mount alias -- dropped (quarantined).",
+            vision_name,
+        )
+        return
+
+    menu = _MOUNT_DEVELOPMENT_MENUS.get(feature)
+    if menu is None:
+        logger.info(
+            "observation_extractor.extract_mount_development: feature=%r has no "
+            "DEVELOPMENT menu (presence-only mount, never asked a grade question) "
+            "-- dropped value %r (quarantined).",
+            feature, value_raw,
+        )
+        return
+
+    value = value_raw.strip()
+    if value not in menu:
+        logger.info(
+            "observation_extractor.extract_mount_development: feature=%r value=%r "
+            "not in this mount's closed DEVELOPMENT menu %r -- dropped (quarantined).",
+            feature, value, sorted(menu),
+        )
+        return
+
+    development[feature] = {"Development": value}
+
+
+def extract_mount_development(raw_text: str) -> dict[str, dict[str, str]]:
+    """Parses every "  DEVELOPMENT (<mount>): <value>" line in `raw_text`
+    into `{registry_feature: {"Development": value}}`. Pure deterministic
+    string parse of the vision model's own raw output -- no LLM call, no
+    dependency on `extract_observation`'s closed-vocabulary pool/binding
+    (see the section comment above for why). Never raises for missing/
+    malformed text -- returns `{}` for "no signal", same convention as
+    `extract_relations`.
+
+    Deliberately state-free (no current-feature tracker, unlike
+    extract_relations' ORIGIN/TERMINATION parsing): each DEVELOPMENT line
+    names its own mount inline, so no surrounding section-header context
+    is needed to resolve it.
+    """
+    if not isinstance(raw_text, str):
+        raise TypeError(
+            "observation_extractor.extract_mount_development: raw_text must be a "
+            f"str, got {type(raw_text).__name__}"
+        )
+
+    development: dict[str, dict[str, str]] = {}
+    for line in raw_text.splitlines():
+        m = _DEVELOPMENT_LINE.match(line.strip())
+        if not m:
+            continue
+        vision_name, value_raw = m.group(1), m.group(2)
+        _store_mount_development(development, vision_name, value_raw)
+    return development
 
 
 # ─── Confidence -- prose hedge-word detection (module docstring point 6) ──

@@ -26,8 +26,10 @@ import pytest
 from agent.interpretive.observation_extractor import (
     _CLOSED_VOCAB,
     _FEATURE_ALIAS,
+    _MOUNT_DEVELOPMENT_MENUS,
     ObservationRecord,
     all_aliased_features,
+    extract_mount_development,
     extract_observation,
     extract_relations,
     merge_relational_targets,
@@ -685,3 +687,130 @@ def test_convergence_inline_line_header_format_also_recognized():
 def test_extract_relations_raises_typeerror_for_non_str_input():
     with pytest.raises(TypeError):
         extract_relations(None)
+
+
+# ─── extract_mount_development -- S117 vision-emission follow-up ─────────
+# Hardest case first (project convention): per-mount menu enforcement,
+# since it is the one behavior that would be silently wrong under a naive
+# "single global Development vocabulary" implementation (the shape
+# ontology_registry.json's attribute_value_binding is limited to today --
+# see the section comment above extract_mount_development for why this
+# function does NOT ride that mechanism).
+
+
+def test_extract_mount_development_per_mount_menu_enforcement_not_global():
+    """A value that IS legal for Venus ('full and large') but NOT legal
+    for Jupiter, emitted under Jupiter's own DEVELOPMENT line, must be
+    rejected -- proving the menus are genuinely per-mount, not one shared
+    global vocabulary a Venus-legal value could sneak through anywhere."""
+    assert "full and large" in _MOUNT_DEVELOPMENT_MENUS["mount of venus"]
+    assert "full and large" not in _MOUNT_DEVELOPMENT_MENUS["mount of jupiter"]
+
+    text = "  DEVELOPMENT (Jupiter): full and large\n"
+    assert extract_mount_development(text) == {}
+
+    # Sanity: the SAME value, emitted under Venus (where it belongs), is accepted.
+    text_venus = "  DEVELOPMENT (Venus): full and large\n"
+    assert extract_mount_development(text_venus) == {
+        "mount of venus": {"Development": "full and large"}
+    }
+
+
+def test_extract_mount_development_maps_aliased_vision_names_to_registry_keys():
+    """Each graded mount's value parses into the correct
+    palm_reading._FEATURE_REGISTRY key -- including the two renamed
+    aliases (vision says "the Sun"/"Upper Mount of Mars"; the registry key
+    is "mount of apollo"/"mount of mars positive") plus the three
+    non-aliased graded mounts (Venus/Jupiter/Saturn, vision name ==
+    registry-key noun)."""
+    text = (
+        "  DEVELOPMENT (Venus): well developed\n"
+        "  DEVELOPMENT (Jupiter): developed\n"
+        "  DEVELOPMENT (Saturn): unusually high\n"
+        "  DEVELOPMENT (the Sun): well developed\n"
+        "  DEVELOPMENT (Upper Mount of Mars): large\n"
+    )
+    assert extract_mount_development(text) == {
+        "mount of venus": {"Development": "well developed"},
+        "mount of jupiter": {"Development": "developed"},
+        "mount of saturn": {"Development": "unusually high"},
+        "mount of apollo": {"Development": "well developed"},
+        "mount of mars positive": {"Development": "large"},
+    }
+
+
+def test_extract_mount_development_escape_hatches_carry_through_as_values():
+    """'cannot-tell' and 'not notably developed' are ordinary members of
+    every per-mount menu -- they must be captured as real Development
+    values, never silently dropped as if they were non-answers."""
+    text = (
+        "  DEVELOPMENT (Venus): cannot-tell\n"
+        "  DEVELOPMENT (Jupiter): not notably developed\n"
+        "  DEVELOPMENT (Saturn): cannot-tell\n"
+        "  DEVELOPMENT (the Sun): not notably developed\n"
+        "  DEVELOPMENT (Upper Mount of Mars): cannot-tell\n"
+    )
+    assert extract_mount_development(text) == {
+        "mount of venus": {"Development": "cannot-tell"},
+        "mount of jupiter": {"Development": "not notably developed"},
+        "mount of saturn": {"Development": "cannot-tell"},
+        "mount of apollo": {"Development": "not notably developed"},
+        "mount of mars positive": {"Development": "cannot-tell"},
+    }
+
+
+def test_extract_mount_development_presence_only_mount_produces_no_observation():
+    """Mercury/Lower Mount of Mars/Luna are presence-only (Step 2 never
+    asks them a grade question) -- ordinary MOUNTS prose naming them with
+    no DEVELOPMENT line must produce no Development observation at all,
+    no crash, no phantom value. Also covers the defensive case of a rogue
+    DEVELOPMENT line naming one anyway (should Step 2's prompt ever be
+    violated) -- still dropped, not guessed, via the same quarantine path
+    as any other rejection."""
+    ordinary_prose = (
+        "MOUNTS: Mount of Mercury is unremarkable, Lower Mount of Mars is "
+        "unremarkable, Mount of the Moon is unremarkable.\n"
+    )
+    assert extract_mount_development(ordinary_prose) == {}
+
+    rogue_line = (
+        "  DEVELOPMENT (Mercury): well developed\n"
+        "  DEVELOPMENT (Lower Mount of Mars): large\n"
+        "  DEVELOPMENT (the Moon): well developed\n"
+    )
+    assert extract_mount_development(rogue_line) == {}
+
+
+def test_extract_mount_development_off_menu_garbage_dropped_like_other_off_menu_values():
+    """An off-menu DEVELOPMENT value is dropped + quarantined -- the same
+    treatment _store_contact gives an off-menu CONTACTS target (see that
+    function's own docstring: 'Off-menu -> dropped + logged (quarantine),
+    never guessed'), not coerced to a nearest legal value and not raised
+    as an error."""
+    text = "  DEVELOPMENT (Venus): utterly massive\n"
+    assert extract_mount_development(text) == {}
+
+    # An unrecognized mount name entirely (not one of the 8 registry
+    # mounts at all) is quarantined the same way, never guessed at.
+    text_unknown_mount = "  DEVELOPMENT (Neptune): well developed\n"
+    assert extract_mount_development(text_unknown_mount) == {}
+
+    # A well-formed line for a real graded mount, but garbage everywhere
+    # else in the text, doesn't crash or leak -- exactly one accepted key.
+    text_mixed = (
+        "HAND SHAPE: square palm\n"
+        "  DEVELOPMENT (Venus): well developed\n"
+        "  DEVELOPMENT (Jupiter): extremely gigantic\n"
+    )
+    assert extract_mount_development(text_mixed) == {
+        "mount of venus": {"Development": "well developed"}
+    }
+
+
+def test_extract_mount_development_raises_typeerror_for_non_str_input():
+    with pytest.raises(TypeError):
+        extract_mount_development(None)
+
+
+def test_extract_mount_development_empty_for_text_without_any_development_line():
+    assert extract_mount_development("HAND SHAPE: elongated palm, medium build") == {}

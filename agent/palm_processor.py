@@ -334,6 +334,30 @@ def _build_description_system_prompt(hand: str) -> str:
         "LINE OF MARRIAGE: presence, only if clearly visible\n"
         "OTHER LINES: sun/intuition lines only if clearly visible\n"
         "MOUNTS: which pads appear developed, flat, or unremarkable\n"
+        # Per-mount DEVELOPMENT grade emission (S117 mount-registry follow-up).
+        # Corpus-grounded closed menus, one per graded mount -- NOT asked for
+        # Mercury/Lower Mount of Mars/Luna (presence-only, covered by the
+        # MOUNTS line above; a grade menu for them would invite over-call on
+        # a dimension Cheiro doesn't grade). "not notably developed" and
+        # "cannot-tell" are mandatory options on every menu below -- the
+        # silent-baseline and measurement-failure escape hatches, never force
+        # a grade. Mount naming matches this prompt's own established
+        # vocabulary (line ~300: "the Sun" for Apollo, "Upper Mount of Mars"
+        # for the positive/inner Mars mount) -- deliberately NOT "Apollo"/
+        # "Mars positive", which never appear in this file. Emission only:
+        # no extractor parsing, no rule authoring in this step.
+        "  DEVELOPMENT (Venus): exactly one of {well developed | small | "
+        "abnormally large | full and large | very poor development | "
+        "not well developed | depressed | very high | not notably "
+        "developed | cannot-tell}\n"
+        "  DEVELOPMENT (Jupiter): exactly one of {developed | "
+        "not notably developed | cannot-tell}\n"
+        "  DEVELOPMENT (Saturn): exactly one of {well developed | "
+        "unusually high | not notably developed | cannot-tell}\n"
+        "  DEVELOPMENT (the Sun): exactly one of {well developed | "
+        "not notably developed | cannot-tell}\n"
+        "  DEVELOPMENT (Upper Mount of Mars): exactly one of {large | "
+        "present | not notably developed | cannot-tell}\n"
         "MARKS: crosses, stars, grilles, squares, moles — only if clearly visible\n"
         "For any attribute not clearly visible, write 'not clearly visible' — "
         "never guess or fill in what a typical hand would show."
