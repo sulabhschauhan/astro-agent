@@ -357,12 +357,13 @@ def test_load_rule_set_bad_dir_raises_naming_the_dir(tmp_path):
 
 def test_load_rule_set_real_data_merges_43_plus_13_with_unique_ids():
     merged = load_rule_set()
-    # 75 = 48 head+heart (23 line_head + 3 line_head_types + 1 line_head_murder
+    # 99 = 75 (48 head+heart (23 line_head + 3 line_head_types + 1 line_head_murder
     # + 21 line_heart, incl. H_026 + H_027 + H_017 + H_016 + H_014 + H_028
     # (typed-relationship arc Step 5a, S99, joins_at_origin, p146), -1 retired
     # H_001) + 11 life-line (L_003/L_020/L_021 retired S96) + 16 fate-line
-    # (line_fate, S97 chapter addition -- CLAUDE.md "Fate line: ... rules LIVE").
-    assert len(merged) == 75
+    # (line_fate, S97 chapter addition -- CLAUDE.md "Fate line: ... rules LIVE"))
+    # + 24 mount rules (S117 chapter addition, palm_rules_mounts_v1.json).
+    assert len(merged) == 99
     ids = [r.rule_id for r in merged]
     assert len(set(ids)) == len(ids)  # all unique
 

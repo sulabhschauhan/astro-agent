@@ -98,6 +98,11 @@ _TOPIC_GROUP_TO_FEATURE: dict[str, str] = {
     "line_head_murder": "head line",
     "line_heart": "heart line",
     "line_fate": "fate line",
+    "mount_venus": "mount of venus",
+    "mount_jupiter": "mount of jupiter",
+    "mount_saturn": "mount of saturn",
+    "mount_apollo": "mount of apollo",
+    "mount_mars_positive": "mount of mars positive",
 }
 
 

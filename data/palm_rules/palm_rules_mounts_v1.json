@@ -1,0 +1,681 @@
+{
+  "meta": {
+    "chapter": "The Mounts, Their Position and Their Meanings (Chapter XV)",
+    "source": "cheiroslanguageo00chei_1",
+    "ontology_version": "1.12.0",
+    "schema": "validated_candidates + parked_pending",
+    "status": "awaiting_Sulabh_validation"
+  },
+  "validated_candidates": [
+    {
+      "rule_id": "M_001",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "well developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A well developed Mount of Venus indicates strong and robust health.",
+      "source_quote": "Venus be well developed, it indicates strong and robust health.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": "SPLIT-SENTENCE: the sentence actually begins on the PRECEDING corpus page (page_ref 111, \"...Hence, if the Mount of Venus be well developed...\") -- the subject clause \"Hence, if the Mount of\" is on p111, only \"Venus be well developed, it indicates strong and robust health.\" is on p112. Cited at page_ref 112 per this task's explicit instruction (the fragment quoted here is self-contained and fully verbatim-findable on p112 alone); the quote is a genuine sentence-fragment as OCR'd, not a paraphrase.",
+      "schema_flags": [
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'well developed' for Mount of Venus (Step 2/3 landed with zero live vision calls) -- confirm or retire once a probe exercises it."
+      ]
+    },
+    {
+      "rule_id": "M_002",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "small",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A small Mount of Venus indicates poor health and, consequently, less passion.",
+      "source_quote": "A small Mount of Venus betrays poor health and, consequently, less passion.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": "OCR artifact cleaned: raw corpus text has a stray '#' column-break glyph between 'A small' and 'Mount of Venus' (\"A small\\n#\\nMount of Venus betrays...\") -- removed, wording otherwise unchanged.",
+      "schema_flags": [
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'small' for Mount of Venus -- confirm or retire once a probe exercises it."
+      ]
+    },
+    {
+      "rule_id": "M_003",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "abnormally large",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "An abnormally large Mount of Venus indicates a violent passion for the opposite sex.",
+      "source_quote": "The Mount of Venus, abnormally large, indicates a violent passion for the opposite sex.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'abnormally large' for Mount of Venus -- confirm or retire once a probe exercises it."
+      ]
+    },
+    {
+      "rule_id": "M_004",
+      "source_page": 183,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "full and large",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A person with the Mount of Venus full and large is more likely to have children than one with a very poor development of the mount.",
+      "source_quote": "a person with a very poor development of the Mount of Venus is not so likely at any time to have children as the person with the mount full and large",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": "This is a single COMPARATIVE sentence covering BOTH 'full and large' (this rule) and 'very poor development' (M_005) -- the same source_quote is cited on both rules since the doctrine is stated as one comparison, not two independent statements. From CHAPTER XVII (Children), not the Mounts chapter itself -- a cross-chapter restatement, same as several existing Life-line rules cite cross-chapter corroboration.",
+      "schema_flags": [
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'full and large' for Mount of Venus -- confirm or retire once a probe exercises it."
+      ]
+    },
+    {
+      "rule_id": "M_005",
+      "source_page": 183,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "very poor development",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A person with a very poor development of the Mount of Venus is less likely to have children than one with the mount full and large.",
+      "source_quote": "a person with a very poor development of the Mount of Venus is not so likely at any time to have children as the person with the mount full and large",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": "Same single comparative sentence as M_004 (see that rule's note) -- cited on both rules by design, not a duplication error. From CHAPTER XVII (Children), a cross-chapter restatement.",
+      "schema_flags": [
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'very poor development' for Mount of Venus -- confirm or retire once a probe exercises it."
+      ]
+    },
+    {
+      "rule_id": "M_006",
+      "source_page": 222,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "not well developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A Mount of Venus that is not well developed decreases the subject's interest in human and natural things.",
+      "source_quote": "the Mount of Venus is not well developed, thus decreasing the subject's interest in all human or natural things",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": "CHECKLIST-CONTEXT CAVEAT (flag for review, not silently minimized): this clause is one of THREE conditions Cheiro lists together as diagnostic of 'the religious maniac' (Part III, Various Phases of Insanity, ch. IV, p.222) -- (1) line of head descending sharply low on Mount of Luna, (2) Mount of Venus not well developed, (3) Mount of Saturn dominates. The quoted clause itself reads as a direct, self-contained causal statement ('thus decreasing...') distinct from the other two conditions, so it was authored as a single-antecedent rule per this task's decision -- but the FULL context is a specific psychiatric hand-type profile, not general Mounts-chapter doctrine. Flagging for Sulabh's review: keep as-is (single Venus-only claim), or re-scope to require the other two conditions, or drop.",
+      "schema_flags": [
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'not well developed' for Mount of Venus -- confirm or retire once a probe exercises it.",
+        "CROSS-CHAPTER: sourced from Part III (Various Phases of Insanity), not the Mounts chapter itself."
+      ]
+    },
+    {
+      "rule_id": "M_007",
+      "source_page": 221,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "depressed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A depressed Mount of Venus, in a hand otherwise given to crime, indicates crime committed for its own sake.",
+      "source_quote": "The Mount of Venus may be either depressed on the hand, or very high. When depressed, such a subject will commit crime simply for the sake of crime; when high, the crime will be committed more for the sake of satisfying the animal desires.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": "CROSS-CHAPTER CAVEAT: sourced from Part II (a chapter on the 'subtlest nature in regard to crime', p.221), describing a specific criminal hand-type already established by preceding paragraphs (thin hard hand, long curved fingers, long thumb). The depressed/very-high Venus clause itself is a clean, direct, self-contained statement, so authored as a single-antecedent rule per this task's decision -- flagging the surrounding criminal-hand-type context for Sulabh's awareness, same disposition as M_006.",
+      "schema_flags": [
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'depressed' for Mount of Venus -- confirm or retire once a probe exercises it.",
+        "CROSS-CHAPTER: sourced from Part II (crime chapter), not the Mounts chapter itself. Same source_quote as M_008 (one sentence covers both grades)."
+      ]
+    },
+    {
+      "rule_id": "M_008",
+      "source_page": 221,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "very high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A very high Mount of Venus, in a hand otherwise given to crime, indicates crime committed to satisfy the animal desires (crime for gain).",
+      "source_quote": "The Mount of Venus may be either depressed on the hand, or very high. When depressed, such a subject will commit crime simply for the sake of crime; when high, the crime will be committed more for the sake of satisfying the animal desires.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": "Same cross-chapter criminal-hand-type context as M_007 (see that rule's note) -- one sentence covers both grades.",
+      "schema_flags": [
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'very high' for Mount of Venus -- confirm or retire once a probe exercises it.",
+        "CROSS-CHAPTER: sourced from Part II (crime chapter), not the Mounts chapter itself. Same source_quote as M_007."
+      ]
+    },
+    {
+      "rule_id": "M_009",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "well developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
+      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: one of 5 sibling rows (M_009-M_013) realizing Venus's base-meaning ON-set {well developed, full and large, abnormally large, very high, not notably developed} via row multiplicity, since the current antecedent schema has no value-set/OR condition_type -- see this task's report for the full ON/OFF derivation and the Option-A-vs-B engine tradeoff.",
+        "VISION-UNPROVEN: see M_001."
+      ]
+    },
+    {
+      "rule_id": "M_010",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "full and large",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
+      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note).",
+        "VISION-UNPROVEN: see M_004."
+      ]
+    },
+    {
+      "rule_id": "M_011",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "abnormally large",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
+      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note).",
+        "VISION-UNPROVEN: see M_003."
+      ]
+    },
+    {
+      "rule_id": "M_012",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "very high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
+      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note).",
+        "VISION-UNPROVEN: see M_008."
+      ]
+    },
+    {
+      "rule_id": "M_013",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "not notably developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
+      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note) -- this is the 'ordinary/unremarkable' grade, included in the ON-set per Sulabh's explicit design decision (an unremarkable mount still carries its base trait; grading only modulates it, never zeroes it out).",
+        "VISION-UNPROVEN: see M_001 (no live dogfood run has confirmed any Development grade yet, including this baseline one)."
+      ]
+    },
+    {
+      "rule_id": "M_014",
+      "source_page": 112,
+      "topic_group": "mount_jupiter",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of Jupiter",
+          "attribute": "Development",
+          "value": "developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A developed Mount of Jupiter shows ambition, pride, enthusiasm in anything attempted, and desire for power.",
+      "source_quote": "When developed it shows ambition, pride, enthusiasm in anything attempted, and desire for power.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "NO BASE ROW: Jupiter's corpus passage (p.112) gives ONLY the 'When developed...' graded meaning -- no separate, unconditional 'this mount denotes X' sentence exists distinct from it (unlike Venus, which has both). Per this task's own instruction, no base row is authored for Jupiter -- report this explicitly for Sulabh's review.",
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'developed' for Mount of Jupiter -- confirm or retire once a probe exercises it."
+      ]
+    },
+    {
+      "rule_id": "M_015",
+      "source_page": 217,
+      "topic_group": "mount_saturn",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of Saturn",
+          "attribute": "Development",
+          "value": "well developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A well developed Mount of Saturn indicates a thoroughly sensitive, morbid nature.",
+      "source_quote": "The same indications being found in connection with a well-developed Mount of Saturn will give the thoroughly sensitive, morbid nature; an individual who will determinedly come to the conclusion that life under any circumstances is not worth living",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": "MAJOR FIDELITY CAVEAT -- flagged prominently for Sulabh's explicit decision, NOT silently authored as settled: 'The same indications' refers BACK to the preceding paragraph's compound hand-profile (a long hand, sloping line of head, developed Mount of Luna, and the line of head closely connected with the line of life) -- Cheiro states the morbid/sensitive reading ONLY when that Line-of-Head profile co-occurs with a well-developed Saturn, not for Saturn alone. This entire passage is also drawn from 'Part III, Chapter II: The Peculiarities of Hands Which Show a Suicidal Tendency' (p.217) -- the 'thoroughly sensitive, morbid nature' reading is stated in service of a SUICIDAL-TENDENCY diagnosis specifically, and the sentence continues into an explicit description of contemplating suicide as 'that last resource which he has cherished and thought of for so long' (trimmed from this rule's source_quote to avoid citing a claim this rule doesn't make). Authored as a single-antecedent Saturn-only rule per this task's explicit instruction (a locked content decision), but this is NOT a clean standalone Mounts-chapter doctrine sentence the way M_001-M_014 are. RECOMMEND Sulabh choose one of: (a) keep as-is with this caveat on record, (b) re-scope as a compound rule requiring the Line of Head precondition too, (c) soften the claim wording to something less clinically loaded than 'morbid', or (d) drop/park pending a Line-of-Head-profile signal.",
+      "schema_flags": [
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'well developed' for Mount of Saturn -- confirm or retire once a probe exercises it.",
+        "CROSS-CHAPTER, COMPOUND-CONDITIONED: see source_fidelity for the full concern."
+      ]
+    },
+    {
+      "rule_id": "M_016",
+      "source_page": 153,
+      "topic_group": "mount_saturn",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of Saturn",
+          "attribute": "Development",
+          "value": "unusually high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "An unusually high Mount of Saturn denotes a morbidly imaginative nature from the very start.",
+      "source_quote": "The same development of the line of head, with an unusually high Mount of Saturn, will denote a morbidly imaginative nature from the very start.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": "MAJOR FIDELITY CAVEAT -- same class of issue as M_015, flagged for the same explicit review: 'The same development of the line of head' refers back to the preceding paragraph's condition (the line of head sinking to an abnormal point on the Mount of Luna). Cheiro states this reading for the CO-OCCURRENCE of that head-line condition with an unusually high Saturn, not for Saturn alone. Source is 'Part III, Chapter IX: Insanity as Shown by the Line of Head' (p.153), not the Mounts chapter. Authored as a single-antecedent Saturn-only rule per this task's explicit instruction; same 4 remediation options as M_015 apply.",
+      "schema_flags": [
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'unusually high' for Mount of Saturn -- confirm or retire once a probe exercises it.",
+        "CROSS-CHAPTER, COMPOUND-CONDITIONED: see source_fidelity for the full concern."
+      ]
+    },
+    {
+      "rule_id": "M_017",
+      "source_page": 112,
+      "topic_group": "mount_saturn",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Saturn",
+          "attribute": "Development",
+          "value": "well developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Saturn denotes love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and appreciation of sacred or classical music.",
+      "source_quote": "This is found at the base of the second finger (Plate XII.), and denotes love of solitude, quietness, prudence, earnestness in work, proneness to the study of somber things, and appreciation of music of a sacred or classical order.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: one of 3 sibling rows (M_017-M_019) realizing Saturn's base-meaning ON-set {well developed, unusually high, not notably developed} via row multiplicity -- see M_009's note for the mechanism and this task's report for the full derivation.",
+        "VISION-UNPROVEN: see M_015."
+      ]
+    },
+    {
+      "rule_id": "M_018",
+      "source_page": 112,
+      "topic_group": "mount_saturn",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Saturn",
+          "attribute": "Development",
+          "value": "unusually high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Saturn denotes love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and appreciation of sacred or classical music.",
+      "source_quote": "This is found at the base of the second finger (Plate XII.), and denotes love of solitude, quietness, prudence, earnestness in work, proneness to the study of somber things, and appreciation of music of a sacred or classical order.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_017 (see that rule's note).",
+        "VISION-UNPROVEN: see M_016."
+      ]
+    },
+    {
+      "rule_id": "M_019",
+      "source_page": 112,
+      "topic_group": "mount_saturn",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Saturn",
+          "attribute": "Development",
+          "value": "not notably developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Saturn denotes love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and appreciation of sacred or classical music.",
+      "source_quote": "This is found at the base of the second finger (Plate XII.), and denotes love of solitude, quietness, prudence, earnestness in work, proneness to the study of somber things, and appreciation of music of a sacred or classical order.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_017 (see that rule's note) -- the 'ordinary/unremarkable' grade, included per Sulabh's explicit ON-set design decision.",
+        "VISION-UNPROVEN: no live dogfood run has confirmed any Saturn Development grade yet."
+      ]
+    },
+    {
+      "rule_id": "M_020",
+      "source_page": 112,
+      "topic_group": "mount_apollo",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Mount of the Sun",
+          "attribute": "Development",
+          "value": "well developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A well developed Mount of the Sun (Apollo) indicates an enthusiastic appreciation of all things beautiful -- love of painting, poetry, literature, and imaginative work, and grace of mind and thought.",
+      "source_quote": "When well developed it indicates an enthusiastic appreciation of all things beautiful, whether or not one follows a purely artistic calling. It denotes love of painting, poetry, literature, and all imaginative work, also grace of mind and thought.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": "OCR line-wrap hyphenation reconstructed ('enthu-siastic'->'enthusiastic', 'imagi-native'->'imaginative'), wording otherwise unchanged. WORDING NOTE: the instructing prompt's paraphrase said 'love of art' -- the corpus's actual word is 'painting', not the generic 'art'; this rule's claim/quote use the corpus's exact wording.",
+      "schema_flags": [
+        "NO BASE ROW: like Jupiter (M_014), the Sun/Apollo passage (p.112) gives only the 'When well developed...' graded meaning -- the second sentence ('It denotes love of painting...') reads as a continuation/elaboration of 'When well developed', not a separate unconditional statement (no fresh subject-verb reset the way Venus's base sentence has). This is a closer call than Jupiter's (Jupiter has no second sentence at all); reported for Sulabh's explicit review rather than silently decided either way.",
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'well developed' for Mount of the Sun -- confirm or retire once a probe exercises it."
+      ]
+    },
+    {
+      "rule_id": "M_021",
+      "source_page": 113,
+      "topic_group": "mount_mars_positive",
+      "is_compound": false,
+      "baseline": false,
+      "antecedents": [
+        {
+          "feature": "Upper Mount of Mars",
+          "attribute": "Development",
+          "value": "large",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "A large Upper Mount of Mars shows a very quarrelsome, fighting disposition.",
+      "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": "Same source sentence as M_022's base row (this one clause covers both the base meaning and the 'large' graded meaning).",
+      "schema_flags": [
+        "SHARED SUPPORT-GATE NEEDLE (separate follow-up, NOT fixed here per this task's instruction): observation_extractor._SUPPORT_NEEDLES uses a single 'mars' needle for BOTH 'mount of mars positive' and 'mount of mars negative' (accepted imprecision documented at S117 registration) -- a retrieval chunk mentioning either Mars mount support-gate-passes for both features. A future, more targeted needle fix could use phrase-needles ('active courage' for Upper/positive, 'passive courage' for Lower/negative) instead of the shared 'mars' token -- flagged, not implemented.",
+        "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'large' for Upper Mount of Mars -- confirm or retire once a probe exercises it."
+      ]
+    },
+    {
+      "rule_id": "M_022",
+      "source_page": 113,
+      "topic_group": "mount_mars_positive",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Upper Mount of Mars",
+          "attribute": "Development",
+          "value": "large",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Upper Mount of Mars gives active courage and the martial spirit.",
+      "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: one of 3 sibling rows (M_022-M_024) realizing Upper Mars's base-meaning ON-set {large, present, not notably developed} via row multiplicity -- see M_009's note for the mechanism.",
+        "SHARED SUPPORT-GATE NEEDLE: see M_021.",
+        "VISION-UNPROVEN: see M_021."
+      ]
+    },
+    {
+      "rule_id": "M_023",
+      "source_page": 113,
+      "topic_group": "mount_mars_positive",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Upper Mount of Mars",
+          "attribute": "Development",
+          "value": "present",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Upper Mount of Mars gives active courage and the martial spirit.",
+      "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_022 (see that rule's note).",
+        "SHARED SUPPORT-GATE NEEDLE: see M_021.",
+        "VISION-UNPROVEN: no live dogfood run has confirmed the vision model emitting 'present' for Upper Mount of Mars."
+      ]
+    },
+    {
+      "rule_id": "M_024",
+      "source_page": 113,
+      "topic_group": "mount_mars_positive",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Upper Mount of Mars",
+          "attribute": "Development",
+          "value": "not notably developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Upper Mount of Mars gives active courage and the martial spirit.",
+      "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_022 (see that rule's note) -- the 'ordinary/unremarkable' grade, included per Sulabh's explicit ON-set design decision.",
+        "SHARED SUPPORT-GATE NEEDLE: see M_021.",
+        "VISION-UNPROVEN: no live dogfood run has confirmed any Upper Mars Development grade yet."
+      ]
+    }
+  ],
+  "parked_pending": [
+    {
+      "rule_id": "M_P01",
+      "source_page": 112,
+      "reason": "ontology_gap_presence",
+      "note": "Mercury base -> love of change, travel, excitement, wit, quickness of thought and expression (p.112). Mercury is a PRESENCE-ONLY mount (Step 2 asks no Development grade question for it): extract_mount_development never produces a Development value for 'mount of mercury' by design, and no 'Presence' attribute exists anywhere in ontology_registry.json's attribute_feature_mapping (checked directly -- 'Presence' is not a registered attribute at all, only a HARD-attribute concept named in palm_select.py's partition with no feature binding). No current mechanism can confirm this mount's presence to gate a base rule on. Verbatim quote: \"It denotes all the mercurial qualities of life—love of change, travel, excitement, wit, quickness of thought and expression.\"",
+      "disposition": "future_presence_signal"
+    },
+    {
+      "rule_id": "M_P02",
+      "source_page": 113,
+      "reason": "ontology_gap_presence",
+      "note": "Lower Mount of Mars base -> passive courage, self-control, resignation, strength of resistance against wrong (p.113). Same presence-signal gap as M_P01 -- Lower Mars is presence-only (no Development question asked), no Presence attribute exists to gate on. Verbatim quote: \"It denotes passive courage, self-control, resignation, and strength of resistance against wrong.\"",
+      "disposition": "future_presence_signal"
+    },
+    {
+      "rule_id": "M_P03",
+      "source_page": 113,
+      "reason": "ontology_gap_presence",
+      "note": "Mount of Luna base -> refinement, imagination, love of beautiful scenery, taste for the romantic, great ideality, fondness for poetry and imaginative literature (p.113). Same presence-signal gap as M_P01/M_P02 -- Luna is presence-only, no Presence attribute exists to gate on. Verbatim quote: \"It indicates refinement, imagination, love of beautiful scenery, a taste for the romantic, great ideality, and a fondness for poetry and imaginative literature.\"",
+      "disposition": "future_presence_signal"
+    }
+  ],
+  "retired_superseded": []
+}
