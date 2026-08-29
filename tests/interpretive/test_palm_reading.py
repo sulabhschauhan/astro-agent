@@ -433,13 +433,13 @@ def test_empty_retrieval_yields_zero_llm_calls_and_full_decline(monkeypatch):
 
 
 def test_absence_rule_all_features_absent_yields_zero_search_and_llm_calls(monkeypatch):
-    """(13a) 0 search calls, 0 LLM calls. Of the 10 registry features: 7
+    """(13a) 0 search calls, 0 LLM calls. Of the 16 registry features: 7
     (life/head/heart/fate/thumb/fingers/marks) are genuine negative
     absence (each is absence-phrased on its own mentioning source) --
     exempt from the decline block, nothing to support, nothing to
-    decline. The other 3 (sun line, mount of venus, mount of jupiter) are
-    sub-features NEVER NAMED at all (OTHER LINES/MOUNTS present but say
-    neither "sun" nor "venus"/"jupiter") -- NOT genuine absence (that
+    decline. The other 9 (sun line + all 8 mounts) are sub-features
+    NEVER NAMED at all (OTHER LINES/MOUNTS present but say neither
+    "sun" nor any individual mount name) -- NOT genuine absence (that
     requires an actual mentioning source), so they land in unsupported_
     features and the decline block, same as before P5's wiring."""
     fake_search = _FakeSearch([_chunk()])
@@ -453,7 +453,11 @@ def test_absence_rule_all_features_absent_yields_zero_search_and_llm_calls(monke
     assert result.sources == ()
     assert result.validation.passed is True
     assert DISCLAIMER in result.reading_text
-    assert result.unsupported_features == ("sun line", "mount of venus", "mount of jupiter")
+    expected_unsupported = tuple(
+        f for f in palm_reading._FEATURE_REGISTRY
+        if f == "sun line" or f.startswith("mount of")
+    )
+    assert result.unsupported_features == expected_unsupported
     expected_decline = palm_reading._build_decline_block(result.unsupported_features)
     assert expected_decline in result.reading_text
 
@@ -1288,7 +1292,10 @@ def test_decline_block_exact_text_two_feature_list(monkeypatch):
         "HEART LINE: Not clearly visible.\n"
         "FATE LINE: Barely visible.\n"
         "OTHER LINES: Sun line is faintly visible.\n"
-        "MOUNTS: Mount of Venus is unremarkable, Mount of Jupiter is unremarkable.\n"
+        "MOUNTS: Mount of Venus is unremarkable, Mount of Jupiter is unremarkable, "
+        "Mount of Saturn is unremarkable, Mount of the Sun is unremarkable, "
+        "Mount of Mercury is unremarkable, Upper Mount of Mars is unremarkable, "
+        "Lower Mount of Mars is unremarkable, Mount of the Moon is unremarkable.\n"
         "MARKS: No clear marks visible."
     )
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
@@ -1320,7 +1327,10 @@ def test_decline_block_absent_when_all_observed_features_supported(monkeypatch):
         "HEART LINE: Not clearly visible.\n"
         "FATE LINE: Not clearly visible.\n"
         "OTHER LINES: Sun line not clearly visible.\n"
-        "MOUNTS: Mount of Venus is unremarkable, Mount of Jupiter is unremarkable.\n"
+        "MOUNTS: Mount of Venus is unremarkable, Mount of Jupiter is unremarkable, "
+        "Mount of Saturn is unremarkable, Mount of the Sun is unremarkable, "
+        "Mount of Mercury is unremarkable, Upper Mount of Mars is unremarkable, "
+        "Lower Mount of Mars is unremarkable, Mount of the Moon is unremarkable.\n"
         "MARKS: No clear marks visible."
     )
     chunk = _chunk()
@@ -1381,10 +1391,11 @@ def test_supported_unsupported_tuples_propagate_in_registry_order(monkeypatch):
 
     assert len(fake_search.calls) == 3
     assert result.supported_features == ("life line", "heart line")
-    assert result.unsupported_features == (
-        "head line", "fate line", "sun line", "thumb", "fingers",
-        "mount of venus", "mount of jupiter", "markings/other features",
+    expected_unsupported = tuple(
+        f for f in palm_reading._FEATURE_REGISTRY
+        if f not in ("life line", "heart line")
     )
+    assert result.unsupported_features == expected_unsupported
 
 
 def test_banned_mention_failure_now_retries_and_stays_failed(monkeypatch):

@@ -192,6 +192,8 @@ _DOGFOOD_CAPTURE = os.environ.get("ASTRO_DOGFOOD_CAPTURE") == "1"
 _FEATURE_REGISTRY: tuple[str, ...] = (
     "life line", "head line", "heart line", "fate line", "sun line",
     "thumb", "fingers", "mount of venus", "mount of jupiter",
+    "mount of saturn", "mount of apollo", "mount of mercury",
+    "mount of mars positive", "mount of mars negative", "mount of luna",
     "markings/other features",
 )
 
@@ -463,6 +465,19 @@ _SUB_FEATURES: tuple[tuple[str, str, str, str], ...] = (
     ("sun line", "OTHER LINES", "", "sun"),
     ("mount of venus", "MOUNTS", "Mounts", "venus"),
     ("mount of jupiter", "MOUNTS", "Mounts", "jupiter"),
+    ("mount of saturn", "MOUNTS", "Mounts", "saturn"),
+    # alias: vision's own established mount vocabulary (this file's
+    # system prompt, palm_processor.py) calls this "Mount of...the Sun",
+    # not "Apollo" -- needle must match what vision actually emits.
+    ("mount of apollo", "MOUNTS", "Mounts", "sun"),
+    ("mount of mercury", "MOUNTS", "Mounts", "mercury"),
+    # alias: vision emits "Upper Mount of Mars" / "Lower Mount of Mars"
+    # (same system prompt), not "positive"/"negative".
+    ("mount of mars positive", "MOUNTS", "Mounts", "upper"),
+    ("mount of mars negative", "MOUNTS", "Mounts", "lower"),
+    # alias: "moon" per instructing prompt -- corpus-attested too (see
+    # _SUPPORT_NEEDLES below).
+    ("mount of luna", "MOUNTS", "Mounts", "moon"),
 )
 
 
@@ -738,6 +753,23 @@ _SUPPORT_NEEDLES: dict[str, tuple[str, ...]] = {
     "fingers": ("finger",),
     "mount of venus": ("venus",),
     "mount of jupiter": ("jupiter",),
+    "mount of saturn": ("saturn",),
+    # both corpus-attested for this mount (cheiro_clean_v1.json p112:
+    # "THE MOUNT OF THE SUN... also called the Mount of Apollo").
+    "mount of apollo": ("apollo", "sun"),
+    "mount of mercury": ("mercury",),
+    # Cheiro's own prose (p113) calls these "the first"/"the second"
+    # mount of this name, never "positive"/"negative" or "upper"/
+    # "lower" -- no single-word needle in the corpus text can tell them
+    # apart, so both share the same needle. Accepted imprecision, not
+    # silently patched: a chunk mentioning either Mars mount will
+    # support-gate-pass for both features. Flagged in diagnostics/
+    # latest_run.md, not a new mechanism.
+    "mount of mars positive": ("mars",),
+    "mount of mars negative": ("mars",),
+    # both corpus-attested (p113 "THE MOUNT OF LUNA"; p191 "Mount of
+    # the Moon").
+    "mount of luna": ("luna", "moon"),
     "markings/other features": (
         "mark", "star", "cross", "island", "square", "circle", "hair",
     ),
