@@ -2147,3 +2147,168 @@ def test_engine_failure_reports_an_empty_surviving_feature_set(
     assert diag["failed"] is True
     assert diag["surviving_rule_features"] == []
     assert prep.rule_claim_features == frozenset()
+
+
+# ══ S119 Step 6: the needle-table split (pure rename, no behaviour) ════
+#
+# _SUPPORT_NEEDLES served two jobs with different requirements -- corpus
+# support-gate matching (job A, permissive substring against OCR'd book
+# text) and output-feature identification (job B, word-boundary against
+# the model's fluent English / the S118 censor above). Step 6 split it
+# into _RETRIEVAL_NEEDLES and _OUTPUT_FEATURE_IDENTIFIERS with IDENTICAL
+# values. These tests exist to prove that split changed NOTHING, and to
+# make any future divergence a conscious, tested edit rather than a
+# silent one.
+
+# The needle values EXACTLY as they stood before the split, transcribed
+# from the pre-Step-6 _SUPPORT_NEEDLES literal. An independent oracle on
+# purpose: comparing the two split tables to each other alone would pass
+# even if BOTH had drifted together.
+_STEP6_PRE_SPLIT_NEEDLES: dict[str, tuple[str, ...]] = {
+    "life line": ("life",),
+    "head line": ("head",),
+    "heart line": ("heart",),
+    "fate line": ("fate",),
+    "sun line": ("sun",),
+    "thumb": ("thumb",),
+    "fingers": ("finger",),
+    "mount of venus": ("venus",),
+    "mount of jupiter": ("jupiter",),
+    "mount of saturn": ("saturn",),
+    "mount of apollo": ("apollo", "sun"),
+    "mount of mercury": ("mercury",),
+    "mount of mars positive": ("mars",),
+    "mount of mars negative": ("mars",),
+    "mount of luna": ("luna", "moon"),
+    "markings/other features": (
+        "mark", "star", "cross", "island", "square", "circle", "hair",
+    ),
+}
+
+
+def test_step6_both_tables_equal_the_pre_split_values():
+    """REQUIREMENT 1: value-identity, pinned against the transcribed
+    pre-split oracle. A future INTENTIONAL divergence has to edit one of
+    these two assertions, which is the whole point of splitting."""
+    assert palm_reading._RETRIEVAL_NEEDLES == _STEP6_PRE_SPLIT_NEEDLES
+    assert palm_reading._OUTPUT_FEATURE_IDENTIFIERS == _STEP6_PRE_SPLIT_NEEDLES
+    # ... and to each other, so a partial edit is caught too.
+    assert palm_reading._RETRIEVAL_NEEDLES == palm_reading._OUTPUT_FEATURE_IDENTIFIERS
+    assert palm_reading._FEATURE_NEEDLES_BASE == _STEP6_PRE_SPLIT_NEEDLES
+
+
+def test_step6_tables_are_separately_addressable_objects():
+    """The split has to be REAL: three distinct dict objects, not one
+    object under three names. Otherwise a future per-job value edit would
+    silently reach the other job -- exactly what Step 6 removes."""
+    tables = (
+        palm_reading._FEATURE_NEEDLES_BASE,
+        palm_reading._RETRIEVAL_NEEDLES,
+        palm_reading._OUTPUT_FEATURE_IDENTIFIERS,
+    )
+    assert len({id(t) for t in tables}) == 3
+
+
+def test_step6_leaves_no_support_needles_alias_behind():
+    """Full repointing, no deprecated alias -- so nothing can keep
+    reading the conflated table by its old name."""
+    assert not hasattr(palm_reading, "_SUPPORT_NEEDLES")
+
+
+@pytest.mark.parametrize(
+    "feature, text, score, expected",
+    [
+        # Plain-substring permissiveness is job A's defining property and
+        # is UNCHANGED: "lifeline" (no word boundary) still supports.
+        ("life line", "the lifeline of the subject", 0.55, True),
+        # The 0.30 noise floor still gates, needle or no needle.
+        ("life line", "the line of life is deep", 0.29, False),
+        ("life line", "the line of life is deep", 0.30, True),
+        # Wrong-topic chunk above the floor is still rejected.
+        ("heart line", "the line of fate rises from the wrist", 0.90, False),
+        # Dual-needle features: either needle supports.
+        ("mount of apollo", "also called the Mount of Apollo", 0.50, True),
+        ("mount of apollo", "THE MOUNT OF THE SUN", 0.50, True),
+        ("mount of luna", "the Mount of the Moon", 0.50, True),
+        # The documented shared-needle imprecision is PRESERVED, not
+        # quietly fixed: one "mars" chunk supports both Mars mounts.
+        ("mount of mars positive", "the Mount of Mars", 0.50, True),
+        ("mount of mars negative", "the Mount of Mars", 0.50, True),
+        # Unknown feature contributes no needles and never supports.
+        ("no such feature", "mars venus jupiter saturn", 0.99, False),
+    ],
+)
+def test_step6_job_a_support_gate_behaviour_unchanged(feature, text, score, expected):
+    """REQUIREMENT 2: _chunk_supports_feature, now reading
+    _RETRIEVAL_NEEDLES, behaves exactly as it did off _SUPPORT_NEEDLES."""
+    chunk = {"text": text, "score": score}
+    assert palm_reading._chunk_supports_feature(chunk, feature) is expected
+
+
+def test_step6_job_b_shared_and_overlapping_needle_cases_unchanged():
+    """REQUIREMENT 3: the S118 censor cases, re-run against the repointed
+    _OUTPUT_FEATURE_IDENTIFIERS. Same `_censor` helper, same expectations
+    as the S118 block above -- both shared-needle families ("mars" across
+    the two Mars mounts, "sun" across apollo/sun line) in both
+    directions, plus the word-boundary guard."""
+    # "sun" overlap, forward: apollo holds the claim, sun line unsupported.
+    assert _censor(
+        "The Mount of the Sun is generously formed in your hand.",
+        ("sun line",),
+        {"mount of apollo"},
+    ) == []
+    # "sun" overlap, reverse: the sun line holds the claim.
+    assert _censor(
+        "Your sun line runs clear and unbroken.",
+        ("mount of apollo",),
+        {"sun line"},
+    ) == []
+    # "mars" shared needle: Upper claimed, Lower unsupported -- allowed.
+    assert _censor(
+        "The Upper Mount of Mars gives you active courage.",
+        ("mount of mars negative",),
+        {"mount of mars positive"},
+    ) == []
+    # ... and the same sentence with no claim behind it is still caught.
+    assert _censor(
+        "The Upper Mount of Mars gives you active courage.",
+        ("mount of mars negative",),
+        set(),
+    ) == ["unsupported feature mentioned: mount of mars negative"]
+    # Guard intact: a word no claim can account for still fails.
+    assert _censor(
+        "The Mount of Apollo is generously formed.",
+        ("mount of apollo",),
+        {"sun line"},
+    ) == ["unsupported feature mentioned: mount of apollo"]
+    # Word-boundary matching (job B's defining property) is untouched.
+    assert _censor(
+        "A sunny disposition and a remarkable steadiness.",
+        ("sun line", "markings/other features"),
+        set(),
+    ) == []
+
+
+def test_step6_absence_patterns_by_feature_unchanged():
+    """REQUIREMENT 4: the TIER 2 absence patterns, built off the
+    repointed _RETRIEVAL_NEEDLES, are unchanged. Asserted against the
+    TIER 2 patterns DIRECTLY rather than through _is_absence, so TIER 1's
+    feature-agnostic phrase list cannot mask a TIER 2 regression."""
+    patterns = palm_reading._ABSENCE_PATTERNS_BY_FEATURE
+    assert set(patterns) == set(_STEP6_PRE_SPLIT_NEEDLES)
+
+    # F-B's own real-production case: names the feature, genuine absence.
+    assert patterns["markings/other features"].search("No marks clearly visible")
+    # F-E's comma-list case (S70, the pass-4 phrasing that defeated the
+    # pre-F-E filler groups).
+    assert patterns["markings/other features"].search(
+        "No crosses, stars, grilles, squares, or moles clearly visible"
+    )
+    # Conservative-by-construction: line-QUALITY detail containing the
+    # markings feature's own "island" needle must still NOT read as an
+    # absence of the life/head/heart line, because none of those three
+    # features' own nouns appear in it.
+    quality = "no breaks, chains, forks, or islands visible"
+    for feature in ("life line", "head line", "heart line"):
+        assert not patterns[feature].search(quality)
+        assert not palm_reading._is_absence(quality, feature)

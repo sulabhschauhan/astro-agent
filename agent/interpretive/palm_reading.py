@@ -329,7 +329,7 @@ _PALM_LEXICON_PATH = Path(os.getenv(
 # OLD list VERBATIM, just promoted to compiled case-insensitive regex
 # (zero behavior change: every string here is `re.escape`d, so each
 # pattern matches exactly the same substring the old `in` check did).
-# TIER 2 (_ABSENCE_PATTERNS_BY_FEATURE, defined after _SUPPORT_NEEDLES
+# TIER 2 (_ABSENCE_PATTERNS_BY_FEATURE, defined after _RETRIEVAL_NEEDLES
 # below, since it reuses that dict as its noun source) adds NEW
 # per-feature noun-anchored "no <optional qualifier> <noun> <anything>
 # visible" patterns for cases where the value text explicitly NAMES the
@@ -419,7 +419,7 @@ def _clean_quality_prefix(quality: str, feature: str) -> str:
 
 def _is_absence(text: str, feature: str | None = None) -> bool:
     """TIER 1 (_ABSENCE_PHRASES) always runs, feature-agnostic. TIER 2
-    (_ABSENCE_PATTERNS_BY_FEATURE, defined below _SUPPORT_NEEDLES) only
+    (_ABSENCE_PATTERNS_BY_FEATURE, defined below _RETRIEVAL_NEEDLES) only
     runs when `feature` is given -- `feature=None` is the pre-F-B
     behavior, kept for scripts/probe_fc_retrieval.py's existing
     single-argument call (a diagnostics-only script, out of this
@@ -476,7 +476,7 @@ _SUB_FEATURES: tuple[tuple[str, str, str, str], ...] = (
     ("mount of mars positive", "MOUNTS", "Mounts", "upper"),
     ("mount of mars negative", "MOUNTS", "Mounts", "lower"),
     # alias: "moon" per instructing prompt -- corpus-attested too (see
-    # _SUPPORT_NEEDLES below).
+    # _FEATURE_NEEDLES_BASE below).
     ("mount of luna", "MOUNTS", "Mounts", "moon"),
 )
 
@@ -743,7 +743,7 @@ def _assemble_retrieved_passages(
 # correctly-OCR'd occurrence of the same word elsewhere in a longer
 # passage, whereas a longer/stricter multi-word phrase requirement would
 # be more likely to be defeated by a single garbled word anywhere in it.
-_SUPPORT_NEEDLES: dict[str, tuple[str, ...]] = {
+_FEATURE_NEEDLES_BASE: dict[str, tuple[str, ...]] = {
     "life line": ("life",),
     "head line": ("head",),
     "heart line": ("heart",),
@@ -775,15 +775,42 @@ _SUPPORT_NEEDLES: dict[str, tuple[str, ...]] = {
     ),
 }
 
+# S119 STEP 6: the one needle table above served TWO jobs with genuinely
+# different requirements, and a value edit made for one silently changed
+# the other. They are now two separately-named, separately-addressable
+# tables, both initialised from the SAME literal -- so this split is
+# value-identical by construction today (pinned by
+# test_step6_split_is_value_identical_to_the_shared_base) and a future
+# divergence has to be written deliberately into ONE of them.
+#
+#   JOB A -- _RETRIEVAL_NEEDLES: does a CORPUS CHUNK talk about this
+#   feature? Matched with plain substring containment against OCR-scanned
+#   book text (_chunk_supports_feature). Wants PERMISSIVE, short,
+#   OCR-robust forms; the failure to avoid is a false NEGATIVE (dropping a
+#   genuinely relevant chunk because OCR mangled a word boundary).
+#
+#   JOB B -- _OUTPUT_FEATURE_IDENTIFIERS: does this text NAME this
+#   feature? Matched with word-boundary regex against the model's own
+#   fluent English (_check_banned_feature_mentions, the S118 censor, and
+#   _allowed_needles_for_claimed_features which feeds it). Wants PRECISE
+#   forms that do not collide with ordinary English ("sunny"/"remarkable");
+#   the failure to avoid is a false POSITIVE (failing a clean reading).
+#
+# The asymmetric MATCHING LOGIC (substring vs word-boundary) is unchanged
+# and still lives in each consumer -- Step 6 moved only which named table
+# each one reads.
+_RETRIEVAL_NEEDLES: dict[str, tuple[str, ...]] = dict(_FEATURE_NEEDLES_BASE)
+_OUTPUT_FEATURE_IDENTIFIERS: dict[str, tuple[str, ...]] = dict(_FEATURE_NEEDLES_BASE)
+
 # F-B (S68 pass-3 Findings #1) TIER 2: per-feature noun-anchored absence
-# patterns, reusing _SUPPORT_NEEDLES as the SAME single source of truth
+# patterns, reusing _RETRIEVAL_NEEDLES as the SAME single source of truth
 # for each feature's noun (not a new, separately-maintained noun list --
 # "mark"/"life"/"venus" etc. already mean "this word names the feature"
 # everywhere else in this module). "marking" is added ONLY for the
 # markings feature (`_ABSENCE_NOUN_EXTRAS` below) -- a natural inflection
 # of "mark" (confirmed on real production data: HAND_DETAIL's own
 # "There are no unusual markings or features visible on the hand."),
-# not a generalizable pattern worth adding to _SUPPORT_NEEDLES itself
+# not a generalizable pattern worth adding to _RETRIEVAL_NEEDLES itself
 # (that dict scores CHUNK relevance, a different, unrelated use).
 #
 # Pattern shape: "no" + 0-3 filler words + (noun, optional trailing "s")
@@ -824,9 +851,17 @@ def _build_absence_noun_pattern(needles: tuple[str, ...]) -> re.Pattern:
     )
 
 
+# S119 Step 6 CLASSIFICATION: this builder reads the JOB A table. The
+# absence check is retrieval-side bookkeeping -- its only consumer is
+# _is_genuine_negative_absence, which decides whether a feature enters
+# unsupported_features/the decline block, i.e. the same support-gate
+# pathway _RETRIEVAL_NEEDLES governs. (Noted rather than assumed: the
+# TEXT it matches is a vision description, not OCR'd corpus, so a future
+# divergence between the two tables should re-check this call site
+# specifically. Value-identical today, so nothing turns on it yet.)
 _ABSENCE_PATTERNS_BY_FEATURE: dict[str, re.Pattern] = {
     feature: _build_absence_noun_pattern(needles + _ABSENCE_NOUN_EXTRAS.get(feature, ()))
-    for feature, needles in _SUPPORT_NEEDLES.items()
+    for feature, needles in _RETRIEVAL_NEEDLES.items()
 }
 
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
@@ -867,7 +902,7 @@ def _chunk_supports_feature(chunk: dict, feature: str) -> bool:
       there is a FALSE POSITIVE: wrongly failing an otherwise-clean
       reading over an unrelated word. Word-boundary matching is the
       stricter, correct choice for that check specifically."""
-    needles = _SUPPORT_NEEDLES.get(feature, ())
+    needles = _RETRIEVAL_NEEDLES.get(feature, ())
     text_low = chunk["text"].lower()
     return chunk["score"] >= _SUPPORT_SCORE_FLOOR and any(n in text_low for n in needles)
 
@@ -1266,18 +1301,19 @@ def _check_length(text: str) -> list[str]:
 def _allowed_needles_for_claimed_features(
     rule_claim_features,
 ) -> frozenset[str]:
-    """The union of the _SUPPORT_NEEDLES entries of every feature holding
-    a SURVIVING rule claim -- the "allowed mention" vocabulary
-    _check_banned_feature_mentions attributes matched words to. DERIVED
-    from _SUPPORT_NEEDLES, never a second hand-maintained list, so a
-    future needle edit propagates here by construction and no feature is
-    ever special-cased. A feature with no needles (or one outside the
+    """The union of the _OUTPUT_FEATURE_IDENTIFIERS entries of every
+    feature holding a SURVIVING rule claim -- the "allowed mention"
+    vocabulary _check_banned_feature_mentions attributes matched words
+    to. DERIVED from _OUTPUT_FEATURE_IDENTIFIERS (job B, S119 Step 6),
+    never a second hand-maintained list, so a future identifier edit
+    propagates here by construction and no feature is ever
+    special-cased. A feature with no needles (or one outside the
     registry) contributes nothing and is not an error -- the same
     defensive .get(feature, ()) read the censor itself uses."""
     return frozenset(
         needle
         for feature in rule_claim_features
-        for needle in _SUPPORT_NEEDLES.get(feature, ())
+        for needle in _OUTPUT_FEATURE_IDENTIFIERS.get(feature, ())
     )
 
 
@@ -1312,7 +1348,7 @@ def _check_banned_feature_mentions(
     the moment it is named by a word no claimed feature can account for,
     so the hallucination guard is intact. Rationale: needles can be
     SHARED ("mars" -- Upper and Lower Mount of Mars have no single-word
-    corpus discriminator, see _SUPPORT_NEEDLES) or OVERLAPPING ("sun" --
+    corpus discriminator, see _FEATURE_NEEDLES_BASE) or OVERLAPPING ("sun" --
     "mount of apollo" and "sun line"), so an unsupported sibling's needle
     firing on the CLAIMED feature's own sentence is a vocabulary
     collision, not a hallucination. Live symptom this resolves: C6 ("The
@@ -1337,7 +1373,7 @@ def _check_banned_feature_mentions(
     failures: list[str] = []
     low = text.lower()
     for feature in unsupported_features:
-        needles = _SUPPORT_NEEDLES.get(feature, ())
+        needles = _OUTPUT_FEATURE_IDENTIFIERS.get(feature, ())
         if not needles:
             continue
         pattern = re.compile(
