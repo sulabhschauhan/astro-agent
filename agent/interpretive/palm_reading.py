@@ -1263,15 +1263,77 @@ def _check_length(text: str) -> list[str]:
     return []
 
 
+def _allowed_needles_for_claimed_features(
+    rule_claim_features,
+) -> frozenset[str]:
+    """The union of the _SUPPORT_NEEDLES entries of every feature holding
+    a SURVIVING rule claim -- the "allowed mention" vocabulary
+    _check_banned_feature_mentions attributes matched words to. DERIVED
+    from _SUPPORT_NEEDLES, never a second hand-maintained list, so a
+    future needle edit propagates here by construction and no feature is
+    ever special-cased. A feature with no needles (or one outside the
+    registry) contributes nothing and is not an error -- the same
+    defensive .get(feature, ()) read the censor itself uses."""
+    return frozenset(
+        needle
+        for feature in rule_claim_features
+        for needle in _SUPPORT_NEEDLES.get(feature, ())
+    )
+
+
 def _check_banned_feature_mentions(
-    text: str, unsupported_features: tuple[str, ...]
+    text: str,
+    unsupported_features: tuple[str, ...],
+    allowed_needles: frozenset[str] = frozenset(),
 ) -> list[str]:
     """S67 R3: fires if the reading names an UNSUPPORTED feature's needle
     anywhere. Word-boundary matching is MANDATORY here (unlike the
     support gate's plain substring check, see _chunk_supports_feature) --
     a false positive here fails an otherwise-clean reading, so "sun"
     must not fire on "sunday"/"sunny", and "mark" must not fire on
-    "marked"/"remarkable". Same style as _JARGON_PATTERN above."""
+    "marked"/"remarkable". Same style as _JARGON_PATTERN above.
+
+    S118 JURISDICTION GENERALIZATION (ratified principle: "a rule-fired
+    feature is outside the retrieval support-gate's authority" -- commit
+    3a3d625 applied it to the gate TUPLES; this applies the SAME
+    principle to the censor). `allowed_needles` is the union of the
+    needles of every feature carrying a surviving rule claim (built by
+    _allowed_needles_for_claimed_features, computed ONCE per reading in
+    complete_palm_reading). The predicate is CLAIM-DRIVEN and
+    per-MATCHED-NEEDLE -- not needle-table-driven, not per-feature, and
+    with no feature named anywhere in it:
+
+        flag `feature` iff it has at least one word-boundary needle match
+        in the text AND at least one of those MATCHED needles is absent
+        from `allowed_needles`.
+
+    i.e. a matched word is ALLOWED when it is attributable to ANY feature
+    that fired a rule; a genuinely unsupported feature is still flagged
+    the moment it is named by a word no claimed feature can account for,
+    so the hallucination guard is intact. Rationale: needles can be
+    SHARED ("mars" -- Upper and Lower Mount of Mars have no single-word
+    corpus discriminator, see _SUPPORT_NEEDLES) or OVERLAPPING ("sun" --
+    "mount of apollo" and "sun line"), so an unsupported sibling's needle
+    firing on the CLAIMED feature's own sentence is a vocabulary
+    collision, not a hallucination. Live symptom this resolves: C6 ("The
+    Upper Mount of Mars gives you active courage and a martial spirit.")
+    failed an entire otherwise-clean reading as "unsupported feature
+    mentioned: mount of mars negative".
+
+    REJECTED ALTERNATIVE (evaluated, NOT equivalent): the whole-feature
+    subset form -- "skip `feature` entirely when needles(feature) is a
+    subset of allowed_needles". It is strictly coarser and over-flags:
+    with "sun line" claimed (allowed = {"sun"}) and "mount of apollo"
+    unsupported, needles(apollo) = {"apollo", "sun"} is NOT a subset, so
+    a sentence about the claimed sun line would still fail even though
+    its only matched word, "sun", is fully attributable to the claim.
+    Per-matched-needle attribution is what actually states the ratified
+    principle; the subset form only approximates it.
+
+    Degenerate case, unchanged: an empty `allowed_needles` (no rule
+    claims fired, or the LLM Stage-1 path, which never populates it)
+    reduces the membership test to "did anything match at all", i.e.
+    behavior identical to the pre-S118 `pattern.search` form."""
     failures: list[str] = []
     low = text.lower()
     for feature in unsupported_features:
@@ -1282,7 +1344,8 @@ def _check_banned_feature_mentions(
             r"\b(" + "|".join(re.escape(n) for n in needles) + r")\b",
             re.IGNORECASE,
         )
-        if pattern.search(low):
+        matched = {m.group(1).lower() for m in pattern.finditer(low)}
+        if matched and not matched <= allowed_needles:
             failures.append(f"unsupported feature mentioned: {feature}")
     return failures
 
@@ -1591,6 +1654,7 @@ def _run_display_checks(
     stripped_text: str,
     context_corpus: str,
     unsupported_features: tuple[str, ...],
+    allowed_needles: frozenset[str] = frozenset(),
 ) -> list[str]:
     """S69 F-H P5: the six 'display' checks that survive the two-stage
     wiring -- see the module docstring's RETIRED-NOT-DELETED note for why
@@ -1607,7 +1671,9 @@ def _run_display_checks(
     failures += _check_self_help_register(stripped_text)
     failures += _check_unsupported_dates(stripped_text, context_corpus)
     failures += _check_length(stripped_text)
-    failures += _check_banned_feature_mentions(stripped_text, unsupported_features)
+    failures += _check_banned_feature_mentions(
+        stripped_text, unsupported_features, allowed_needles
+    )
     failures += _check_exemplar_echo(stripped_text)
     return failures
 
@@ -1814,6 +1880,17 @@ class PalmReadingPrep:
     claims: tuple[Claim, ...]
     texts_by_feature: dict[str, str]
     diagnostics: dict = field(default_factory=dict)
+    # S118 jurisdiction generalization: the set of features holding a
+    # SURVIVING rule claim, computed exactly ONCE (in
+    # _prepare_deterministic_prep, the same expression 3a3d625 already
+    # uses to narrow the two gate tuples) and threaded from there rather
+    # than re-derived downstream. complete_palm_reading turns it into the
+    # censor's allowed-needle set. Defaults EMPTY, which is the correct
+    # and load-bearing value on the LLM Stage-1 path: those claims are
+    # retrieval-sourced, so they are squarely inside the support gate's
+    # jurisdiction and grant no censor exemption -- that path's censor
+    # behavior is therefore byte-identical to pre-S118.
+    rule_claim_features: frozenset[str] = frozenset()
 
 
 def _enabled_features_from_rules(rules) -> frozenset[str]:
@@ -2250,6 +2327,9 @@ def _prepare_deterministic_prep(
         unsupported_features=unsupported_features,
         claims=claims,
         texts_by_feature=texts_by_feature,
+        # NOT recomputed -- the very same set the two tuple narrowings
+        # just above were built from.
+        rule_claim_features=frozenset(features_with_surviving_rule_claims),
         diagnostics={
             "stage1": {"features": stage1_features},
             # No LLM extraction ran, so there is no per-feature
@@ -2620,6 +2700,7 @@ def prepare_palm_reading(
 def _build_display_extra_validators(
     context_corpus: str,
     unsupported_features: tuple[str, ...],
+    allowed_needles: frozenset[str] = frozenset(),
 ) -> tuple:
     """S70 F-G2: one strip-wrapped closure per `_run_display_checks`
     check, fed to `claim_voicing.voice_claims`'s `extra_validators` seam
@@ -2651,7 +2732,9 @@ def _build_display_extra_validators(
         return _check_length(_strip_stage2_tags(tagged_draft))
 
     def _banned(tagged_draft: str) -> list[str]:
-        return _check_banned_feature_mentions(_strip_stage2_tags(tagged_draft), unsupported_features)
+        return _check_banned_feature_mentions(
+            _strip_stage2_tags(tagged_draft), unsupported_features, allowed_needles
+        )
 
     def _echo(tagged_draft: str) -> list[str]:
         return _check_exemplar_echo(_strip_stage2_tags(tagged_draft))
@@ -2703,7 +2786,15 @@ def complete_palm_reading(
     context_corpus = " ".join(prep.texts_by_feature.values()) + " " + " ".join(
         c["text"] for chunks in prep.gated_results.values() for c in chunks
     )
-    extra_validators = _build_display_extra_validators(context_corpus, prep.unsupported_features)
+    # S118: computed ONCE here and fed to BOTH censor call sites below
+    # (the Stage-2 retry seam and the fail-closed backstop), so the two
+    # can never disagree about what a claimed feature is allowed to be
+    # called -- a divergence would show up as a draft that passes the
+    # retry seam and then fails the backstop, or vice versa.
+    allowed_needles = _allowed_needles_for_claimed_features(prep.rule_claim_features)
+    extra_validators = _build_display_extra_validators(
+        context_corpus, prep.unsupported_features, allowed_needles
+    )
 
     voice_result = claim_voicing.voice_claims(
         prep.claims, prep.texts_by_feature, client=client, extra_validators=extra_validators
@@ -2711,7 +2802,9 @@ def complete_palm_reading(
 
     stripped = _strip_stage2_tags(voice_result.reading_text_tagged)
 
-    display_failures = _run_display_checks(stripped, context_corpus, prep.unsupported_features)
+    display_failures = _run_display_checks(
+        stripped, context_corpus, prep.unsupported_features, allowed_needles
+    )
 
     failures = tuple(voice_result.validation_failures) + tuple(display_failures)
     validation = ValidationReport(passed=not failures, failures=failures, warnings=())

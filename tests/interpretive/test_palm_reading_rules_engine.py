@@ -1633,3 +1633,266 @@ def test_mount_development_extractor_raising_degrades_no_crash_no_mount_claims(
     assert "M_009" not in diag["fired_rule_ids"]
     assert prep.claims == ()  # completed normally with zero claims, no exception propagated
     assert client.completions.calls == []
+
+
+# ─── S118: censor jurisdiction (the ratified principle, generalized) ────
+#
+# 3a3d625 applied "a rule-fired feature is outside the retrieval support-
+# gate's authority" to the two gate TUPLES. The tests below cover the
+# SAME principle applied to the banned-mention censor: a mention
+# attributable to a feature that fired a rule is never a hallucination,
+# whichever feature's needle happened to match it.
+#
+# WHY EVERY BEHAVIOUR-CHANGING CASE HERE INVOLVES A SHARED NEEDLE (stated
+# so this section does not read as a mount-only patch): after 3a3d625 a
+# claimed feature is already absent from unsupported_features, so the
+# censor can never flag it for naming ITSELF. The only mentions the
+# censor could still wrongly flag are ones where some OTHER, genuinely
+# unsupported feature shares or overlaps the matched needle. The
+# predicate is general over any such collision; the two that exist in
+# today's _SUPPORT_NEEDLES are {mars positive, mars negative} on "mars"
+# and {mount of apollo, sun line} on "sun". Both are exercised below, in
+# both directions.
+
+
+def _censor(text: str, unsupported: tuple[str, ...], claimed: set[str]) -> list[str]:
+    """The censor as complete_palm_reading actually wires it: the allowed
+    needles are DERIVED from the claimed feature set, never handed in
+    directly, so these tests exercise the real derivation too."""
+    return palm_reading._check_banned_feature_mentions(
+        text,
+        unsupported,
+        palm_reading._allowed_needles_for_claimed_features(claimed),
+    )
+
+
+def test_censor_allows_overlapping_needle_when_apollo_holds_the_claim():
+    """GENERALITY 1/2 (the sun/apollo overlap, forward direction). The
+    reading names the Mount of the Sun because "mount of apollo" fired a
+    rule; "sun line" is genuinely unsupported and shares the "sun"
+    needle. The mention is attributable to the claim, so it must not
+    fail -- and nothing about this case is Mars-specific."""
+    text = "The Mount of the Sun is generously formed in your hand."
+
+    assert _censor(text, ("sun line",), {"mount of apollo"}) == []
+    # ... and the SAME text with no claim behind it is still caught.
+    assert _censor(text, ("sun line",), set()) == [
+        "unsupported feature mentioned: sun line"
+    ]
+
+
+def test_censor_allows_overlapping_needle_when_a_non_mount_line_holds_the_claim():
+    """GENERALITY 2/2, and the case that PINS THE PREDICATE'S SHAPE.
+
+    The claimed feature is the SUN LINE -- a line, not a mount -- so this
+    is the anti-mount-patch proof. The unsupported feature is "mount of
+    apollo", whose needles ("apollo", "sun") are a strict SUPERSET of the
+    claimed sun line's ("sun",).
+
+    This distinguishes the shipped per-MATCHED-NEEDLE predicate from the
+    coarser whole-feature-subset alternative recorded as REJECTED in
+    _check_banned_feature_mentions' docstring. Under the subset form,
+    needles(mount of apollo) is not a subset of allowed={"sun"}, so this
+    sentence would still fail -- even though the only word it actually
+    matched on, "sun", is fully accounted for by the claim. Under the
+    shipped form it passes, which is the correct outcome."""
+    assert _censor(
+        "Your sun line runs clear and unbroken.",
+        ("mount of apollo",),
+        {"sun line"},
+    ) == []
+
+
+def test_censor_still_fails_the_unsupported_feature_named_by_its_own_word():
+    """GUARD INTACT, hardest shape: the SAME claimed/unsupported pairing
+    as the test above, but the text now names the unsupported feature by
+    a word no claimed feature can account for ("apollo" belongs to no
+    claim here). Proves the exemption is per-matched-word, not a blanket
+    pass for any feature that merely overlaps a claim somewhere."""
+    assert _censor(
+        "The Mount of Apollo is generously formed.",
+        ("mount of apollo",),
+        {"sun line"},
+    ) == ["unsupported feature mentioned: mount of apollo"]
+
+
+def test_censor_still_fails_a_genuinely_unsupported_unclaimed_feature():
+    """GUARD INTACT, the plain hallucination case this check exists for:
+    unsupported features named in the text, with claims present but none
+    sharing their needles. Must fail exactly as it did before S118."""
+    assert _censor(
+        "Your sun line runs clear, and a star sits above it.",
+        ("sun line", "markings/other features"),
+        {"head line", "life line"},
+    ) == [
+        "unsupported feature mentioned: sun line",
+        "unsupported feature mentioned: markings/other features",
+    ]
+
+
+@pytest.mark.parametrize(
+    "text, unsupported, expected",
+    [
+        (
+            "The Upper Mount of Mars gives you active courage.",
+            ("mount of mars negative",),
+            ["unsupported feature mentioned: mount of mars negative"],
+        ),
+        (
+            "Your sun line runs clear and unbroken.",
+            ("sun line", "mount of apollo"),
+            [
+                "unsupported feature mentioned: sun line",
+                "unsupported feature mentioned: mount of apollo",
+            ],
+        ),
+        # Word-boundary matching is untouched by S118: "sunny" is not
+        # "sun" and "remarkable" is not "mark", claims or no claims.
+        (
+            "A sunny disposition and a remarkable steadiness.",
+            ("sun line", "markings/other features"),
+            [],
+        ),
+    ],
+)
+def test_censor_with_no_claims_at_all_is_unchanged(text, unsupported, expected):
+    """NO CLAIMS: the degenerate case. An empty allowed-needle set must
+    reproduce the pre-S118 behaviour exactly -- which is also the LLM
+    Stage-1 path's permanent state (PalmReadingPrep.rule_claim_features
+    defaults empty there), so this doubles as the no-regression proof for
+    every reading that never runs the rule engine."""
+    assert _censor(text, unsupported, set()) == expected
+    # The same call through the DEFAULT argument -- i.e. every
+    # pre-existing caller, including the retired _run_ring1_checks path.
+    assert palm_reading._check_banned_feature_mentions(text, unsupported) == expected
+
+
+def test_llm_stage_one_prep_grants_no_censor_exemption():
+    """The jurisdiction boundary itself: retrieval-sourced (LLM Stage-1)
+    claims are INSIDE the support gate's authority and must not widen the
+    allowed set. Pinned on the dataclass default, since that default is
+    the only thing separating the two paths."""
+    prep = palm_reading.PalmReadingPrep(
+        gated_results={}, supported_features=(), unsupported_features=(),
+        claims=(), texts_by_feature={},
+    )
+    assert prep.rule_claim_features == frozenset()
+    assert palm_reading._allowed_needles_for_claimed_features(
+        prep.rule_claim_features
+    ) == frozenset()
+
+
+# ─── S118: the Mars live failure, reproduced deterministically ──────────
+
+_UPPER_MARS_ONLY = "MOUNTS:\n  DEVELOPMENT (Upper Mount of Mars): present\n"
+
+# The extraction call the fixture above provokes. observation_extractor's
+# incompleteness guard RETRIES the whole batch whenever a feature with
+# substantive prose comes back empty, so answering it is what keeps these
+# tests at ONE extractor call. The value is the same one the deterministic
+# DEVELOPMENT parse merges in regardless, so the observation the engine
+# finally matches on is identical either way.
+_UPPER_MARS_OBSERVATION = _observation_response(
+    {"Upper Mount of Mars": {"Development": {"value": "present"}}}
+)
+
+# The real voiced C6 sentence from the live run
+# (diagnostics/s117_live_confirmation_raw.json), verbatim.
+_C6_SENTENCE = (
+    "The Upper Mount of Mars gives you active courage and a martial spirit."
+)
+
+
+def test_upper_mars_claim_survives_the_censor_end_to_end(
+    rules_engine_on, no_llm_extraction, monkeypatch,
+):
+    """THE LIVE FAILURE, reproduced deterministically (no live call).
+
+    Live shape exactly: M_023 fires for "mount of mars positive"
+    (jurisdiction-excluded from both gate tuples by 3a3d625), while its
+    sibling "mount of mars negative" is genuinely unsupported and shares
+    the single "mars" needle. Before S118 this failed the whole reading
+    twice over -- once at the Stage-2 retry seam and once at the
+    fail-closed backstop -- with "unsupported feature mentioned: mount of
+    mars negative" (live evidence: that exact string, twice, in
+    validation_failures).
+
+    Falls out of the general predicate; nothing here is Mars-specific.
+    The call count is part of the assertion: 2 calls means the
+    extra-validator seam saw no failure and Stage 2 never needed its
+    retry."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))  # life-line text
+    client = _FakeClient(responses=[
+        (_UPPER_MARS_OBSERVATION, None),
+        (_C6_SENTENCE + "[C1]", None),
+    ])
+
+    result = generate_palm_reading(
+        palm_left=_UPPER_MARS_ONLY, palm_right=None, client=client
+    )
+
+    assert _engine_diag(result)["fired_rule_ids"] == ["M_023"]
+    assert [c.feature for c in result.claims] == ["mount of mars positive"]
+    # The sentence reaches the delivered text, and the reading is clean.
+    assert _C6_SENTENCE in result.reading_text
+    assert result.validation.failures == ()
+    assert result.validation.passed is True
+    assert len(client.completions.calls) == 2  # extractor + ONE voice call, no retry
+
+
+def test_unclaimed_mars_sibling_is_still_declined_not_promoted(
+    rules_engine_on, no_llm_extraction, monkeypatch,
+):
+    """DECLINE UNCHANGED. S118 touches the CENSOR only: the unclaimed
+    sibling must stay honestly unsupported and stay named in the decline
+    block. A censor exemption that silently promoted it to supported
+    would be a fidelity regression, so it is asserted on the same run
+    shape as the test above."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    client = _FakeClient(responses=[
+        (_UPPER_MARS_OBSERVATION, None),
+        (_C6_SENTENCE + "[C1]", None),
+    ])
+
+    result = generate_palm_reading(
+        palm_left=_UPPER_MARS_ONLY, palm_right=None, client=client
+    )
+
+    # Claimed sibling: in NEITHER tuple (3a3d625). Unclaimed sibling:
+    # still unsupported, exactly as before S118.
+    assert "mount of mars positive" not in result.supported_features
+    assert "mount of mars positive" not in result.unsupported_features
+    assert "mount of mars negative" in result.unsupported_features
+    assert "mount of mars negative" not in result.supported_features
+
+    decline_features = palm_reading._compute_decline_features(
+        result.supported_features, result.unsupported_features, (), result.claims,
+    )
+    assert "mount of mars negative" in decline_features
+    assert "mount of mars positive" not in decline_features
+    assert "mount of mars negative" in result.reading_text  # named in the decline block
+
+
+def test_censor_still_fails_end_to_end_when_the_text_names_an_unclaimed_feature(
+    rules_engine_on, no_llm_extraction, monkeypatch,
+):
+    """GUARD INTACT, end to end on the same wiring as the Mars test: the
+    Upper Mars claim is present and legitimate, but the draft ALSO names
+    the sun line, which no rule claimed and no chunk supported. The
+    reading must still fail -- the exemption covers only words a claim
+    accounts for, and "sun" is not one of them here."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
+    draft = _C6_SENTENCE + "[C1] A clear sun line marks you for renown.[C1]"
+    client = _FakeClient(responses=[
+        (_UPPER_MARS_OBSERVATION, None),
+        (draft, None),
+        (draft, None),  # Stage-2 retry returns the same offending draft
+    ])
+
+    result = generate_palm_reading(
+        palm_left=_UPPER_MARS_ONLY, palm_right=None, client=client
+    )
+
+    assert result.validation.passed is False
+    assert "unsupported feature mentioned: sun line" in result.validation.failures
+    assert not any("mount of mars negative" in f for f in result.validation.failures)
