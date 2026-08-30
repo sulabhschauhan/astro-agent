@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "1.12.0",
+    "version": "1.13.0",
     "source": "Cheiro's Language of the Hand",
     "description": "Closed vocabulary registry for deterministic palmistry rule extraction. All feature, attribute, and value tokens used in rule generation MUST exist in this registry.",
     "total_features": 68,
@@ -1138,6 +1138,14 @@
       "author": "chat, awaiting Sulabh validation",
       "change": "Typed-relationship arc, Step 5d (registry + prompt + tests, landed atomically -- one logical change, three coupled files, per the coupling-note discipline this file's own 1.9.0 entry established): retire the CONVERGENCE emission channel for Head/Heart/Fate, now fully superseded by the typed RELATIONSHIP channel (H_028/FT_016/L_026 already migrated, Steps 5a-5c). Concretely: removed 'vision_relational_menus'[\"Line of Fate\"][\"CONVERGENCE_LOCATION\"] (the only per-line CONVERGENCE-family key that ever existed in this block -- CONVERGENCE itself was NEVER a per-line vision_relational_menus entry for any line, Head/Heart/Fate included; it has been derived from the top-level 'convergence_lines' list since the 1.9.0 Generic-convergence-emission step, per '_convergence_note'). agent/palm_processor.py's CONVERGENCE/CONVERGENCE_LOCATION field-emission text for Head/Heart/Fate was removed in the same logical change (that prompt edit landed in the working tree ahead of this registry commit and is included in the same commit). 'convergence_lines' itself is UNCHANGED (still ['Line of Life','Line of Head','Line of Heart','Line of Fate','Line of Health']) -- Line of Life's own CONVERGENCE menu derivation depends on this list including all four other lines as candidate partners, and Life's field is explicitly RETAINED (Life has no RELATIONSHIP field to take over the channel). relation_types/relation_cardinality/attribute_feature_mapping are UNCHANGED -- Convergence stays a registry-legal attribute (Life still authors against it); deeper removal of the untyped Convergence vocabulary itself is a separate, later step, not done here. '_note'/'_convergence_note'/'_location_note' updated to state the retirement and that only Line of Life still consumes the CONVERGENCE-family menus.",
       "coupling_note": "Same discipline as the 1.9.0 entry: this registry edit is not safely data-only in isolation from the palm_processor.py prompt edit and the tests/interpretive/test_palm_processor.py test updates that expect the new (post-retirement) prompt shape -- all three land in the SAME commit."
+    },
+    {
+      "version": "1.13.0",
+      "date": "2026-08-30",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "S121 plan item #2a (data-only, additive), FORCED-LIST NO-ALIAS DESIGN (Option A, ratified): add top-level 'emission_menus[feature][attribute]', the single source of truth this task's instructing prompt designates for palm_processor.py's vision-prompt menus and observation_extractor.py's attribute_value_binding guard to DERIVE FROM in later tasks (#2b, #2c) -- neither file is touched here. Authors closed menus for the 7 previously-free-prose line attributes (Depth, Width, Length, Curve, Continuity, plus Fate-only Length_Extent/Break_Type sub-fields) from the vocabulary-mismatch evidence in diagnostics/latest_run.md's S121 2a report (measured at HEAD 048fe97, n=2 captures, BOTH right-hand); lifts Slope/Slope_Magnitude/Proximity (attribute_value_binding), per-mount Development (observation_extractor.py's _MOUNT_DEVELOPMENT_MENUS, re-keyed to this registry's own canonical mount feature names -- e.g. 'mount of apollo' -> 'Mount of the Sun', 'mount of mars positive' -> 'Upper Mount of Mars', a known naming drift, not resolved here), and ORIGIN/TERMINATION (vision_relational_menus) verbatim. There is deliberately NO runtime alias/synonym-collapse mechanism -- a rejected earlier draft of this same block had one; vocabulary is closed by CORRECTING rules to key on menu tokens directly instead, via the new 'normalization_worklist' (rule-id -> canonical-token rewrites for task #5 to apply, fresh-grepped against all 4 rule files, not chat-transcribed -- includes 2 attribute-rekey-only cases, FT_006/FT_012, found by that grep and not in this task's own example list). Adds an explicit 'unbound' section (Direction, Clarity, Curve on Head/Heart/Fate, a parked 'Continuity_parked' pair for 'barred'/'double', and the Curve/Length granularity tokens sweeping_wide/close_to_Mount_of_Venus/extending_across_entire_palm) listing attributes/tokens deliberately NOT given a menu pending a human ruling. Width's 'wide' is NOT unbound -- ratified as a normalization case (wide->broad) in 'normalization_worklist' instead, superseding an earlier draft that had left it as a pending ruling.",
+      "sequencing_note": "Per architect ruling (this task's instructing prompt): flat-pool synonym-member deletion (e.g. removing well_marked/clearly_marked/thin/thick from their value pools) happens AFTER rule migration to these menus (plan item #5 then #2b/#2c), never in the same step as this registry addition.",
+      "no_code_consumes_yet": "Registry-legal only. No prompt, extractor, or rule file reads 'emission_menus' as of this commit -- confirmed by this task's own before/after byte-identical check on agent/palm_processor.py, agent/interpretive/observation_extractor.py, and every data/palm_rules/*.json file, plus a full green suite run at the pre-existing baseline count."
     }
   ],
   "relation_target_registry": [
@@ -1283,5 +1291,326 @@
     "_note": "Only closed per-line menus are listed here: ORIGIN, TERMINATION. CONVERGENCE and CONVERGENCE_LOCATION are NOT listed here -- see '_convergence_note'/'_location_note' below. BRANCHES_TO and the PROXIMITY landmark are also deliberately excluded -- both validate against the full relation_target_registry (an open landmark-name pool shared across every relational line), not a per-line closed list; there is no per-line menu to transcribe for them.",
     "_convergence_note": "CONVERGENCE menu for any line = convergence_lines MINUS that line itself, derived at prompt-build time (Generic convergence emission step, S98). Multi-select (a line may cross several other lines at once -- Pattern D). Not hand-listed per line here; adding a new line to convergence_lines auto-participates with zero further vision-prompt edits. RETIRED for Head/Heart/Fate (typed-relationship arc Step 5d, S99) -- their CONVERGENCE field was removed from the vision prompt in favor of the typed RELATIONSHIP channel; the derivation mechanism itself is untouched, and this menu is still live for Line of Life ONLY (Life has no RELATIONSHIP field, so it still needs this channel).",
     "_location_note": "RETIRED (typed-relationship arc Step 5d, S99) -- Line of Fate's CONVERGENCE_LOCATION menu (formerly listed above, the single-partner F025b case) was removed along with Fate's CONVERGENCE field, both superseded by the typed RELATIONSHIP channel's own 'at <mount>' clause. No line currently declares a CONVERGENCE_LOCATION menu; kept as a historical pointer in case a future line ever needs one again -- when multi-partner locations are needed, capture as a list index-aligned to the (ordered) partner list -- one location per crossing, same order (ratified S98)."
+  },
+  "emission_menus": {
+    "_meta": {
+      "purpose": "S121 plan item #2a. Single source of truth for per-(feature, attribute) closed emission menus. agent/palm_processor.py's vision-prompt text and agent/interpretive/observation_extractor.py's attribute_value_binding guard are to be DERIVED from this block in later tasks (#2b prompt, #2c guard) -- this task edits ONLY this registry file.",
+      "authored_from": "diagnostics/latest_run.md, S121 plan item #2a report, measured at HEAD 048fe97",
+      "evidence_base": "n=2 live captures, BOTH right-hand (diagnostics/s120_live_palm_run_raw.json, diagnostics/s117_live_confirmation_raw.json) -- 'n=2' never implies two independent hand-sides; treat every emitted count as suggestive, not settled.",
+      "sequencing_note": "Flat-pool synonym-member deletion (well_marked/clearly_marked/thin/thick etc.) happens AFTER rule migration to these menus (plan items #5 then #2b/#2c) -- not in this task.",
+      "design": "FORCED-LIST, NO ALIAS (Option A, ratified). Each bound menu below is the SINGLE closed list vision will be forced to pick from -- there is no runtime alias/synonym-collapse mechanism, predictive synonym mapping having been rejected as brittle. Vocabulary is closed by CORRECTING rules to key on menu tokens directly (see 'normalization_worklist'), not by mapping around a mismatch at read time."
+    },
+    "normalization_worklist": {
+      "_note": "The exact rule-id -> canonical-token rewrites task #5 must apply so every rule keys on a token that is actually a member of the bound menu above -- fresh-grepped against all 4 data/palm_rules/*.json files at HEAD 048fe97, not transcribed from chat. 'fix_type' distinguishes a plain value-token correction from a case where the AUTHORED ATTRIBUTE KEY itself is wrong (the value is already canonical, but it belongs to a different, more specific attribute than the one the rule currently names) from a case needing both.",
+      "entries": [
+        {"rule_id": "FT_001", "feature": "Line of Fate", "attribute": "Depth", "from": "well_marked", "to": "deep", "fix_type": "value_normalization"},
+        {"rule_id": "FT_009", "feature": "Line of Head", "attribute": "Depth", "from": "well_marked", "to": "deep", "fix_type": "value_normalization"},
+        {"rule_id": "HL_014", "feature": "Line of Heart", "attribute": "Width", "from": "thin", "to": "narrow", "fix_type": "value_normalization"},
+        {"rule_id": "HL_013", "feature": "Line of Heart", "attribute": "Width", "from": "wide", "to": "broad", "fix_type": "value_normalization"},
+        {"rule_id": "HL_018", "feature": "Line of Heart", "attribute": "Width", "from": "wide", "to": "broad", "fix_type": "value_normalization"},
+        {"rule_id": "HL_020", "feature": "Line of Heart", "attribute": "Width", "from": "wide", "to": "broad", "fix_type": "value_normalization"},
+        {"rule_id": "H_004", "feature": "Line of Head", "attribute": "Continuity", "from": "clear", "to": "unbroken", "fix_type": "value_normalization"},
+        {"rule_id": "H_004", "feature": "Line of Head", "attribute": "Direction", "to_attribute": "Slope", "from": "straight", "to": "straight", "fix_type": "attribute_migration", "note": "value already matches a literal Slope menu token; only the attribute key changes"},
+        {"rule_id": "H_018", "feature": "Line of Head", "attribute": "Direction", "to_attribute": "Slope", "from": "sloping", "to": "downward", "fix_type": "value_normalization+attribute_migration", "note": "NOT in the instructing task's example list (which named only HL_012's 'drooping') -- found by this fresh grep. 'sloping' has no literal Slope-menu member; the prompt's own Direction hint text ('sloping downward toward the wrist') is what licenses this value mapping to 'downward'"},
+        {"rule_id": "H_019", "feature": "Line of Head", "attribute": "Direction", "to_attribute": "Slope", "from": "sloping", "to": "downward", "fix_type": "value_normalization+attribute_migration", "note": "same newly-found case as H_018"},
+        {"rule_id": "H_020", "feature": "Line of Head", "attribute": "Direction", "to_attribute": "Slope", "from": "straight", "to": "straight", "fix_type": "attribute_migration", "note": "value already matches a literal Slope menu token; only the attribute key changes"},
+        {"rule_id": "HL_012", "feature": "Line of Heart", "attribute": "Direction", "to_attribute": "Slope", "from": "drooping", "to": "downward", "fix_type": "value_normalization+attribute_migration"},
+        {"rule_id": "FT_006", "feature": "Line of Fate", "attribute": "Length", "to_attribute": "Length_Extent", "from": "cutting_into_finger_of_Saturn", "to": "cutting_into_finger_of_Saturn", "fix_type": "attribute_rekey_only", "note": "NOT a synonym case and NOT in the instructing task's example list -- found by this fresh grep. The value token is ALREADY canonical (it is Length_Extent's own menu member); the rule is simply mis-keyed under the main 'Length' attribute instead of the Fate-only 'Length_Extent' sub-field. Flagged for the human ruling, not silently added as a 'rewrite' since no value actually changes."},
+        {"rule_id": "FT_012", "feature": "Line of Fate", "attribute": "Continuity", "to_attribute": "Break_Type", "from": "broken_overlapping", "to": "broken_overlapping", "fix_type": "attribute_rekey_only", "note": "Same class as FT_006 -- 'broken_overlapping' is not a member of the main Continuity menu at all (only of Break_Type's), so this rule is mis-keyed under 'Continuity' rather than 'Break_Type'. Not in the instructing task's example list; found by this fresh grep."}
+      ],
+      "out_of_scope_untouched": [
+        {"rule_id": "H_010a", "feature": "Line of Head", "attribute": "Depth", "reason": "condition_type=comparative, value=null -- D0-COMPUTED class, no vision field emits a comparative; not a token to normalize"},
+        {"rule_id": "H_010b", "feature": "Line of Heart", "attribute": "Depth", "reason": "same as H_010a"},
+        {"rule_id": "L_018", "feature": "Line of Life", "attribute": "Clarity", "reason": "Clarity remains UNBOUND (n=0 evidence, no menu exists to normalize against); untouched pending its own human ruling, see emission_menus.unbound.Clarity"},
+        {"rule_id": "L_023", "feature": "Line of Life", "attribute": "Curve", "reason": "value 'sweeping_wide' is a parked granularity token (emission_menus.unbound.granularity_tokens), not a normalization case"},
+        {"rule_id": "L_024", "feature": "Line of Life", "attribute": "Curve", "reason": "value 'close_to_Mount_of_Venus' -- same as L_023"},
+        {"rule_id": "HL_016", "feature": "Line of Heart", "attribute": "Length", "reason": "value 'extending_across_entire_palm' is a parked granularity token (emission_menus.unbound.granularity_tokens), not a normalization case"}
+      ]
+    },
+    "Line of Life": {
+      "Depth": {
+        "menu": ["deep", "shallow"],
+        "status": {
+          "deep": "emitted n=2 (both captures)",
+          "shallow": "unobserved -- antonym pole; no example adjectives are ever given for Depth anywhere in the prompt"
+        }
+      },
+      "Width": {
+        "menu": ["narrow", "broad"],
+        "status": {
+          "narrow": "emitted n=2 (both captures)",
+          "broad": "unobserved -- hint word ('LIFE LINE: ... width (narrow/thin vs broad/thick), ...')"
+        }
+      },
+      "Length": {
+        "menu": ["short", "medium", "long"],
+        "status": {
+          "long": "emitted n=2 (both captures)",
+          "short": "unobserved -- no hint text names it",
+          "medium": "unobserved -- no hint text names it"
+        }
+      },
+      "Curve": {
+        "menu": ["straight", "curved"],
+        "status": {
+          "curved": "emitted n=2 (both captures, from the 'course' free-prose hint)",
+          "straight": "unobserved -- antonym pole, no example adjectives given"
+        },
+        "scope_note": "Curve is solicited by prompt text ONLY on Line of Life (via the 'course, origin and end' hint). NOT bound for Head/Heart/Fate here -- see emission_menus.unbound.Curve_on_Head_Heart_Fate."
+      },
+      "Continuity": {
+        "menu": ["unbroken", "broken", "chained", "forked", "islanded"],
+        "status": {
+          "unbroken": "emitted n=1 (S120 only -- S117's Life-line raw text says the same 'no breaks/chains/forks/islands visible' but its parsed Continuity key is absent; extraction non-determinism, not a menu defect)",
+          "broken": "unobserved -- hint word ('breaks')",
+          "chained": "unobserved -- hint word ('chains')",
+          "forked": "unobserved -- hint word ('forks')",
+          "islanded": "unobserved -- hint word ('islands')"
+        }
+      }
+    },
+    "Line of Head": {
+      "Depth": {
+        "menu": ["deep", "shallow"],
+        "status": {
+          "deep": "emitted n=2 (both captures)",
+          "shallow": "unobserved -- antonym pole; no example adjectives are ever given for Depth anywhere in the prompt"
+        }
+      },
+      "Width": {
+        "menu": ["narrow", "broad"],
+        "status": {
+          "narrow": "emitted n=2 (both captures)",
+          "broad": "unobserved"
+        }
+      },
+      "Length": {
+        "menu": ["short", "medium", "long"],
+        "status": {
+          "long": "emitted n=2 (both captures)",
+          "short": "unobserved",
+          "medium": "unobserved"
+        }
+      },
+      "Continuity": {
+        "menu": ["unbroken", "broken", "chained", "forked", "islanded"],
+        "status": {
+          "unbroken": "unobserved -- 0/2, despite the raw text implying a no-break state; the parsed Continuity key never appears for Line of Head in either capture",
+          "broken": "unobserved",
+          "chained": "unobserved",
+          "forked": "unobserved",
+          "islanded": "unobserved"
+        }
+      },
+      "Slope": {
+        "menu": ["upward", "downward", "straight"],
+        "lifted_from": "attribute_value_binding.Slope, verbatim"
+      },
+      "Slope_Magnitude": {
+        "menu": ["slight", "very"],
+        "lifted_from": "attribute_value_binding.Slope_Magnitude, verbatim"
+      },
+      "Proximity": {
+        "menu": ["touching", "medium", "distant"],
+        "lifted_from": "attribute_value_binding.Proximity, verbatim"
+      },
+      "ORIGIN": {
+        "menu": ["Mount of Jupiter", "Line of Life", "Lower Mount of Mars"],
+        "lifted_from": "vision_relational_menus['Line of Head'].ORIGIN, verbatim"
+      },
+      "TERMINATION": {
+        "menu": ["Mount of Luna", "Percussion", "Upper Mount of Mars"],
+        "lifted_from": "vision_relational_menus['Line of Head'].TERMINATION, verbatim"
+      }
+    },
+    "Line of Heart": {
+      "Depth": {
+        "menu": ["deep", "shallow"],
+        "status": {
+          "deep": "emitted n=2 (both captures)",
+          "shallow": "unobserved -- antonym pole; no example adjectives are ever given for Depth anywhere in the prompt"
+        }
+      },
+      "Width": {
+        "menu": ["narrow", "broad"],
+        "status": {
+          "narrow": "emitted n=2 (both captures)",
+          "broad": "unobserved"
+        }
+      },
+      "Length": {
+        "menu": ["short", "medium", "long"],
+        "status": {
+          "long": "emitted n=2 (both captures)",
+          "short": "unobserved",
+          "medium": "unobserved"
+        }
+      },
+      "Continuity": {
+        "menu": ["unbroken", "broken", "chained", "forked", "islanded"],
+        "status": {
+          "unbroken": "unobserved -- 0/2",
+          "broken": "unobserved",
+          "chained": "unobserved",
+          "forked": "unobserved",
+          "islanded": "unobserved"
+        }
+      },
+      "Slope": {
+        "menu": ["upward", "downward", "straight"],
+        "lifted_from": "attribute_value_binding.Slope, verbatim"
+      },
+      "Slope_Magnitude": {
+        "menu": ["slight", "very"],
+        "lifted_from": "attribute_value_binding.Slope_Magnitude, verbatim"
+      },
+      "Proximity": {
+        "menu": ["touching", "medium", "distant"],
+        "lifted_from": "attribute_value_binding.Proximity, verbatim"
+      },
+      "ORIGIN": {
+        "menu": ["Mount of Jupiter", "Junction of First and Second Fingers", "Mount of Saturn"],
+        "lifted_from": "vision_relational_menus['Line of Heart'].ORIGIN, verbatim"
+      },
+      "TERMINATION": {
+        "menu": ["Percussion", "Mount of Mercury"],
+        "lifted_from": "vision_relational_menus['Line of Heart'].TERMINATION, verbatim"
+      }
+    },
+    "Line of Fate": {
+      "Depth": {
+        "menu": ["deep", "shallow"],
+        "status": {
+          "deep": "emitted n=2 (both captures)",
+          "shallow": "unobserved -- antonym pole; no example adjectives are ever given for Depth anywhere in the prompt"
+        }
+      },
+      "Width": {
+        "menu": ["narrow", "broad"],
+        "status": {
+          "narrow": "emitted n=2 (both captures)",
+          "broad": "unobserved"
+        }
+      },
+      "Length": {
+        "menu": ["short", "medium", "long"],
+        "status": {
+          "long": "emitted n=2 (both captures)",
+          "short": "unobserved",
+          "medium": "unobserved"
+        }
+      },
+      "Continuity": {
+        "menu": ["unbroken", "broken", "chained", "forked", "islanded"],
+        "status": {
+          "unbroken": "unobserved -- 0/2",
+          "broken": "unobserved",
+          "chained": "unobserved",
+          "forked": "unobserved",
+          "islanded": "unobserved"
+        }
+      },
+      "Slope": {
+        "menu": ["upward", "downward", "straight"],
+        "lifted_from": "attribute_value_binding.Slope, verbatim"
+      },
+      "Slope_Magnitude": {
+        "menu": ["slight", "very"],
+        "lifted_from": "attribute_value_binding.Slope_Magnitude, verbatim"
+      },
+      "Proximity": {
+        "menu": ["touching", "medium", "distant"],
+        "lifted_from": "attribute_value_binding.Proximity, verbatim"
+      },
+      "ORIGIN": {
+        "menu": ["Line of Life", "Wrist", "Mount of Luna", "Line of Head", "Line of Heart", "Plain of Mars"],
+        "lifted_from": "vision_relational_menus['Line of Fate'].ORIGIN, verbatim"
+      },
+      "TERMINATION": {
+        "menu": ["Mount of Saturn", "Mount of Jupiter", "Line of Heart", "Line of Head"],
+        "lifted_from": "vision_relational_menus['Line of Fate'].TERMINATION, verbatim"
+      },
+      "Length_Extent": {
+        "menu": ["cutting_into_finger_of_Saturn", "n/a"],
+        "status": {
+          "n/a": "emitted n=2 (both captures)",
+          "cutting_into_finger_of_Saturn": "unobserved"
+        },
+        "note": "Separate closed vision field ('LENGTH EXTENT' line), Fate-only, distinct from the main Length dimension above -- FT_006's antecedent. Case form here is lowercase 'finger', matching what the vision field actually emits, NOT the registry's position_values duplicate 'cutting_into_Finger_of_Saturn' (capital F) -- a known case-variant defect (S121 2a report), not fixed by this task."
+      },
+      "Break_Type": {
+        "menu": ["broken", "broken_overlapping", "n/a"],
+        "status": {
+          "n/a": "seen n=2 in raw vision text (both captures) -- NOT confirmed to route into any parsed observation field",
+          "broken": "unobserved",
+          "broken_overlapping": "unobserved"
+        },
+        "note": "Separate closed vision field ('BREAK TYPE' line), Fate-only. Routing from this field into observation.Continuity is UNCONFIRMED / untested per observation_extractor.py's own comment -- FT_011/FT_012 cannot be relied on to fire once this menu exists, until that routing is verified in a later task."
+      }
+    },
+    "Mount of Venus": {
+      "Development": {
+        "menu": ["well developed", "small", "abnormally large", "full and large", "very poor development", "not well developed", "depressed", "very high", "not notably developed", "cannot-tell"],
+        "lifted_from": "observation_extractor.py::_MOUNT_DEVELOPMENT_MENUS['mount of venus'], verbatim"
+      }
+    },
+    "Mount of Jupiter": {
+      "Development": {
+        "menu": ["developed", "not notably developed", "cannot-tell"],
+        "lifted_from": "observation_extractor.py::_MOUNT_DEVELOPMENT_MENUS['mount of jupiter'], verbatim"
+      }
+    },
+    "Mount of Saturn": {
+      "Development": {
+        "menu": ["well developed", "unusually high", "not notably developed", "cannot-tell"],
+        "lifted_from": "observation_extractor.py::_MOUNT_DEVELOPMENT_MENUS['mount of saturn'], verbatim"
+      }
+    },
+    "Mount of the Sun": {
+      "Development": {
+        "menu": ["well developed", "not notably developed", "cannot-tell"],
+        "lifted_from": "observation_extractor.py::_MOUNT_DEVELOPMENT_MENUS['mount of apollo'], verbatim",
+        "naming_note": "observation_extractor.py's code-local key is 'mount of apollo' (a known naming drift vs this registry's canonical 'Mount of the Sun', S121 2a report cross-ref) -- task #2b/#2c must carry this key mapping when deriving the prompt/guard."
+      }
+    },
+    "Upper Mount of Mars": {
+      "Development": {
+        "menu": ["large", "present", "not notably developed", "cannot-tell"],
+        "lifted_from": "observation_extractor.py::_MOUNT_DEVELOPMENT_MENUS['mount of mars positive'], verbatim",
+        "naming_note": "observation_extractor.py's code-local key is 'mount of mars positive' vs this registry's canonical 'Upper Mount of Mars' -- task #2b/#2c must carry this key mapping."
+      }
+    },
+    "_mounts_note": "Mercury, Lower Mount of Mars, and Luna are PRESENCE-ONLY by design (S119: mount base meanings reclassified as definitions) -- no Development grade is solicited for them in the prompt, and none is bound here. Intentional omission, not an unbound/pending item.",
+    "unbound": {
+      "Direction": {
+        "status": "UNBOUND: pending ruling",
+        "note": "0/8 emissions across both captures for Line of Head/Heart/Fate; structurally out-competed by the already-closed Slope field (S121 2a report). Plan item #5 disposition: RETIRE this attribute, migrate its 5 rules (H_004, H_018, H_019, H_020, HL_012) onto the Slope menu above -- see 'normalization_worklist' for the exact per-rule entries. Two values ('sloping' on H_018/H_019, 'drooping' on HL_012) have no literal Slope-menu equivalent and need an explicit value translation ('sloping'->'downward', 'drooping'->'downward'), not a bare attribute-name rename; H_004/H_020's 'straight' needs only the attribute-key change."
+      },
+      "Clarity": {
+        "status": "UNBOUND: pending ruling",
+        "note": "Zero prose hint anywhere in the prompt, zero emissions in both captures (n=0, not thin-but-present evidence). Only live user: L_018 (Line of Life, value 'clear'), already independently dead on 2 other grounds (Starting_Point dual-encoding, Continuity genuine-state). No menu can be derived from evidence; needs a human ruling (add a prompt ask / retire the attribute the way Direction is retired / move to unauthorable_register.json) before any menu is authored here."
+      },
+      "Continuity_parked": {
+        "status": "UNBOUND: pending ruling, parked -- real states, no vision ask exists for either",
+        "tokens": {
+          "barred": "Line of Heart Continuity (HL_017) -- not a hint word at all (hint vocabulary is break(s)/chain(s)/fork(s)/island(s) only); names a mark-adjacent visual ('a bar across the line') Continuity's own prompt text never asks about.",
+          "double": "Line of Fate Continuity (FT_013) -- no hint word or closed field covers a second, parallel Fate line; genuine unsolicited gap, not a synonym of any bound Continuity token."
+        },
+        "note": "Resolves the prior task's flagged deviation covering H_004/HL_017/FT_013 together: H_004's 'clear' is corrected via 'normalization_worklist' (clear->unbroken, a real synonym of the bound 'unbroken' token); 'barred' and 'double' are parked here instead, since neither is a synonym of anything already in the bound Continuity menu -- both would need a new vision ask before they could ever be authored against."
+      },
+      "Curve_on_Head_Heart_Fate": {
+        "status": "UNBOUND: pending ruling",
+        "note": "Curve is registry-legal (attribute_feature_mapping) for Line of Head/Heart/Fate but solicited by NO prompt text for any of the three (only Life's 'course' hint asks for it). Confirmed 0 live rules key Curve on these 3 features today, so this is a latent trap, not an active dead-rule count. Left unbound pending a decision to solicit it or scope it out."
+      },
+      "granularity_tokens": {
+        "status": "UNBOUND: pending ruling, parked behind a measurement-gate per plan item #9 (same disposition class as the S119 mount-LEANING park and the HL_019/HL_020 Color park)",
+        "tokens": {
+          "sweeping_wide": "Curve, Line of Life (L_023) -- doctrine-specific arc extreme, registry v1.3.0",
+          "close_to_Mount_of_Venus": "Curve, Line of Life (L_024) -- same doctrine pairing as sweeping_wide. The instructing task named 'sweeping_wide' and 'extending_across_entire_palm' explicitly but not this token; added here as the same granularity-split class per the 2a report's own L_023/L_024 pairing -- flagged for review rather than silently omitted.",
+          "extending_across_entire_palm": "Length, Line of Heart (HL_016) -- granularity-split extreme distinct from the main [short, medium, long] menu above"
+        },
+        "note": "A closed menu alone does not teach vision to discriminate these from plain curved/long -- the prompt hint text itself would need rewriting (task #2b), gated on a measurement probe proving vision can make the distinction at all."
+      }
+    }
   }
 }
