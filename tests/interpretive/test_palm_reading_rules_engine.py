@@ -375,10 +375,11 @@ def _head_line_chunk() -> dict:
     NOT incidental: the retrieval support gate still runs on the
     deterministic path and still drives `unsupported_features`, which
     drives `_check_banned_feature_mentions`. A run whose rules fire for a
-    feature the GATE calls unsupported produces a valid reading that then
-    fails the banned-mention display check. See this file's report note
-    -- reproduced deliberately in
-    test_gate_unsupported_feature_with_fired_rules_fails_display_check."""
+    feature the GATE would otherwise call unsupported is now jurisdiction-
+    excluded from both gate tuples instead -- see
+    test_gate_jurisdiction_fix_head_line_no_longer_fails_display_check
+    (formerly test_gate_unsupported_feature_with_fired_rules_fails_
+    display_check, before the support-gate jurisdiction fix)."""
     return _chunk(
         text="The line of head, when short, indicates a material nature.",
         page_ref=147,
@@ -457,32 +458,28 @@ def test_source_quote_stays_out_of_the_voicer_prompt(
     }
 
 
-def test_gate_unsupported_feature_with_fired_rules_fails_display_check(
+def test_gate_jurisdiction_fix_head_line_no_longer_fails_display_check(
     rules_engine_on, no_llm_extraction, monkeypatch
 ):
-    """CHARACTERIZATION of a real structural tension found while wiring
-    this, NOT an endorsement of the behavior.
+    """GENERALITY (was: CHARACTERIZATION of the structural tension this
+    test used to pin -- test_gate_unsupported_feature_with_fired_rules_
+    fails_display_check, renamed here now that the tension is resolved).
+    Deliberately a NON-mount feature (head line): the jurisdiction fix
+    was designed against the general "rule-sourced feature is outside
+    the retrieval gate's authority" decision, not a mount-only patch --
+    this is the anti-mount-patch proof the ratified decision required.
 
-    The retrieval support gate and the rule engine are independent
-    graders. Here retrieval returns only life-line text, so the gate
-    calls "head line" UNSUPPORTED -- while the rule engine, which grounds
-    on the rule table rather than on this run's retrieval, fires H_005/
-    H_006 for it anyway. Stage 2 duly voices them, and
-    `_check_banned_feature_mentions` then fails the reading for
-    discussing a feature the gate banned.
+    Setup unchanged from the original characterization: retrieval returns
+    only unrelated life-line text, so the gate would otherwise call "head
+    line" UNSUPPORTED, while the rule engine -- grounded on the rule
+    table, not this run's retrieval -- fires H_005/H_006 for it anyway.
 
-    Exact trigger, measured: that check is a literal feature-noun match on
-    the voiced PROSE, so the failure fires precisely when the reading
-    names the feature -- which a rule claim about the head line naturally
-    does. Voiced text that never says "head" slips through with
-    passed=True despite resting on the same gate-unsupported feature, so
-    the current behavior is inconsistent in BOTH directions, not merely
-    strict.
-
-    Recorded as a test so the behavior cannot change silently. The design
-    question -- whether the support gate should still govern the decline
-    set and the banned-mention check on a path whose grounding is the
-    rule table -- is not decided here."""
+    Post-fix: a feature with a SURVIVING rule claim is removed from BOTH
+    gate tuples (self-grounded by its own rule citation, needs no
+    retrieval chunk to voice) -- so "head line" is in NEITHER supported_
+    features nor unsupported_features, `_check_banned_feature_mentions`
+    no longer fires on it, it is not added to the decline block, and the
+    reading passes clean."""
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))  # life-line text
     client = _short_head_line_client(
         "Your head line speaks of a thoroughly material nature, lacking "
@@ -494,10 +491,185 @@ def test_gate_unsupported_feature_with_fired_rules_fails_display_check(
         palm_left="HEAD LINE: Short and clearly marked.", palm_right=None, client=client
     )
 
-    assert "head line" in result.unsupported_features
     assert _engine_diag(result)["fired_rule_ids"] == ["H_005", "H_006"]
-    assert result.validation.passed is False
-    assert any("unsupported feature mentioned: head line" in f for f in result.validation.failures)
+    assert "head line" not in result.unsupported_features
+    assert "head line" not in result.supported_features
+    assert result.validation.passed is True
+    assert not any("unsupported feature mentioned: head line" in f for f in result.validation.failures)
+    # decline block is Python-owned and only ever names a feature selected
+    # into decline_features (_compute_decline_features) -- head line is in
+    # neither gate tuple, so it can never be selected. Called directly
+    # (not string-matched against reading_text) because the voiced claim
+    # text legitimately contains "head line" itself, which would make a
+    # substring check against the whole reading meaningless.
+    decline_features = palm_reading._compute_decline_features(
+        result.supported_features, result.unsupported_features, (), result.claims,
+    )
+    assert "head line" not in decline_features
+
+
+def test_rule_sourced_feature_with_real_retrieval_support_removed_from_both_tuples(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """MIXED FEATURE: head line has BOTH a surviving rule claim (H_005/
+    H_006) AND genuine retrieval support this time (the search fixture
+    returns a real head-line-supporting chunk, unlike the collision test
+    above, which used unrelated life-line text). Per the ratified
+    decision this is NOT "rule beats retrieval in a conflict" -- rule-
+    sourced jurisdiction wins outright, so the feature is removed from
+    BOTH tuples, never left sitting in supported_features. Confirms the
+    fix is symmetric, not merely a rescue for the unsupported case."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_head_line_chunk()]))
+    client = _short_head_line_client(
+        "This is a hand that meets the practical world squarely, with a "
+        "steady, grounded confidence.[FLOW] "
+        "A thoroughly material nature, lacking imaginative faculties.[C1] "
+        "It foreshadows a nature little given to mental strain.[C2]"
+    )
+
+    result = generate_palm_reading(
+        palm_left="HEAD LINE: Short and clearly marked.", palm_right=None, client=client
+    )
+
+    assert _engine_diag(result)["surviving_rule_ids"] == ["H_005", "H_006"]
+    assert "head line" not in result.supported_features
+    assert "head line" not in result.unsupported_features
+    assert result.validation.passed is True
+
+
+def test_m023_mars_mount_collision_deterministic_reconstruction(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """THE ORIGINAL TRIGGER, reconstructed deterministically (no live
+    call): S117 Step 6 surfaced this exact collision live on the Mount of
+    Mars (M_023 fires from a DEVELOPMENT line while retrieval genuinely
+    finds nothing for it, since the fixed _FakeSearch chunk here is
+    unrelated life-line text). Same structural shape as the head-line
+    collision test above, reproduced against the concrete mount feature
+    the jurisdiction fix exists to serve. Development is captured by
+    extract_mount_development's own deterministic string parse (not the
+    LLM), so the observation_extractor stub can return zero observations
+    -- nothing about Mars needs to come through the LLM call at all."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))  # life-line text
+    client = _FakeClient(responses=[
+        # "Upper Mount of Mars" gets substantive (non-trivial) MOUNTS
+        # prose below (needed for retrieval), so the extractor's own
+        # omitted-feature retry requires SOME extraction result for it --
+        # an "unmapped" entry satisfies that in one call without giving
+        # it any token (Development, the attribute that actually drives
+        # M_023, is merged in deterministically AFTER this call, per
+        # prepare_palm_reading's own P/Development merge-after-to_tokens
+        # comment -- nothing about Mars needs to come through the LLM).
+        (_observation_response(
+            {},
+            unmapped={"Upper Mount of Mars": [{"quality": "prominent and well-formed", "attribute_guess": None}]},
+        ), None),
+        (
+            # [FLOW] sentence reused verbatim from
+            # test_fired_rules_become_claims_and_reach_stage_two -- already
+            # proven clean of every display check (no feature-noun leak).
+            "This is a hand that meets the practical world squarely, with a "
+            "steady, grounded confidence that shows in everything it "
+            "undertakes.[FLOW] "
+            "The Mount of Mars gives active courage and the martial "
+            "spirit.[C1]",
+            None,
+        ),
+    ])
+
+    result = generate_palm_reading(
+        palm_left=(
+            # Lower Mount of Mars gets its own absence-phrased clause,
+            # comma-separated so _extract_needle_clause isolates it from
+            # Upper's clause -- otherwise BOTH share the single "mars"
+            # support-gate needle (accepted imprecision, documented at
+            # M_021's schema_flags) and Lower would land in the raw
+            # unsupported set too, tripping a banned-mention failure on
+            # "mars" that has nothing to do with the jurisdiction fix
+            # under test. Genuinely absent Lower is honest here (no
+            # DEVELOPMENT line for it, no rule authored to fire on it in
+            # this test) and keeps the test isolated to M_023 alone.
+            "MOUNTS: Upper Mount of Mars appears prominent and well-formed, "
+            "Lower Mount of Mars not clearly visible.\n"
+            "DEVELOPMENT (Upper Mount of Mars): present\n"
+        ),
+        palm_right=None,
+        client=client,
+    )
+
+    assert _engine_diag(result)["fired_rule_ids"] == ["M_023"]
+    assert _engine_diag(result)["surviving_rule_ids"] == ["M_023"]
+    assert {c.feature for c in result.claims} == {"mount of mars positive"}
+    assert "mount of mars positive" not in result.unsupported_features
+    assert "mount of mars positive" not in result.supported_features
+    assert result.validation.passed is True
+    assert not any("mars" in f for f in result.validation.failures)
+    decline_features = palm_reading._compute_decline_features(
+        result.supported_features, result.unsupported_features, (), result.claims,
+    )
+    assert "mount of mars positive" not in decline_features
+
+
+def test_jurisdiction_narrowing_leaves_unclaimed_and_absence_features_untouched(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """NO REGRESSION + genuine-negative-absence preserved, in one prep-
+    level pass across three features:
+      - "head line" fires H_005/H_006 -> jurisdiction-excluded from BOTH
+        tuples (same collision shape as the tests above).
+      - "fate line" has real (non-absence) raw text but no rule claim and
+        no retrieval support -> STILL unsupported, exactly as before the
+        fix -- the gate's per-retrieval-feature scoring for a feature
+        with no surviving rule claim is untouched.
+      - "heart line" is ALL-absence raw text ("Not clearly visible.", one
+        of the Tier-1 generic _ABSENCE_PHRASES, feature-noun-agnostic by
+        design) and fires no rule -> was already in NEITHER tuple via
+        _is_genuine_negative_absence BEFORE this fix exists; confirms the
+        new narrowing step (which only ever REMOVES features already
+        present in a tuple) cannot disturb a feature that was never in
+        either tuple to begin with.
+    Uses prepare_palm_reading directly (not generate_palm_reading) since
+    this is purely about the gate tuples, no Stage-2 voicing needed."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))  # life-line text
+    client = _FakeClient(responses=[
+        # "Line of Fate" gets substantive (non-trivial) prose below, so
+        # the extractor's own omitted-feature retry requires SOME
+        # extraction result for it -- an "unmapped" entry (not a fired
+        # token, so no fate-line rule risks firing) satisfies that
+        # without giving fate line any rule claim. "Line of Heart"'s
+        # prose ("Not clearly visible.") is one of the extractor's own
+        # _TRIVIAL_PROSE_MARKERS, so it is never requested at all and
+        # needs no entry.
+        (_observation_response(
+            {"Line of Head": {"Length": {"value": "short"}}},
+            unmapped={"Line of Fate": [{"quality": "straight", "attribute_guess": None}]},
+        ), None),
+    ])
+
+    prep = palm_reading.prepare_palm_reading(
+        palm_left=(
+            "HEAD LINE: Short and clearly marked.\n"
+            "HEART LINE: Not clearly visible.\n"
+            "FATE LINE: Present, straight, and clearly marked.\n"
+        ),
+        palm_right=None,
+        client=client,
+    )
+
+    diag = prep.diagnostics["rules_engine"]
+    assert diag["fired_rule_ids"] == ["H_005", "H_006"]
+    assert {c.feature for c in prep.claims} == {"head line"}
+
+    assert "head line" not in prep.supported_features
+    assert "head line" not in prep.unsupported_features
+
+    assert "fate line" in prep.unsupported_features
+    assert "fate line" not in prep.supported_features
+
+    assert "heart line" not in prep.unsupported_features
+    assert "heart line" not in prep.supported_features
+
+    assert len(client.completions.calls) == 1  # only the extract_observation call
 
 
 def test_claim_features_outside_registry_is_recorded(

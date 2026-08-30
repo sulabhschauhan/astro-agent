@@ -2124,21 +2124,27 @@ def _prepare_claims_from_rules(
         # "chunk text never appears in the prompt" invariant).
         "citations": rule_diagnostics.get("citations", {}),
         "dropped_rule_ids": rule_diagnostics.get("dropped_rule_ids", []),
-        # FLAGGED, not silently accepted: rule_to_claim sets
-        # Claim.feature to the rule's topic_group ("line_life",
-        # "line_head", ...), which is NOT a _FEATURE_REGISTRY label. Two
-        # known downstream consequences on this path, both recorded here
-        # rather than patched from inside this module:
-        #   1. _compute_decline_features sees zero claims for every
-        #      registry feature and declines all of them, even when rules
-        #      fired for that feature's topic group.
-        #   2. _build_sources_from_claims looks each claim's chunk_id up
-        #      in gated_results and misses (rule chunk_ids are resolved
-        #      from the corpus file, not from this run's retrieval), so
-        #      `sources` comes back empty -- the real citations are the
-        #      "citations" key above.
-        # Fixing either means deciding a topic_group -> registry-feature
-        # mapping, which belongs in rule_to_claim.py, not here.
+        # RESOLVED (rule_to_claim.py, commit d4c748d): rule_to_claim
+        # now maps Claim.feature through _TOPIC_GROUP_TO_FEATURE before
+        # it ever reaches this module, so it IS a real _FEATURE_REGISTRY
+        # label ("head line", not "line_head") -- fail-closed at that
+        # module's own load time (_assert_topic_groups_mapped), so a
+        # future rule chapter with an unmapped topic_group breaks loudly
+        # there, not silently here. Consequence #1 this comment used to
+        # flag (_compute_decline_features mismatching every registry
+        # feature) is therefore also resolved, and this module's own
+        # jurisdiction-narrowing step (_prepare_deterministic_prep, just
+        # above the caller) depends directly on that reliability. This
+        # diagnostic key stays as a live CI-visible tripwire regardless
+        # -- see test_claim_features_outside_registry_is_recorded.
+        # Consequence #2 REMAINS OPEN, unrelated to and NOT fixed by this
+        # task: _build_sources_from_claims still looks each claim's
+        # chunk_id up in gated_results (this run's retrieval), which a
+        # rule-resolved chunk_id (from the corpus file, not this run's
+        # retrieval) will generally miss, so `sources` still comes back
+        # empty for rule-fired claims -- the real citations still live in
+        # the "citations" key above. Out of this task's scope (support-
+        # gate jurisdiction only); tracked separately.
         "claim_features_outside_registry": sorted(
             {c.feature for c in claims} - set(_FEATURE_REGISTRY)
         ),
@@ -2198,6 +2204,38 @@ def _prepare_deterministic_prep(
     )
     engine_diagnostics["final_outcome"] = (
         "rules_engine_failed" if engine_diagnostics.get("failed") else "rules_engine_ok"
+    )
+
+    # JURISDICTION FIX (ratified design decision): the retrieval support
+    # gate's authority covers RETRIEVAL-sourced claims only. A feature
+    # with a SURVIVING rule claim (post resolve_priority -- `claims` here
+    # is exactly that, per rule_to_claim.claims_from_rules) is
+    # self-grounded by its own citation (source_quote/source_page in the
+    # engine_diagnostics["citations"] side-channel) and needs no
+    # retrieval chunk to voice, so it does not belong in EITHER gate
+    # tuple -- same "belongs in neither" shape _is_genuine_negative_
+    # absence already established for the honest-absence case, extended
+    # here rather than replaced. This is the ONE authoritative narrowing
+    # point: every downstream consumer (_check_banned_feature_mentions
+    # via _build_display_extra_validators/_run_display_checks,
+    # _compute_decline_features, and PalmReadingResult.supported_
+    # features/unsupported_features itself) reads prep.supported_
+    # features/prep.unsupported_features and NOTHING upstream of this
+    # assignment, so narrowing here covers all three by construction. A
+    # feature with BOTH a surviving rule claim and real retrieval support
+    # is removed from BOTH tuples too (rule-sourced jurisdiction wins
+    # outright, not merely on conflict) -- Claim.feature is a reliable
+    # _FEATURE_REGISTRY token here (rule_to_claim._TOPIC_GROUP_TO_FEATURE,
+    # fail-closed at that module's own load time), so no further mapping
+    # is needed. _apply_support_gate's own per-retrieval-feature scoring
+    # is untouched -- this only narrows its OUTPUT tuples, never how a
+    # feature without a surviving rule claim gets classified.
+    features_with_surviving_rule_claims = {c.feature for c in claims}
+    supported_features = tuple(
+        f for f in supported_features if f not in features_with_surviving_rule_claims
+    )
+    unsupported_features = tuple(
+        f for f in unsupported_features if f not in features_with_surviving_rule_claims
     )
 
     stage1_features: dict[str, dict] = {
