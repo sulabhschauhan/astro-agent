@@ -883,7 +883,11 @@ def test_enabled_features_derived_from_the_loaded_rule_set():
         "Hand", "Line of Fate", "Line of Head", "Line of Heart",
         "Line of Life", "Mount of Venus", "Quadrangle",
         # S117 mounts chapter addition (palm_rules_mounts_v1.json).
-        "Mount of Jupiter", "Mount of Saturn", "Mount of the Sun",
+        # "Mount of Saturn" removed at S119 Defect 2 close: M_015/M_016
+        # (its only two live rules) were retired as head-line
+        # back-references, not Mounts-chapter Saturn doctrine -- Saturn
+        # now has no live rule and is fully silent.
+        "Mount of Jupiter", "Mount of the Sun",
         "Upper Mount of Mars",
     })
     # Real ontology features with no rule behind them are STILL excluded

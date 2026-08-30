@@ -362,11 +362,14 @@ def test_load_rule_set_real_data_merges_43_plus_13_with_unique_ids():
     # (typed-relationship arc Step 5a, S99, joins_at_origin, p146), -1 retired
     # H_001) + 11 life-line (L_003/L_020/L_021 retired S96) + 16 fate-line
     # (line_fate, S97 chapter addition -- CLAUDE.md "Fate line: ... rules LIVE"))
-    # + 14 mount rules (S117 chapter addition, palm_rules_mounts_v1.json;
+    # + 12 mount rules (S117 chapter addition, palm_rules_mounts_v1.json;
     # was 24 -- S119 Step 5 retired the 10 base-meaning rows M_009-M_013,
     # M_017-M_019, M_022, M_024 under the ratified "base meanings are
-    # definitions, not claims" model).
-    assert len(merged) == 89
+    # definitions, not claims" model; S119 Defect 2 close then retired
+    # M_015/M_016 -- Saturn's two graded rules were head-line back-references
+    # from the suicide/insanity chapters, not Mounts-chapter Saturn doctrine.
+    # Saturn is now fully silent).
+    assert len(merged) == 87
     ids = [r.rule_id for r in merged]
     assert len(set(ids)) == len(ids)  # all unique
 

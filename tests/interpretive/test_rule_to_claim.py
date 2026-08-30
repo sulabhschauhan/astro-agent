@@ -337,10 +337,11 @@ def test_every_live_rule_produces_a_claim_citing_its_own_gate_verified_quote():
     the rule's own source_page + source_quote, and this test proves every
     one of those quotes independently passes the authoring gate."""
     rules = load_rule_set()
-    # 99 -> 89 at S119 Step 5 (10 mount base-meaning rows retired). This
-    # test measures CITATION ACCURACY, which is unaffected by the live set
-    # shrinking: it re-verifies whatever rules are live, all of them.
-    assert len(rules) == 89, "live rule count moved -- re-baseline this test"
+    # 99 -> 89 at S119 Step 5 (10 mount base-meaning rows retired) -> 87 at
+    # S119 Defect 2 close (M_015/M_016 retired). This test measures
+    # CITATION ACCURACY, which is unaffected by the live set shrinking: it
+    # re-verifies whatever rules are live, all of them.
+    assert len(rules) == 87, "live rule count moved -- re-baseline this test"
 
     claims, diagnostics = claims_from_rules(rules)
 
