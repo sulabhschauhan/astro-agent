@@ -1517,6 +1517,24 @@ def _check_anchor_legality(text: str, valid_chunk_ids: frozenset[str]) -> list[s
     mechanical check -- re-open only if pass-4 evidence shows this gap
     is being missed at a rate that no longer justifies a human
     spot-check over a real (heuristic-splitter) fix.
+
+    BY-RULE CITATIONS ARE OUT OF THIS CHECK'S JURISDICTION BY
+    CONSTRUCTION (S119 Step 2, verified not assumed -- pinned by
+    tests/interpretive/test_rule_to_claim.py's V-2 tests). A rule-sourced
+    claim (`claim_extraction.CitationByRule`) has no chunk_id at all; its
+    citation identity renders as `rule:<rule_id>@p<page>`
+    (`Claim.citation_ref`), which CHUNK_ANCHOR_TAG_PATTERN does not match
+    -- that pattern accepts only the literal OBS token or a
+    <word>_p<digits>_c<digits> chunk id, and `:` / `@` fall outside its
+    character class -- so such an anchor is never collected into `cited`
+    and can never be reported as unknown/malformed.
+    This validator's real job, killing FABRICATED and STALE chunk_ids on
+    by-chunk (retrieval) claims, is therefore preserved EXACTLY: nothing
+    about its by-chunk behavior changed. (Note also that this validator is
+    itself RETIRED-NOT-DELETED -- see this module's docstring -- so no
+    production path reaches it either way; the live analog is
+    claim_voicing._check_tag_legality/V-3, which keys on claim_id only and
+    is likewise blind to the citation branch.)
     """
     try:
         cited: set[str] = set()

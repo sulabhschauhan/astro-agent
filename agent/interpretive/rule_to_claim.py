@@ -158,7 +158,16 @@ _RULE_DERIVED_VALENCE = "supports"
 
 
 def resolve_chunk_id(source_page: int, chunks_path: Path | str = _CHUNKS_PATH) -> str | None:
-    """Returns the chunk_id of the first (lowest chunk-index, by sorted
+    """NO LONGER ON THE CITATION PATH (S119 Step 2). `claims_from_rules`
+    used to call this to turn a rule's source_page into a chunk_id to
+    cite; Step 0's audit measured that re-derivation wrong or fatal for
+    68 of 99 live rules, so a rule now cites itself instead (see
+    `claims_from_rules`). Left defined, uncalled by production, pending a
+    later step's decision on removal -- it is still exercised by
+    probes/citation_accuracy_audit_S119.py, which measures the OLD path
+    and is now a baseline artifact.
+
+    Returns the chunk_id of the first (lowest chunk-index, by sorted
     chunk_id) NON-EMPTY-text chunk on `source_page` for the Cheiro book,
     or None if no such chunk exists -- fail-closed, never fabricates an
     id. A page that exists only as a diagram (page_type="diagram", empty
@@ -200,11 +209,16 @@ def claims_from_rules(
     chunks_path: Path | str = _CHUNKS_PATH,
     magnitudes: dict | None = None,
 ) -> tuple[tuple["Claim", ...], dict]:
-    """One Claim per surfaced rule whose source_page resolves to a real
-    chunk_id, numbered C1, C2, ... in surfaced order -- a dropped rule
-    (unresolvable page) does NOT consume a claim_id number, so the
-    output stays contiguous (no C1, C3 gap). Fail-closed: dropped rules
-    are logged, never raise.
+    """One Claim per surfaced rule, numbered C1, C2, ... in surfaced
+    order, contiguous. EVERY surfaced rule yields a claim (S119 Step 2):
+    each one cites ITSELF via `Claim.by_rule` -- its own rule_id +
+    gate-verified source_page + source_quote -- so there is no longer any
+    citation-resolution step that can fail, and therefore no drop path.
+
+    `chunks_path` is RETAINED for signature stability but is now UNUSED:
+    nothing on this path reads the chunk corpus any more. `resolve_chunk_id`
+    stays defined (a later step decides its fate) but is no longer called
+    from here.
 
     magnitudes: the same {feature: {attribute: confidence_float}} dict
         `observation_to_tokens.to_tokens()` returns (plus its own
@@ -218,17 +232,22 @@ def claims_from_rules(
 
     Returns (claims, diagnostics). diagnostics["citations"] maps
     claim_id -> {"rule_id", "chunk_id", "source_page", "source_quote",
-    "topic_group", "evidence_confidence"} -- this is where source_quote is
-    actually carried (see module docstring: Claim itself has no field for
-    it, and stuffing it into observation_basis would leak book text into
-    the voicer's prompt); "topic_group" is the rule's own grouping label,
+    "topic_group", "evidence_confidence"} -- "chunk_id" is now always
+    None (retired, key kept for shape stability). This dict remains where
+    source_quote is carried for DIAGNOSTIC readers; note that as of Step 2
+    the quote is ALSO on the Claim's own `CitationByRule`, off-field and
+    off every voicer-facing attribute (see the module docstring and
+    claim_voicing.py's prompt contract -- claim_voicing reads only
+    claim_id/claim_text/valence/observation_basis, so the containment
+    guarantee is unchanged). "topic_group" is the rule's own grouping label,
     kept here for the suppression audit even though Claim.feature is now
     the mapped _FEATURE_REGISTRY token, not this raw label (see
     _TOPIC_GROUP_TO_FEATURE). "evidence_confidence" is provenance metadata
     ONLY -- never placed on the Claim object itself and never fed into any
     LLM prompt, same side-channel discipline as source_quote.
-    diagnostics["dropped_rule_ids"] lists any rule skipped for an
-    unresolvable page.
+    diagnostics["dropped_rule_ids"] is a RETIRED tripwire: always [],
+    because no rule can be dropped for citation reasons any more. A
+    non-empty value signals a real regression, not a data condition.
     """
     from agent.interpretive.claim_extraction import Claim  # local import -- avoid import-time coupling
 
@@ -238,26 +257,33 @@ def claims_from_rules(
     counter = 1
 
     for rule in surfaced_rules:
-        chunk_id = resolve_chunk_id(rule.source_page, chunks_path)
-        if chunk_id is None:
-            dropped.append(rule.rule_id)
-            logger.warning(
-                "rule_to_claim.claims_from_rules: rule %r (source_page=%r) has no "
-                "resolvable chunk -- dropped, not raised.",
-                rule.rule_id, rule.source_page,
-            )
-            continue
-
         claim_id = f"C{counter}"
         counter += 1
-        # by_chunk: EXPLICIT about the citation branch this path currently
-        # takes (S119 Step 1 -- carrier only). Step 2 is what flips this to
-        # Claim.by_rule so a rule-sourced claim stops borrowing a resolved
-        # chunk_id it never actually came from.
-        claims.append(Claim.by_chunk(
+        # S119 STEP 2 -- THE FLIP. Was: resolve_chunk_id(rule.source_page)
+        # then drop the rule if it returned None. Both are GONE. A rule
+        # cites ITSELF: its own gate-verified source_page + source_quote
+        # (scripts/gate_rule_citations.py reports NOT_FOUND_ANYWHERE: 0
+        # across every live and parked rule, i.e. every quote is a genuine
+        # verbatim excerpt of the book). Re-deriving a chunk from the page
+        # number was measured in Step 0 (probes/citation_accuracy_audit_
+        # S119.py, 99 live rules) to be wrong or fatal 68 times out of 99:
+        # 52 RESOLVED_WRONG (rule source_page != corpus page_ref -- the
+        # fate file is offset by +60 -- and, where the page did line up,
+        # the resolver always took the lowest-index _c0 chunk even when the
+        # quote lived in a later chunk of that page) + 13 DROPPED_NONE
+        # (no non-empty chunk on that page at all, so the rule and its
+        # claim were silently discarded -- FT_003's "extreme good fortune"
+        # among them) + 3 NO_ANCHOR_ANYWHERE (quote straddles a chunk
+        # boundary). Only 31/99 resolved to a chunk that actually contains
+        # the quote. Citing by rule makes all 99 correct by construction:
+        # the citation IS the verified span, not a guess at which chunk
+        # re-contains it.
+        claims.append(Claim.by_rule(
             claim_id=claim_id,
             feature=_feature_for_topic_group(rule.topic_group),
-            chunk_id=chunk_id,
+            rule_id=rule.rule_id,
+            source_page=rule.source_page,
+            source_quote=rule.source_quote,
             claim_text=rule.claim,
             valence=_RULE_DERIVED_VALENCE,
             condition_text=None,
@@ -285,7 +311,11 @@ def claims_from_rules(
 
         citations[claim_id] = {
             "rule_id": rule.rule_id,
-            "chunk_id": chunk_id,
+            # RETIRED (S119 Step 2), key kept so this dict's shape is
+            # stable for every diagnostics reader: a rule claim has no
+            # chunk behind it any more. Its citation identity is
+            # rule_id + source_page (see Claim.citation_ref).
+            "chunk_id": None,
             "source_page": rule.source_page,
             "source_quote": rule.source_quote,
             # Kept for the suppression audit even though Claim.feature is
@@ -296,5 +326,12 @@ def claims_from_rules(
             "evidence_confidence": evidence_confidence,
         }
 
+    # RETIRED TRIPWIRE (S119 Step 2, ratified decision #3): `dropped` is
+    # never appended to any more -- no rule is dropped for citation
+    # reasons, because a rule now cites itself and cannot fail to
+    # resolve. The key stays in the diagnostics dict, ALWAYS [], so a
+    # non-empty value is an unambiguous signal of a real regression
+    # (something reintroduced a drop path) rather than a missing key a
+    # reader has to interpret.
     diagnostics = {"citations": citations, "dropped_rule_ids": dropped}
     return tuple(claims), diagnostics

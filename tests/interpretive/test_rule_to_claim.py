@@ -17,6 +17,7 @@ from dataclasses import replace
 
 import pytest
 
+from agent.interpretive.claim_extraction import CitationByChunk, CitationByRule
 from agent.interpretive.claim_voicing import voice_claims
 from agent.interpretive.palm_reading import _FEATURE_REGISTRY
 from agent.interpretive.palm_rules_table import Antecedent, PalmRule, load_rule_set, load_rules
@@ -83,23 +84,43 @@ def test_resolve_chunk_id_fails_closed_on_unresolvable_page():
 # ─── claims_from_rules: fail-closed drop + stable ordering ───────────────
 
 
-def test_unresolvable_page_rule_is_dropped_not_crashed():
+def test_unresolvable_page_rule_is_no_longer_dropped_it_cites_itself():
+    """CHANGED BY S119 STEP 2 (was: test_unresolvable_page_rule_is_
+    dropped_not_crashed, which asserted `claims == ()` and
+    `dropped_rule_ids == ["BOGUS_PAGE"]`).
+
+    That old expectation IS the defect Step 2 fixes. "Unresolvable page"
+    only ever meant "data/chunked_chunks.json has no non-empty chunk on
+    that page number" -- a property of the CHUNK corpus, which has
+    nothing to do with whether the rule's own quote is genuine. Dropping
+    the rule threw away a gate-verified claim (13 of 99 live rules,
+    FT_003 among them). A rule now cites itself, so the page number is
+    never resolved against anything and cannot fail."""
     bogus = replace(BY_ID["HL_006"], rule_id="BOGUS_PAGE", source_page=999999)
     claims, diagnostics = claims_from_rules([bogus])
-    assert claims == ()
-    assert diagnostics["dropped_rule_ids"] == ["BOGUS_PAGE"]
+    assert len(claims) == 1
+    assert diagnostics["dropped_rule_ids"] == []
+    citation = claims[0].citation
+    assert isinstance(citation, CitationByRule)
+    assert citation.rule_id == "BOGUS_PAGE"
+    assert citation.source_page == 999999
+    assert citation.source_quote == BY_ID["HL_006"].source_quote
 
 
 def test_claim_id_ordering_stable_across_multi_rule_set_no_gaps():
+    """CHANGED BY S119 STEP 2. Was: BOGUS_PAGE dropped without consuming
+    a claim_id number, so 4 surfaced rules yielded C1,C2,C3. Now nothing
+    drops, so 4 surfaced rules yield C1..C4 -- the contiguity property
+    this test actually exists to pin is unchanged and still asserted; only
+    the count moved, because the drop it was compensating for is gone."""
     bogus = replace(BY_ID["HL_006"], rule_id="BOGUS_PAGE", source_page=999999)
     surfaced = [BY_ID["HL_006"], bogus, BY_ID["HL_011"], BY_ID["H_002"]]
     claims, diagnostics = claims_from_rules(surfaced)
-    # BOGUS_PAGE drops without consuming a number -- C1,C2,C3, no gap.
-    assert [c.claim_id for c in claims] == ["C1", "C2", "C3"]
+    assert [c.claim_id for c in claims] == ["C1", "C2", "C3", "C4"]
     assert [diagnostics["citations"][c.claim_id]["rule_id"] for c in claims] == [
-        "HL_006", "HL_011", "H_002",
+        "HL_006", "BOGUS_PAGE", "HL_011", "H_002",
     ]
-    assert diagnostics["dropped_rule_ids"] == ["BOGUS_PAGE"]
+    assert diagnostics["dropped_rule_ids"] == []
 
 
 def test_hl006_claim_object_fields():
@@ -107,7 +128,17 @@ def test_hl006_claim_object_fields():
     assert len(claims) == 1
     claim = claims[0]
     assert claim.claim_id == "C1"
-    assert claim.chunk_id == "cheiroslanguageo00chei_1_p160_c0"
+    # CHANGED BY S119 STEP 2. Was:
+    #   assert claim.chunk_id == "cheiroslanguageo00chei_1_p160_c0"
+    # HL_006 is one of the 31 rules whose page DID resolve to a chunk
+    # containing its quote, so that assertion was not itself wrong -- but
+    # it pinned the re-derivation MECHANISM, which is what Step 2 removes.
+    # The claim now carries HL_006's own verified citation directly.
+    assert claim.chunk_id is None
+    assert claim.citation == CitationByRule(
+        "HL_006", BY_ID["HL_006"].source_page, BY_ID["HL_006"].source_quote
+    )
+    assert claim.citation_ref == f"rule:HL_006@p{BY_ID['HL_006'].source_page}"
     assert claim.claim_text == BY_ID["HL_006"].claim
     assert claim.valence == "supports"
     assert claim.condition_text is None
@@ -117,6 +148,8 @@ def test_hl006_claim_object_fields():
     # docstring) -- it lives in the side-channel citations dict instead.
     assert not hasattr(claim, "source_quote")
     assert diagnostics["citations"]["C1"]["source_quote"] == BY_ID["HL_006"].source_quote
+    # chunk_id retired to a stable-shape None in the side-channel too.
+    assert diagnostics["citations"]["C1"]["chunk_id"] is None
     # HL_006's topic_group is "line_heart" -- Claim.feature must be the
     # MAPPED palm_reading._FEATURE_REGISTRY token, not that raw label
     # (this is the bug this task fixes: see _TOPIC_GROUP_TO_FEATURE).
@@ -256,3 +289,234 @@ def test_evidence_confidence_never_placed_on_claim_object():
     magnitudes = {"Line of Heart": {"Position": 1.0}, "Quadrangle": {"Breadth": 0.6}}
     claims, _ = claims_from_rules([BY_ID["HL_006"]], magnitudes=magnitudes)
     assert not hasattr(claims[0], "evidence_confidence")
+
+
+# ═══ S119 STEP 2: rule claims cite by-rule, never by re-derived chunk ════
+
+
+def _gate_verifier():
+    """The AUTHORING-TIME citation gate (scripts/gate_rule_citations.py),
+    loaded once -- the same page-level corpus + overlap primitive that
+    reports NOT_FOUND_ANYWHERE: 0 across every live rule. Returns a
+    callable rule_dict -> gate status."""
+    import json as _json
+
+    from scripts.gate_rule_citations import (
+        DEFAULT_CORPUS_PATH,
+        build_full_corpus_text,
+        build_page_text_index,
+        classify_rule_citation,
+        tokens_of,
+    )
+
+    corpus = _json.loads(DEFAULT_CORPUS_PATH.read_text(encoding="utf-8"))
+    page_text = build_page_text_index(corpus)
+    page_token_sets = {p: set(tokens_of(t)) for p, t in page_text.items()}
+    full_text = build_full_corpus_text(page_text)
+    full_token_set = set(tokens_of(full_text))
+
+    def verify(rule_dict: dict) -> str:
+        return classify_rule_citation(
+            rule_dict, page_text, page_token_sets, full_text, full_token_set
+        )["status"]
+
+    return verify
+
+
+# ─── (1) THE FIX, MEASURED: 31/99 -> 99/99 ──────────────────────────────
+
+
+def test_every_live_rule_produces_a_claim_citing_its_own_gate_verified_quote():
+    """HARDEST CASE -- the whole rule corpus, not a sample. Re-runs Step 0's
+    question (probes/citation_accuracy_audit_S119.py) against the NEW path.
+
+    Step 0 measured the OLD resolve-a-chunk path over these same 99 live
+    rules: 31 RESOLVED_CORRECT, 52 RESOLVED_WRONG, 13 DROPPED_NONE,
+    3 NO_ANCHOR_ANYWHERE -- 31.3% citation accuracy. Under by-rule
+    citation there is nothing left to get wrong: each claim's citation IS
+    the rule's own source_page + source_quote, and this test proves every
+    one of those quotes independently passes the authoring gate."""
+    rules = load_rule_set()
+    assert len(rules) == 99, "live rule count moved -- re-baseline this test"
+
+    claims, diagnostics = claims_from_rules(rules)
+
+    # 0 dropped: Defect 1 (13 dropped rules) closed.
+    assert len(claims) == len(rules)
+    assert diagnostics["dropped_rule_ids"] == []
+    assert [c.claim_id for c in claims] == [f"C{i}" for i in range(1, len(rules) + 1)]
+
+    verify = _gate_verifier()
+    by_rule_id = {r.rule_id: r for r in rules}
+    for claim in claims:
+        citation = claim.citation
+        assert isinstance(citation, CitationByRule)
+        rule = by_rule_id[citation.rule_id]
+        # The citation is the rule's OWN provenance, not a re-derivation.
+        assert citation.source_page == rule.source_page
+        assert citation.source_quote == rule.source_quote
+        assert claim.chunk_id is None
+        # ...and that provenance is gate-verified, per rule, all 99.
+        assert verify(
+            {"source_quote": citation.source_quote, "source_page": citation.source_page}
+        ) == "CLEAN"
+
+
+def test_the_fate_offset_rules_no_longer_mis_cite():
+    """The +60 page offset between the fate rule file's source_page and the
+    corpus page_ref was the single largest RESOLVED_WRONG driver in Step 0.
+    It is now IRRELEVANT: nothing maps source_page onto a corpus page to
+    pick a chunk, so no offset can mis-target anything."""
+    fate = [r for r in load_rule_set() if r.topic_group == "line_fate"]
+    assert fate, "no fate rules loaded"
+    claims, diagnostics = claims_from_rules(fate)
+
+    assert len(claims) == len(fate)
+    assert diagnostics["dropped_rule_ids"] == []
+    for claim, rule in zip(claims, fate):
+        assert claim.citation == CitationByRule(
+            rule.rule_id, rule.source_page, rule.source_quote
+        )
+
+
+# ─── (2) FT_003 end to end: the original live failure ───────────────────
+
+
+def test_ft003_extreme_good_fortune_survives_to_voicing_citing_by_rule():
+    """THE ORIGINAL LIVE FAILURE. FT_003's source_page is 103, which has no
+    non-empty chunk in data/chunked_chunks.json -- resolve_chunk_id
+    returned None, so the rule fired, produced no claim, and its "extreme
+    good fortune" reading was silently lost. It now survives all the way
+    into a voiced reading."""
+    ft003 = {r.rule_id: r for r in load_rule_set()}["FT_003"]
+    # The precondition that used to kill it is still true of the corpus --
+    # this rule is not saved by the chunk data changing, but by not
+    # consulting it.
+    assert resolve_chunk_id(ft003.source_page) is None
+
+    claims, diagnostics = claims_from_rules([ft003])
+
+    assert len(claims) == 1
+    assert diagnostics["dropped_rule_ids"] == []
+    claim = claims[0]
+    assert claim.citation == CitationByRule(
+        "FT_003", ft003.source_page, ft003.source_quote
+    )
+    assert claim.citation_ref == f"rule:FT_003@p{ft003.source_page}"
+    assert "extreme good fortune" in claim.claim_text
+
+    # ...and it reaches Stage 2 as a real, citable claim.
+    draft = (
+        "A fate line rising from the wrist and running straight to the "
+        "Mount of Saturn is a sign of extreme good fortune and success.[C1]"
+    )
+    result = voice_claims(claims, texts_by_feature={}, client=_FakeClient(content=draft))
+    assert result.validation_failures == ()
+    assert "[C1]" in result.reading_text_tagged
+
+
+# ─── (5) dropped_rule_ids is a retired, always-empty tripwire ───────────
+
+
+def test_dropped_rule_ids_is_empty_on_rules_that_previously_dropped():
+    """All 13 Step-0 DROPPED_NONE rules in one call. Every one of them used
+    to vanish; none does now."""
+    rules = load_rule_set()
+    previously_dropped = [r for r in rules if resolve_chunk_id(r.source_page) is None]
+    assert len(previously_dropped) == 13, "Step-0 drop set moved -- re-baseline"
+
+    claims, diagnostics = claims_from_rules(previously_dropped)
+
+    assert len(claims) == 13
+    assert diagnostics["dropped_rule_ids"] == []
+    assert {c.citation.rule_id for c in claims} == {r.rule_id for r in previously_dropped}
+
+
+# ─── (3)/(4) V-2 anchor legality: by-rule accepted, by-chunk unchanged ──
+
+
+def test_by_rule_anchor_is_out_of_v2_jurisdiction_not_flagged_fabricated():
+    """A by-rule citation identity can never be reported as an
+    unknown/malformed chunk_id, on an EMPTY legal set -- the strictest
+    possible input."""
+    from agent.interpretive.palm_reading import _check_anchor_legality
+
+    claim = claims_from_rules([BY_ID["HL_006"]])[0][0]
+    text = f"The head takes command of the affections.[{claim.citation_ref}]"
+    assert _check_anchor_legality(text, frozenset()) == []
+
+
+def test_v2_still_kills_a_fabricated_by_chunk_anchor():
+    """GUARD INTACT: V-2's real job is unchanged. A chunk-shaped anchor that
+    was never gated is still reported."""
+    from agent.interpretive.palm_reading import _check_anchor_legality
+
+    legal = frozenset({"cheiroslanguageo00chei_1_p147_c0"})
+    failures = _check_anchor_legality(
+        "Real doctrine.[cheiroslanguageo00chei_1_p147_c0] "
+        "Invented doctrine.[cheiroslanguageo00chei_1_p999_c9]",
+        legal,
+    )
+    assert len(failures) == 1
+    assert "cheiroslanguageo00chei_1_p999_c9" in failures[0]
+    assert "cheiroslanguageo00chei_1_p147_c0" not in failures[0]
+
+
+def test_by_chunk_retrieval_claims_are_unchanged_through_e1_and_v2():
+    """(4) The retrieval path is untouched by Step 2. E-1 still accepts a
+    legal chunk_id and rejects one outside the feature's own gated set, and
+    the resulting claims are still by-chunk with their chunk_id intact."""
+    import json as _json
+
+    from agent.interpretive.claim_extraction import extract_claims
+    from agent.interpretive.palm_reading import _check_anchor_legality
+
+    gated = {
+        "head line": [
+            {"chunk_id": "bk_p147_c0",
+             "text": "A short line of head denotes a material nature."}
+        ]
+    }
+    payload = _json.dumps({
+        "feature": "head line",
+        "claims": [{
+            "claim_id": "C1", "chunk_id": "bk_p147_c0",
+            "claim_text": "A short head line denotes a material nature.",
+            "valence": "supports", "condition_text": None,
+            "observation_basis": "short",
+        }],
+    })
+    result = extract_claims(gated, {"head line": "short"}, client=_FakeClient(content=payload))
+
+    assert len(result.claims) == 1
+    claim = result.claims[0]
+    assert isinstance(claim.citation, CitationByChunk)
+    assert claim.chunk_id == "bk_p147_c0"
+    assert claim.citation_ref == "bk_p147_c0"
+    # ...and V-2 treats its anchor exactly as before.
+    assert _check_anchor_legality("Doctrine.[bk_p147_c0]", frozenset({"bk_p147_c0"})) == []
+    assert _check_anchor_legality("Doctrine.[bk_p147_c0]", frozenset()) != []
+
+
+# ─── (6) source_quote containment, still ────────────────────────────────
+
+
+def test_source_quote_reaches_no_voicer_facing_field_on_the_by_rule_path():
+    """Step 2 puts the quote ON the claim (its CitationByRule). The
+    containment guarantee it must not break: claim_voicing reads only
+    claim_id/claim_text/valence/observation_basis, and the quote appears in
+    none of them nor in the prompt actually sent."""
+    from agent.interpretive.claim_voicing import _build_user_prompt
+
+    rules = load_rule_set()
+    claims, _ = claims_from_rules(rules)
+    for claim in claims:
+        quote = claim.citation.source_quote
+        assert quote.strip()
+        for voicer_field in ("claim_id", "claim_text", "valence", "observation_basis"):
+            assert quote not in str(getattr(claim, voicer_field))
+        assert quote not in claim.citation_ref
+
+    prompt = _build_user_prompt(list(claims), {})
+    for claim in claims:
+        assert claim.citation.source_quote not in prompt

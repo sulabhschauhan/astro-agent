@@ -417,7 +417,18 @@ def test_fired_rules_become_claims_and_reach_stage_two(
     assert diag["fired_rule_ids"] == ["H_005", "H_006"]
     assert diag["surviving_rule_ids"] == ["H_005", "H_006"]
     assert [c.claim_id for c in result.claims] == ["C1", "C2"]
-    assert all(c.chunk_id.startswith("cheiroslanguageo00chei_1_p147") for c in result.claims)
+    # CHANGED BY S119 STEP 2. Was:
+    #   assert all(c.chunk_id.startswith("cheiroslanguageo00chei_1_p147")
+    #              for c in result.claims)
+    # That assertion pinned the re-derived-chunk citation this step
+    # removes. H_005/H_006 both cite p147 in the RULE FILE; the old
+    # assertion happened to agree because resolve_chunk_id landed on a
+    # p147 chunk -- it was pinning the mechanism, not the provenance.
+    # The provenance itself is now asserted directly, off the rule.
+    assert all(c.chunk_id is None for c in result.claims)
+    assert [c.citation_ref for c in result.claims] == [
+        "rule:H_005@p147", "rule:H_006@p147",
+    ]
     assert result.validation.passed is True
     assert len(client.completions.calls) == 2  # extractor + one voice call
 
@@ -448,14 +459,28 @@ def test_source_quote_stays_out_of_the_voicer_prompt(
     voice_prompt = json.dumps(voice_call["messages"])
     for quote in quotes:
         assert quote not in voice_prompt
-    # And the Claim objects themselves carry no quote-bearing field --
-    # the shape claim_voicing sees is unchanged from the LLM path.
+    # REWORDED at S119 Step 2 (flagged in Step 1's report). The old
+    # comment read "the Claim objects themselves carry no quote-bearing
+    # field", which stopped being true in spirit once a rule claim's
+    # CitationByRule started carrying its own source_quote. The dataclass
+    # FIELD set is genuinely unchanged (the citation is not a field), and
+    # that is still worth pinning -- but the property that actually
+    # matters is CONTAINMENT: no voicer-facing attribute exposes the
+    # quote, so claim_voicing's prompt cannot see it. Both are asserted
+    # here, the containment one directly rather than by proxy.
     assert not hasattr(result.claims[0], "source_quote")
     assert {f.name for f in dataclasses.fields(result.claims[0])} == {
         "claim_id", "feature", "chunk_id", "claim_text", "valence",
         "condition_text", "observation_basis", "excluded_from_voice",
         "exclusion_reason",
     }
+    # CONTAINMENT, asserted directly: the quote IS reachable off the
+    # claim's citation (that is the point of Step 2) and is absent from
+    # every field claim_voicing reads.
+    for claim in result.claims:
+        assert claim.citation.source_quote.strip()
+        for voicer_field in ("claim_id", "claim_text", "valence", "observation_basis"):
+            assert claim.citation.source_quote not in str(getattr(claim, voicer_field))
 
 
 def test_gate_jurisdiction_fix_head_line_no_longer_fails_display_check(
