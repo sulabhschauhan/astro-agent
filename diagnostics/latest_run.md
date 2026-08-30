@@ -1,115 +1,152 @@
-# S119 Step 1 — citation sum type (by-chunk | by-rule), additive carrier
+# S119 Step 2 — THE FLIP: rule claims cite by-rule (31% -> 100% citation accuracy)
 
-DECISION THIS SERVES: if a citation carrier can represent a rule's own
-(source_page + source_quote) alongside a retrieval chunk_id, then Step 2 can
-stop fabricating chunk_ids for rule-sourced claims; else Step 2 stays blocked
-on Claim's shape. Result: carrier landed, additive, nothing switched to it.
+DECISION THIS SERVES: if a rule can cite its own gate-verified span instead of a
+re-derived chunk, then Defect 1 (13 silently dropped rules) and the 52 silent
+mis-cites close outright; else they stay open. Result: closed, measured 99/99.
 
-## Verification at HEAD (e7eec28, wip/interpretive-pilot) — before editing
+## Verification at HEAD (c879e45/64f038c, wip/interpretive-pilot) — before editing
 
-`Claim` (agent/interpretive/claim_extraction.py:310-319) = frozen dataclass,
-9 fields, ALL required, no defaults; `chunk_id: str` was the 3rd positional.
+**`claims_from_rules` (rule_to_claim.py:241 old)** — called
+`resolve_chunk_id(rule.source_page, chunks_path)`; on `None` it appended to
+`dropped`, logged a WARNING and `continue`d (the rule vanished, consuming no
+claim_id). `citations[claim_id]` carried
+`rule_id/chunk_id/source_page/source_quote/topic_group/evidence_confidence`.
+`diagnostics = {"citations", "dropped_rule_ids"}`.
 
-Every `Claim(...)` construction site in the repo (grep `Claim(` over *.py):
+**Step-0 baseline re-measured this session** (`probes/citation_accuracy_audit_S119.py`,
+unmodified): `RESOLVED_CORRECT 31 | RESOLVED_WRONG 52 | DROPPED_NONE 13 |
+NO_ANCHOR_ANYWHERE 3` over 99 live rules = **31.3%**.
 
-| # | Site | Kind |
+**E-1 — NO CHANGE NEEDED, and here is why.** E-1 lives inside
+`claim_extraction._validate_and_filter`, reachable only from
+`extract_claims()`. `palm_reading._prepare_claims_from_rules` (the rule path)
+never calls `extract_claims` — its chain is `load_rule_set -> extract_observation
+-> to_vision_payload -> to_tokens -> match/resolve_priority ->
+rule_to_claim.claims_from_rules`, and that module's own docstring states the
+deterministic path is a *replacement* for `extract_claims`, "deliberately NOT a
+fallback". **The rule path never reaches E-1.** Step 0's evidence index was
+correct. E-1 is untouched; its by-chunk behavior is pinned unchanged by a new
+test.
+
+**A1 V-2 (`_check_anchor_legality`) — NO CODE CHANGE NEEDED, verified twice over.**
+1. It is RETIRED-NOT-DELETED (palm_reading.py's own docstring): grep shows zero
+   production call sites — only `test_palm_reading.py:1773` (which asserts its
+   retired behavior) and two archived probe scripts. The LIVE analog is
+   `claim_voicing._check_tag_legality` (V-3), which keys on `claim_id` only and
+   is blind to the citation branch entirely.
+2. Even if it were live, a by-rule anchor is **out of its jurisdiction by
+   construction**: `CHUNK_ANCHOR_TAG_PATTERN` accepts only `[OBS]` or
+   `[<word>_p<digits>_c<digits>]`, so `[rule:FT_003@p103]` (the `citation_ref`
+   form) never enters `cited` and can never be reported unknown/malformed.
+   This is now written into V-2's docstring and pinned by two tests — one
+   proving a by-rule anchor passes against an EMPTY legal set (strictest input),
+   one proving a fabricated by-chunk anchor still fails (guard intact).
+
+**Display anchor — already citation-agnostic.** The live per-claim display anchor
+is Stage 2's `[C<n>]` claim_id tag (`_STAGE2_TAG_PATTERN`), identical for both
+citation kinds; chunk_ids appear in no Stage-2 output. The by-rule anchor *form*
+is `Claim.citation_ref` -> `rule:<rule_id>@p<page>` (quote excluded by design),
+landed in Step 1 and now exercised. No emitter change was required.
+
+## Implemented
+
+1. **`claims_from_rules` — the flip.** `resolve_chunk_id` call and the None-drop
+   branch DELETED. Every surfaced rule now builds `Claim.by_rule(rule_id,
+   source_page, source_quote, ...)`. `chunks_path` retained for signature
+   stability, now unused. `citations[...]["chunk_id"]` is now always `None`
+   (key kept for diagnostics shape stability).
+2. **`dropped_rule_ids` — retired tripwire.** Still in the diagnostics dict,
+   ALWAYS `[]`, with a comment that a non-empty value now signals a real
+   regression rather than a data condition.
+3. **`resolve_chunk_id` — left defined**, docstring updated to record that it is
+   off the citation path and is now only exercised by the Step-0 baseline probe.
+4. **V-2 docstring** — records the by-rule jurisdiction fact above.
+5. **Rules-engine test comment** — reworded per Step 1's flag (below).
+
+NOT touched, per scope: needles, capture net (Step 4), sources builder (Step 5),
+jurisdiction/decline set (Step 3), `resolve_chunk_id`'s definition.
+
+## THE FIX, MEASURED
+
+| | OLD (re-derived chunk) | NEW (by-rule) |
 |---|---|---|
-| 1 | `claim_extraction.py:425` (`_apply_e4`, retrieval path) | production |
-| 2 | `rule_to_claim.py:253` (`claims_from_rules`, rule path) | production |
-| 3 | `tests/interpretive/test_claim_voicing.py:153` (`_claim` builder) | test |
-| 4-8 | `tests/test_app_dogfood_capture.py:163,174,650,661,794` (inline fixtures) | test |
+| live rules | 99 | 99 |
+| claims produced | 86 | **99** |
+| dropped | **13** | **0** |
+| citation correct | **31 (31.3%)** | **99 (100.0%)** |
+| mis-cited | 52 RESOLVED_WRONG + 3 NO_ANCHOR | **0** |
 
-All 8 are keyword-only, all nine fields, none positional.
+100% is not asserted by construction — every one of the 99 claims' citations is
+independently re-verified in-test through `scripts/gate_rule_citations.py`'s own
+`classify_rule_citation` (page-level corpus + the same overlap primitive):
+**99/99 CLEAN**. `python scripts/gate_rule_citations.py` -> `NOT_FOUND_ANYWHERE: 0`.
 
-`.chunk_id` READERS (unchanged this step): `claim_extraction.py:439,635`
-(exclusion ledger + overlap diagnostics), `palm_reading.py:1753,1756`
-(`_build_sources_from_claims`), `frontend/app.py:195,301,436,1333,1424`
-(F5 capture), `scripts/probe_pass5_preflight.py:231,530,536`.
-- E-1 (`claim_extraction.py:284-289`) reads `raw_claim["chunk_id"]` against
-  the feature's own gated `chunk_map` — CONFIRMED unchanged.
-- A1 V-2 (`palm_reading._check_anchor_legality`, :1482) reads chunk_ids off
-  the tagged text against `valid_chunk_ids` — CONFIRMED unchanged.
-- `claim_voicing` — CONFIRMED never reads `chunk_id`: it reads exactly
-  `claim_id` / `claim_text` / `valence` / `observation_basis` (:281 prompt
-  line, :196/:210/:577 elsewhere). No `source_quote` field exists on Claim.
+`probes/citation_accuracy_audit_S119.py` measures the OLD resolve path and is now
+a **baseline artifact** — left untouched deliberately: it is the before-picture
+this step is measured against.
 
-## Approach chosen, and why
+## Tests
 
-The sum type is two frozen dataclasses + a union alias:
-`CitationByChunk(chunk_id)` | `CitationByRule(rule_id, source_page, source_quote)`.
+**8 added** (`tests/interpretive/test_rule_to_claim.py`):
+1. `test_every_live_rule_produces_a_claim_citing_its_own_gate_verified_quote` —
+   HARDEST CASE, all 99 live rules: 0 dropped, contiguous C1..C99, every citation
+   equals its rule's own source_page+source_quote AND passes the authoring gate.
+2. `test_the_fate_offset_rules_no_longer_mis_cite` — the +60 offset is now inert.
+3. `test_ft003_extreme_good_fortune_survives_to_voicing_citing_by_rule` — the
+   original live failure, end to end. Asserts the killing precondition is STILL
+   true of the corpus (`resolve_chunk_id(103) is None`), so the rule is saved by
+   not consulting the chunk data, not by the data changing; then voices it.
+4. `test_dropped_rule_ids_is_empty_on_rules_that_previously_dropped` — all 13.
+5. `test_by_rule_anchor_is_out_of_v2_jurisdiction_not_flagged_fabricated`.
+6. `test_v2_still_kills_a_fabricated_by_chunk_anchor` — guard intact.
+7. `test_by_chunk_retrieval_claims_are_unchanged_through_e1_and_v2`.
+8. `test_source_quote_reaches_no_voicer_facing_field_on_the_by_rule_path` —
+   all 99 claims + the real `_build_user_prompt` output.
 
-The carrier is stored as an INSTANCE ATTRIBUTE (`_citation`), **not** as a
-tenth dataclass field, and by-chunk is DERIVED (no storage at all).
+### CHANGED existing tests — 4, each justified
 
-WHY NOT a real field: `tests/interpretive/test_palm_reading_rules_engine.py:453-458`
-pins `{f.name for f in dataclasses.fields(result.claims[0])}` to the exact
-9-name set. A tenth field breaks it — i.e. it would have made this step
-non-additive, tripping the prompt's own STOP condition. The chosen shape keeps
-`__init__`/`__eq__`/`__repr__`/`fields()` byte-for-byte identical, so **no
-existing test needed changing.**
+| test | before | after | why the new behavior is correct |
+|---|---|---|---|
+| `test_unresolvable_page_rule_is_dropped_not_crashed` -> renamed `..._is_no_longer_dropped_it_cites_itself` (`test_rule_to_claim.py`) | `claims == ()`, `dropped_rule_ids == ["BOGUS_PAGE"]` | 1 claim, `dropped_rule_ids == []`, by-rule citation | This test asserted **the defect itself**. "Unresolvable page" only ever meant the CHUNK corpus has no non-empty chunk on that page number — a property of `chunked_chunks.json`, unrelated to whether the rule's own quote is genuine. Dropping discarded a gate-verified claim. |
+| `test_claim_id_ordering_stable_across_multi_rule_set_no_gaps` (`test_rule_to_claim.py`) | 4 rules -> `C1,C2,C3` (BOGUS_PAGE dropped without consuming a number) | 4 rules -> `C1..C4` | The property this test exists to pin — **contiguity, no gaps** — is unchanged and still asserted. Only the count moved, because the drop it was compensating for is gone. |
+| `test_hl006_claim_object_fields` (`test_rule_to_claim.py`) | `chunk_id == "cheiroslanguageo00chei_1_p160_c0"` | `chunk_id is None`, citation `== CitationByRule("HL_006", 160, <quote>)`, `citation_ref == "rule:HL_006@p160"` | HL_006 is one of the 31 whose page DID resolve correctly, so the old value was not wrong — but it pinned the **re-derivation mechanism**, which is exactly what this step removes. |
+| `test_fired_rules_become_claims_and_reach_stage_two` (`test_palm_reading_rules_engine.py`) | `all(c.chunk_id.startswith("cheiroslanguageo00chei_1_p147"))` | `all(c.chunk_id is None)` + `citation_ref == ["rule:H_005@p147", "rule:H_006@p147"]` | Same reason: it pinned the mechanism, not the provenance. The provenance (p147) is now asserted **directly off the rule**, which is strictly stronger. |
 
-Also added (all additive):
-- `Claim.citation` property — defaults to `CitationByChunk(chunk_id)`, so the
-  plain constructor (all 8 sites above) stays by-chunk exactly as before.
-  Raises `ValueError` if a claim has neither a chunk_id nor a rule citation
-  (fail-closed, never guesses).
-- `Claim.citation_ref` — the single citation-identity accessor. by-chunk
-  returns the chunk_id verbatim (identical to `.chunk_id`, so a future
-  consumer can swap one for the other with no behavior change); by-rule
-  returns `rule:<rule_id>@p<source_page>` — **the quote is deliberately
-  excluded from this rendering** so even a consumer that logs the accessor
-  cannot leak it.
-- `Claim.by_chunk` / `Claim.by_rule` classmethod constructors.
-- `chunk_id: str` -> `chunk_id: str | None` — ANNOTATION ONLY (still a
-  required positional field, no default); by-rule claims have no chunk_id.
-- Sites 1 and 2 migrated to `Claim.by_chunk(...)` (internal only, byte-identical
-  result — it makes the branch legible and reduces Step 2 to a one-call flip).
-  Test call sites left untouched on the plain constructor.
+Every one of the four is explained by the intended flip. No other test changed.
 
-NO consumer produces or reads the by-rule branch. `resolve_chunk_id`,
-`claims_from_rules` drop behavior, E-1, V-2, sources, needles and the capture
-net are all untouched.
-
-### Accepted consequences, registered at the code site (not left to be found)
-1. `dataclasses.replace(claim, ...)` would DROP a by-rule citation. Verified:
-   no caller anywhere in the repo calls `replace()` on a `Claim` (the 7 hits
-   are on `DomainAnswer` and `PalmRule`). Step 2 must route through
-   `Claim.by_rule`, never `replace`.
-2. `__eq__` ignores the citation — two claims identical in all 9 fields but
-   citing different rules compare equal. Unreachable in practice: `claim_id`
-   is unique within a reading.
-
-### FLAG FOR STEP 2 (drift, not a failure)
-`test_palm_reading_rules_engine.py:451-458`'s comment reads "the Claim objects
-themselves carry no quote-bearing field". That assertion still PASSES (the
-field set is unchanged), but once Step 2 puts the rule path on `by_rule`, the
-comment's claim becomes true only of the by-chunk branch — a `CitationByRule`
-does carry the quote, off-field. Step 2 should re-word that comment and pin
-the containment property directly instead (the new
-`test_source_quote_never_reaches_any_voicer_facing_field` already does).
-
-## Tests added (8, all in tests/interpretive/test_claim_extraction.py)
-1. `test_existing_style_construction_is_a_by_chunk_citation_with_identical_chunk_id`
-2. `test_by_chunk_classmethod_is_indistinguishable_from_the_plain_constructor`
-3. `test_claim_dataclass_field_set_is_unchanged_by_the_citation_carrier`
-4. `test_by_rule_carries_rule_id_source_page_and_source_quote`
-5. `test_by_rule_citation_ref_returns_a_rule_form_without_the_quote`
-6. `test_claim_with_no_chunk_id_and_no_rule_citation_raises_rather_than_guessing`
-7. `test_source_quote_never_reaches_any_voicer_facing_field` (builds the real
-   `claim_voicing._build_user_prompt` and asserts the quote is absent)
-8. `test_every_existing_construction_site_shape_still_builds_a_valid_claim`
-   (parametrizes the 4 distinct shapes the 8 enumerated sites use)
+**Also reworded (Step 1's flagged drift, not a behavior change):**
+`test_palm_reading_rules_engine.py`'s "the Claim objects themselves carry no
+quote-bearing field" comment. The dataclass FIELD set is still unchanged and still
+asserted; the comment now says so accurately, and the property that actually
+matters — **containment** — is asserted directly (the quote IS reachable via the
+citation, and is absent from all four voicer-facing attributes).
 
 ## Verification
-- `python -m pytest -q` -> **3695 passed, 7 skipped** = baseline 3687/7 plus
-  exactly the 8 new tests. 0 regressions.
-- **NO existing test file was edited.** Only the 8 new tests were appended to
-  `test_claim_extraction.py` (plus its import line).
-- `python scripts/gate_rule_citations.py` -> `NOT_FOUND_ANYWHERE: 0`
-  (4 rule files, 99 live rules, 16 parked).
-- Diff is +172/-2 in `claim_extraction.py` (the -2: the `chunk_id` annotation
-  line and the `Claim(` -> `Claim.by_chunk(` line) and +5/-1 in
-  `rule_to_claim.py`.
+- `python -m pytest -q` -> **3703 passed, 7 skipped**. Step-1 baseline was
+  3695/7; +8 = 3703. **Zero regressions.**
+- `python scripts/gate_rule_citations.py` -> `NOT_FOUND_ANYWHERE: 0` (99 live,
+  16 parked).
+- Files touched: exactly 4 (`rule_to_claim.py` +66/-29, `palm_reading.py` +18/-0
+  docstring only, `test_rule_to_claim.py` +272/-8, `test_palm_reading_rules_engine.py`
+  +28/-3). No unrelated staging.
+
+## Flagged for later steps (found, not fixed here — out of this step's scope)
+- **Step 4 (capture net):** `frontend/app.py:195`'s `wrong_source` trigger does
+  `re.search(r"_p(\d+)_", claim.chunk_id)`. With `chunk_id=None` this raises
+  TypeError inside the existing `try/except Exception: continue` — **no crash**,
+  but the trigger now silently never fires for rule claims. It should key on the
+  by-rule `source_page` instead. `app.py:301`'s claims_inventory line likewise
+  renders `None` in the chunk_id column.
+- **Step 5 (sources):** `_build_sources_from_claims` looks up
+  `chunk_lookup[(feature, claim.chunk_id)]` against this run's `gated_results`;
+  a by-rule claim misses and is skipped (no crash — `key=(None, feature)` is a
+  valid tuple). Bounded honestly: before this step at most the 31
+  RESOLVED_CORRECT rules could ever have produced a source, and only when that
+  chunk was ALSO in that run's gated set; now none do. Step 5 owns rebuilding
+  sources from the by-rule citation.
+- `scripts/probe_pass5_preflight.py:530` would classify by-rule claims as
+  "orphaned" (`c.chunk_id not in valid_chunk_ids`). Probe script, not production,
+  not run by the suite.
 
 ## Commit
-`c879e45` — pushed to `origin/wip/interpretive-pilot`. Staged files: ONLY `agent/interpretive/claim_extraction.py` (+172/-2), `agent/interpretive/rule_to_claim.py` (+5/-1), `tests/interpretive/test_claim_extraction.py` (+174/-0). CONFIRMED: no existing test changed.
+`f9383d4` — pushed to `origin/wip/interpretive-pilot`. Staged: ONLY the 4 files listed above.
