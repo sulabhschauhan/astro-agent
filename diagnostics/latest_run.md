@@ -1,152 +1,134 @@
-# S119 Step 2 — THE FLIP: rule claims cite by-rule (31% -> 100% citation accuracy)
+# S119 Step 3 — decline/jurisdiction sourced from SURVIVING RULES, not post-drop claims
 
-DECISION THIS SERVES: if a rule can cite its own gate-verified span instead of a
-re-derived chunk, then Defect 1 (13 silently dropped rules) and the 52 silent
-mis-cites close outright; else they stay open. Result: closed, measured 99/99.
+DECISION THIS SERVES: if the jurisdiction set is sourced from survivors rather
+than from produced claims, then a feature whose doctrine fired can never be
+falsely declined as "not addressed" — regardless of what happens downstream of
+resolve_priority; else the M2 side-effect can silently return. Result: sourced
+from survivors, proven discriminating.
 
-## Verification at HEAD (c879e45/64f038c, wip/interpretive-pilot) — before editing
+## Verification at HEAD (f9383d4/d8afa13, wip/interpretive-pilot) — before editing
 
-**`claims_from_rules` (rule_to_claim.py:241 old)** — called
-`resolve_chunk_id(rule.source_page, chunks_path)`; on `None` it appended to
-`dropped`, logged a WARNING and `continue`d (the rule vanished, consuming no
-claim_id). `citations[claim_id]` carried
-`rule_id/chunk_id/source_page/source_quote/topic_group/evidence_confidence`.
-`diagnostics = {"citations", "dropped_rule_ids"}`.
+**`_prepare_deterministic_prep`** — `claims, engine_diagnostics =
+_prepare_claims_from_rules(...)` is the only thing it receives from the engine;
+the surviving rules themselves never crossed that boundary. The set was
+`features_with_surviving_rule_claims = {c.feature for c in claims}` (line 2328),
+and it fed **three** consumers, all from that one assignment:
+1. `supported_features` narrowing,
+2. `unsupported_features` narrowing (this is the one the decline reads),
+3. `PalmReadingPrep.rule_claim_features`.
 
-**Step-0 baseline re-measured this session** (`probes/citation_accuracy_audit_S119.py`,
-unmodified): `RESOLVED_CORRECT 31 | RESOLVED_WRONG 52 | DROPPED_NONE 13 |
-NO_ANCHOR_ANYWHERE 3` over 99 live rules = **31.3%**.
+**`_compute_decline_features`** — confirmed: it declines (a) everything in
+`unsupported_features`, (b) extraction-failed features, (c) gate-SUPPORTED
+features with zero/all-excluded claims. Join key is the plain feature string.
+The jurisdiction narrowing is indeed the mechanism meant to keep rule-fired
+features out — and because the narrowing removes them from BOTH tuples, a
+rule-fired feature is exempt from branch (a) and branch (c) alike.
 
-**E-1 — NO CHANGE NEEDED, and here is why.** E-1 lives inside
-`claim_extraction._validate_and_filter`, reachable only from
-`extract_claims()`. `palm_reading._prepare_claims_from_rules` (the rule path)
-never calls `extract_claims` — its chain is `load_rule_set -> extract_observation
--> to_vision_payload -> to_tokens -> match/resolve_priority ->
-rule_to_claim.claims_from_rules`, and that module's own docstring states the
-deterministic path is a *replacement* for `extract_claims`, "deliberately NOT a
-fallback". **The rule path never reaches E-1.** Step 0's evidence index was
-correct. E-1 is untouched; its by-chunk behavior is pinned unchanged by a new
-test.
+**Feature-token identity** — confirmed 1:1: survivors map through
+`rule_to_claim._feature_for_topic_group` (the same `_TOPIC_GROUP_TO_FEATURE`
+table, same fail-closed `ValueError`) that `Claim.feature` already goes through.
+Survivor-sourced and claim-sourced tokens are the same vocabulary, not two.
 
-**A1 V-2 (`_check_anchor_legality`) — NO CODE CHANGE NEEDED, verified twice over.**
-1. It is RETIRED-NOT-DELETED (palm_reading.py's own docstring): grep shows zero
-   production call sites — only `test_palm_reading.py:1773` (which asserts its
-   retired behavior) and two archived probe scripts. The LIVE analog is
-   `claim_voicing._check_tag_legality` (V-3), which keys on `claim_id` only and
-   is blind to the citation branch entirely.
-2. Even if it were live, a by-rule anchor is **out of its jurisdiction by
-   construction**: `CHUNK_ANCHOR_TAG_PATTERN` accepts only `[OBS]` or
-   `[<word>_p<digits>_c<digits>]`, so `[rule:FT_003@p103]` (the `citation_ref`
-   form) never enters `cited` and can never be reported unknown/malformed.
-   This is now written into V-2's docstring and pinned by two tests — one
-   proving a by-rule anchor passes against an EMPTY legal set (strictest input),
-   one proving a fabricated by-chunk anchor still fails (guard intact).
+## Implemented (surgical, 2 files)
 
-**Display anchor — already citation-agnostic.** The live per-claim display anchor
-is Stage 2's `[C<n>]` claim_id tag (`_STAGE2_TAG_PATTERN`), identical for both
-citation kinds; chunk_ids appear in no Stage-2 output. The by-rule anchor *form*
-is `Claim.citation_ref` -> `rule:<rule_id>@p<page>` (quote excluded by design),
-landed in Step 1 and now exercised. No emitter change was required.
+The survivors live inside `_prepare_claims_from_rules` and were not exposed, so
+the change is in two halves:
 
-## Implemented
+1. **`_prepare_claims_from_rules`** — computes `surviving_rule_features` at the
+   survivors site, INSIDE fail-closed boundary 4. Deliberate: an unmapped
+   `topic_group` now fails exactly the way it already did (`claims_from_rules`
+   raises the same `ValueError` from the same lookup on the same rule), so this
+   adds no new failure mode. Published as
+   `engine_diagnostics["surviving_rule_features"]` (sorted, JSON-safe).
+   Added to `_fail_closed`'s dict too, so the key is present on **every** return
+   path — all 4 failure paths and the success path.
+2. **`_prepare_deterministic_prep`** — `features_with_surviving_rule_claims` now
+   reads that key. Indexed **directly**, not `.get()`-defaulted: a future return
+   path that forgot the key would raise loudly rather than silently produce an
+   empty set, which is precisely how the false decline would creep back.
 
-1. **`claims_from_rules` — the flip.** `resolve_chunk_id` call and the None-drop
-   branch DELETED. Every surfaced rule now builds `Claim.by_rule(rule_id,
-   source_page, source_quote, ...)`. `chunks_path` retained for signature
-   stability, now unused. `citations[...]["chunk_id"]` is now always `None`
-   (key kept for diagnostics shape stability).
-2. **`dropped_rule_ids` — retired tripwire.** Still in the diagnostics dict,
-   ALWAYS `[]`, with a comment that a non-empty value now signals a real
-   regression rather than a data condition.
-3. **`resolve_chunk_id` — left defined**, docstring updated to record that it is
-   off the citation path and is now only exercised by the Step-0 baseline probe.
-4. **V-2 docstring** — records the by-rule jurisdiction fact above.
-5. **Rules-engine test comment** — reworded per Step 1's flag (below).
+Both tuple narrowings and `rule_claim_features` read that one assignment, so all
+three consumers moved together by construction — no second edit site.
 
-NOT touched, per scope: needles, capture net (Step 4), sources builder (Step 5),
-jurisdiction/decline set (Step 3), `resolve_chunk_id`'s definition.
+The comment block records the invariant it enforces: **jurisdiction belongs to a
+feature whose doctrine FIRED, not to a feature that happened to survive claim
+construction.** A future survivor→claim gap can cost a claim; it can no longer
+turn fired doctrine into a false "not addressed."
 
-## THE FIX, MEASURED
+NOT touched, per scope: needles, capture net (Step 4), sources (Step 5), the
+S118 censor, resolve logic, `_apply_support_gate`'s own scoring.
 
-| | OLD (re-derived chunk) | NEW (by-rule) |
-|---|---|---|
-| live rules | 99 | 99 |
-| claims produced | 86 | **99** |
-| dropped | **13** | **0** |
-| citation correct | **31 (31.3%)** | **99 (100.0%)** |
-| mis-cited | 52 RESOLVED_WRONG + 3 NO_ANCHOR | **0** |
+## The false-decline fix, proven
 
-100% is not asserted by construction — every one of the 99 claims' citations is
-independently re-verified in-test through `scripts/gate_rule_citations.py`'s own
-`classify_rule_citation` (page-level corpus + the same overlap primitive):
-**99/99 CLEAN**. `python scripts/gate_rule_citations.py` -> `NOT_FOUND_ANYWHERE: 0`.
+Reconstructed deterministically (no live call) in the S117/S120 David-hand shape:
+retrieval is fed head-line text only, so the gate has nothing for the fate line
+and would classify it UNSUPPORTED → declined. A fate rule fires anyway:
 
-`probes/citation_accuracy_audit_S119.py` measures the OLD resolve path and is now
-a **baseline artifact** — left untouched deliberately: it is the before-picture
-this step is measured against.
+```
+fired_rule_ids:           ['FT_011']
+surviving_rule_ids:       ['FT_011']
+surviving_rule_features:  ['fate line']
+fate line in unsupported_features:   False
+fate line in supported_features:     False
+fate line in decline_features:       False
+```
 
-## Tests
+Fate is the right feature to prove this on: the Step-0 audit found **every** rule
+in the fate file unresolvable (source_page 103–105, no non-empty chunk on any of
+them), so fate line is where the false decline was actually observed —
+"the texts do not clearly address your fate line" while 13 fate rules had fired.
 
-**8 added** (`tests/interpretive/test_rule_to_claim.py`):
-1. `test_every_live_rule_produces_a_claim_citing_its_own_gate_verified_quote` —
-   HARDEST CASE, all 99 live rules: 0 dropped, contiguous C1..C99, every citation
-   equals its rule's own source_page+source_quote AND passes the authoring gate.
-2. `test_the_fate_offset_rules_no_longer_mis_cite` — the +60 offset is now inert.
-3. `test_ft003_extreme_good_fortune_survives_to_voicing_citing_by_rule` — the
-   original live failure, end to end. Asserts the killing precondition is STILL
-   true of the corpus (`resolve_chunk_id(103) is None`), so the rule is saved by
-   not consulting the chunk data, not by the data changing; then voices it.
-4. `test_dropped_rule_ids_is_empty_on_rules_that_previously_dropped` — all 13.
-5. `test_by_rule_anchor_is_out_of_v2_jurisdiction_not_flagged_fabricated`.
-6. `test_v2_still_kills_a_fabricated_by_chunk_anchor` — guard intact.
-7. `test_by_chunk_retrieval_claims_are_unchanged_through_e1_and_v2`.
-8. `test_source_quote_reaches_no_voicer_facing_field_on_the_by_rule_path` —
-   all 99 claims + the real `_build_user_prompt` output.
+**The change is discriminating, not decorative — measured, not asserted.** With
+the source line temporarily reverted to `{c.feature for c in claims}`, test (4)
+FAILS and the other four pass; restored, all five pass. So tests 1–3 prove
+behavior-preservation today, and test 4 is the one that actually pins the
+robustness gain. (Temporary revert run and restored in-session; no artifact left
+behind.)
 
-### CHANGED existing tests — 4, each justified
+## Tests — 5 added, 0 existing changed
 
-| test | before | after | why the new behavior is correct |
-|---|---|---|---|
-| `test_unresolvable_page_rule_is_dropped_not_crashed` -> renamed `..._is_no_longer_dropped_it_cites_itself` (`test_rule_to_claim.py`) | `claims == ()`, `dropped_rule_ids == ["BOGUS_PAGE"]` | 1 claim, `dropped_rule_ids == []`, by-rule citation | This test asserted **the defect itself**. "Unresolvable page" only ever meant the CHUNK corpus has no non-empty chunk on that page number — a property of `chunked_chunks.json`, unrelated to whether the rule's own quote is genuine. Dropping discarded a gate-verified claim. |
-| `test_claim_id_ordering_stable_across_multi_rule_set_no_gaps` (`test_rule_to_claim.py`) | 4 rules -> `C1,C2,C3` (BOGUS_PAGE dropped without consuming a number) | 4 rules -> `C1..C4` | The property this test exists to pin — **contiguity, no gaps** — is unchanged and still asserted. Only the count moved, because the drop it was compensating for is gone. |
-| `test_hl006_claim_object_fields` (`test_rule_to_claim.py`) | `chunk_id == "cheiroslanguageo00chei_1_p160_c0"` | `chunk_id is None`, citation `== CitationByRule("HL_006", 160, <quote>)`, `citation_ref == "rule:HL_006@p160"` | HL_006 is one of the 31 whose page DID resolve correctly, so the old value was not wrong — but it pinned the **re-derivation mechanism**, which is exactly what this step removes. |
-| `test_fired_rules_become_claims_and_reach_stage_two` (`test_palm_reading_rules_engine.py`) | `all(c.chunk_id.startswith("cheiroslanguageo00chei_1_p147"))` | `all(c.chunk_id is None)` + `citation_ref == ["rule:H_005@p147", "rule:H_006@p147"]` | Same reason: it pinned the mechanism, not the provenance. The provenance (p147) is now asserted **directly off the rule**, which is strictly stronger. |
+`tests/interpretive/test_palm_reading_rules_engine.py`, diff **+212/-0**.
 
-Every one of the four is explained by the intended flip. No other test changed.
+1. `test_fired_and_surviving_fate_rule_is_not_falsely_declined` — HARDEST CASE,
+   the production shape above: fate line in neither tuple, not in the decline set.
+2. `test_feature_with_no_surviving_rule_is_still_declined` — REGRESSION guard: a
+   fate line contributing only an *unmapped* quality is still declined exactly as
+   before, while the head line that did fire stays exempt. This step does not
+   weaken honest decline.
+3. `test_survivor_sourced_set_equals_claim_sourced_set_on_a_multi_feature_run` —
+   INVARIANT: the two derivations agree exactly, asserted across **two** features
+   (with an explicit `len(...) > 1` guard so a single-rule run cannot satisfy it
+   trivially).
+4. `test_survivor_with_no_claim_is_still_exempt_from_decline` — ROBUSTNESS, the
+   reason this step exists. Simulates precisely what the pre-Step-2 code did for
+   13 of 99 rules: rule fires, survives, produces no claim. It records the
+   survivor ids that actually reached the bridge first, so the test cannot pass
+   vacuously on an empty survivor list. The claim is genuinely gone
+   (`prep.claims == ()`) and the feature is STILL exempt.
+5. `test_engine_failure_reports_an_empty_surviving_feature_set` — the key is
+   present on the fail-closed path too, and yields the same empty set the old
+   code produced there.
 
-**Also reworded (Step 1's flagged drift, not a behavior change):**
-`test_palm_reading_rules_engine.py`'s "the Claim objects themselves carry no
-quote-bearing field" comment. The dataclass FIELD set is still unchanged and still
-asserted; the comment now says so accurately, and the property that actually
-matters — **containment** — is asserted directly (the quote IS reachable via the
-citation, and is absent from all four voicer-facing attributes).
+**No existing test needed changing.** The change is behavior-preserving on every
+path the suite already covered — which is the expected outcome given Step 2
+guarantees survivor→claim, and is itself evidence the edit is correctly scoped.
 
 ## Verification
-- `python -m pytest -q` -> **3703 passed, 7 skipped**. Step-1 baseline was
-  3695/7; +8 = 3703. **Zero regressions.**
+- `python -m pytest -q` -> **3708 passed, 7 skipped**. Step-2 baseline 3703/7;
+  +5 = 3708. **Zero regressions.**
 - `python scripts/gate_rule_citations.py` -> `NOT_FOUND_ANYWHERE: 0` (99 live,
   16 parked).
-- Files touched: exactly 4 (`rule_to_claim.py` +66/-29, `palm_reading.py` +18/-0
-  docstring only, `test_rule_to_claim.py` +272/-8, `test_palm_reading_rules_engine.py`
-  +28/-3). No unrelated staging.
+- Files touched: exactly 2 (`palm_reading.py` +56/-11, of which the only logic
+  lines are the `surviving_rule_features` computation, its two diagnostics
+  entries, and the 3-line consumer swap — the rest is comment; and
+  `test_palm_reading_rules_engine.py` +212/-0). No unrelated staging.
 
-## Flagged for later steps (found, not fixed here — out of this step's scope)
-- **Step 4 (capture net):** `frontend/app.py:195`'s `wrong_source` trigger does
-  `re.search(r"_p(\d+)_", claim.chunk_id)`. With `chunk_id=None` this raises
-  TypeError inside the existing `try/except Exception: continue` — **no crash**,
-  but the trigger now silently never fires for rule claims. It should key on the
-  by-rule `source_page` instead. `app.py:301`'s claims_inventory line likewise
-  renders `None` in the chunk_id column.
-- **Step 5 (sources):** `_build_sources_from_claims` looks up
-  `chunk_lookup[(feature, claim.chunk_id)]` against this run's `gated_results`;
-  a by-rule claim misses and is skipped (no crash — `key=(None, feature)` is a
-  valid tuple). Bounded honestly: before this step at most the 31
-  RESOLVED_CORRECT rules could ever have produced a source, and only when that
-  chunk was ALSO in that run's gated set; now none do. Step 5 owns rebuilding
-  sources from the by-rule citation.
-- `scripts/probe_pass5_preflight.py:530` would classify by-rule claims as
-  "orphaned" (`c.chunk_id not in valid_chunk_ids`). Probe script, not production,
-  not run by the suite.
+## Note for later steps
+`engine_diagnostics` gains one key (`surviving_rule_features`). It is additive
+and every existing consumer is `.get()`-based (`frontend/app.py`'s diagnostics
+formatter, the S83 capture net), so nothing needed a change here — but Step 4
+may want to surface it alongside `surviving_rule_ids` in the dogfood capture,
+since it is now the authoritative jurisdiction record.
 
 ## Commit
-`f9383d4` — pushed to `origin/wip/interpretive-pilot`. Staged: ONLY the 4 files listed above.
+`46573c4` — pushed to `origin/wip/interpretive-pilot`. Staged: ONLY `agent/interpretive/palm_reading.py` and `tests/interpretive/test_palm_reading_rules_engine.py`.
