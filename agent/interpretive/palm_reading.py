@@ -2120,6 +2120,12 @@ def _prepare_claims_from_rules(
             "observation_record": record_diagnostics,
             "citations": {},
             "dropped_rule_ids": [],
+            # Always present, on EVERY return path -- its consumer in
+            # _prepare_deterministic_prep indexes it directly rather than
+            # .get()-defaulting, so a future path that forgets it fails
+            # loudly instead of silently reinstating the false decline
+            # this key exists to prevent.
+            "surviving_rule_features": [],
             "phrase_promotions": [],
             "targets": {},
             "proximity_observations": {},
@@ -2199,6 +2205,18 @@ def _prepare_claims_from_rules(
     try:
         fired = palm_rules_table.match(observation, magnitudes, rules, targets=targets)
         survivors, suppression_log = palm_rules_table.resolve_priority(fired)
+        # S119 Step 3: the jurisdiction/decline set is sourced from the
+        # SURVIVORS, not from the claims they produce. Computed HERE,
+        # inside boundary 4, so an unmapped topic_group fails exactly the
+        # way it already does (claims_from_rules raises the same
+        # ValueError from the same _feature_for_topic_group lookup on the
+        # same rule) -- this adds no new failure mode. Same mapper the
+        # claims themselves go through, so the two sets are identical
+        # today by construction; see _prepare_deterministic_prep for the
+        # invariant this exists to enforce.
+        surviving_rule_features = sorted({
+            rule_to_claim._feature_for_topic_group(r.topic_group) for r in survivors
+        })
         claims, rule_diagnostics = rule_to_claim.claims_from_rules(survivors, magnitudes=magnitudes)
     except Exception as exc:  # noqa: BLE001 -- fail-closed boundary 4, see docstring
         return _fail_closed(exc, "rule_matching", record_diagnostics)
@@ -2212,6 +2230,11 @@ def _prepare_claims_from_rules(
         "dropped_tokens": magnitudes.get("_dropped", []),
         "fired_rule_ids": [r.rule_id for r in fired],
         "surviving_rule_ids": [r.rule_id for r in survivors],
+        # The _FEATURE_REGISTRY tokens those survivors map to -- the
+        # authoritative source for the gate-tuple narrowing and the
+        # decline set (S119 Step 3). Sorted for a stable diagnostics
+        # surface; the consumer builds its own set from it.
+        "surviving_rule_features": surviving_rule_features,
         "suppression_log": suppression_log,
         # source_quote lives HERE and nowhere else -- rule_to_claim keeps
         # it off the Claim object precisely so 19th-century book prose
@@ -2303,14 +2326,32 @@ def _prepare_deterministic_prep(
 
     # JURISDICTION FIX (ratified design decision): the retrieval support
     # gate's authority covers RETRIEVAL-sourced claims only. A feature
-    # with a SURVIVING rule claim (post resolve_priority -- `claims` here
-    # is exactly that, per rule_to_claim.claims_from_rules) is
-    # self-grounded by its own citation (source_quote/source_page in the
+    # with a SURVIVING RULE (post resolve_priority) is self-grounded by
+    # that rule's own citation (source_page/source_quote, carried on the
+    # claim's CitationByRule since S119 Step 2 and mirrored in the
     # engine_diagnostics["citations"] side-channel) and needs no
     # retrieval chunk to voice, so it does not belong in EITHER gate
     # tuple -- same "belongs in neither" shape _is_genuine_negative_
     # absence already established for the honest-absence case, extended
-    # here rather than replaced. This is the ONE authoritative narrowing
+    # here rather than replaced.
+    #
+    # S119 STEP 3 -- SOURCED FROM SURVIVORS, NOT FROM CLAIMS. This set was
+    # `{c.feature for c in claims}`. That was a real bug with a real
+    # user-visible symptom: pre-Step-2, a rule could fire, survive
+    # resolve_priority, and THEN be discarded by chunk resolution
+    # (13 of 99 live rules, the whole fate file among them), contributing
+    # no claim -- so its feature stayed in `unsupported_features` and the
+    # reading declined it outright ("the texts do not clearly address
+    # your fate line") while that feature's doctrine had in fact fired.
+    # Step 2 removed the drop, so claims and survivors coincide TODAY;
+    # this line makes that coincidence irrelevant. The INVARIANT it
+    # enforces: jurisdiction belongs to a feature whose doctrine FIRED,
+    # not to a feature that happened to survive claim construction. Any
+    # future step that reintroduces a survivor -> claim gap can now cost
+    # a claim, but it can no longer silently turn fired doctrine into a
+    # false "not addressed" decline.
+    #
+    # This is the ONE authoritative narrowing
     # point: every downstream consumer (_check_banned_feature_mentions
     # via _build_display_extra_validators/_run_display_checks,
     # _compute_decline_features, and PalmReadingResult.supported_
@@ -2319,13 +2360,16 @@ def _prepare_deterministic_prep(
     # assignment, so narrowing here covers all three by construction. A
     # feature with BOTH a surviving rule claim and real retrieval support
     # is removed from BOTH tuples too (rule-sourced jurisdiction wins
-    # outright, not merely on conflict) -- Claim.feature is a reliable
-    # _FEATURE_REGISTRY token here (rule_to_claim._TOPIC_GROUP_TO_FEATURE,
-    # fail-closed at that module's own load time), so no further mapping
-    # is needed. _apply_support_gate's own per-retrieval-feature scoring
+    # outright, not merely on conflict) -- these are reliable
+    # _FEATURE_REGISTRY tokens, mapped through the SAME
+    # rule_to_claim._TOPIC_GROUP_TO_FEATURE (fail-closed at that module's
+    # own load time) that Claim.feature goes through, so survivor-sourced
+    # and claim-sourced tokens are the same vocabulary, not two. _apply_support_gate's own per-retrieval-feature scoring
     # is untouched -- this only narrows its OUTPUT tuples, never how a
     # feature without a surviving rule claim gets classified.
-    features_with_surviving_rule_claims = {c.feature for c in claims}
+    features_with_surviving_rule_claims = set(
+        engine_diagnostics["surviving_rule_features"]
+    )
     supported_features = tuple(
         f for f in supported_features if f not in features_with_surviving_rule_claims
     )
@@ -2345,8 +2389,9 @@ def _prepare_deterministic_prep(
         unsupported_features=unsupported_features,
         claims=claims,
         texts_by_feature=texts_by_feature,
-        # NOT recomputed -- the very same set the two tuple narrowings
-        # just above were built from.
+        # NOT recomputed -- the very same survivor-sourced set the two
+        # tuple narrowings just above were built from, so all three
+        # consumers read one source of truth.
         rule_claim_features=frozenset(features_with_surviving_rule_claims),
         diagnostics={
             "stage1": {"features": stage1_features},

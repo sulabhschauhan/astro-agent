@@ -1921,3 +1921,215 @@ def test_censor_still_fails_end_to_end_when_the_text_names_an_unclaimed_feature(
     assert result.validation.passed is False
     assert "unsupported feature mentioned: sun line" in result.validation.failures
     assert not any("mount of mars negative" in f for f in result.validation.failures)
+
+
+# ═══ S119 STEP 3: jurisdiction/decline sourced from SURVIVORS ════════════
+#
+# The set that exempts a feature from the retrieval support gate (and
+# therefore from the decline block) is built from the SURVIVING RULES, not
+# from the claims those rules produce. See _prepare_deterministic_prep's
+# own comment for the invariant. The bug this closes: pre-Step-2 a rule
+# could fire, survive resolve_priority, then lose its claim to chunk
+# resolution -- and its feature was then declined as "not addressed by the
+# texts" while that feature's doctrine had in fact fired.
+
+
+def _broken_fate_line_client() -> _FakeClient:
+    """Line of Fate Continuity=broken fires FT_011 (single-antecedent) ->
+    one surviving fate-line rule. Deliberately a FATE rule: the fate file
+    is where the Step-0 audit found every one of its rules unresolvable
+    (source_page 103-105, no non-empty chunk on any of them), so fate line
+    is the feature the false decline was actually observed on."""
+    return _FakeClient(responses=[
+        (_observation_response({"Line of Fate": {"Continuity": {"value": "broken"}}}), None),
+    ])
+
+
+_BROKEN_FATE_PROSE = "FATE LINE: Present but broken in the middle of the palm.\n"
+
+
+# ─── (1) THE FALSE DECLINE, FIXED ───────────────────────────────────────
+
+
+def test_fired_and_surviving_fate_rule_is_not_falsely_declined(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """HARDEST CASE -- the exact production shape of the bug, reconstructed
+    deterministically (no live call).
+
+    Retrieval is fed ONLY head-line text, so the support gate has nothing
+    for the fate line and would classify it UNSUPPORTED -> declined ("the
+    texts do not clearly address your fate line"). But a fate rule fired
+    and survived, so the fate line is self-grounded on that rule's own
+    citation and the gate has no jurisdiction over it. It must appear in
+    NEITHER tuple, and must NOT be declined."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_head_line_chunk()]))
+
+    prep = palm_reading.prepare_palm_reading(
+        palm_left=_BROKEN_FATE_PROSE, palm_right=None,
+        client=_broken_fate_line_client(),
+    )
+
+    diag = prep.diagnostics["rules_engine"]
+    assert diag["fired_rule_ids"] == ["FT_011"]
+    assert diag["surviving_rule_ids"] == ["FT_011"]
+    assert diag["surviving_rule_features"] == ["fate line"]
+
+    # THE FIX: not unsupported, not supported -- outside the gate entirely.
+    assert "fate line" not in prep.unsupported_features
+    assert "fate line" not in prep.supported_features
+    assert prep.rule_claim_features == frozenset({"fate line"})
+
+    # ...and therefore never selected into the decline block.
+    decline_features = palm_reading._compute_decline_features(
+        prep.supported_features, prep.unsupported_features, (), prep.claims,
+    )
+    assert "fate line" not in decline_features
+
+
+# ─── (2) REGRESSION: no surviving rule -> still declined ────────────────
+
+
+def test_feature_with_no_surviving_rule_is_still_declined(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """The guard this step must not weaken. Same run shape as above, but
+    the fate line contributes only an UNMAPPED quality -- nothing fires for
+    it -- so the gate keeps jurisdiction and declines it exactly as before.
+    A genuinely-unaddressed feature is still honestly declined."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_head_line_chunk()]))
+    client = _FakeClient(responses=[
+        (_observation_response(
+            {"Line of Head": {"Length": {"value": "short"}}},
+            unmapped={"Line of Fate": [{"quality": "straight", "attribute_guess": None}]},
+        ), None),
+    ])
+
+    prep = palm_reading.prepare_palm_reading(
+        palm_left=(
+            "HEAD LINE: Short and clearly marked.\n"
+            "FATE LINE: Present, straight, and clearly marked.\n"
+        ),
+        palm_right=None, client=client,
+    )
+
+    diag = prep.diagnostics["rules_engine"]
+    assert diag["surviving_rule_features"] == ["head line"]
+    assert "fate line" not in diag["surviving_rule_features"]
+
+    assert "fate line" in prep.unsupported_features
+    decline_features = palm_reading._compute_decline_features(
+        prep.supported_features, prep.unsupported_features, (), prep.claims,
+    )
+    assert "fate line" in decline_features
+    # ...while the head line, which DID fire, stays exempt.
+    assert "head line" not in decline_features
+
+
+# ─── (3) INVARIANT: survivor-sourced == claim-sourced, today ────────────
+
+
+def test_survivor_sourced_set_equals_claim_sourced_set_on_a_multi_feature_run(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """BEHAVIOR-PRESERVING PROOF. Step 2 guarantees every survivor yields a
+    claim, so the two derivations must agree exactly -- across MORE THAN
+    ONE feature, so the check is not trivially satisfied by a single-rule
+    run."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_head_line_chunk()]))
+    client = _FakeClient(responses=[
+        (_observation_response({
+            "Line of Head": {"Length": {"value": "short"}},
+            "Line of Fate": {"Continuity": {"value": "broken"}},
+        }), None),
+    ])
+
+    prep = palm_reading.prepare_palm_reading(
+        palm_left="HEAD LINE: Short and clearly marked.\n" + _BROKEN_FATE_PROSE,
+        palm_right=None, client=client,
+    )
+
+    diag = prep.diagnostics["rules_engine"]
+    survivor_sourced = set(diag["surviving_rule_features"])
+    claim_sourced = {c.feature for c in prep.claims}
+
+    assert len(survivor_sourced) > 1, "single-feature run proves nothing here"
+    assert survivor_sourced == claim_sourced == {"head line", "fate line"}
+    assert prep.rule_claim_features == frozenset(survivor_sourced)
+
+
+# ─── (4) ROBUSTNESS: the whole point of sourcing from survivors ─────────
+
+
+def test_survivor_with_no_claim_is_still_exempt_from_decline(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """THE REASON THIS STEP EXISTS, not a hypothetical. This simulates
+    exactly what the pre-Step-2 code did for 13 of 99 live rules: a rule
+    fires, survives resolve_priority, and then produces NO claim.
+
+    Under the old claim-sourced set the feature fell straight back into
+    `unsupported_features` and was declined as unaddressed. Sourced from
+    survivors, it stays exempt: the reading may lose the claim, but it can
+    no longer assert that the texts do not address a feature whose
+    doctrine demonstrably fired."""
+    from agent.interpretive import rule_to_claim
+
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_head_line_chunk()]))
+
+    real_claims_from_rules = rule_to_claim.claims_from_rules
+    seen_survivors: list = []
+
+    def _claimless(surfaced_rules, *args, **kwargs):
+        # Prove the survivors really did reach the bridge before we drop
+        # their claims -- otherwise this test would pass on an empty
+        # survivor list and prove nothing.
+        seen_survivors.extend(r.rule_id for r in surfaced_rules)
+        _claims, diagnostics = real_claims_from_rules(surfaced_rules, *args, **kwargs)
+        return (), diagnostics
+
+    monkeypatch.setattr(rule_to_claim, "claims_from_rules", _claimless)
+
+    prep = palm_reading.prepare_palm_reading(
+        palm_left=_BROKEN_FATE_PROSE, palm_right=None,
+        client=_broken_fate_line_client(),
+    )
+
+    assert seen_survivors == ["FT_011"]
+    assert prep.claims == ()  # the claim really is gone
+    diag = prep.diagnostics["rules_engine"]
+    assert diag["surviving_rule_ids"] == ["FT_011"]
+    assert diag["surviving_rule_features"] == ["fate line"]
+
+    # ...and the feature is STILL out of the gate's jurisdiction.
+    assert "fate line" not in prep.unsupported_features
+    assert "fate line" not in prep.supported_features
+    assert prep.rule_claim_features == frozenset({"fate line"})
+    decline_features = palm_reading._compute_decline_features(
+        prep.supported_features, prep.unsupported_features, (), prep.claims,
+    )
+    assert "fate line" not in decline_features
+
+
+def test_engine_failure_reports_an_empty_surviving_feature_set(
+    rules_engine_on, no_llm_extraction, monkeypatch
+):
+    """The key is present on EVERY return path, fail-closed included -- its
+    consumer indexes it directly rather than .get()-defaulting, so a path
+    that omitted it would raise rather than silently re-enable the false
+    decline."""
+    monkeypatch.setattr(palm_reading, "search", _FakeSearch([_head_line_chunk()]))
+    monkeypatch.setattr(
+        palm_rules_table, "load_rule_set",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("rule dir gone")),
+    )
+
+    prep = palm_reading.prepare_palm_reading(
+        palm_left=_BROKEN_FATE_PROSE, palm_right=None,
+        client=_broken_fate_line_client(),
+    )
+
+    diag = prep.diagnostics["rules_engine"]
+    assert diag["failed"] is True
+    assert diag["surviving_rule_features"] == []
+    assert prep.rule_claim_features == frozenset()
