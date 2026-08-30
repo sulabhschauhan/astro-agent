@@ -57,6 +57,7 @@ this test file doesn't have.
 import sys
 from pathlib import Path
 
+import pytest
 from streamlit.testing.v1 import AppTest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -874,3 +875,259 @@ def test_capture_dogfood_run_writes_capture_reason_silence(monkeypatch, tmp_path
     assert content.count("## RUN") == 1
     assert "### capture_reason" in content
     assert "silence" in content
+
+
+# ─── S119 Step 4: wrong_source across both citation kinds ──────────────
+#
+# The capture net's wrong_source trigger used to parse claim.chunk_id for
+# EVERY claim. Since S119 Step 2 a rule-sourced claim carries
+# chunk_id=None, so that parse raised TypeError into a surrounding
+# `except Exception: continue` -- the trigger silently stopped evaluating
+# rule claims at all. These tests pin both citation kinds.
+
+
+def _rule_claim(**overrides) -> Claim:
+    kwargs = dict(
+        claim_id="C1", feature="fate line", rule_id="FT_003", source_page=103,
+        source_quote="When the line of fate rises from the wrist, it is a sign of good fortune.",
+        claim_text="A fate line rising from the wrist is a sign of extreme good fortune.",
+        valence="supports", condition_text=None,
+        observation_basis="Line of Fate Slope=straight",
+        excluded_from_voice=False, exclusion_reason=None,
+    )
+    kwargs.update(overrides)
+    return Claim.by_rule(**kwargs)
+
+
+def _reading_with(claims: tuple[Claim, ...]) -> PalmReadingResult:
+    """A run clean in every respect EXCEPT whatever the given claims say,
+    so any fired tag is attributable to the claims alone."""
+    return PalmReadingResult(
+        reading_text="A reading.",
+        sources=(),
+        validation=ValidationReport(passed=True, failures=()),
+        model="gpt-4o",
+        retry_used=False,
+        supported_features=("life line",),
+        unsupported_features=(),
+        claims=claims,
+        stage1_retry_features=(),
+        stage2_retry_used=False,
+    )
+
+
+def test_rule_claim_does_not_raise_and_a_clean_citation_is_not_flagged():
+    """HARDEST CASE -- the exact silent TypeError. A rule claim reaches the
+    trigger with chunk_id=None; it must be evaluated (not swallowed) and,
+    being cleanly cited, must NOT be tagged wrong_source.
+
+    Also the coordinate-system trap: this claim's source_page is 103,
+    while _FEATURE_PAGE_RANGES["fate line"] is (162, 165). Those are two
+    different page-numbering systems (rule files anchor to
+    data/cheiro/cheiro_clean_v1.json; the ranges come from the chunk
+    corpus' page_ref). Range-checking a rule page would tag wrong_source
+    on all 16 fate rules -- this asserts it does not."""
+    import frontend.app as app
+
+    claim = _rule_claim()
+    assert claim.chunk_id is None
+    assert app._FEATURE_PAGE_RANGES["fate line"] == (162, 165)
+    assert not (162 <= claim.citation.source_page <= 165)
+
+    fired, tags = app._run_had_failure(_reading_with((claim,)))
+    assert (fired, tags) == (False, [])
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [
+        {"source_page": None},
+        {"source_quote": ""},
+        {"source_quote": "   "},
+    ],
+)
+def test_rule_claim_with_an_unusable_citation_is_tagged_wrong_source(broken):
+    """The rule-claim analogue of "wrong source": the citation cannot
+    identify its source at all. A missing page or an empty quote means the
+    claim is ungrounded, which is a citation-identity failure -- the same
+    class the existing "hallucination" disposition maps to wrong_source
+    for."""
+    import frontend.app as app
+
+    fired, tags = app._run_had_failure(_reading_with((_rule_claim(**broken),)))
+    assert (fired, tags) == (True, ["wrong_source"])
+
+
+def test_excluded_rule_claim_is_skipped_even_when_its_citation_is_broken():
+    """Unchanged precedence: an excluded_from_voice claim never reaches the
+    citation check, exactly as before."""
+    import frontend.app as app
+
+    claim = _rule_claim(source_page=None, excluded_from_voice=True,
+                        exclusion_reason="precondition unverified")
+    fired, tags = app._run_had_failure(_reading_with((claim,)))
+    assert (fired, tags) == (False, [])
+
+
+# ─── by-chunk parity: behavior unchanged ───────────────────────────────
+
+
+def _by_chunk_claim(chunk_id: str, feature: str = "life line") -> Claim:
+    return Claim(
+        claim_id="C1", feature=feature, chunk_id=chunk_id,
+        claim_text="A long, unbroken life line indicates steady vitality.",
+        valence="positive", condition_text=None, observation_basis="visible",
+        excluded_from_voice=False, exclusion_reason=None,
+    )
+
+
+def test_by_chunk_claim_outside_its_feature_page_range_still_fires_wrong_source():
+    """GUARD/PARITY. life line's range is (133, 139); a chunk from p200 is
+    out-of-chapter and must still be caught -- this is the retrieval
+    failure mode the check exists for, and Step 4 must not weaken it."""
+    import frontend.app as app
+
+    assert app._FEATURE_PAGE_RANGES["life line"] == (133, 139)
+    fired, tags = app._run_had_failure(
+        _reading_with((_by_chunk_claim("cheiroslanguageo00chei_1_p200_c1"),))
+    )
+    assert (fired, tags) == (True, ["wrong_source"])
+
+
+def test_by_chunk_claim_inside_its_feature_page_range_is_still_clean():
+    import frontend.app as app
+
+    fired, tags = app._run_had_failure(
+        _reading_with((_by_chunk_claim("cheiroslanguageo00chei_1_p134_c2"),))
+    )
+    assert (fired, tags) == (False, [])
+
+
+def test_by_chunk_claim_with_a_malformed_chunk_id_is_still_skipped_not_flagged():
+    """Unchanged: an unparseable chunk_id yields no page and is skipped,
+    same as the old inline regex's `if match is None: continue`."""
+    import frontend.app as app
+
+    fired, tags = app._run_had_failure(_reading_with((_by_chunk_claim("c1"),)))
+    assert (fired, tags) == (False, [])
+
+
+def test_by_chunk_claim_for_a_feature_with_no_page_range_is_skipped():
+    """markings/other features has a None range -- nothing to check."""
+    import frontend.app as app
+
+    assert app._FEATURE_PAGE_RANGES["markings/other features"] is None
+    fired, tags = app._run_had_failure(
+        _reading_with((
+            _by_chunk_claim("cheiroslanguageo00chei_1_p200_c1",
+                            feature="markings/other features"),
+        ))
+    )
+    assert (fired, tags) == (False, [])
+
+
+def test_mixed_run_flags_only_the_broken_rule_claim():
+    """Both kinds in one run: the healthy by-chunk claim and the healthy
+    rule claim stay silent; the broken rule claim alone fires."""
+    import frontend.app as app
+
+    claims = (
+        _by_chunk_claim("cheiroslanguageo00chei_1_p134_c2"),
+        _rule_claim(claim_id="C2"),
+        _rule_claim(claim_id="C3", rule_id="FT_004", source_quote=""),
+    )
+    fired, tags = app._run_had_failure(_reading_with(claims))
+    assert (fired, tags) == (True, ["wrong_source"])
+
+
+# ─── claims_inventory renders the citation identity ────────────────────
+
+
+def test_claims_inventory_renders_the_by_rule_citation_form_not_none(
+    monkeypatch, tmp_path
+):
+    """Was a bare "None" column for every rule claim, which reads as
+    missing data rather than as "cited by rule"."""
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    reading = _reading_with((_rule_claim(source_quote=""),))  # broken -> forces a capture
+    app._capture_dogfood_run("FATE LINE: Present.", None, None, reading)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "C1 | fate line | rule:FT_003@p103 |" in content
+    assert "C1 | fate line | None |" not in content
+
+
+def test_claims_inventory_by_chunk_column_is_unchanged(monkeypatch, tmp_path):
+    """PARITY: a retrieval claim's column is still its chunk_id, verbatim."""
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    reading = _reading_with((_by_chunk_claim("cheiroslanguageo00chei_1_p200_c1"),))
+    app._capture_dogfood_run("LIFE LINE: Long.", None, None, reading)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "C1 | life line | cheiroslanguageo00chei_1_p200_c1 |" in content
+
+
+def test_no_source_quote_reaches_the_dogfood_capture(monkeypatch, tmp_path):
+    """CONTAINMENT: citation_ref excludes the quote by construction, so a
+    rule claim's book prose cannot enter the capture through the
+    inventory column."""
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    quote = "ZZQUOTEZZ When the line of fate rises from the wrist"
+    reading = _reading_with((
+        _rule_claim(source_quote=quote),
+        _rule_claim(claim_id="C2", rule_id="FT_004", source_quote=""),
+    ))
+    app._capture_dogfood_run("FATE LINE: Present.", None, None, reading)
+
+    assert quote not in log_path.read_text(encoding="utf-8")
+
+
+def test_stage1_diagnostics_render_surviving_rule_features():
+    """S119 Step 3 exposed surviving_rule_features as the authoritative
+    jurisdiction record; the capture now surfaces it beside
+    surviving_rule_ids, so a reviewer can answer "which features was the
+    support gate overruled on?" from the capture alone."""
+    import frontend.app as app
+
+    lines = app._format_stage1_feature_diagnostics_lines({
+        # "observation_record" is what selects the engine branch of the
+        # formatter (see its docstring -- deliberately keyed on the payload
+        # shape, not on the "_rules_engine" name), so it must be present.
+        "_rules_engine": {
+            "final_outcome": "rules_engine_ok",
+            "failed": False,
+            "observation_record": {"enabled_features": []},
+            "fired_rule_ids": ["FT_011"],
+            "surviving_rule_ids": ["FT_011"],
+            "surviving_rule_features": ["fate line"],
+        },
+    })
+    text = "\n".join(lines)
+    assert "surviving_rule_ids: ['FT_011']" in text
+    assert "surviving_rule_features: ['fate line']" in text
+
+
+def test_stage1_diagnostics_tolerate_a_capture_without_the_new_key():
+    """Same .get()-defaulted style as every other diagnostics line: an
+    older engine block carrying no surviving_rule_features still renders."""
+    import frontend.app as app
+
+    lines = app._format_stage1_feature_diagnostics_lines({
+        "_rules_engine": {
+            "final_outcome": "rules_engine_ok", "failed": False,
+            "observation_record": {"enabled_features": []},
+        },
+    })
+    assert "surviving_rule_features: []" in "\n".join(lines)

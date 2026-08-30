@@ -155,3 +155,111 @@ def test_map_fallback_audits_ignores_unmapped_and_keeps_mapped(tmp_path, monkeyp
     assert len(lines) == 2  # the already_resolved one is skipped
     triggers = {json.loads(line)["trigger"] for line in lines}
     assert triggers == {"silence", "wrong_source"}
+
+
+# ═══ S119 STEP 4: dropped-rule producer (dormant tripwire) ═══════════════
+
+
+def _rule_claim(**overrides):
+    """A rule-sourced Claim, built through the real constructor."""
+    from agent.interpretive.claim_extraction import Claim
+
+    kwargs = dict(
+        claim_id="C1", feature="fate line", rule_id="FT_003", source_page=103,
+        source_quote="When the line of fate rises from the wrist...",
+        claim_text="A fate line rising from the wrist is a sign of good fortune.",
+        valence="supports", condition_text=None,
+        observation_basis="Line of Fate Slope=straight",
+        excluded_from_voice=False, exclusion_reason=None,
+    )
+    kwargs.update(overrides)
+    return Claim.by_rule(**kwargs)
+
+
+def test_dropped_rule_ids_producer_writes_one_wrong_source_record_per_rule(
+    tmp_path, monkeypatch
+):
+    """HARDEST CASE for this producer: the regression it exists to catch.
+    A non-empty dropped_rule_ids is exactly the pre-Step-2 state (13 of 99
+    live rules fired, survived, then lost their claim to chunk
+    resolution) -- it must land in the durable sink as a first-class
+    event, not scroll past as a stdout WARNING."""
+    out_path = tmp_path / "capture_net" / "failures.jsonl"
+    monkeypatch.setattr(capture_net, "_CAPTURE_NET_PATH", out_path)
+
+    capture_net.record_dropped_rules(["FT_003", "FT_004"], "r-drop")
+
+    entries = [json.loads(line) for line in _read_lines(out_path)]
+    assert len(entries) == 2
+    assert [e["rule_id"] for e in entries] == ["FT_003", "FT_004"]
+    for entry in entries:
+        assert entry["trigger"] == "wrong_source"
+        assert entry["producer"] == "palm_reading_rules_engine"
+        assert entry["disposition"] == "dropped_rule_no_citation"
+        assert entry["reading_id"] == "r-drop"
+
+
+def test_dropped_rule_trigger_is_already_known_to_the_digest():
+    """No new trigger category was invented: capture_net_digest derives its
+    _KNOWN_TRIGGERS from _DISPOSITION_TO_TRIGGER.values(), and the producer
+    reuses one of those, so the digest needed no edit."""
+    from agent.interpretive import capture_net_digest
+
+    assert "wrong_source" in capture_net_digest._KNOWN_TRIGGERS
+
+
+@pytest.mark.parametrize("empty", [[], None, ()])
+def test_dropped_rule_producer_is_dormant_on_the_real_state(
+    tmp_path, monkeypatch, empty
+):
+    """DORMANT BY CONSTRUCTION. Since Step 2 nothing can be dropped for
+    citation reasons, so the real input is always empty and a clean run
+    writes nothing -- same silent-clean-run contract map_fallback_audits
+    already has."""
+    out_path = tmp_path / "capture_net" / "failures.jsonl"
+    monkeypatch.setattr(capture_net, "_CAPTURE_NET_PATH", out_path)
+
+    capture_net.record_dropped_rules(empty, "r-clean")
+
+    assert _read_lines(out_path) == []
+
+
+def test_dropped_rule_producer_never_raises_on_an_unwritable_path(
+    tmp_path, monkeypatch, caplog
+):
+    """Same fail-safe contract as record(): a capture failure must never
+    break a reading."""
+    blocker = tmp_path / "blocked"
+    blocker.write_text("i am a file, not a directory", encoding="utf-8")
+    monkeypatch.setattr(capture_net, "_CAPTURE_NET_PATH", blocker / "sub" / "f.jsonl")
+
+    with caplog.at_level(logging.WARNING, logger="agent.interpretive.capture_net"):
+        assert capture_net.record_dropped_rules(["FT_003"], "r1") is None
+
+
+def test_no_source_quote_can_reach_a_capture_record(tmp_path, monkeypatch):
+    """CONTAINMENT, same discipline as the palm-text test above: the
+    _PAYLOAD_KEYS allow-list is the mechanism. Even a payload that
+    explicitly carries source_quote (and other book prose) cannot get it
+    into a record, because the key is not on the list."""
+    out_path = tmp_path / "capture_net" / "failures.jsonl"
+    monkeypatch.setattr(capture_net, "_CAPTURE_NET_PATH", out_path)
+
+    quote = "ZZQUOTEZZ When the line of fate rises from the wrist"
+    capture_net.record(
+        trigger="wrong_source", producer="palm_reading_rules_engine",
+        payload={
+            "rule_id": "FT_003", "source_page": 103,
+            "source_quote": quote, "claim_text": quote, "raw_prose": quote,
+        },
+        reading_id="r-quote",
+    )
+
+    raw = out_path.read_text(encoding="utf-8")
+    assert quote not in raw
+    entry = json.loads(raw.strip())
+    assert entry["rule_id"] == "FT_003"
+    assert entry["source_page"] == 103
+    assert "source_quote" not in entry
+    assert "claim_text" not in entry
+    assert "source_quote" not in capture_net._PAYLOAD_KEYS

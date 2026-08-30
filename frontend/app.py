@@ -27,6 +27,7 @@ from agent.interpretive.palm_reading import (
     generate_palm_reading, prepare_palm_reading, complete_palm_reading, _FEATURE_PAGE_RANGES,
     _N_RESULTS_PER_FEATURE,
 )
+from agent.interpretive.claim_extraction import CitationByChunk, CitationByRule
 from agent.infra.orchestrator import answer_question
 from agent.interpretive.answer_renderer import render_answer
 
@@ -109,6 +110,15 @@ def _format_stage1_feature_diagnostics_lines(feature_diagnostics: dict) -> list:
                 lines.append(f"    enabled_features: {sorted(record.get('enabled_features', []))}")
                 lines.append(f"    fired_rule_ids: {diag.get('fired_rule_ids', [])}")
                 lines.append(f"    surviving_rule_ids: {diag.get('surviving_rule_ids', [])}")
+                # S119 Step 3/4: the authoritative jurisdiction record --
+                # the _FEATURE_REGISTRY tokens the surviving rules map to,
+                # i.e. exactly which features the retrieval support gate
+                # was overruled on. Reading it beside the rule ids is what
+                # makes a "why wasn't this declined?" question answerable
+                # from the capture alone. Same .get()-defaulted style as
+                # every other line here, so an older capture without the
+                # key still renders.
+                lines.append(f"    surviving_rule_features: {diag.get('surviving_rule_features', [])}")
                 lines.append(f"    suppression_log: {diag.get('suppression_log', [])}")
                 lines.append(f"    dropped_tokens: {diag.get('dropped_tokens', [])}")
                 lines.append(f"    observation: {diag.get('observation', {})}")
@@ -166,6 +176,92 @@ def _format_stage1_feature_diagnostics_lines(feature_diagnostics: dict) -> list:
     return lines
 
 
+def _citation_column(claim) -> str:
+    """S119 Step 4: the citation-IDENTITY column shared by all four
+    claims_inventory renders (2 dogfood-capture writers, 2 Streamlit
+    captions).
+
+    Was `claim.chunk_id`. Since Step 2 a rule-sourced claim carries
+    chunk_id=None, which rendered as the bare string "None" -- reading as
+    missing data rather than as "cited by rule". `citation_ref` gives the
+    chunk_id verbatim for retrieval claims (that column is unchanged for
+    them) and rule:<rule_id>@p<page> for rule claims. The source_quote is
+    not part of that form, so no book prose enters any capture.
+
+    Falls back to the raw chunk_id if the accessor is unavailable, so a
+    capture is never lost to a formatting error."""
+    try:
+        return str(claim.citation_ref)
+    except Exception:
+        return str(claim.chunk_id)
+
+
+# ─── S119 Step 4: wrong_source, per citation kind ──────────────────────
+#
+# THE BUG THIS REPLACES: the check in _run_had_failure used to be
+# `re.search(r"_p(\d+)_", claim.chunk_id)` for EVERY claim. Since S119
+# Step 2 a rule-sourced claim carries `chunk_id=None`, so that call raised
+# TypeError straight into the surrounding `except Exception: continue` --
+# the wrong_source trigger silently stopped evaluating rule claims
+# altogether. Silent, because that except was there to swallow a malformed
+# chunk_id, not an entire citation kind.
+#
+# WHY RULE CLAIMS ARE NOT PAGE-RANGE CHECKED (measured, not assumed --
+# this is the trap in "just use source_page instead"): the rule files'
+# `source_page` and `_FEATURE_PAGE_RANGES` are DIFFERENT COORDINATE
+# SYSTEMS. Rule pages are anchored to data/cheiro/cheiro_clean_v1.json
+# (the page-level corpus the authoring gate verifies against);
+# _FEATURE_PAGE_RANGES comes from data/cheiro_feature_pages.json, in the
+# chunk corpus' `page_ref` numbering used by the retrieval page-range
+# gate. They coincide for head/heart/life/most mounts, but the fate file
+# sits at source_page 103-105 against a "fate line" range of (162, 165) --
+# so range-checking rule pages would tag wrong_source on ALL 16 fate rules
+# on every run that fires one. Measured this session; see
+# diagnostics/latest_run.md (S119 Step 4).
+#
+# The page-range check exists to catch a RETRIEVAL claim citing a chunk
+# from the wrong chapter. That failure mode cannot occur for a rule claim,
+# whose citation is the rule's own authored, gate-verified span
+# (scripts/gate_rule_citations.py: NOT_FOUND_ANYWHERE 0/99). The rule-claim
+# analogue of "wrong source" is a citation that is missing or unusable,
+# which is what _rule_claim_citation_is_broken checks.
+
+
+def _rule_claim_citation_is_broken(claim) -> bool:
+    """True only for a RULE-sourced claim whose citation cannot identify
+    its source: no source_page, or an empty/whitespace source_quote. A
+    by-chunk (retrieval) claim always returns False -- this function has
+    no opinion about it. Never raises."""
+    try:
+        citation = claim.citation
+    except Exception:
+        # A claim with neither a chunk_id nor a rule citation cannot be
+        # sourced at all -- that IS the broken case, not a reason to skip.
+        return True
+    if not isinstance(citation, CitationByRule):
+        return False
+    return citation.source_page is None or not str(citation.source_quote or "").strip()
+
+
+def _retrieval_claim_page(claim) -> int | None:
+    """The page a BY-CHUNK claim's chunk_id encodes, or None when there is
+    nothing to range-check (a rule claim, a malformed chunk_id). Behavior
+    for by-chunk claims is byte-identical to the old inline regex."""
+    try:
+        citation = claim.citation
+    except Exception:
+        return None
+    if not isinstance(citation, CitationByChunk):
+        return None
+    try:
+        match = re.search(r"_p(\d+)_", citation.chunk_id)
+        if match is None:
+            return None
+        return int(match.group(1))
+    except Exception:
+        return None
+
+
 def _run_had_failure(reading) -> tuple[bool, list[str]]:
     """S83: categorical, threshold-free gate for the dogfood capture net --
     clean runs write nothing, only a fired reason tag earns a capture.
@@ -188,15 +284,14 @@ def _run_had_failure(reading) -> tuple[bool, list[str]]:
         for claim in reading.claims:
             if claim.excluded_from_voice:
                 continue
+            if _rule_claim_citation_is_broken(claim):
+                tags.add("wrong_source")
+                continue
+            page = _retrieval_claim_page(claim)
+            if page is None:
+                continue
             feature_range = _FEATURE_PAGE_RANGES.get(claim.feature)
             if not feature_range:
-                continue
-            try:
-                match = re.search(r"_p(\d+)_", claim.chunk_id)
-                if match is None:
-                    continue
-                page = int(match.group(1))
-            except Exception:
                 continue
             start, end = feature_range
             if not (start <= page <= end):
@@ -298,7 +393,7 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
         for claim in reading.claims:
             claim_text_oneline = claim.claim_text.replace("\n", " ")
             lines.append(
-                f"{claim.claim_id} | {claim.feature} | {claim.chunk_id} | "
+                f"{claim.claim_id} | {claim.feature} | {_citation_column(claim)} | "
                 f"{claim.valence} | {claim.excluded_from_voice} | "
                 f"{claim.exclusion_reason} | {claim.condition_text} | "
                 f"{claim_text_oneline}"
@@ -433,7 +528,7 @@ def _capture_checkpoint_declined(prep) -> None:
         for claim in prep.claims:
             claim_text_oneline = claim.claim_text.replace("\n", " ")
             lines.append(
-                f"{claim.claim_id} | {claim.feature} | {claim.chunk_id} | "
+                f"{claim.claim_id} | {claim.feature} | {_citation_column(claim)} | "
                 f"{claim.valence} | {claim.excluded_from_voice} | "
                 f"{claim.exclusion_reason} | {claim.condition_text} | "
                 f"{claim_text_oneline}"
@@ -1330,7 +1425,7 @@ if _PALM_ENABLED:
                     else "included"
                 )
                 st.caption(
-                    f"{_claim.claim_id} | {_claim.feature} | {_claim.chunk_id} | "
+                    f"{_claim.claim_id} | {_claim.feature} | {_citation_column(_claim)} | "
                     f"{_claim.valence} | {_excl}"
                 )
         else:
@@ -1421,7 +1516,7 @@ if _PALM_ENABLED:
                             else "included"
                         )
                         st.caption(
-                            f"{_claim.claim_id} | {_claim.feature} | {_claim.chunk_id} | "
+                            f"{_claim.claim_id} | {_claim.feature} | {_citation_column(_claim)} | "
                             f"{_claim.valence} | {_excl}"
                         )
                 else:

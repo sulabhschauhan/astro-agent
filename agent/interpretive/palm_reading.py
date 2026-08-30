@@ -2285,6 +2285,7 @@ def _prepare_deterministic_prep(
     targets: dict[str, dict[str, str]] | None = None,
     proximity_observations: dict[str, dict[str, str]] | None = None,
     mount_development: dict[str, dict[str, str]] | None = None,
+    reading_id: str | None = None,
 ) -> PalmReadingPrep:
     """Builds the SAME PalmReadingPrep shape the LLM Stage-1 path builds,
     with `claims` sourced from the deterministic rule engine. Everything
@@ -2323,6 +2324,28 @@ def _prepare_deterministic_prep(
     engine_diagnostics["final_outcome"] = (
         "rules_engine_failed" if engine_diagnostics.get("failed") else "rules_engine_ok"
     )
+
+    # S119 Step 4: the retired dropped_rule_ids tripwire becomes a
+    # first-class capture-net event instead of a stdout WARNING. DORMANT
+    # BY CONSTRUCTION -- Step 2 removed the only drop path, so this list
+    # is always [] and nothing is ever written on a real run. It is wired
+    # anyway so that a future regression that reintroduces a drop shows up
+    # in the durable sink a human actually reviews. Reuses the reading_id
+    # prepare_palm_reading already minted for the S109 fallback events, so
+    # one reading stays one id; a direct caller that passes none gets its
+    # own, rather than being silently unaudited.
+    try:
+        from agent.interpretive import capture_net  # local -- matches this file's convention
+        capture_net.record_dropped_rules(
+            engine_diagnostics.get("dropped_rule_ids", []),
+            reading_id or uuid.uuid4().hex,
+        )
+    except Exception as exc:  # noqa: BLE001 -- belt-and-suspenders; capture_net is already fail-safe
+        logger.warning(
+            "palm_reading._prepare_deterministic_prep: dropped-rule capture "
+            "wiring failed (%s: %s) -- reading proceeds unaffected.",
+            type(exc).__name__, exc,
+        )
 
     # JURISDICTION FIX (ratified design decision): the retrieval support
     # gate's authority covers RETRIEVAL-sourced claims only. A feature
@@ -2728,6 +2751,8 @@ def prepare_palm_reading(
             targets=targets,
             proximity_observations=proximity_observations,
             mount_development=mount_development,
+            # Same id the S109 fallback events above were recorded under.
+            reading_id=reading_id,
         )
 
     extraction_result = claim_extraction.extract_claims(
