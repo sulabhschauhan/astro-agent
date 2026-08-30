@@ -306,17 +306,187 @@ def _validate_response(
 # ─── Dataclasses ───────────────────────────────────────────────────────
 
 
+# ─── Citation sum type (S119 Step 1, ADDITIVE CARRIER ONLY) ─────────────
+#
+# RATIFIED DESIGN (S119 Step 1, Conflict 2): a claim's citation is EITHER
+# a retrieval chunk_id (CitationByChunk -- what every claim carries today,
+# from Stage-1 extraction over gated chunks) OR a rule's own provenance
+# (CitationByRule -- rule_id + source_page + source_quote, straight off
+# the deterministic rule table). Step 2 is what switches the rule path
+# onto the by-rule branch so `rule_to_claim.claims_from_rules` can stop
+# resolving (fabricating) a chunk_id for a claim whose real source is the
+# rule's own verbatim span. THIS STEP ADDS THE CAPABILITY ONLY: nothing
+# in the repo constructs a by-rule citation yet, and no consumer reads
+# the by-rule branch.
+#
+# SOURCE_QUOTE CONTAINMENT (unchanged invariant, see claim_voicing.py's
+# module docstring and rule_to_claim.py's "IMPORTANT DESIGN CONSEQUENCE"
+# note): a CitationByRule's `source_quote` is 19th-century book prose and
+# must NEVER reach a voicer-facing field. claim_voicing reads exactly
+# claim_id / claim_text / valence / observation_basis -- none of which
+# this carrier touches -- and `Claim.citation_ref` below deliberately
+# renders the by-rule form WITHOUT the quote, so even a future consumer
+# that logs the accessor cannot leak it.
+
+
+@dataclass(frozen=True)
+class CitationByChunk:
+    """The existing, default citation identity: a retrieved chunk_id."""
+
+    chunk_id: str
+
+
+@dataclass(frozen=True)
+class CitationByRule:
+    """A rule's OWN provenance -- no retrieval chunk involved.
+
+    `source_page` mirrors `palm_rules_table.PalmRule.source_page`'s type
+    (str or int, depending on the rule file), so it is carried as-is
+    rather than coerced here.
+    """
+
+    rule_id: str
+    source_page: int | str
+    source_quote: str
+
+
+Citation = CitationByChunk | CitationByRule
+
+# Instance-attribute name the by-rule citation is stashed under. It is
+# DELIBERATELY NOT a dataclass field:
+#   * `dataclasses.fields(Claim)` stays the 9 names every existing caller
+#     and test knows (tests/interpretive/test_palm_reading_rules_engine.py
+#     pins that exact set), so this step is genuinely additive -- no
+#     existing test needed changing;
+#   * `Claim(...)`'s generated __init__, __eq__ and __repr__ are all
+#     byte-for-byte the behavior they had before.
+# ACCEPTED CONSEQUENCES, registered here rather than discovered later:
+#   (1) `dataclasses.replace(claim, ...)` would DROP a by-rule citation
+#       (it rebuilds from fields only). No caller anywhere in the repo
+#       calls replace() on a Claim (verified S119 Step 1); if one is ever
+#       added, it must go through Claim.by_rule instead.
+#   (2) __eq__ ignores the citation. Two claims identical in all 9 fields
+#       but citing different rules compare equal. Harmless today: claim_id
+#       is unique within a reading, so the collision is unreachable in
+#       practice.
+_CITATION_ATTR = "_citation"
+
+
 @dataclass(frozen=True)
 class Claim:
     claim_id: str
     feature: str
-    chunk_id: str
+    # `str | None` is an ANNOTATION-ONLY widening (still a required
+    # positional field, no default): a by-rule claim has no chunk_id to
+    # report. Every by-chunk claim -- i.e. every claim any current
+    # producer builds -- still carries the same str it always did, so
+    # E-1 (this module), A1 V-2 (palm_reading._check_anchor_legality)
+    # and every `.chunk_id` reader are untouched.
+    chunk_id: str | None
     claim_text: str
     valence: str
     condition_text: str | None
     observation_basis: str
     excluded_from_voice: bool
     exclusion_reason: str | None
+
+    @property
+    def citation(self) -> Citation:
+        """This claim's citation, as the sum type above.
+
+        Defaults to CitationByChunk(chunk_id) so a Claim built through the
+        plain constructor -- every existing call site and test fixture --
+        is a by-chunk claim exactly as before.
+        """
+        stored = self.__dict__.get(_CITATION_ATTR)
+        if stored is not None:
+            return stored
+        if self.chunk_id is None:
+            raise ValueError(
+                f"Claim {self.claim_id!r} has neither a chunk_id nor a rule "
+                "citation -- build it with Claim.by_chunk or Claim.by_rule."
+            )
+        return CitationByChunk(self.chunk_id)
+
+    @property
+    def citation_ref(self) -> str:
+        """Single accessor for the claim's citation IDENTITY.
+
+        by-chunk -> the chunk_id verbatim (identical to `.chunk_id`, so a
+        future consumer can swap one for the other with no change).
+        by-rule  -> a compact rule reference. The quote is deliberately
+        excluded (see SOURCE_QUOTE CONTAINMENT above).
+        """
+        citation = self.citation
+        if isinstance(citation, CitationByChunk):
+            return citation.chunk_id
+        return f"rule:{citation.rule_id}@p{citation.source_page}"
+
+    @classmethod
+    def by_chunk(
+        cls,
+        *,
+        claim_id: str,
+        feature: str,
+        chunk_id: str,
+        claim_text: str,
+        valence: str,
+        condition_text: str | None,
+        observation_basis: str,
+        excluded_from_voice: bool,
+        exclusion_reason: str | None,
+    ) -> "Claim":
+        """Explicit by-chunk constructor. Produces a Claim identical in
+        every field (and in equality/repr) to the plain constructor call
+        it replaces -- it only makes the citation branch legible at the
+        call site."""
+        return cls(
+            claim_id=claim_id,
+            feature=feature,
+            chunk_id=chunk_id,
+            claim_text=claim_text,
+            valence=valence,
+            condition_text=condition_text,
+            observation_basis=observation_basis,
+            excluded_from_voice=excluded_from_voice,
+            exclusion_reason=exclusion_reason,
+        )
+
+    @classmethod
+    def by_rule(
+        cls,
+        *,
+        claim_id: str,
+        feature: str,
+        rule_id: str,
+        source_page: int | str,
+        source_quote: str,
+        claim_text: str,
+        valence: str,
+        condition_text: str | None,
+        observation_basis: str,
+        excluded_from_voice: bool,
+        exclusion_reason: str | None,
+    ) -> "Claim":
+        """Rule-cited claim: chunk_id is None BY DESIGN (there is no
+        retrieval chunk behind it -- that is the whole point). NO producer
+        calls this yet; Step 2 wires rule_to_claim.claims_from_rules onto
+        it."""
+        claim = cls(
+            claim_id=claim_id,
+            feature=feature,
+            chunk_id=None,
+            claim_text=claim_text,
+            valence=valence,
+            condition_text=condition_text,
+            observation_basis=observation_basis,
+            excluded_from_voice=excluded_from_voice,
+            exclusion_reason=exclusion_reason,
+        )
+        object.__setattr__(
+            claim, _CITATION_ATTR, CitationByRule(rule_id, source_page, source_quote)
+        )
+        return claim
 
 
 @dataclass(frozen=True)
@@ -422,7 +592,7 @@ def _apply_e4(
                 excluded = True
                 reason = f"{_DISJUNCTIVE_TAXONOMY_REASON}:{e5}"
 
-        claim = Claim(
+        claim = Claim.by_chunk(
             claim_id=claim_id,
             feature=feature,
             chunk_id=raw_claim["chunk_id"],

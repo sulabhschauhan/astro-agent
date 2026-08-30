@@ -13,11 +13,14 @@ client.chat.completions.create(...) surface generate_palm_reading's does.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 
 import pytest
 
 from agent.interpretive.claim_extraction import (
+    CitationByChunk,
+    CitationByRule,
     Claim,
     ExtractionResult,
     _is_two_sided_definitional,
@@ -748,3 +751,174 @@ def test_all_gated_empty_returns_empty_result_no_raise():
     assert result.failed_features == ()
     assert result.diagnostics == {"features": {}, "exclusion_ledger": []}
     assert client.completions.calls == []
+
+
+# ─── S119 Step 1: citation sum type (additive carrier) ──────────────────
+#
+# Step 1 adds the CAPABILITY only -- no producer builds a by-rule citation
+# and no consumer reads the by-rule branch yet (Step 2 wires it). These
+# tests therefore pin (a) that the by-chunk path is byte-for-byte what it
+# always was, (b) that the by-rule branch exists and carries what Step 2
+# needs, and (c) that a rule's source_quote cannot reach the voicer.
+
+
+_CLAIM_FIELD_NAMES = (
+    "claim_id", "feature", "chunk_id", "claim_text", "valence",
+    "condition_text", "observation_basis", "excluded_from_voice",
+    "exclusion_reason",
+)
+
+
+def _by_chunk_kwargs(**overrides) -> dict:
+    base = dict(
+        claim_id="C1",
+        feature="head line",
+        chunk_id="cheiroslanguageo00chei_1_p145_c0",
+        claim_text="A short head line indicates a practical, material nature.",
+        valence="supports",
+        condition_text=None,
+        observation_basis="short and clearly marked",
+        excluded_from_voice=False,
+        exclusion_reason=None,
+    )
+    base.update(overrides)
+    return base
+
+
+# --- (1) backward compatibility ------------------------------------------
+
+
+def test_existing_style_construction_is_a_by_chunk_citation_with_identical_chunk_id():
+    """The plain constructor -- what every pre-S119 call site and test
+    fixture uses -- still yields a by-chunk claim whose chunk_id is
+    unchanged, and whose citation identity IS that same chunk_id."""
+    kwargs = _by_chunk_kwargs()
+    claim = Claim(**kwargs)
+
+    assert claim.chunk_id == kwargs["chunk_id"]
+    assert claim.citation == CitationByChunk(kwargs["chunk_id"])
+    assert claim.citation_ref == kwargs["chunk_id"]
+    # Every other accessor unchanged.
+    for name in _CLAIM_FIELD_NAMES:
+        assert getattr(claim, name) == kwargs[name]
+
+
+def test_by_chunk_classmethod_is_indistinguishable_from_the_plain_constructor():
+    kwargs = _by_chunk_kwargs()
+    assert Claim.by_chunk(**kwargs) == Claim(**kwargs)
+    assert repr(Claim.by_chunk(**kwargs)) == repr(Claim(**kwargs))
+    assert Claim.by_chunk(**kwargs).citation == Claim(**kwargs).citation
+
+
+def test_claim_dataclass_field_set_is_unchanged_by_the_citation_carrier():
+    """The carrier is NOT a dataclass field -- __init__/__eq__/__repr__ and
+    dataclasses.fields() are all exactly what they were."""
+    assert tuple(f.name for f in dataclasses.fields(Claim)) == _CLAIM_FIELD_NAMES
+    assert not hasattr(Claim(**_by_chunk_kwargs()), "source_quote")
+
+
+# --- (2) new capability: by-rule ------------------------------------------
+
+
+def test_by_rule_carries_rule_id_source_page_and_source_quote():
+    claim = Claim.by_rule(
+        claim_id="C1",
+        feature="head line",
+        rule_id="H_005",
+        source_page=146,
+        source_quote="When the line of head is short ...",
+        claim_text="A short head line indicates a practical, material nature.",
+        valence="rule_derived",
+        condition_text=None,
+        observation_basis="head line Length=short",
+        excluded_from_voice=False,
+        exclusion_reason=None,
+    )
+
+    assert claim.citation == CitationByRule("H_005", 146, "When the line of head is short ...")
+    assert claim.citation.rule_id == "H_005"
+    assert claim.citation.source_page == 146
+    assert claim.citation.source_quote == "When the line of head is short ..."
+    # chunk_id is None BY DESIGN -- there is no retrieval chunk behind it.
+    assert claim.chunk_id is None
+
+
+def test_by_rule_citation_ref_returns_a_rule_form_without_the_quote():
+    """Shape only -- no consumer reads this branch yet. The accessor must
+    never render the quote (source_quote containment)."""
+    claim = Claim.by_rule(
+        claim_id="C1", feature="life line", rule_id="L_012", source_page="p139",
+        source_quote="a long line sweeping far out into the hand",
+        claim_text="text", valence="rule_derived", condition_text=None,
+        observation_basis="life line Length=long", excluded_from_voice=False,
+        exclusion_reason=None,
+    )
+
+    assert claim.citation_ref == "rule:L_012@pp139"
+    assert "sweeping far out" not in claim.citation_ref
+
+
+def test_claim_with_no_chunk_id_and_no_rule_citation_raises_rather_than_guessing():
+    claim = Claim(**_by_chunk_kwargs(chunk_id=None))
+    with pytest.raises(ValueError, match="neither a chunk_id nor a rule citation"):
+        claim.citation
+
+
+# --- (3) source_quote never reaches a voicer-facing field ----------------
+
+
+def test_source_quote_never_reaches_any_voicer_facing_field():
+    """claim_voicing reads exactly claim_id/claim_text/valence/
+    observation_basis and builds its prompt from those -- a by-rule
+    citation's quote must appear in none of them, nor in the built
+    prompt."""
+    from agent.interpretive.claim_voicing import _build_user_prompt
+
+    quote = "ZZQUOTEZZ the line of head when short denotes a material nature"
+    claim = Claim.by_rule(
+        claim_id="C1", feature="head line", rule_id="H_005", source_page=146,
+        source_quote=quote, claim_text="A short head line indicates practicality.",
+        valence="rule_derived", condition_text=None,
+        observation_basis="head line Length=short", excluded_from_voice=False,
+        exclusion_reason=None,
+    )
+
+    for voicer_field in ("claim_id", "claim_text", "valence", "observation_basis"):
+        assert quote not in str(getattr(claim, voicer_field))
+    assert quote not in _build_user_prompt([claim], {"head line": "short"})
+    assert quote not in claim.citation_ref
+
+
+# --- (4) every enumerated existing construction site still builds --------
+
+
+def test_every_existing_construction_site_shape_still_builds_a_valid_claim():
+    """The four production/test construction shapes enumerated at S119
+    Step 1: claim_extraction._apply_e4, rule_to_claim.claims_from_rules,
+    tests/interpretive/test_claim_voicing.py's _claim builder, and
+    tests/test_app_dogfood_capture.py's inline fixtures. All keyword-only,
+    all nine fields, no citation argument."""
+    shapes = (
+        # claim_extraction._apply_e4 (excluded, E-4 reason)
+        _by_chunk_kwargs(
+            claim_id="C2", valence="conditional",
+            condition_text="fate line rises from the life line",
+            excluded_from_voice=True, exclusion_reason="precondition unverified",
+        ),
+        # rule_to_claim.claims_from_rules
+        _by_chunk_kwargs(
+            feature="life line", valence="rule_derived",
+            observation_basis="life line Length=long",
+        ),
+        # test_claim_voicing._claim
+        _by_chunk_kwargs(chunk_id="c1", claim_text="Claim one text.", observation_basis="deep, long"),
+        # test_app_dogfood_capture inline fixture
+        _by_chunk_kwargs(
+            feature="fate line", chunk_id="cheiroslanguageo00chei_1_p200_c1",
+            valence="positive", observation_basis="barely visible",
+        ),
+    )
+    for kwargs in shapes:
+        claim = Claim(**kwargs)
+        assert isinstance(claim.citation, CitationByChunk)
+        assert claim.citation_ref == kwargs["chunk_id"]

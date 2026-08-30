@@ -250,7 +250,11 @@ def claims_from_rules(
 
         claim_id = f"C{counter}"
         counter += 1
-        claims.append(Claim(
+        # by_chunk: EXPLICIT about the citation branch this path currently
+        # takes (S119 Step 1 -- carrier only). Step 2 is what flips this to
+        # Claim.by_rule so a rule-sourced claim stops borrowing a resolved
+        # chunk_id it never actually came from.
+        claims.append(Claim.by_chunk(
             claim_id=claim_id,
             feature=_feature_for_topic_group(rule.topic_group),
             chunk_id=chunk_id,
