@@ -130,6 +130,11 @@ from typing import TYPE_CHECKING
 
 from agent.interpretive import claim_extraction, claim_voicing
 from agent.interpretive.claim_extraction import CitationByRule, Claim
+from agent.interpretive.feature_needles import (
+    FEATURE_NEEDLES_BASE as _FEATURE_NEEDLES_BASE,
+    OUTPUT_FEATURE_IDENTIFIERS as _OUTPUT_FEATURE_IDENTIFIERS,
+    RETRIEVAL_NEEDLES as _RETRIEVAL_NEEDLES,
+)
 from agent.prompt_builder import DISCLAIMER
 from ingestion.query_engine import search
 
@@ -735,72 +740,14 @@ def _assemble_retrieved_passages(
 # "supports" its feature if it both scores above a noise floor AND
 # actually names the feature (or a close synonym) in its text.
 
-# Needles are deliberately SHORT, single-word forms for OCR robustness.
-# This corpus is OCR-scanned and unreliable at the word level -- e.g.
-# pass-1's p.163 chunk renders "life" as "hfe" in one instance ("The
-# line of fate may rise from the line of hfe, the wrist, the Mount of
-# Luna..."). A short needle can still register a match against another,
-# correctly-OCR'd occurrence of the same word elsewhere in a longer
-# passage, whereas a longer/stricter multi-word phrase requirement would
-# be more likely to be defeated by a single garbled word anywhere in it.
-_FEATURE_NEEDLES_BASE: dict[str, tuple[str, ...]] = {
-    "life line": ("life",),
-    "head line": ("head",),
-    "heart line": ("heart",),
-    "fate line": ("fate",),
-    "sun line": ("sun",),
-    "thumb": ("thumb",),
-    "fingers": ("finger",),
-    "mount of venus": ("venus",),
-    "mount of jupiter": ("jupiter",),
-    "mount of saturn": ("saturn",),
-    # both corpus-attested for this mount (cheiro_clean_v1.json p112:
-    # "THE MOUNT OF THE SUN... also called the Mount of Apollo").
-    "mount of apollo": ("apollo", "sun"),
-    "mount of mercury": ("mercury",),
-    # Cheiro's own prose (p113) calls these "the first"/"the second"
-    # mount of this name, never "positive"/"negative" or "upper"/
-    # "lower" -- no single-word needle in the corpus text can tell them
-    # apart, so both share the same needle. Accepted imprecision, not
-    # silently patched: a chunk mentioning either Mars mount will
-    # support-gate-pass for both features. Flagged in diagnostics/
-    # latest_run.md, not a new mechanism.
-    "mount of mars positive": ("mars",),
-    "mount of mars negative": ("mars",),
-    # both corpus-attested (p113 "THE MOUNT OF LUNA"; p191 "Mount of
-    # the Moon").
-    "mount of luna": ("luna", "moon"),
-    "markings/other features": (
-        "mark", "star", "cross", "island", "square", "circle", "hair",
-    ),
-}
-
-# S119 STEP 6: the one needle table above served TWO jobs with genuinely
-# different requirements, and a value edit made for one silently changed
-# the other. They are now two separately-named, separately-addressable
-# tables, both initialised from the SAME literal -- so this split is
-# value-identical by construction today (pinned by
-# test_step6_split_is_value_identical_to_the_shared_base) and a future
-# divergence has to be written deliberately into ONE of them.
-#
-#   JOB A -- _RETRIEVAL_NEEDLES: does a CORPUS CHUNK talk about this
-#   feature? Matched with plain substring containment against OCR-scanned
-#   book text (_chunk_supports_feature). Wants PERMISSIVE, short,
-#   OCR-robust forms; the failure to avoid is a false NEGATIVE (dropping a
-#   genuinely relevant chunk because OCR mangled a word boundary).
-#
-#   JOB B -- _OUTPUT_FEATURE_IDENTIFIERS: does this text NAME this
-#   feature? Matched with word-boundary regex against the model's own
-#   fluent English (_check_banned_feature_mentions, the S118 censor, and
-#   _allowed_needles_for_claimed_features which feeds it). Wants PRECISE
-#   forms that do not collide with ordinary English ("sunny"/"remarkable");
-#   the failure to avoid is a false POSITIVE (failing a clean reading).
-#
-# The asymmetric MATCHING LOGIC (substring vs word-boundary) is unchanged
-# and still lives in each consumer -- Step 6 moved only which named table
-# each one reads.
-_RETRIEVAL_NEEDLES: dict[str, tuple[str, ...]] = dict(_FEATURE_NEEDLES_BASE)
-_OUTPUT_FEATURE_IDENTIFIERS: dict[str, tuple[str, ...]] = dict(_FEATURE_NEEDLES_BASE)
+# The needle vocabulary itself now lives in the LEAF module
+# agent/interpretive/feature_needles.py (S119 Step 7), imported at the
+# top of this file as _RETRIEVAL_NEEDLES / _OUTPUT_FEATURE_IDENTIFIERS.
+# It moved there so claim_voicing.py could read the SAME table instead
+# of the verbatim copy it had been carrying, which had drifted to 10
+# features against this one's 16. The two purpose-named views, their
+# job-A/job-B rationale, and the per-needle provenance notes moved with
+# it intact -- see that module's docstring.
 
 # F-B (S68 pass-3 Findings #1) TIER 2: per-feature noun-anchored absence
 # patterns, reusing _RETRIEVAL_NEEDLES as the SAME single source of truth

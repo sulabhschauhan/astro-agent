@@ -88,14 +88,18 @@ philosophy as claim_extraction.py's E-1/E-2/E-3):
     was actually offered to Stage 2) is cited by >=1 [C<n>] tag in the
     final draft.
   - V-5 [FLOW] doctrine guard (S70 F-G4 narrowed -- was [FLOW]/[OBS]):
-    reuses `palm_reading._SUPPORT_NEEDLES` (the per-feature trait-noun
-    dictionary) as the SAME single source of truth for "does this
-    sentence name a palm feature's own significance-bearing noun" --
-    TRANSPLANTED here (`_FEATURE_TRAIT_NEEDLES`, cited, not imported:
-    importing `palm_reading` from this module would create a circular
-    import once `palm_reading.py` wires THIS module in, the same
-    reasoning `claim_extraction.py`'s own `_EXTRACTION_TIMEOUT_SECONDS`
-    comment already documents). ANY needle hit in a [FLOW] segment fails
+    reads `feature_needles.OUTPUT_FEATURE_IDENTIFIERS` (the per-feature
+    trait-noun dictionary) as the SAME single source of truth for "does
+    this sentence name a palm feature's own significance-bearing noun".
+    S119 Step 7: this was a TRANSPLANTED verbatim copy until that table
+    moved to the leaf module `feature_needles.py` -- the copy existed
+    only because importing `palm_reading` from this module would close a
+    cycle (`palm_reading.py` wires THIS module in), the same reasoning
+    `claim_extraction.py`'s own `_EXTRACTION_TIMEOUT_SECONDS` comment
+    documents; the leaf module removes the cycle, so the copy is DELETED
+    rather than re-synced. (It had drifted to 10 features against the
+    real 16 -- see the constant's own comment for what V-5 was blind
+    to.) ANY needle hit in a [FLOW] segment fails
     -- deliberately coarse, by design, not a false-negative-optimized
     classifier. [OBS] segments are OUT OF SCOPE for this guard as of
     S70 F-G4: 4 consecutive dogfood runs (`.claude/read_prompt.md`,
@@ -137,6 +141,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+
+from agent.interpretive.feature_needles import OUTPUT_FEATURE_IDENTIFIERS
 
 if TYPE_CHECKING:
     from agent.interpretive.claim_extraction import Claim
@@ -321,31 +327,30 @@ def _call_llm(client, messages: list[dict]) -> str:
     return response.choices[0].message.content
 
 
-# ─── V-5: transplanted trait-needle machinery ───────────────────────────
-# TRANSPLANTED from palm_reading._SUPPORT_NEEDLES (verbatim dict), cited
-# not imported -- see the module docstring's V-5 entry for the circular-
-# import reasoning. Same single-word, OCR-robustness-motivated needle
-# choices as the original (irrelevant to THIS use, since V-5 only ever
-# scans the MODEL's own fluent English output, never OCR'd corpus text --
-# kept identical anyway so the two dictionaries never drift apart for no
-# reason).
-_FEATURE_TRAIT_NEEDLES: dict[str, tuple[str, ...]] = {
-    "life line": ("life",),
-    "head line": ("head",),
-    "heart line": ("heart",),
-    "fate line": ("fate",),
-    "sun line": ("sun",),
-    "thumb": ("thumb",),
-    "fingers": ("finger",),
-    "mount of venus": ("venus",),
-    "mount of jupiter": ("jupiter",),
-    "markings/other features": (
-        "mark", "star", "cross", "island", "square", "circle", "hair",
-    ),
-}
-
+# ─── V-5: trait-needle machinery (shared, no longer transplanted) ───────
+# S119 Step 7: this module used to carry `_FEATURE_TRAIT_NEEDLES`, a
+# VERBATIM COPY of palm_reading's needle table, because importing
+# palm_reading from here would close a cycle (palm_reading imports THIS
+# module to run Stage 2). The copy was commented "kept identical anyway
+# so the two dictionaries never drift apart for no reason" -- and it
+# drifted anyway: 10 features against the real 16, missing every mount
+# added at S117, so V-5 was blind to saturn/mars/mercury/apollo/luna/moon
+# in model output for as long as the mounts had shipped. The copy is
+# DELETED. The table now lives in the LEAF module feature_needles.py,
+# which imports nothing from agent.interpretive and so can be read from
+# both sides without a cycle.
+#
+# V-5 is a JOB B consumer (see that module's docstring): it scans the
+# MODEL's own fluent English, never OCR'd corpus text, so
+# OUTPUT_FEATURE_IDENTIFIERS is the correct view to read.
+#
+# NOTE the flattening: V-5 uses only the UNION of needle words, never the
+# per-feature structure -- it asks "does this [FLOW] sentence name ANY
+# feature's noun", not "which feature". The 6 words the drift had been
+# withholding from that union are apollo/luna/mars/mercury/moon/saturn
+# ("sun" was already present via "sun line").
 _ALL_NEEDLES: tuple[str, ...] = tuple(
-    sorted({n for needles in _FEATURE_TRAIT_NEEDLES.values() for n in needles})
+    sorted({n for needles in OUTPUT_FEATURE_IDENTIFIERS.values() for n in needles})
 )
 _ANY_FEATURE_NEEDLE_PATTERN = re.compile(
     r"\b(" + "|".join(re.escape(n) for n in _ALL_NEEDLES) + r")\b", re.IGNORECASE
@@ -434,7 +439,7 @@ def _segment_by_tag(text: str) -> list[tuple[str, str]]:
 
 def _check_flow_doctrine_guard(text: str) -> list[str]:
     """V-5 (S70 F-G4 narrowed): any [FLOW] segment mentioning ANY
-    feature's own trait-needle (see _FEATURE_TRAIT_NEEDLES / module
+    feature's own trait-needle (see _ALL_NEEDLES / module
     docstring) fails. [OBS] segments are OUT OF SCOPE for this guard --
     an [OBS] sentence restates a confirmed observation by definition, so
     naming that observation's own feature (e.g. "the sun line is clearly

@@ -18,7 +18,7 @@ import re
 
 import pytest
 
-from agent.interpretive import claim_voicing
+from agent.interpretive import claim_voicing, feature_needles
 from agent.interpretive.claim_extraction import Claim
 from agent.interpretive.claim_voicing import VoiceResult, voice_claims
 
@@ -601,3 +601,161 @@ def test_extra_validator_failures_recorded_in_diagnostics_first_attempt_only():
 
     assert result.diagnostics["extra_validator_failures"] == ["extra_check: found echo"]
     assert result.diagnostics["first_attempt_failures"] == ["extra_check: found echo"]
+
+
+# ══ S119 Step 7: V-5 reads the shared table (mounts no longer missing) ══
+#
+# V-5's needle source used to be `_FEATURE_TRAIT_NEEDLES`, a verbatim copy
+# of palm_reading's table that had DRIFTED to 10 features against the real
+# 16 -- missing every mount added at S117. It now reads
+# feature_needles.OUTPUT_FEATURE_IDENTIFIERS directly.
+#
+# WHAT ACTUALLY CHANGED, precisely: V-5 flattens the table into a UNION of
+# needle WORDS (`_ALL_NEEDLES`) and never uses the per-feature structure.
+# The union goes from 16 words to 22 -- the 6 additions are apollo, luna,
+# mars, mercury, moon, saturn. ("sun" was already present via "sun line",
+# so `mount of apollo` contributes nothing new.)
+#
+# WHY THAT CANNOT REJECT A LEGITIMATE MOUNT SENTENCE: V-5 scans [FLOW]
+# segments ONLY (`if tag_label != "FLOW": continue`). A real mount sentence
+# in a reading is tagged [C<n>] (it cites a claim) or [OBS] (it restates a
+# confirmed observation) -- both out of scope by construction. The only
+# newly-caught sentences are UNANCHORED connectives smuggling mount
+# doctrine, which is exactly the leak this guard exists to catch and which
+# the drift had been silently permitting. The tests below pin both halves.
+
+
+def test_v5_needle_union_is_the_full_sixteen_feature_table():
+    """Single source of truth, at the level V-5 actually consumes: the
+    union is derived from the shared table, and carries the 6 words the
+    drifted copy had been withholding."""
+    assert claim_voicing.OUTPUT_FEATURE_IDENTIFIERS is (
+        feature_needles.OUTPUT_FEATURE_IDENTIFIERS
+    )
+    expected = tuple(sorted({
+        n for needles in feature_needles.OUTPUT_FEATURE_IDENTIFIERS.values()
+        for n in needles
+    }))
+    assert claim_voicing._ALL_NEEDLES == expected
+    # The exact drift delta, pinned so a future table edit shows up here.
+    assert set(claim_voicing._ALL_NEEDLES) >= {
+        "apollo", "luna", "mars", "mercury", "moon", "saturn",
+    }
+
+
+@pytest.mark.parametrize(
+    "needle_word",
+    ["life", "head", "heart", "fate", "sun", "thumb", "finger", "venus",
+     "jupiter", "mark", "star", "cross", "island", "square", "circle", "hair"],
+)
+def test_v5_behaviour_on_the_ten_pre_existing_features_is_unchanged(needle_word):
+    """REQUIREMENT 2: every needle word the drifted copy ALREADY carried
+    still fails inside a [FLOW] segment, exactly as before. Parametrized
+    over the full pre-Step-7 union so 'unchanged' is proved word by word,
+    not sampled."""
+    claim = _claim()
+    texts_by_feature = {"life line": "deep, long"}
+    bad = (
+        f"Consider now the {needle_word} of it all.[FLOW] "
+        "A long deep life line promises vitality.[C1]"
+    )
+    client = _FakeClient(responses=[(bad, None), (bad, None)])
+
+    result = voice_claims((claim,), texts_by_feature, client=client)
+
+    assert any(
+        f.startswith("doctrine_guard: [FLOW]") and repr(needle_word) in f
+        for f in result.validation_failures
+    ), result.validation_failures
+
+
+@pytest.mark.parametrize(
+    "needle_word", ["saturn", "mars", "mercury", "apollo", "luna", "moon"]
+)
+def test_v5_now_catches_mount_doctrine_in_an_unanchored_flow_sentence(needle_word):
+    """REQUIREMENT 3a, the INTENDED behaviour change: an unanchored [FLOW]
+    sentence naming a mount's own noun now fails. Before Step 7 the
+    drifted copy carried none of these words, so every one of these
+    sentences passed V-5 silently -- doctrine with no claim behind it,
+    which is the precise leak the guard exists to catch."""
+    claim = _claim()
+    texts_by_feature = {"life line": "deep, long"}
+    bad = (
+        f"And so the {needle_word} in you shapes all that follows.[FLOW] "
+        "A long deep life line promises vitality.[C1]"
+    )
+    client = _FakeClient(responses=[(bad, None), (bad, None)])
+
+    result = voice_claims((claim,), texts_by_feature, client=client)
+
+    assert any(
+        f.startswith("doctrine_guard: [FLOW]") and repr(needle_word) in f
+        for f in result.validation_failures
+    ), result.validation_failures
+
+
+@pytest.mark.parametrize(
+    "sentence, feature, claim_text",
+    [
+        (
+            "The Mount of Saturn is firm and well raised on your palm.",
+            "mount of saturn",
+            "A well-developed Mount of Saturn denotes prudence and sobriety.",
+        ),
+        (
+            "The Upper Mount of Mars is full beneath your fingers.",
+            "mount of mars positive",
+            "A developed Upper Mount of Mars denotes active courage.",
+        ),
+        (
+            "The Mount of Mercury stands out clearly.",
+            "mount of mercury",
+            "A prominent Mount of Mercury denotes quickness of mind.",
+        ),
+        (
+            "The Mount of Luna is broad at the side of your hand.",
+            "mount of luna",
+            "A broad Mount of Luna denotes imagination.",
+        ),
+    ],
+)
+def test_v5_does_not_reject_a_legitimate_anchored_mount_sentence(
+    sentence, feature, claim_text
+):
+    """REQUIREMENT 3b, and the guard against the failure mode this step was
+    gated on: a REAL mount sentence -- an [OBS] restatement plus its [C1]
+    claim, both naming the mount by its own noun -- must pass clean on the
+    first draft, with no retry, now that those nouns are in the union.
+
+    This is the whole reason the widening is safe: V-5 scans [FLOW] only,
+    so anchored sentences were never in its jurisdiction and adding the
+    mount nouns does not put them there."""
+    claim = _claim(feature=feature, claim_text=claim_text, observation_basis="present")
+    texts_by_feature = {feature: "present"}
+    good = f"{sentence}[OBS] {claim_text}[C1]"
+    client = _FakeClient(content=good)
+
+    result = voice_claims((claim,), texts_by_feature, client=client)
+
+    assert result.validation_failures == ()
+    assert result.retry_used is False
+
+
+def test_v5_mount_noun_inside_the_claim_sentence_itself_passes():
+    """The [C<n>] half of the same guarantee, stated separately: a mount
+    noun appearing twice inside its OWN claim sentence is not a [FLOW]
+    segment and must not fail."""
+    claim = _claim(
+        feature="mount of saturn",
+        claim_text=(
+            "A well-developed Mount of Saturn denotes the sobriety that "
+            "Saturn lends to a life."
+        ),
+        observation_basis="present",
+    )
+    client = _FakeClient(content=claim.claim_text + "[C1]")
+
+    result = voice_claims((claim,), {"mount of saturn": "present"}, client=client)
+
+    assert result.validation_failures == ()
+    assert result.retry_used is False
