@@ -1539,23 +1539,27 @@ def test_mount_development_fires_end_to_end_definition_of_done(rules_engine_on, 
     palm_rules_table.match) is connected, not just unit-tested in
     isolation.
 
-    DISCOVERED INTERACTION (correct, not a bug -- worth documenting):
-    M_001 (graded, baseline=false) AND M_009 (base, baseline=true) BOTH
-    raw-match (`fired_rule_ids` names both), since 'well developed'
-    satisfies each rule's single, identical antecedent. But
-    palm_rules_table.resolve_priority's PRE-EXISTING Tier-0 baseline-
-    suppression pass (same topic_group, a non-baseline survivor present)
-    then drops M_009 -- exactly the same "ideal-reading baseline yields
-    to whatever actually contradicts or refines it" doctrine already
-    established for Life-line's own baseline rows (see resolve_priority's
-    own docstring). Net effect: the SPECIFIC health claim (M_001) is what
-    the user actually sees; the GENERIC Venus-trait claim (M_009) only
-    ever surfaces when NO graded rule also fires for that mount (e.g.
-    'not notably developed' alone). This is a more useful reading than
-    literal duplication would give, and required no new mechanism --
-    the pre-existing engine already does this correctly once both rules
-    are authored to share one topic_group and the base row is flagged
-    baseline=true, exactly as authored."""
+    CHANGED BY S119 STEP 5 (ratified). This test used to also assert that
+    M_009 (the Venus BASE-meaning row, baseline=true) raw-matched
+    alongside M_001 and was then dropped by resolve_priority's Tier-0
+    baseline-suppression pass. M_009 no longer exists to co-fire: the
+    ratified mount model retired every base-meaning row, because the
+    "generic Venus-trait claim only ever surfaces when NO graded rule
+    fires" behavior the old docstring described as useful is exactly the
+    Barnum case the ratification removes -- a line true of essentially
+    every hand, surfacing precisely when nothing discriminating was
+    observed.
+
+    The DEFINITION OF DONE this test exists for is untouched and still
+    asserted in full: a synthetic DEVELOPMENT line flows through
+    prepare_palm_reading and a real mount rule FIRES end to end (vision
+    emission -> extract_mount_development -> translate_mount_development
+    -> merge into observation -> palm_rules_table.match). The user-visible
+    outcome is identical to before -- M_001 survives alone and its
+    specific health claim is the one voiced; only the suppressed
+    co-firing row is gone. resolve_priority's baseline-suppression
+    mechanism itself is untouched and still covered by the Life-line
+    baseline tests."""
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
     client = _FakeClient(responses=[])
 
@@ -1567,9 +1571,8 @@ def test_mount_development_fires_end_to_end_definition_of_done(rules_engine_on, 
     assert diag["failed"] is False
     assert diag["mount_development"] == {"Mount of Venus": {"Development": "well developed"}}
     assert diag["observation"]["Mount of Venus"] == {"Development": "well developed"}
-    assert set(diag["fired_rule_ids"]) >= {"M_001", "M_009"}
+    assert diag["fired_rule_ids"] == ["M_001"]
     assert diag["surviving_rule_ids"] == ["M_001"]
-    assert ("M_001", "M_009") in diag["suppression_log"]
     assert len(prep.claims) == 1
     assert "strong" in prep.claims[0].claim_text.lower()  # M_001's claim, not M_009's
     assert client.completions.calls == []
@@ -1580,7 +1583,14 @@ def test_mount_development_deficiency_gates_off_base_meaning_live(rules_engine_o
     development's own unit tests: a deficient Venus grade ('small') must
     fire M_002 (the deficiency-specific rule) and must NOT fire any of
     M_009-M_013 (the base-meaning siblings), since 'small' is in Venus's
-    OFF-set."""
+    OFF-set.
+
+    S119 STEP 5 NOTE (test left as-is, prose corrected): M_009-M_013 are
+    now RETIRED, so the disjointness assertion below holds trivially
+    rather than by the OFF-set gating it was written to prove. Kept
+    because its primary assertion -- 'small' fires M_002 and nothing else
+    -- is still a real, useful property, and because it documents what
+    the base-meaning rows used to do."""
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([]))
     client = _FakeClient(responses=[])
 

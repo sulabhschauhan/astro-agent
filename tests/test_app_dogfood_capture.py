@@ -1131,3 +1131,91 @@ def test_stage1_diagnostics_tolerate_a_capture_without_the_new_key():
         },
     })
     assert "surviving_rule_features: []" in "\n".join(lines)
+
+
+# ─── S119 Step 5: source rendering, per citation kind ──────────────────
+#
+# A by-rule source carries score=None (nothing was retrieved). The
+# renderer must OMIT the score clause rather than print "score: None",
+# which a reader would take as a broken measurement rather than an
+# inapplicable one.
+
+
+def _by_rule_source(**overrides) -> dict:
+    src = {
+        "book": "cheiroslanguageo00chei_1", "page": 103, "score": None,
+        "feature": "fate line", "rule_id": "FT_003",
+        "source_quote": "When the line of fate rises from the wrist",
+    }
+    src.update(overrides)
+    return src
+
+
+def _by_chunk_source(**overrides) -> dict:
+    src = {"book": "cheiroslanguageo00chei_1", "page": 134,
+           "score": 0.61, "feature": "life line"}
+    src.update(overrides)
+    return src
+
+
+def test_renderer_never_emits_score_none_for_a_by_rule_source():
+    """HARDEST CASE for the renderer: the exact string a user must never
+    see, checked in both render forms."""
+    import frontend.app as app
+
+    for line in (
+        app._format_source_line(_by_rule_source()),
+        app._format_source_line(_by_rule_source(), include_feature=True),
+    ):
+        assert "score" not in line
+        assert "None" not in line
+        assert "p.103" in line
+        assert "FT_003" in line
+
+
+def test_by_chunk_source_still_shows_its_score():
+    """PARITY: a retrieval source renders exactly as it always did."""
+    import frontend.app as app
+
+    assert app._format_source_line(_by_chunk_source()) == (
+        "cheiroslanguageo00chei_1, p.134 (score: 0.61)"
+    )
+    assert app._format_source_line(_by_chunk_source(), include_feature=True) == (
+        "cheiroslanguageo00chei_1, p.134 (score: 0.61, feature: life line)"
+    )
+
+
+def test_renderer_does_not_put_the_quote_in_the_source_line():
+    """The quote is shown on its own line by the UI, not inlined -- keeps
+    the capture's one-line-per-source grep-ability intact."""
+    import frontend.app as app
+
+    assert "rises from the wrist" not in app._format_source_line(_by_rule_source())
+
+
+def test_capture_sources_section_renders_both_kinds_without_score_none(
+    monkeypatch, tmp_path
+):
+    """End to end through _capture_dogfood_run: the ### sources block
+    carries a by-rule line with no score clause and a by-chunk line with
+    one, and the literal "score: None" appears nowhere."""
+    import frontend.app as app
+
+    log_path = tmp_path / "dogfood_capture.md"
+    monkeypatch.setattr(app, "_DOGFOOD_LOG_PATH", log_path)
+
+    reading = PalmReadingResult(
+        reading_text="A reading.",
+        sources=(_by_chunk_source(), _by_rule_source()),
+        validation=ValidationReport(passed=True, failures=()),
+        model="gpt-4o",
+        retry_used=False,
+        supported_features=(),
+        unsupported_features=("head line",),  # forces a capture
+    )
+    app._capture_dogfood_run("FATE LINE: Present.", None, None, reading)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "score: None" not in content
+    assert "- cheiroslanguageo00chei_1, p.134 (score: 0.61, feature: life line)" in content
+    assert "- cheiroslanguageo00chei_1, p.103 (rule: FT_003, feature: fate line)" in content

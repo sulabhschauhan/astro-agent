@@ -48,6 +48,7 @@ from agent.interpretive.palm_reading import (
     ValidationReport,
     generate_palm_reading,
 )
+from agent.interpretive.claim_extraction import Claim
 from agent.prompt_builder import DISCLAIMER
 from ingestion.query_engine import multi_source_search
 
@@ -1980,3 +1981,195 @@ def test_absence_islands_regression_guard_stays_present_for_line_features(featur
     text = "The line shows no breaks, chains, forks, or islands visible."
 
     assert palm_reading._is_absence(text, feature) is False
+
+
+# ═══ S119 STEP 5: sources rebuilt from by-rule citations ════════════════
+#
+# _build_sources_from_claims used to look up
+# chunk_lookup[(feature, claim.chunk_id)] for EVERY claim. Since Step 2 a
+# rule claim carries chunk_id=None, so that lookup missed and the claim
+# contributed no source at all -- the user-facing "Classical sources"
+# panel went near-empty (2 of 6 on the S120 David hand) exactly as rule
+# claims became the citation-accurate ones.
+
+
+def _rule_sourced_claim(claim_id="C1", feature="fate line", rule_id="FT_003",
+                        source_page=103, source_quote=None, **overrides):
+    from agent.interpretive.claim_extraction import Claim
+
+    kwargs = dict(
+        claim_id=claim_id, feature=feature, rule_id=rule_id,
+        source_page=source_page,
+        source_quote=source_quote or (
+            "When the line of fate rises from the wrist and proceeds "
+            "straight up the hand to its destination on the Mount of Saturn"
+        ),
+        claim_text="A fate line rising from the wrist is a sign of good fortune.",
+        valence="supports", condition_text=None,
+        observation_basis="Line of Fate Slope=straight",
+        excluded_from_voice=False, exclusion_reason=None,
+    )
+    kwargs.update(overrides)
+    return Claim.by_rule(**kwargs)
+
+
+# ─── (1) a by-rule claim yields a real, user-facing source ─────────────
+
+
+def test_by_rule_claim_yields_a_source_with_its_own_page_and_quote():
+    """HARDEST CASE: gated_results is EMPTY -- no retrieval chunk exists
+    for this claim at all, which is exactly the production shape (a rule
+    claim is self-grounded and needs no chunk). It must still produce a
+    source."""
+    claim = _rule_sourced_claim()
+    sources = palm_reading._build_sources_from_claims(
+        "A fate line rising from the wrist is a sign of good fortune.[C1]",
+        (claim,),
+        gated_results={},
+    )
+
+    assert len(sources) == 1
+    src = sources[0]
+    assert src["page"] == 103
+    assert src["rule_id"] == "FT_003"
+    assert src["source_quote"] == claim.citation.source_quote
+    assert src["feature"] == "fate line"
+    assert src["book"] == "cheiroslanguageo00chei_1"
+    # 4 original keys ALWAYS present, score explicitly None (ratified
+    # Conflict-4 shape) -- no consumer has to branch on existence.
+    assert {"book", "page", "score", "feature"} <= set(src)
+    assert src["score"] is None
+
+
+def test_every_cited_rule_claim_produces_a_source_david_hand_shape():
+    """The S120 David-hand gap, closed. Six cited rule claims across four
+    features previously produced 2 sources (only those whose re-derived
+    chunk_id happened to also be in that run's gated set); all six must
+    now appear, in order of first citation."""
+    claims = tuple(
+        _rule_sourced_claim(
+            claim_id=f"C{i}", feature=feature, rule_id=rule_id, source_page=page,
+            source_quote=f"verbatim span for {rule_id}",
+        )
+        for i, (feature, rule_id, page) in enumerate(
+            [
+                ("head line", "H_005", 147),
+                ("head line", "H_006", 147),
+                ("fate line", "FT_003", 103),
+                ("life line", "L_001", 134),
+                ("heart line", "HL_006", 160),
+                ("mount of venus", "M_001", 112),
+            ],
+            start=1,
+        )
+    )
+    tagged = " ".join(f"Sentence {i}.[C{i}]" for i in range(1, 7))
+
+    sources = palm_reading._build_sources_from_claims(tagged, claims, gated_results={})
+
+    assert len(sources) == 6
+    assert [s["rule_id"] for s in sources] == [
+        "H_005", "H_006", "FT_003", "L_001", "HL_006", "M_001",
+    ]
+    assert [s["page"] for s in sources] == [147, 147, 103, 134, 160, 112]
+    assert all(s["score"] is None for s in sources)
+
+
+def test_two_rules_on_the_same_page_and_feature_are_not_deduped_away():
+    """Dedup is by (citation identity, feature). Two DIFFERENT rules citing
+    the same page of the same feature are two distinct citations and must
+    both survive -- the old (chunk_id, feature) key would have collapsed
+    them, since both resolved to the same chunk."""
+    claims = (
+        _rule_sourced_claim(claim_id="C1", feature="head line", rule_id="H_005", source_page=147),
+        _rule_sourced_claim(claim_id="C2", feature="head line", rule_id="H_006", source_page=147),
+    )
+    sources = palm_reading._build_sources_from_claims("A.[C1] B.[C2]", claims, gated_results={})
+    assert [s["rule_id"] for s in sources] == ["H_005", "H_006"]
+
+
+def test_the_same_rule_cited_twice_yields_one_source():
+    claims = (_rule_sourced_claim(claim_id="C1"),)
+    sources = palm_reading._build_sources_from_claims("A.[C1] B.[C1]", claims, gated_results={})
+    assert len(sources) == 1
+
+
+def test_uncited_rule_claim_contributes_no_source():
+    """Unchanged rule: only claims Stage 2 actually cited become sources."""
+    claims = (_rule_sourced_claim(claim_id="C1"), _rule_sourced_claim(claim_id="C2", rule_id="FT_004"))
+    sources = palm_reading._build_sources_from_claims("Only the first.[C1]", claims, gated_results={})
+    assert [s["rule_id"] for s in sources] == ["FT_003"]
+
+
+# ─── (4) by-chunk retrieval sources unchanged ──────────────────────────
+
+
+def test_by_chunk_retrieval_source_is_unchanged():
+    """PARITY: the retrieval path still reads this run's gated_results and
+    still carries the real score, with no rule_id/source_quote keys."""
+    claim = Claim(
+        claim_id="C1", feature="life line", chunk_id="cheiroslanguageo00chei_1_p134_c2",
+        claim_text="A long life line indicates vitality.", valence="supports",
+        condition_text=None, observation_basis="long", excluded_from_voice=False,
+        exclusion_reason=None,
+    )
+    gated = {"life line": [_chunk(chunk_id="cheiroslanguageo00chei_1_p134_c2",
+                                  page_ref=134, score=0.61)]}
+    sources = palm_reading._build_sources_from_claims("Vitality.[C1]", (claim,), gated)
+
+    assert sources == (
+        {"book": "cheiroslanguageo00chei_1", "page": 134, "score": 0.61,
+         "feature": "life line"},
+    )
+    assert "rule_id" not in sources[0]
+    assert "source_quote" not in sources[0]
+
+
+def test_by_chunk_claim_with_no_matching_gated_chunk_still_contributes_nothing():
+    """Unchanged: a retrieval claim whose chunk is absent from this run's
+    gated set is skipped, exactly as before."""
+    claim = Claim(
+        claim_id="C1", feature="life line", chunk_id="missing_p1_c0",
+        claim_text="text", valence="supports", condition_text=None,
+        observation_basis="obs", excluded_from_voice=False, exclusion_reason=None,
+    )
+    assert palm_reading._build_sources_from_claims("A.[C1]", (claim,), {}) == ()
+
+
+def test_mixed_run_yields_both_source_kinds_in_citation_order():
+    by_chunk = Claim(
+        claim_id="C1", feature="life line", chunk_id="cheiroslanguageo00chei_1_p134_c2",
+        claim_text="text", valence="supports", condition_text=None,
+        observation_basis="obs", excluded_from_voice=False, exclusion_reason=None,
+    )
+    by_rule = _rule_sourced_claim(claim_id="C2")
+    gated = {"life line": [_chunk(chunk_id="cheiroslanguageo00chei_1_p134_c2",
+                                  page_ref=134, score=0.61)]}
+
+    sources = palm_reading._build_sources_from_claims("A.[C1] B.[C2]", (by_chunk, by_rule), gated)
+
+    assert [s["score"] for s in sources] == [0.61, None]
+    assert [s["page"] for s in sources] == [134, 103]
+
+
+# ─── (6) the quote is display-only, never LLM-facing ───────────────────
+
+
+def test_source_quote_never_reaches_the_voicer_prompt():
+    """CONTAINMENT. The sources list is built AFTER Stage 2 has run and is
+    never passed to a generator; claim_voicing reads only claim_id /
+    claim_text / valence / observation_basis off the Claim objects. This
+    asserts the quote is absent from the real voicer prompt while being
+    present in the sources list."""
+    from agent.interpretive.claim_voicing import _build_user_prompt
+
+    quote = "ZZQUOTEZZ When the line of fate rises from the wrist"
+    claim = _rule_sourced_claim(source_quote=quote)
+
+    sources = palm_reading._build_sources_from_claims("A.[C1]", (claim,), {})
+    assert sources[0]["source_quote"] == quote  # displayed...
+
+    prompt = _build_user_prompt([claim], {"fate line": "straight"})
+    assert quote not in prompt  # ...but never prompted
+    for voicer_field in ("claim_id", "claim_text", "valence", "observation_basis"):
+        assert quote not in str(getattr(claim, voicer_field))

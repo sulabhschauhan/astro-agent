@@ -176,6 +176,32 @@ def _format_stage1_feature_diagnostics_lines(feature_diagnostics: dict) -> list:
     return lines
 
 
+def _format_source_line(src: dict, include_feature: bool = False) -> str:
+    """One "Classical sources" line, shared by the dogfood capture and the
+    Streamlit panel so the two never drift (same parity reason
+    _format_stage1_feature_diagnostics_lines exists).
+
+    S119 Step 5: a BY-RULE source has score=None -- there was no retrieval,
+    so there is no similarity score to report. The score clause is then
+    OMITTED ENTIRELY; a user must never be shown "score: None", which reads
+    as a broken measurement rather than as an inapplicable one. A by-chunk
+    (retrieval) source renders exactly as it always did.
+
+    `rule_id` is included when present so a reader can trace a displayed
+    claim back to the rule that made it. `source_quote` is NOT rendered
+    here -- the UI shows it on its own line (see the caller), and the
+    capture records it separately."""
+    parts = []
+    if src.get("score") is not None:
+        parts.append(f"score: {src['score']}")
+    if src.get("rule_id"):
+        parts.append(f"rule: {src['rule_id']}")
+    if include_feature:
+        parts.append(f"feature: {src.get('feature')}")
+    suffix = f" ({', '.join(parts)})" if parts else ""
+    return f"{src['book']}, p.{src['page']}{suffix}"
+
+
 def _citation_column(claim) -> str:
     """S119 Step 4: the citation-IDENTITY column shared by all four
     claims_inventory renders (2 dogfood-capture writers, 2 Streamlit
@@ -369,8 +395,12 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     # "feature" tag to every source dict; captured here so Ring 3 pass 3's
     # P1 claim ledger can score per-feature support directly from this
     # capture instead of forensically re-deriving it (pass-2's gap).
+    #
+    # S119 Step 5: a BY-RULE source carries score=None (no retrieval
+    # happened), so the score clause is omitted rather than rendered as
+    # the literal "score: None" -- see _format_source_line.
     for src in reading.sources:
-        lines.append(f"- {src['book']}, p.{src['page']} (score: {src['score']}, feature: {src['feature']})")
+        lines.append(f"- {_format_source_line(src, include_feature=True)}")
     lines.append("")
 
     # S67 R3: registry-order supported/unsupported feature verdicts,
@@ -1503,7 +1533,15 @@ if _PALM_ENABLED:
             st.markdown(_reading.reading_text)
             with st.expander("Classical sources"):
                 for _src in _reading.sources:
-                    st.caption(f"{_src['book']}, p.{_src['page']} (score: {_src['score']})")
+                    st.caption(_format_source_line(_src))
+                    # S119 Step 5: a rule-sourced citation shows the
+                    # verbatim span it rests on -- Cheiro (1911), public
+                    # domain, DISPLAY ONLY. It is never fed back into any
+                    # LLM prompt (the sources list is built after Stage 2
+                    # has already run and is not passed to any generator).
+                    _quote = _src.get("source_quote")
+                    if _quote:
+                        st.caption(f"> {_quote}")
             # S70 P6b: non-blocking, display-only, never gates the reading --
             # the full Stage-1 inventory (incl. excluded_from_voice claims),
             # collapsed by default.

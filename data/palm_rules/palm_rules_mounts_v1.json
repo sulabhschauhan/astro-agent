@@ -4,7 +4,9 @@
     "source": "cheiroslanguageo00chei_1",
     "ontology_version": "1.12.0",
     "schema": "validated_candidates + parked_pending",
-    "status": "awaiting_Sulabh_validation"
+    "status": "awaiting_Sulabh_validation",
+    "mount_leaning_track": "PARKED behind a vision-measurement gate (S119 Step 5, ratified). Cheiro p113 \"THE LEANING OF THE MOUNTS TOWARD ONE ANOTHER\" carries real doctrine (e.g. Saturn leaning to Jupiter lends prudence and solemnity to Jupiter's qualities), and it is the only route by which Saturn / Mercury / Lower Mars / Luna could ever produce a discriminating claim. It is NOT built here: no vision signal measures inter-mount lean. Do not author leaning rules until such a measurement exists.",
+    "mount_base_meaning_model": "S119 Step 5 (ratified): base meanings are DEFINITIONS, not standalone claims. A mount fires only on GRADED doctrine. A base meaning may appear only as consequent context inside a graded rule whose OWN citation contains it (see M_021). Mercury / Lower Mars / Luna base meanings stay in parked_pending (M_P01/M_P02/M_P03, ontology_gap_presence) and Saturn's p112 base meaning is now retired -- those mounts are honestly silent absent grade doctrine or a leaning signal."
   },
   "validated_candidates": [
     {
@@ -219,141 +221,6 @@
       ]
     },
     {
-      "rule_id": "M_009",
-      "source_page": 112,
-      "topic_group": "mount_venus",
-      "is_compound": false,
-      "baseline": true,
-      "antecedents": [
-        {
-          "feature": "Mount of Venus",
-          "attribute": "Development",
-          "value": "well developed",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
-      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-29",
-      "source_fidelity": null,
-      "schema_flags": [
-        "BASE-MEANING DISJUNCTION: one of 5 sibling rows (M_009-M_013) realizing Venus's base-meaning ON-set {well developed, full and large, abnormally large, very high, not notably developed} via row multiplicity, since the current antecedent schema has no value-set/OR condition_type -- see this task's report for the full ON/OFF derivation and the Option-A-vs-B engine tradeoff.",
-        "VISION-UNPROVEN: see M_001."
-      ]
-    },
-    {
-      "rule_id": "M_010",
-      "source_page": 112,
-      "topic_group": "mount_venus",
-      "is_compound": false,
-      "baseline": true,
-      "antecedents": [
-        {
-          "feature": "Mount of Venus",
-          "attribute": "Development",
-          "value": "full and large",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
-      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-29",
-      "source_fidelity": null,
-      "schema_flags": [
-        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note).",
-        "VISION-UNPROVEN: see M_004."
-      ]
-    },
-    {
-      "rule_id": "M_011",
-      "source_page": 112,
-      "topic_group": "mount_venus",
-      "is_compound": false,
-      "baseline": true,
-      "antecedents": [
-        {
-          "feature": "Mount of Venus",
-          "attribute": "Development",
-          "value": "abnormally large",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
-      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-29",
-      "source_fidelity": null,
-      "schema_flags": [
-        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note).",
-        "VISION-UNPROVEN: see M_003."
-      ]
-    },
-    {
-      "rule_id": "M_012",
-      "source_page": 112,
-      "topic_group": "mount_venus",
-      "is_compound": false,
-      "baseline": true,
-      "antecedents": [
-        {
-          "feature": "Mount of Venus",
-          "attribute": "Development",
-          "value": "very high",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
-      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-29",
-      "source_fidelity": null,
-      "schema_flags": [
-        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note).",
-        "VISION-UNPROVEN: see M_008."
-      ]
-    },
-    {
-      "rule_id": "M_013",
-      "source_page": 112,
-      "topic_group": "mount_venus",
-      "is_compound": false,
-      "baseline": true,
-      "antecedents": [
-        {
-          "feature": "Mount of Venus",
-          "attribute": "Development",
-          "value": "not notably developed",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
-      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-29",
-      "source_fidelity": null,
-      "schema_flags": [
-        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note) -- this is the 'ordinary/unremarkable' grade, included in the ON-set per Sulabh's explicit design decision (an unremarkable mount still carries its base trait; grading only modulates it, never zeroes it out).",
-        "VISION-UNPROVEN: see M_001 (no live dogfood run has confirmed any Development grade yet, including this baseline one)."
-      ]
-    },
-    {
       "rule_id": "M_014",
       "source_page": 112,
       "topic_group": "mount_jupiter",
@@ -435,87 +302,6 @@
       ]
     },
     {
-      "rule_id": "M_017",
-      "source_page": 112,
-      "topic_group": "mount_saturn",
-      "is_compound": false,
-      "baseline": true,
-      "antecedents": [
-        {
-          "feature": "Mount of Saturn",
-          "attribute": "Development",
-          "value": "well developed",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "The Mount of Saturn denotes love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and appreciation of sacred or classical music.",
-      "source_quote": "This is found at the base of the second finger (Plate XII.), and denotes love of solitude, quietness, prudence, earnestness in work, proneness to the study of somber things, and appreciation of music of a sacred or classical order.",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-29",
-      "source_fidelity": null,
-      "schema_flags": [
-        "BASE-MEANING DISJUNCTION: one of 3 sibling rows (M_017-M_019) realizing Saturn's base-meaning ON-set {well developed, unusually high, not notably developed} via row multiplicity -- see M_009's note for the mechanism and this task's report for the full derivation.",
-        "VISION-UNPROVEN: see M_015."
-      ]
-    },
-    {
-      "rule_id": "M_018",
-      "source_page": 112,
-      "topic_group": "mount_saturn",
-      "is_compound": false,
-      "baseline": true,
-      "antecedents": [
-        {
-          "feature": "Mount of Saturn",
-          "attribute": "Development",
-          "value": "unusually high",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "The Mount of Saturn denotes love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and appreciation of sacred or classical music.",
-      "source_quote": "This is found at the base of the second finger (Plate XII.), and denotes love of solitude, quietness, prudence, earnestness in work, proneness to the study of somber things, and appreciation of music of a sacred or classical order.",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-29",
-      "source_fidelity": null,
-      "schema_flags": [
-        "BASE-MEANING DISJUNCTION: sibling of M_017 (see that rule's note).",
-        "VISION-UNPROVEN: see M_016."
-      ]
-    },
-    {
-      "rule_id": "M_019",
-      "source_page": 112,
-      "topic_group": "mount_saturn",
-      "is_compound": false,
-      "baseline": true,
-      "antecedents": [
-        {
-          "feature": "Mount of Saturn",
-          "attribute": "Development",
-          "value": "not notably developed",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "The Mount of Saturn denotes love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and appreciation of sacred or classical music.",
-      "source_quote": "This is found at the base of the second finger (Plate XII.), and denotes love of solitude, quietness, prudence, earnestness in work, proneness to the study of somber things, and appreciation of music of a sacred or classical order.",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-29",
-      "source_fidelity": null,
-      "schema_flags": [
-        "BASE-MEANING DISJUNCTION: sibling of M_017 (see that rule's note) -- the 'ordinary/unremarkable' grade, included per Sulabh's explicit ON-set design decision.",
-        "VISION-UNPROVEN: no live dogfood run has confirmed any Saturn Development grade yet."
-      ]
-    },
-    {
       "rule_id": "M_020",
       "source_page": 112,
       "topic_group": "mount_apollo",
@@ -558,43 +344,15 @@
           "comparator_feature": null
         }
       ],
-      "claim": "A large Upper Mount of Mars shows a very quarrelsome, fighting disposition.",
+      "claim": "The Upper Mount of Mars gives active courage and the martial spirit; when large, it shows a very quarrelsome, fighting disposition.",
       "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition.",
       "verified": true,
       "verifier": "Sulabh",
       "verified_date": "2026-08-29",
-      "source_fidelity": "Same source sentence as M_022's base row (this one clause covers both the base meaning and the 'large' graded meaning).",
+      "source_fidelity": "S119 Step 5 CONSEQUENT-CONTEXT ENRICHMENT (ratified). M_022 (the same base meaning keyed to Development=large) is retired, so without this the base half of Cheiro's own sentence would be lost for a large Upper Mars while only the \"quarrelsome\" half survived -- dropping the concessive the source actually writes (\"gives active courage... BUT when large...\"). The enrichment is licensed by THIS rule's own unchanged source_quote, which contains both halves in one sentence; no new or different citation was introduced. Previous claim: A large Upper Mount of Mars shows a very quarrelsome, fighting disposition. Same source sentence as M_022's base row (this one clause covers both the base meaning and the 'large' graded meaning).",
       "schema_flags": [
         "SHARED SUPPORT-GATE NEEDLE (separate follow-up, NOT fixed here per this task's instruction): observation_extractor._SUPPORT_NEEDLES uses a single 'mars' needle for BOTH 'mount of mars positive' and 'mount of mars negative' (accepted imprecision documented at S117 registration) -- a retrieval chunk mentioning either Mars mount support-gate-passes for both features. A future, more targeted needle fix could use phrase-needles ('active courage' for Upper/positive, 'passive courage' for Lower/negative) instead of the shared 'mars' token -- flagged, not implemented.",
         "VISION-UNPROVEN: no live dogfood run has yet confirmed the vision model actually emits 'large' for Upper Mount of Mars -- confirm or retire once a probe exercises it."
-      ]
-    },
-    {
-      "rule_id": "M_022",
-      "source_page": 113,
-      "topic_group": "mount_mars_positive",
-      "is_compound": false,
-      "baseline": true,
-      "antecedents": [
-        {
-          "feature": "Upper Mount of Mars",
-          "attribute": "Development",
-          "value": "large",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "claim": "The Upper Mount of Mars gives active courage and the martial spirit.",
-      "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition.",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-29",
-      "source_fidelity": null,
-      "schema_flags": [
-        "BASE-MEANING DISJUNCTION: one of 3 sibling rows (M_022-M_024) realizing Upper Mars's base-meaning ON-set {large, present, not notably developed} via row multiplicity -- see M_009's note for the mechanism.",
-        "SHARED SUPPORT-GATE NEEDLE: see M_021.",
-        "VISION-UNPROVEN: see M_021."
       ]
     },
     {
@@ -624,6 +382,312 @@
         "SHARED SUPPORT-GATE NEEDLE: see M_021.",
         "VISION-UNPROVEN: no live dogfood run has confirmed the vision model emitting 'present' for Upper Mount of Mars."
       ]
+    }
+  ],
+  "parked_pending": [
+    {
+      "rule_id": "M_P01",
+      "source_page": 112,
+      "reason": "ontology_gap_presence",
+      "note": "Mercury base -> love of change, travel, excitement, wit, quickness of thought and expression (p.112). Mercury is a PRESENCE-ONLY mount (Step 2 asks no Development grade question for it): extract_mount_development never produces a Development value for 'mount of mercury' by design, and no 'Presence' attribute exists anywhere in ontology_registry.json's attribute_feature_mapping (checked directly -- 'Presence' is not a registered attribute at all, only a HARD-attribute concept named in palm_select.py's partition with no feature binding). No current mechanism can confirm this mount's presence to gate a base rule on. Verbatim quote: \"It denotes all the mercurial qualities of life—love of change, travel, excitement, wit, quickness of thought and expression.\"",
+      "disposition": "future_presence_signal"
+    },
+    {
+      "rule_id": "M_P02",
+      "source_page": 113,
+      "reason": "ontology_gap_presence",
+      "note": "Lower Mount of Mars base -> passive courage, self-control, resignation, strength of resistance against wrong (p.113). Same presence-signal gap as M_P01 -- Lower Mars is presence-only (no Development question asked), no Presence attribute exists to gate on. Verbatim quote: \"It denotes passive courage, self-control, resignation, and strength of resistance against wrong.\"",
+      "disposition": "future_presence_signal"
+    },
+    {
+      "rule_id": "M_P03",
+      "source_page": 113,
+      "reason": "ontology_gap_presence",
+      "note": "Mount of Luna base -> refinement, imagination, love of beautiful scenery, taste for the romantic, great ideality, fondness for poetry and imaginative literature (p.113). Same presence-signal gap as M_P01/M_P02 -- Luna is presence-only, no Presence attribute exists to gate on. Verbatim quote: \"It indicates refinement, imagination, love of beautiful scenery, a taste for the romantic, great ideality, and a fondness for poetry and imaginative literature.\"",
+      "disposition": "future_presence_signal"
+    }
+  ],
+  "retired_superseded": [
+    {
+      "rule_id": "M_009",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "well developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
+      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: one of 5 sibling rows (M_009-M_013) realizing Venus's base-meaning ON-set {well developed, full and large, abnormally large, very high, not notably developed} via row multiplicity, since the current antecedent schema has no value-set/OR condition_type -- see this task's report for the full ON/OFF derivation and the Option-A-vs-B engine tradeoff.",
+        "VISION-UNPROVEN: see M_001."
+      ],
+      "retired_reason": "base_meaning_is_a_definition_not_a_claim",
+      "retired_note": "S119 Step 5 (ratified 2026-08-30, Sulabh): mount BASE MEANINGS ARE DEFINITIONS, NOT CLAIMS. This rule hung its mount's ungraded base-meaning sentence on a Development GRADE that the sentence itself never states. Cheiro marks the distinction explicitly and within a single page: p112 writes \"When developed\" for Jupiter and \"When well developed\" for Apollo, but plainly \"denotes\"/\"gives\" for Venus-base, Saturn and Mercury. A base meaning that holds for the mount as such produces a line true of essentially every hand -- a Barnum statement -- and grading it does not make it discriminating, it only makes the citation disagree with the antecedent. NOTE: the source_quote was and remains verbatim-correct and gate-clean; scripts/gate_rule_citations.py verifies quote AUTHENTICITY and has no notion of antecedent-quote AGREEMENT, which is why this class survived every gate run. Retired, not deleted.",
+      "retired_date": "2026-08-30",
+      "retired_by": "Sulabh (S119 Step 5, ratified)"
+    },
+    {
+      "rule_id": "M_010",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "full and large",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
+      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note).",
+        "VISION-UNPROVEN: see M_004."
+      ],
+      "retired_reason": "base_meaning_is_a_definition_not_a_claim",
+      "retired_note": "S119 Step 5 (ratified 2026-08-30, Sulabh): mount BASE MEANINGS ARE DEFINITIONS, NOT CLAIMS. This rule hung its mount's ungraded base-meaning sentence on a Development GRADE that the sentence itself never states. Cheiro marks the distinction explicitly and within a single page: p112 writes \"When developed\" for Jupiter and \"When well developed\" for Apollo, but plainly \"denotes\"/\"gives\" for Venus-base, Saturn and Mercury. A base meaning that holds for the mount as such produces a line true of essentially every hand -- a Barnum statement -- and grading it does not make it discriminating, it only makes the citation disagree with the antecedent. NOTE: the source_quote was and remains verbatim-correct and gate-clean; scripts/gate_rule_citations.py verifies quote AUTHENTICITY and has no notion of antecedent-quote AGREEMENT, which is why this class survived every gate run. Retired, not deleted.",
+      "retired_date": "2026-08-30",
+      "retired_by": "Sulabh (S119 Step 5, ratified)"
+    },
+    {
+      "rule_id": "M_011",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "abnormally large",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
+      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note).",
+        "VISION-UNPROVEN: see M_003."
+      ],
+      "retired_reason": "base_meaning_is_a_definition_not_a_claim",
+      "retired_note": "S119 Step 5 (ratified 2026-08-30, Sulabh): mount BASE MEANINGS ARE DEFINITIONS, NOT CLAIMS. This rule hung its mount's ungraded base-meaning sentence on a Development GRADE that the sentence itself never states. Cheiro marks the distinction explicitly and within a single page: p112 writes \"When developed\" for Jupiter and \"When well developed\" for Apollo, but plainly \"denotes\"/\"gives\" for Venus-base, Saturn and Mercury. A base meaning that holds for the mount as such produces a line true of essentially every hand -- a Barnum statement -- and grading it does not make it discriminating, it only makes the citation disagree with the antecedent. NOTE: the source_quote was and remains verbatim-correct and gate-clean; scripts/gate_rule_citations.py verifies quote AUTHENTICITY and has no notion of antecedent-quote AGREEMENT, which is why this class survived every gate run. Retired, not deleted.",
+      "retired_date": "2026-08-30",
+      "retired_by": "Sulabh (S119 Step 5, ratified)"
+    },
+    {
+      "rule_id": "M_012",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "very high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
+      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note).",
+        "VISION-UNPROVEN: see M_008."
+      ],
+      "retired_reason": "base_meaning_is_a_definition_not_a_claim",
+      "retired_note": "S119 Step 5 (ratified 2026-08-30, Sulabh): mount BASE MEANINGS ARE DEFINITIONS, NOT CLAIMS. This rule hung its mount's ungraded base-meaning sentence on a Development GRADE that the sentence itself never states. Cheiro marks the distinction explicitly and within a single page: p112 writes \"When developed\" for Jupiter and \"When well developed\" for Apollo, but plainly \"denotes\"/\"gives\" for Venus-base, Saturn and Mercury. A base meaning that holds for the mount as such produces a line true of essentially every hand -- a Barnum statement -- and grading it does not make it discriminating, it only makes the citation disagree with the antecedent. NOTE: the source_quote was and remains verbatim-correct and gate-clean; scripts/gate_rule_citations.py verifies quote AUTHENTICITY and has no notion of antecedent-quote AGREEMENT, which is why this class survived every gate run. Retired, not deleted.",
+      "retired_date": "2026-08-30",
+      "retired_by": "Sulabh (S119 Step 5, ratified)"
+    },
+    {
+      "rule_id": "M_013",
+      "source_page": 112,
+      "topic_group": "mount_venus",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Venus",
+          "attribute": "Development",
+          "value": "not notably developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Venus denotes affection, sympathy toward others, benevolence, a desire to please, love of beauty, colour, and music, and attraction between the sexes.",
+      "source_quote": "This mount denotes affection, sympathy toward others, benevolence, a desire to please, love and worship of beauty, love of color, and melody in music, and the attraction of the one sex to the other.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_009 (see that rule's note) -- this is the 'ordinary/unremarkable' grade, included in the ON-set per Sulabh's explicit design decision (an unremarkable mount still carries its base trait; grading only modulates it, never zeroes it out).",
+        "VISION-UNPROVEN: see M_001 (no live dogfood run has confirmed any Development grade yet, including this baseline one)."
+      ],
+      "retired_reason": "base_meaning_asserted_for_an_undeveloped_mount",
+      "retired_note": "S119 Step 5 (ratified 2026-08-30, Sulabh): mount BASE MEANINGS ARE DEFINITIONS, NOT CLAIMS. This rule hung its mount's ungraded base-meaning sentence on a Development GRADE that the sentence itself never states. Cheiro marks the distinction explicitly and within a single page: p112 writes \"When developed\" for Jupiter and \"When well developed\" for Apollo, but plainly \"denotes\"/\"gives\" for Venus-base, Saturn and Mercury. A base meaning that holds for the mount as such produces a line true of essentially every hand -- a Barnum statement -- and grading it does not make it discriminating, it only makes the citation disagree with the antecedent. NOTE: the source_quote was and remains verbatim-correct and gate-clean; scripts/gate_rule_citations.py verifies quote AUTHENTICITY and has no notion of antecedent-quote AGREEMENT, which is why this class survived every gate run. Retired, not deleted. ADDITIONAL AND MORE SERIOUS HERE: this row keyed the mount's positive base meaning to Development=\"not notably developed\" -- i.e. it asserted the mount's characteristic qualities on the strength of the vision layer reporting that the mount is NOT developed. That is not merely over-specific, it is false.",
+      "retired_date": "2026-08-30",
+      "retired_by": "Sulabh (S119 Step 5, ratified)"
+    },
+    {
+      "rule_id": "M_017",
+      "source_page": 112,
+      "topic_group": "mount_saturn",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Saturn",
+          "attribute": "Development",
+          "value": "well developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Saturn denotes love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and appreciation of sacred or classical music.",
+      "source_quote": "This is found at the base of the second finger (Plate XII.), and denotes love of solitude, quietness, prudence, earnestness in work, proneness to the study of somber things, and appreciation of music of a sacred or classical order.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: one of 3 sibling rows (M_017-M_019) realizing Saturn's base-meaning ON-set {well developed, unusually high, not notably developed} via row multiplicity -- see M_009's note for the mechanism and this task's report for the full derivation.",
+        "VISION-UNPROVEN: see M_015."
+      ],
+      "retired_reason": "base_meaning_is_a_definition_not_a_claim",
+      "retired_note": "S119 Step 5 (ratified 2026-08-30, Sulabh): mount BASE MEANINGS ARE DEFINITIONS, NOT CLAIMS. This rule hung its mount's ungraded base-meaning sentence on a Development GRADE that the sentence itself never states. Cheiro marks the distinction explicitly and within a single page: p112 writes \"When developed\" for Jupiter and \"When well developed\" for Apollo, but plainly \"denotes\"/\"gives\" for Venus-base, Saturn and Mercury. A base meaning that holds for the mount as such produces a line true of essentially every hand -- a Barnum statement -- and grading it does not make it discriminating, it only makes the citation disagree with the antecedent. NOTE: the source_quote was and remains verbatim-correct and gate-clean; scripts/gate_rule_citations.py verifies quote AUTHENTICITY and has no notion of antecedent-quote AGREEMENT, which is why this class survived every gate run. Retired, not deleted.",
+      "retired_date": "2026-08-30",
+      "retired_by": "Sulabh (S119 Step 5, ratified)"
+    },
+    {
+      "rule_id": "M_018",
+      "source_page": 112,
+      "topic_group": "mount_saturn",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Saturn",
+          "attribute": "Development",
+          "value": "unusually high",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Saturn denotes love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and appreciation of sacred or classical music.",
+      "source_quote": "This is found at the base of the second finger (Plate XII.), and denotes love of solitude, quietness, prudence, earnestness in work, proneness to the study of somber things, and appreciation of music of a sacred or classical order.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_017 (see that rule's note).",
+        "VISION-UNPROVEN: see M_016."
+      ],
+      "retired_reason": "base_meaning_is_a_definition_not_a_claim",
+      "retired_note": "S119 Step 5 (ratified 2026-08-30, Sulabh): mount BASE MEANINGS ARE DEFINITIONS, NOT CLAIMS. This rule hung its mount's ungraded base-meaning sentence on a Development GRADE that the sentence itself never states. Cheiro marks the distinction explicitly and within a single page: p112 writes \"When developed\" for Jupiter and \"When well developed\" for Apollo, but plainly \"denotes\"/\"gives\" for Venus-base, Saturn and Mercury. A base meaning that holds for the mount as such produces a line true of essentially every hand -- a Barnum statement -- and grading it does not make it discriminating, it only makes the citation disagree with the antecedent. NOTE: the source_quote was and remains verbatim-correct and gate-clean; scripts/gate_rule_citations.py verifies quote AUTHENTICITY and has no notion of antecedent-quote AGREEMENT, which is why this class survived every gate run. Retired, not deleted.",
+      "retired_date": "2026-08-30",
+      "retired_by": "Sulabh (S119 Step 5, ratified)"
+    },
+    {
+      "rule_id": "M_019",
+      "source_page": 112,
+      "topic_group": "mount_saturn",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Mount of Saturn",
+          "attribute": "Development",
+          "value": "not notably developed",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Mount of Saturn denotes love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and appreciation of sacred or classical music.",
+      "source_quote": "This is found at the base of the second finger (Plate XII.), and denotes love of solitude, quietness, prudence, earnestness in work, proneness to the study of somber things, and appreciation of music of a sacred or classical order.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: sibling of M_017 (see that rule's note) -- the 'ordinary/unremarkable' grade, included per Sulabh's explicit ON-set design decision.",
+        "VISION-UNPROVEN: no live dogfood run has confirmed any Saturn Development grade yet."
+      ],
+      "retired_reason": "base_meaning_asserted_for_an_undeveloped_mount",
+      "retired_note": "S119 Step 5 (ratified 2026-08-30, Sulabh): mount BASE MEANINGS ARE DEFINITIONS, NOT CLAIMS. This rule hung its mount's ungraded base-meaning sentence on a Development GRADE that the sentence itself never states. Cheiro marks the distinction explicitly and within a single page: p112 writes \"When developed\" for Jupiter and \"When well developed\" for Apollo, but plainly \"denotes\"/\"gives\" for Venus-base, Saturn and Mercury. A base meaning that holds for the mount as such produces a line true of essentially every hand -- a Barnum statement -- and grading it does not make it discriminating, it only makes the citation disagree with the antecedent. NOTE: the source_quote was and remains verbatim-correct and gate-clean; scripts/gate_rule_citations.py verifies quote AUTHENTICITY and has no notion of antecedent-quote AGREEMENT, which is why this class survived every gate run. Retired, not deleted. ADDITIONAL AND MORE SERIOUS HERE: this row keyed the mount's positive base meaning to Development=\"not notably developed\" -- i.e. it asserted the mount's characteristic qualities on the strength of the vision layer reporting that the mount is NOT developed. That is not merely over-specific, it is false.",
+      "retired_date": "2026-08-30",
+      "retired_by": "Sulabh (S119 Step 5, ratified)"
+    },
+    {
+      "rule_id": "M_022",
+      "source_page": 113,
+      "topic_group": "mount_mars_positive",
+      "is_compound": false,
+      "baseline": true,
+      "antecedents": [
+        {
+          "feature": "Upper Mount of Mars",
+          "attribute": "Development",
+          "value": "large",
+          "condition_type": "standard",
+          "comparator": null,
+          "comparator_feature": null
+        }
+      ],
+      "claim": "The Upper Mount of Mars gives active courage and the martial spirit.",
+      "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition.",
+      "verified": true,
+      "verifier": "Sulabh",
+      "verified_date": "2026-08-29",
+      "source_fidelity": null,
+      "schema_flags": [
+        "BASE-MEANING DISJUNCTION: one of 3 sibling rows (M_022-M_024) realizing Upper Mars's base-meaning ON-set {large, present, not notably developed} via row multiplicity -- see M_009's note for the mechanism.",
+        "SHARED SUPPORT-GATE NEEDLE: see M_021.",
+        "VISION-UNPROVEN: see M_021."
+      ],
+      "retired_reason": "base_meaning_is_a_definition_not_a_claim",
+      "retired_note": "S119 Step 5 (ratified 2026-08-30, Sulabh): mount BASE MEANINGS ARE DEFINITIONS, NOT CLAIMS. This rule hung its mount's ungraded base-meaning sentence on a Development GRADE that the sentence itself never states. Cheiro marks the distinction explicitly and within a single page: p112 writes \"When developed\" for Jupiter and \"When well developed\" for Apollo, but plainly \"denotes\"/\"gives\" for Venus-base, Saturn and Mercury. A base meaning that holds for the mount as such produces a line true of essentially every hand -- a Barnum statement -- and grading it does not make it discriminating, it only makes the citation disagree with the antecedent. NOTE: the source_quote was and remains verbatim-correct and gate-clean; scripts/gate_rule_citations.py verifies quote AUTHENTICITY and has no notion of antecedent-quote AGREEMENT, which is why this class survived every gate run. Retired, not deleted.",
+      "retired_date": "2026-08-30",
+      "retired_by": "Sulabh (S119 Step 5, ratified)",
+      "superseded_by": "M_021"
     },
     {
       "rule_id": "M_024",
@@ -651,31 +715,11 @@
         "BASE-MEANING DISJUNCTION: sibling of M_022 (see that rule's note) -- the 'ordinary/unremarkable' grade, included per Sulabh's explicit ON-set design decision.",
         "SHARED SUPPORT-GATE NEEDLE: see M_021.",
         "VISION-UNPROVEN: no live dogfood run has confirmed any Upper Mars Development grade yet."
-      ]
+      ],
+      "retired_reason": "base_meaning_asserted_for_an_undeveloped_mount",
+      "retired_note": "S119 Step 5 (ratified 2026-08-30, Sulabh): mount BASE MEANINGS ARE DEFINITIONS, NOT CLAIMS. This rule hung its mount's ungraded base-meaning sentence on a Development GRADE that the sentence itself never states. Cheiro marks the distinction explicitly and within a single page: p112 writes \"When developed\" for Jupiter and \"When well developed\" for Apollo, but plainly \"denotes\"/\"gives\" for Venus-base, Saturn and Mercury. A base meaning that holds for the mount as such produces a line true of essentially every hand -- a Barnum statement -- and grading it does not make it discriminating, it only makes the citation disagree with the antecedent. NOTE: the source_quote was and remains verbatim-correct and gate-clean; scripts/gate_rule_citations.py verifies quote AUTHENTICITY and has no notion of antecedent-quote AGREEMENT, which is why this class survived every gate run. Retired, not deleted. ADDITIONAL AND MORE SERIOUS HERE: this row keyed the mount's positive base meaning to Development=\"not notably developed\" -- i.e. it asserted the mount's characteristic qualities on the strength of the vision layer reporting that the mount is NOT developed. That is not merely over-specific, it is false.",
+      "retired_date": "2026-08-30",
+      "retired_by": "Sulabh (S119 Step 5, ratified)"
     }
-  ],
-  "parked_pending": [
-    {
-      "rule_id": "M_P01",
-      "source_page": 112,
-      "reason": "ontology_gap_presence",
-      "note": "Mercury base -> love of change, travel, excitement, wit, quickness of thought and expression (p.112). Mercury is a PRESENCE-ONLY mount (Step 2 asks no Development grade question for it): extract_mount_development never produces a Development value for 'mount of mercury' by design, and no 'Presence' attribute exists anywhere in ontology_registry.json's attribute_feature_mapping (checked directly -- 'Presence' is not a registered attribute at all, only a HARD-attribute concept named in palm_select.py's partition with no feature binding). No current mechanism can confirm this mount's presence to gate a base rule on. Verbatim quote: \"It denotes all the mercurial qualities of life—love of change, travel, excitement, wit, quickness of thought and expression.\"",
-      "disposition": "future_presence_signal"
-    },
-    {
-      "rule_id": "M_P02",
-      "source_page": 113,
-      "reason": "ontology_gap_presence",
-      "note": "Lower Mount of Mars base -> passive courage, self-control, resignation, strength of resistance against wrong (p.113). Same presence-signal gap as M_P01 -- Lower Mars is presence-only (no Development question asked), no Presence attribute exists to gate on. Verbatim quote: \"It denotes passive courage, self-control, resignation, and strength of resistance against wrong.\"",
-      "disposition": "future_presence_signal"
-    },
-    {
-      "rule_id": "M_P03",
-      "source_page": 113,
-      "reason": "ontology_gap_presence",
-      "note": "Mount of Luna base -> refinement, imagination, love of beautiful scenery, taste for the romantic, great ideality, fondness for poetry and imaginative literature (p.113). Same presence-signal gap as M_P01/M_P02 -- Luna is presence-only, no Presence attribute exists to gate on. Verbatim quote: \"It indicates refinement, imagination, love of beautiful scenery, a taste for the romantic, great ideality, and a fondness for poetry and imaginative literature.\"",
-      "disposition": "future_presence_signal"
-    }
-  ],
-  "retired_superseded": []
+  ]
 }

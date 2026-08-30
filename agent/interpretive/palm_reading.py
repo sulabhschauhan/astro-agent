@@ -129,7 +129,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from agent.interpretive import claim_extraction, claim_voicing
-from agent.interpretive.claim_extraction import Claim
+from agent.interpretive.claim_extraction import CitationByRule, Claim
 from agent.prompt_builder import DISCLAIMER
 from ingestion.query_engine import search
 
@@ -1749,9 +1749,43 @@ def _build_sources_from_claims(
     ACTUALLY CITED (a [C<n>] tag present in the final `reading_text_
     tagged`) contribute a source -- claims dropped by claim_voicing's own
     input filter (excluded_from_voice, corrective-overflow) or never
-    cited in a failing draft are excluded. Deduped by (chunk_id, feature),
-    in stable order = order of first citation in the text (the same order
-    a reader encounters them)."""
+    cited in a failing draft are excluded. Deduped by (citation identity,
+    feature), in stable order = order of first citation in the text (the
+    same order a reader encounters them).
+
+    S119 STEP 5 -- TWO CITATION KINDS, TWO SOURCE PATHS.
+
+    BY-CHUNK (retrieval) claims are UNCHANGED: their source still comes
+    from this run's own `gated_results` lookup, carrying the real
+    retrieval `score`.
+
+    BY-RULE claims previously produced NOTHING. This function looked up
+    `chunk_lookup[(feature, claim.chunk_id)]`, and since Step 2 a rule
+    claim's chunk_id is None, that lookup missed every time and the claim
+    was silently skipped -- the user-facing "Classical sources" panel went
+    near-empty (2 of 6 sources on the S120 David hand) precisely as rule
+    claims became the citation-accurate ones. A rule claim now yields a
+    source from ITS OWN citation: the rule's `source_page` and its
+    gate-verified `source_quote` (scripts/gate_rule_citations.py:
+    NOT_FOUND_ANYWHERE 0/99). No retrieval chunk is consulted, because
+    none is involved.
+
+    SOURCE DICT SHAPE (ratified, Conflict 4): the four original keys
+    -- book / page / score / feature -- are ALWAYS present, so no
+    consumer has to branch on their existence; `score` is None for a
+    by-rule source, since a retrieval similarity score is meaningless for
+    a citation that was never retrieved. `rule_id` and `source_quote` are
+    OPTIONAL, present only on by-rule sources. Rendering rule: a renderer
+    must omit the score clause entirely when score is None -- never show
+    a user "score: None" (both call sites in frontend/app.py do this).
+
+    QUOTE CONTAINMENT: `source_quote` on a source dict is DISPLAY-ONLY.
+    It reaches the sources panel and the dogfood capture, and nothing
+    else. It is never fed back into any LLM prompt -- claim_voicing reads
+    only claim_id/claim_text/valence/observation_basis off the Claim
+    objects and never sees this list at all (the list is built here,
+    AFTER Stage 2 has already run). The text itself is a short verbatim
+    span of Cheiro (1911, public domain)."""
     claims_by_id = {c.claim_id: c for c in claims}
     chunk_lookup = {
         (feature, c["chunk_id"]): c
@@ -1768,9 +1802,32 @@ def _build_sources_from_claims(
         claim = claims_by_id.get(tag[1:-1])
         if claim is None:
             continue
-        key = (claim.chunk_id, claim.feature)
+        try:
+            citation = claim.citation
+        except Exception:  # noqa: BLE001 -- an unsourceable claim contributes no source, never a crash
+            continue
+        # (citation identity, feature): for a by-chunk claim citation_ref
+        # IS the chunk_id, so this key is byte-identical to the old
+        # (chunk_id, feature) one -- a generalization, not a change.
+        key = (claim.citation_ref, claim.feature)
         if key in seen:
             continue
+
+        if isinstance(citation, CitationByRule):
+            seen.add(key)
+            sources.append({
+                "book": _CHEIRO_BOOK,
+                "page": citation.source_page,
+                # None, not 0.0 or a placeholder: there is no retrieval
+                # score to report, and a fake one would read as a real
+                # measurement.
+                "score": None,
+                "feature": claim.feature,
+                "rule_id": citation.rule_id,
+                "source_quote": citation.source_quote,
+            })
+            continue
+
         chunk = chunk_lookup.get((claim.feature, claim.chunk_id))
         if chunk is None:
             continue
