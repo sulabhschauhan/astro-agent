@@ -1520,48 +1520,5 @@
       "status": "parked_pending_relation_target"
     }
   ],
-  "retired_superseded": [
-    {
-      "rule_id": "H_001",
-      "source_page": 145,
-      "topic_group": "line_head",
-      "is_compound": true,
-      "baseline": false,
-      "antecedents": [
-        {
-          "feature": "Line of Head",
-          "attribute": "Starting_Point",
-          "value": "rising_from_Mount_of_Jupiter",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        },
-        {
-          "feature": "Line of Head",
-          "attribute": "Length",
-          "value": "long",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        },
-        {
-          "feature": "Line of Head",
-          "attribute": "Proximity",
-          "value": "touching_Line_of_Life",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
-        }
-      ],
-      "logic_join": "AND",
-      "claim": "Talent, energy, daring determination with boundless ambition combined with reason; a natural leader.",
-      "source_quote": "Rising from Jupiter and yet touching the line of life, it is, if a long line of head, the most powerful of all.",
-      "verified": true,
-      "verifier": "Sulabh",
-      "verified_date": "2026-08-02",
-      "source_fidelity": "chunk_exact",
-      "schema_flags": [],
-      "superseded_by": "H_027"
-    }
-  ]
+  "retired_superseded": []
 }
