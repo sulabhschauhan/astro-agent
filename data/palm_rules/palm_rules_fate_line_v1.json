@@ -22,7 +22,7 @@
         {
           "feature": "Line of Fate",
           "attribute": "Depth",
-          "value": "well_marked",
+          "value": "deep",
           "condition_type": "standard",
           "comparator": null,
           "comparator_feature": null
@@ -312,7 +312,7 @@
         {
           "feature": "Line of Head",
           "attribute": "Depth",
-          "value": "well_marked",
+          "value": "deep",
           "condition_type": "standard",
           "comparator": null,
           "comparator_feature": null
