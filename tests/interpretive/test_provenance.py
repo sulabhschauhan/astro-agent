@@ -103,7 +103,7 @@ _VALID_RULE = {
             }
         ],
         "status": {
-            "fireable": True,
+            "vocabulary_reachable": True,
             "reachability": "pass",
             "reachability_authority": "S121",
             "vision_emission": "unproven",
@@ -213,7 +213,7 @@ def test_valid_provenance_parses_into_typed_structures():
     assert binding.superseded[0].chosen_token == "well_marked"
 
     assert isinstance(provenance.status, ProvenanceStatus)
-    assert provenance.status.fireable is True
+    assert provenance.status.vocabulary_reachable is True
     assert provenance.status.reachability == "pass"
     assert provenance.status.vision_emission == "unproven"
 
@@ -382,24 +382,26 @@ def test_g5_ignores_non_proxy_bindings():
 # ─── G6 ─────────────────────────────────────────────────────────────────
 
 
-def test_g6_flags_fireable_true_with_reachability_fail():
-    """The declared self-consistency half: a rule cannot claim to be
-    fireable while declaring its own vocabulary unreachable."""
+def test_g6_flags_vocabulary_reachable_true_with_reachability_fail():
+    """The declared self-consistency half: a rule cannot claim its
+    vocabulary is reachable while declaring its own vocabulary
+    unreachable."""
     rule = _rule_with_provenance(
         {
             "token_bindings": [],
-            "status": {"fireable": True, "reachability": "fail"},
+            "status": {"vocabulary_reachable": True, "reachability": "fail"},
         }
     )
     violations = check_g6(rule, parse_provenance(rule))
     assert any(
-        "fireable is true but status.reachability is 'fail'" in v for v in violations
+        "vocabulary_reachable is true but status.reachability is 'fail'" in v
+        for v in violations
     ), violations
 
 
-def test_g6_flags_fireable_true_with_reachability_unemittable():
+def test_g6_flags_vocabulary_reachable_true_with_reachability_unemittable():
     rule = _rule_with_provenance(
-        {"status": {"fireable": True, "reachability": "unemittable"}}
+        {"status": {"vocabulary_reachable": True, "reachability": "unemittable"}}
     )
     violations = check_g6(rule, parse_provenance(rule))
     assert any("unemittable" in v for v in violations), violations
@@ -415,7 +417,7 @@ def test_g6_flags_a_declared_pass_the_oracle_contradicts():
         return {"status": "UNEMITTABLE", "detail": "stub: relation attr not emitted"}
 
     rule = _rule_with_provenance(
-        {"status": {"fireable": True, "reachability": "pass"}}
+        {"status": {"vocabulary_reachable": True, "reachability": "pass"}}
     )
     violations = check_g6(rule, parse_provenance(rule), oracle=unreachable_oracle)
     assert len(violations) == 1
@@ -433,7 +435,7 @@ def test_g6_skips_the_oracle_when_reachability_is_unchecked():
         raise AssertionError("oracle must not be called for reachability='unchecked'")
 
     rule = _rule_with_provenance(
-        {"status": {"fireable": False, "reachability": "unchecked"}}
+        {"status": {"vocabulary_reachable": False, "reachability": "unchecked"}}
     )
     assert check_g6(rule, parse_provenance(rule), oracle=exploding_oracle) == []
 
@@ -445,7 +447,7 @@ def test_g6_reports_an_oracle_failure_rather_than_passing():
         raise RuntimeError("registry unavailable")
 
     rule = _rule_with_provenance(
-        {"status": {"fireable": True, "reachability": "pass"}}
+        {"status": {"vocabulary_reachable": True, "reachability": "pass"}}
     )
     violations = check_g6(rule, parse_provenance(rule), oracle=broken_oracle)
     assert len(violations) == 1
@@ -611,7 +613,7 @@ def test_g8_flags_stale_blockers_across_every_kind():
         ({"token_bindings": [_binding(chosen_token="")]}, "chosen_token"),
         ({"status": {"reachability": "maybe"}}, "reachability"),
         ({"status": {"vision_emission": "probably"}}, "vision_emission"),
-        ({"status": {"fireable": "yes"}}, "fireable"),
+        ({"status": {"vocabulary_reachable": "yes"}}, "vocabulary_reachable"),
         ({"status": {"blocked_on": "ontology:attribute:x"}}, "blocked_on"),
         ({"caveats": [{"kind": "vibes", "note": "n"}]}, "kind"),
         ({"caveats": [{"kind": "proxy_mapping"}]}, "note"),
@@ -638,48 +640,51 @@ def test_violation_and_malformed_are_different_channels():
         validate_rule(_rule_with_provenance({"token_bindings": [{"bogus": 1}]}))
 
 
-# ─── additive-only guard ────────────────────────────────────────────────
+# ─── live-corpus guard ──────────────────────────────────────────────────
+#
+# No hand-maintained ledger here: this module tests the parser/checks
+# (provenance.py) against the live corpus, and the corpus's own
+# `provenance` key presence is a complete, derivable source of truth for
+# "is this rule migrated" -- no separate list of expected ids is needed to
+# ask "does this rule's parse/validate result match what its own JSON
+# says". Coverage-against-the-baseline (which id SHOULD be migrated) and
+# the one-case-a-derivation-cannot-catch minimal guard both live in
+# test_provenance_gate.py, the canonical governance file for this
+# mechanism -- not duplicated here.
 
 
-def test_module_is_not_yet_wired_into_any_rule_file():
-    """This task is additive: no rule file carries a `provenance` key yet.
-    When migration begins this test is the one to update deliberately --
-    it must not be allowed to fail silently in between."""
+def _live_rules():
     import json
 
     rules_dir = Path(__file__).resolve().parents[2] / "data" / "palm_rules"
-    carriers = []
     for path in sorted(rules_dir.glob("palm_rules_*.json")):
         data = json.loads(path.read_text(encoding="utf-8"))
         for section in data.values():
             if not isinstance(section, list):
                 continue
             for rule in section:
-                if isinstance(rule, dict) and "provenance" in rule:
-                    carriers.append(f"{path.name}:{rule.get('rule_id')}")
-    assert carriers == [], (
-        "rules now carry a `provenance` key -- governance #1 was additive-only; "
-        f"update this test alongside the migration step: {carriers}"
-    )
+                if isinstance(rule, dict) and "rule_id" in rule:
+                    yield path.name, rule
 
 
-def test_every_rule_file_still_parses_as_no_provenance():
-    """Corollary: validate_rule over every live rule is a clean no-op
-    today, so wiring the gate cannot fail on day one for a reason
-    unrelated to a real defect."""
-    import json
-
-    rules_dir = Path(__file__).resolve().parents[2] / "data" / "palm_rules"
+def test_every_rule_file_parses_and_validates_clean():
+    """Over the WHOLE live corpus: a rule with no `provenance` key parses
+    as None, and a rule WITH one validates with zero G1-G8 violations.
+    Both halves must hold, so a real defect in a migrated block cannot
+    hide behind the un-migrated majority -- and this needs no ledger,
+    since each rule's own key presence is what it is being checked
+    against."""
     checked = 0
-    for path in sorted(rules_dir.glob("palm_rules_*.json")):
-        data = json.loads(path.read_text(encoding="utf-8"))
-        for section in data.values():
-            if not isinstance(section, list):
-                continue
-            for rule in section:
-                if not isinstance(rule, dict) or "rule_id" not in rule:
-                    continue
-                assert parse_provenance(rule) is None
-                assert validate_rule(rule) == []
-                checked += 1
+    migrated_seen = 0
+    for _name, rule in _live_rules():
+        provenance = parse_provenance(rule)
+        if "provenance" in rule:
+            assert provenance is not None, f"{rule['rule_id']} carries `provenance` but parsed to None"
+            assert validate_rule(rule) == [], validate_rule(rule)
+            migrated_seen += 1
+        else:
+            assert provenance is None, f"{rule['rule_id']} carries no `provenance` key but parsed non-None"
+            assert validate_rule(rule) == []
+        checked += 1
     assert checked > 100, f"expected the full rule population, scanned only {checked}"
+    assert migrated_seen >= 1, "expected at least one migrated rule in the live corpus"

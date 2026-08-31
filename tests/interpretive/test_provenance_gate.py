@@ -455,20 +455,81 @@ def test_shrink_only_predicate_catches_a_stale_baseline_entry():
     assert stale == ["MIGRATED_002"]
 
 
-# ─── governance-#1 additive-only guard stays true ───────────────────────
+# ─── migration: derived, not hand-ledgered ──────────────────────────────
+#
+# The migrated set is no longer a hand-maintained list -- it is simply
+# {rule_id : "provenance" in rule}, read straight off the corpus. Its only
+# invariant against the baseline is disjointness: a rule_id cannot be
+# simultaneously "still owes provenance, allowlisted" (in the baseline)
+# and "already migrated" (carries `provenance`). That is restated below,
+# from the migrated side, as a second cheap tripwire alongside assertion
+# 3a (which states the identical fact from the baseline side) -- the same
+# declared+oracle-style redundancy G1-G8 already uses elsewhere in this
+# mechanism.
+#
+# What this derivation CANNOT catch: a migrated rule that loses its
+# `provenance` block WITHOUT its `schema_flags` being restored and WITHOUT
+# its baseline entry being restored. That rule would then carry neither
+# key and no baseline entry -- indistinguishable, by anything derivable
+# from the live corpus alone, from a rule that never owed provenance in
+# the first place (assertion 2 / test_baseline_matches_a_fresh_derivation
+# see nothing to complain about either way, since `_owes_provenance` is
+# false for both). That information loss is structural: once both keys
+# are gone, no fact anywhere in the live files distinguishes "reverted"
+# from "never touched." A derived check cannot close that hole -- only a
+# persisted record of "this id was migrated" can. `_MIGRATED_LEDGER`
+# below is kept to EXACTLY that minimum: it is not consulted by coverage
+# or by the disjointness check above, its only job is closing this one
+# gap, and it grows by exactly one rule_id per migration commit, the same
+# discipline as the baseline shrinking by one.
+_MIGRATED_LEDGER = frozenset({"FT_001"})
 
 
-def test_no_rule_carries_provenance_yet():
-    """Mirrors the governance-#1 guard. This task wires the GATE; it does
-    not migrate anything. When migration begins, this test and its twin in
-    test_provenance.py are updated together, deliberately."""
-    carriers = [
-        f"{filename}:{rule['rule_id']}"
-        for filename, _section, rule in _ALL_RULES
-        if "provenance" in rule
-    ]
-    assert carriers == [], (
-        f"rules now carry `provenance` -- governance #2 was gate-only: {carriers}"
+def test_provenance_carriers_are_disjoint_from_the_baseline():
+    """Derived from the migrated side: no rule_id may be both a
+    `provenance` carrier and a baseline entry at once. Restates assertion
+    3a's fact from the opposite direction -- see the module comment above
+    for why a restatement earns its keep here."""
+    baseline = set(_BASELINE)
+    migrated = {
+        rule["rule_id"] for _filename, _section, rule in _ALL_RULES if "provenance" in rule
+    }
+    overlap = sorted(migrated & baseline)
+    assert not overlap, (
+        f"rule(s) carry `provenance` AND remain in the baseline -- migration must "
+        f"remove the baseline entry in the same commit: {overlap}"
+    )
+
+
+def test_migrated_ledger_rules_still_carry_provenance():
+    """MINIMAL RESIDUAL GUARD -- see the module comment above for why this
+    cannot be fully derived. Catches exactly one shape: a ledgered rule
+    that silently lost its `provenance` block (reverted migration) without
+    its baseline entry being restored to match."""
+    by_id = {rule["rule_id"]: rule for _f, _s, rule in _ALL_RULES}
+    reverted = sorted(
+        rid
+        for rid in _MIGRATED_LEDGER
+        if rid not in by_id or "provenance" not in by_id[rid]
+    )
+    assert not reverted, (
+        f"ledgered rule(s) no longer carry `provenance` and have no baseline entry "
+        f"either -- a migration was silently reverted: {reverted}"
+    )
+
+
+def test_every_migrated_rule_has_shed_its_schema_flags():
+    """Single-source: a migrated rule must not carry BOTH a `provenance`
+    block and a non-empty `schema_flags`. Two copies of the same facts is
+    exactly the drift this whole mechanism exists to end."""
+    both = sorted(
+        rule["rule_id"]
+        for _filename, _section, rule in _ALL_RULES
+        if "provenance" in rule and rule.get("schema_flags")
+    )
+    assert not both, (
+        f"rule(s) carry a structured `provenance` block AND a non-empty "
+        f"`schema_flags` -- remove the prose, it is now redundant: {both}"
     )
 
 

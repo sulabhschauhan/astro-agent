@@ -35,9 +35,43 @@
       "verifier": "Sulabh",
       "verified_date": "2026-08-22",
       "source_fidelity": "fulltext_exact",
-      "schema_flags": [
-        "NAMING-MISMATCH: source says 'is strong' (no literal 'strong' token in any value pool) -- mapped to Depth=well_marked as the nearest closed-vocab match. Verify live-phrasing at Step 2 before treating as fireable; raise for Sulabh if a dedicated 'strong' token is preferred instead."
-      ]
+      "provenance": {
+        "token_bindings": [
+          {
+            "antecedent_index": 1,
+            "bound_field": "value",
+            "chosen_token": "deep",
+            "attribute": "Depth",
+            "binding_kind": "proxy",
+            "source_phrase": "is strong",
+            "authority": "Cheiro p103",
+            "superseded": [
+              {
+                "chosen_token": "well_marked",
+                "attribute": "Depth",
+                "authority": "e982a92 (S121 #5A)",
+                "reason": "retired by the S121 #5A canonical-vocabulary migration; the token named here was the original nearest-match choice and is no longer what this rule fires on"
+              }
+            ]
+          }
+        ],
+        "status": {
+          "vocabulary_reachable": true,
+          "reachability": "pass",
+          "reachability_authority": "scripts/vocab_reachability_scan.py::classify_antecedent",
+          "vision_emission": "unproven",
+          "blocked_on": []
+        },
+        "caveats": [
+          {
+            "kind": "proxy_mapping",
+            "note": "The source phrase 'is strong' has no literal counterpart in any value pool; the bound token is the nearest closed-vocabulary stand-in for it, not a literal match. Retained verbatim from the retired flag this block replaces."
+          }
+        ],
+        "notes": [
+          "Retired-flag residue, still open: raise with Sulabh if a dedicated vocabulary entry for the source's own word 'strong' is ever preferred over the nearest-match proxy recorded above."
+        ]
+      }
     },
     {
       "rule_id": "FT_002",

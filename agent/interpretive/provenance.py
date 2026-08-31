@@ -138,7 +138,7 @@ CAVEAT_KINDS = frozenset(
     }
 )
 
-# Reachability states that contradict `fireable: true` (G6).
+# Reachability states that contradict `vocabulary_reachable: true` (G6).
 _UNFIREABLE_REACHABILITY = frozenset({"fail", "unemittable"})
 
 # vocab_reachability_scan.classify_antecedent's own status vocabulary,
@@ -198,7 +198,7 @@ class TokenBinding:
 class ProvenanceStatus:
     """CLASS B. Verification / fireability state, structured."""
 
-    fireable: bool | None = None
+    vocabulary_reachable: bool | None = None
     reachability: str | None = None
     reachability_authority: str | None = None
     vision_emission: str = "unproven"
@@ -397,9 +397,11 @@ def _parse_status(raw: object) -> ProvenanceStatus:
     where = "provenance.status"
     raw = _require_dict(raw, where)
 
-    fireable = raw.get("fireable")
-    if fireable is not None and not isinstance(fireable, bool):
-        raise ProvenanceError(f"{where}.fireable must be a boolean or null, got {fireable!r}")
+    vocabulary_reachable = raw.get("vocabulary_reachable")
+    if vocabulary_reachable is not None and not isinstance(vocabulary_reachable, bool):
+        raise ProvenanceError(
+            f"{where}.vocabulary_reachable must be a boolean or null, got {vocabulary_reachable!r}"
+        )
 
     reachability = _optional_str(raw.get("reachability"), f"{where}.reachability")
     if reachability is not None:
@@ -418,7 +420,7 @@ def _parse_status(raw: object) -> ProvenanceStatus:
         _require_str(blocker, f"{where}.blocked_on[{i}]")
 
     return ProvenanceStatus(
-        fireable=fireable,
+        vocabulary_reachable=vocabulary_reachable,
         reachability=reachability,
         reachability_authority=_optional_str(
             raw.get("reachability_authority"), f"{where}.reachability_authority"
@@ -654,12 +656,13 @@ def check_g6(
     provenance: Provenance,
     oracle: Callable[[str, str, object, object], dict] = _reachability_oracle,
 ) -> list[str]:
-    """G6: status.fireable == true => reachability not in {fail, unemittable},
-    with vocab_reachability_scan.classify_antecedent as the ORACLE.
+    """G6: status.vocabulary_reachable == true => reachability not in
+    {fail, unemittable}, with vocab_reachability_scan.classify_antecedent
+    as the ORACLE.
 
     Two parts, both needed:
-      (a) DECLARED self-consistency -- a rule cannot claim to be fireable
-          while declaring its own vocabulary unreachable.
+      (a) DECLARED self-consistency -- a rule cannot claim its vocabulary
+          is reachable while declaring its own vocabulary unreachable.
       (b) ORACLE agreement -- the declared reachability must match what
           the scan actually says about this rule's antecedents. Without
           (b), (a) is just prose checking prose: a rule could declare
@@ -674,10 +677,10 @@ def check_g6(
         return violations
 
     # (a) declared self-consistency
-    if status.fireable is True and status.reachability in _UNFIREABLE_REACHABILITY:
+    if status.vocabulary_reachable is True and status.reachability in _UNFIREABLE_REACHABILITY:
         violations.append(
-            f"G6 {_rule_id(rule)}: status.fireable is true but status.reachability is "
-            f"{status.reachability!r}"
+            f"G6 {_rule_id(rule)}: status.vocabulary_reachable is true but "
+            f"status.reachability is {status.reachability!r}"
         )
 
     # (b) oracle agreement -- skip when the rule declines to claim a state
