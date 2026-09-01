@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "1.12.0",
+    "version": "1.14.0",
     "source": "Cheiro's Language of the Hand",
     "description": "Closed vocabulary registry for deterministic palmistry rule extraction. All feature, attribute, and value tokens used in rule generation MUST exist in this registry.",
     "total_features": 68,
@@ -1138,6 +1138,20 @@
       "author": "chat, awaiting Sulabh validation",
       "change": "Typed-relationship arc, Step 5d (registry + prompt + tests, landed atomically -- one logical change, three coupled files, per the coupling-note discipline this file's own 1.9.0 entry established): retire the CONVERGENCE emission channel for Head/Heart/Fate, now fully superseded by the typed RELATIONSHIP channel (H_028/FT_016/L_026 already migrated, Steps 5a-5c). Concretely: removed 'vision_relational_menus'[\"Line of Fate\"][\"CONVERGENCE_LOCATION\"] (the only per-line CONVERGENCE-family key that ever existed in this block -- CONVERGENCE itself was NEVER a per-line vision_relational_menus entry for any line, Head/Heart/Fate included; it has been derived from the top-level 'convergence_lines' list since the 1.9.0 Generic-convergence-emission step, per '_convergence_note'). agent/palm_processor.py's CONVERGENCE/CONVERGENCE_LOCATION field-emission text for Head/Heart/Fate was removed in the same logical change (that prompt edit landed in the working tree ahead of this registry commit and is included in the same commit). 'convergence_lines' itself is UNCHANGED (still ['Line of Life','Line of Head','Line of Heart','Line of Fate','Line of Health']) -- Line of Life's own CONVERGENCE menu derivation depends on this list including all four other lines as candidate partners, and Life's field is explicitly RETAINED (Life has no RELATIONSHIP field to take over the channel). relation_types/relation_cardinality/attribute_feature_mapping are UNCHANGED -- Convergence stays a registry-legal attribute (Life still authors against it); deeper removal of the untyped Convergence vocabulary itself is a separate, later step, not done here. '_note'/'_convergence_note'/'_location_note' updated to state the retirement and that only Line of Life still consumes the CONVERGENCE-family menus.",
       "coupling_note": "Same discipline as the 1.9.0 entry: this registry edit is not safely data-only in isolation from the palm_processor.py prompt edit and the tests/interpretive/test_palm_processor.py test updates that expect the new (post-retirement) prompt shape -- all three land in the SAME commit."
+    },
+    {
+      "version": "1.13.0",
+      "date": "2026-09-01",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "S123 dead-flat-field fix, Step 1 (data-only, additive): add a new top-level 'vision_flat_subfields' block, modelled on 'vision_relational_menus'. Declares the closed menu + escape value for each FLAT (non-relational) closed sub-field agent/palm_processor.py already emits under HEAD/HEART/FATE LINE -- SLOPE (all three lines) and BREAK TYPE/LENGTH EXTENT (Line of Fate only) -- plus SLOPE MAGNITUDE (Line of Head/Heart/Fate), which has no live prompt field yet (Step 3 of this arc adds it). SLOPE MAGNITUDE's menu revives the already-declared Slope_Magnitude attribute (ratified S123 Option B) rather than widening Slope's own {upward, downward, straight} binding, so FT_003's Slope=straight requirement is never put at risk. No new feature, attribute, or value token added -- every (feature, attribute) pair used (Line of Head/Heart/Fate x Slope/Slope_Magnitude, Line of Fate x Continuity, Line of Fate x Length) was already legal in attribute_feature_mapping, and every non-escape menu value (upward/downward/straight, slight/very, broken/broken_overlapping, cutting_into_finger_of_Saturn) already existed in the 'values' block. attribute_value_binding is UNCHANGED -- neither Slope's nor Slope_Magnitude's binding was touched.",
+      "no_code_consumes_yet": "Purely additive top-level key; no existing block modified, reordered, or reformatted. Nothing in agent/interpretive/ or agent/palm_processor.py reads 'vision_flat_subfields' as of this commit -- confirmed inert by a full green suite run at the pre-existing baseline count, unchanged. Wiring (routing these fields into the flat 'observation' dict the same way Development/Proximity already merge, per this block's own '_note') is a later step in the same arc, not done here."
+    },
+    {
+      "version": "1.14.0",
+      "date": "2026-09-01",
+      "author": "chat, awaiting Sulabh validation",
+      "change": "S123 dead-flat-field fix, Step 1b (data-only, additive): review-stage correction to the 1.13.0 addition, before any wiring lands. 1.13.0's '_note' said every captured vision_flat_subfields value unconditionally WINS over an LLM-extracted value for the same (feature, attribute) -- true for SLOPE/SLOPE MAGNITUDE, whose menus equal their attribute's ENTIRE attribute_value_binding, but UNSAFE for BREAK TYPE/LENGTH EXTENT, whose menus are small proper subsets of Continuity's ~17-value range and Length's wide range: unconditional overwrite would let a fill_only BREAK TYPE=broken silently clobber a plain-sentence Continuity=double and kill FT_013 while fixing FT_012 -- fixing two rules while breaking a third. Fix: add a 'write_policy' key to all 8 existing entries, each value DERIVED (not hand-asserted) by comparing that entry's 'menu' against attribute_value_binding[attribute] (or the full flattened values pool if the attribute has no binding) -- equal sets => 'authoritative' (SLOPE, SLOPE MAGNITUDE: menu overwrites on collision, unchanged from 1.13.0's original semantics), proper subset => 'fill_only' (BREAK TYPE, LENGTH EXTENT: may write only into an EMPTY (feature, attribute) slot, must never overwrite). All 8 derived assignments were verified programmatically against the ratified expectation before writing -- 8/8 MATCH, zero contradictions, so nothing needed to stop. '_note' semantics (ii) rewritten to state both policies and the derivation rule that produces them; semantics (i) (escape values dropped, never written) is UNCHANGED and applies to both policies alike. No new feature, attribute, or value token added; no menu, feature, or attribute assignment changed from 1.13.0 -- only 'write_policy' keys and the '_note' prose were added/rewritten.",
+      "no_code_consumes_yet": "Still purely additive/corrective to 'vision_flat_subfields' plus meta/change_log only -- no other top-level block touched. attribute_value_binding re-verified byte-identical to HEAD (unchanged since before 1.13.0). Nothing in agent/interpretive/ or agent/palm_processor.py reads 'vision_flat_subfields' or 'write_policy' yet -- confirmed inert by a full green suite run at the pre-existing baseline count, unchanged. Wiring is still a later step in the same arc, not done here."
     }
   ],
   "relation_target_registry": [
@@ -1283,5 +1297,104 @@
     "_note": "Only closed per-line menus are listed here: ORIGIN, TERMINATION. CONVERGENCE and CONVERGENCE_LOCATION are NOT listed here -- see '_convergence_note'/'_location_note' below. BRANCHES_TO and the PROXIMITY landmark are also deliberately excluded -- both validate against the full relation_target_registry (an open landmark-name pool shared across every relational line), not a per-line closed list; there is no per-line menu to transcribe for them.",
     "_convergence_note": "CONVERGENCE menu for any line = convergence_lines MINUS that line itself, derived at prompt-build time (Generic convergence emission step, S98). Multi-select (a line may cross several other lines at once -- Pattern D). Not hand-listed per line here; adding a new line to convergence_lines auto-participates with zero further vision-prompt edits. RETIRED for Head/Heart/Fate (typed-relationship arc Step 5d, S99) -- their CONVERGENCE field was removed from the vision prompt in favor of the typed RELATIONSHIP channel; the derivation mechanism itself is untouched, and this menu is still live for Line of Life ONLY (Life has no RELATIONSHIP field, so it still needs this channel).",
     "_location_note": "RETIRED (typed-relationship arc Step 5d, S99) -- Line of Fate's CONVERGENCE_LOCATION menu (formerly listed above, the single-partner F025b case) was removed along with Fate's CONVERGENCE field, both superseded by the typed RELATIONSHIP channel's own 'at <mount>' clause. No line currently declares a CONVERGENCE_LOCATION menu; kept as a historical pointer in case a future line ever needs one again -- when multi-partner locations are needed, capture as a list index-aligned to the (ordered) partner list -- one location per crossing, same order (ratified S98)."
+  },
+  "vision_flat_subfields": {
+    "Line of Head": {
+      "SLOPE": {
+        "attribute": "Slope",
+        "write_policy": "authoritative",
+        "menu": [
+          "upward",
+          "downward",
+          "straight"
+        ],
+        "escape": [
+          "not clearly visible"
+        ]
+      },
+      "SLOPE MAGNITUDE": {
+        "attribute": "Slope_Magnitude",
+        "write_policy": "authoritative",
+        "menu": [
+          "slight",
+          "very"
+        ],
+        "escape": [
+          "n/a"
+        ]
+      }
+    },
+    "Line of Heart": {
+      "SLOPE": {
+        "attribute": "Slope",
+        "write_policy": "authoritative",
+        "menu": [
+          "upward",
+          "downward",
+          "straight"
+        ],
+        "escape": [
+          "not clearly visible"
+        ]
+      },
+      "SLOPE MAGNITUDE": {
+        "attribute": "Slope_Magnitude",
+        "write_policy": "authoritative",
+        "menu": [
+          "slight",
+          "very"
+        ],
+        "escape": [
+          "n/a"
+        ]
+      }
+    },
+    "Line of Fate": {
+      "SLOPE": {
+        "attribute": "Slope",
+        "write_policy": "authoritative",
+        "menu": [
+          "upward",
+          "downward",
+          "straight"
+        ],
+        "escape": [
+          "not clearly visible"
+        ]
+      },
+      "SLOPE MAGNITUDE": {
+        "attribute": "Slope_Magnitude",
+        "write_policy": "authoritative",
+        "menu": [
+          "slight",
+          "very"
+        ],
+        "escape": [
+          "n/a"
+        ]
+      },
+      "BREAK TYPE": {
+        "attribute": "Continuity",
+        "write_policy": "fill_only",
+        "menu": [
+          "broken",
+          "broken_overlapping"
+        ],
+        "escape": [
+          "n/a"
+        ]
+      },
+      "LENGTH EXTENT": {
+        "attribute": "Length",
+        "write_policy": "fill_only",
+        "menu": [
+          "cutting_into_finger_of_Saturn"
+        ],
+        "escape": [
+          "n/a"
+        ]
+      }
+    },
+    "_note": "Closed menus for the FLAT (non-relational) closed sub-fields agent/palm_processor.py emits as indented lines under a line's own HEAD/HEART/FATE LINE header -- SLOPE (all three lines), and BREAK TYPE/LENGTH EXTENT (Line of Fate only). S123 diagnosed these fields as emitted on every hand and then read by NOTHING: they match neither palm_reading._gather_feature_texts's flat-label lookup nor observation_extractor._RELATIONAL_SUBFIELD's regex, so the values never reach `observation` or `targets`. This block is Step 1 of the S123 fix (data-only, additive, deliberately inert -- no consumer reads it yet). Unlike vision_relational_menus, every entry here carries a FLAT scalar value keyed to an ontology ATTRIBUTE, never a relation_target -- these values belong in the flat `observation` dict, exactly like Development, never in `targets`. SLOPE MAGNITUDE has NO live vision-prompt field yet (Step 3 of this arc adds the prompt text); its menu is declared here ahead of that step as Slope_Magnitude's existing, UNCHANGED attribute_value_binding {slight, very} -- ratified S123 Option B, reviving the already-declared Slope_Magnitude attribute rather than widening Slope's own binding (which would introduce a new straight-vs-slight boundary and put FT_003's Slope=straight requirement at risk). Menu wording for SLOPE/BREAK TYPE/LENGTH EXTENT is transcribed verbatim from agent/palm_processor.py's literal prompt text, not invented. Two semantics any future consumer of this block MUST honour: (i) an ESCAPE value ('not clearly visible' for SLOPE, 'n/a' for SLOPE MAGNITUDE/BREAK TYPE/LENGTH EXTENT) means honest silence -- it is DROPPED, never written, and must never overwrite a value another channel already supplied for that (feature, attribute); (ii) a non-escape value's write behavior is governed by this entry's own `write_policy` key, NOT a blanket rule -- REVIEW CORRECTION (1.14.0, before any wiring): the original 1.13.0 wording said every captured value unconditionally WINS over any LLM-extracted value, which is only true when this field's `menu` equals its attribute's ENTIRE legal value range. `write_policy` is DERIVED, not hand-asserted -- compare `menu` against `attribute_value_binding[attribute]` if the attribute has a binding, else against the full flattened `values` pool: equal sets => `\"authoritative\"`; `menu` a PROPER SUBSET => `\"fill_only\"`. Any future edit to a menu must re-derive this key the same way, never hand-copy it. `\"authoritative\"` (SLOPE, SLOPE MAGNITUDE -- each menu already equals its attribute's own binding) behaves as originally specified: the captured value WINS over any LLM-extracted value for the same (feature, attribute) on collision, mirroring the existing Proximity ('P-wins') and Development ('Development-wins') merge precedent in palm_reading.prepare_palm_reading. `\"fill_only\"` (BREAK TYPE, LENGTH EXTENT -- each menu is a small proper subset of Continuity's ~17-value / Length's wide range) is NARROWER: it may write ONLY when that (feature, attribute) slot is still EMPTY, and must NEVER overwrite a value already present from any other channel -- unconditional overwrite here would let, e.g., a fill_only BREAK TYPE=broken clobber a plain-sentence Continuity=double and silently kill FT_013 while fixing FT_012, trading one dead rule for another. This block's eventual consumer must merge AFTER to_tokens(), the same way Proximity/Development already do, not route through the LLM-mediated extraction path, for BOTH policies -- only the overwrite-vs-fill-empty condition differs between them."
   }
 }
