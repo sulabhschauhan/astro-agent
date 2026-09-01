@@ -217,6 +217,35 @@ def _menu(feature: str, field: str) -> str:
     return "{" + " | ".join(_VISION_RELATIONAL_MENUS[feature][field]) + "}"
 
 
+# Registry-derived FLAT (non-relational) closed sub-field menus (S123 Step
+# 3) -- the analogous SSOT to `_VISION_RELATIONAL_MENUS` above, for
+# `ontology_registry.json`'s `vision_flat_subfields` block instead of
+# `vision_relational_menus`. `extract_flat_subfields` (observation_extractor.py,
+# S123 Step 2) builds its own label regex from this SAME registry block, so
+# a label rendered here via `_flat_subfield_menu` is guaranteed to parse on
+# the other end -- no separately-maintained copy to drift.
+_VISION_FLAT_SUBFIELDS: dict[str, dict[str, dict]] = _ONTOLOGY_REGISTRY["vision_flat_subfields"]
+
+
+def _flat_subfield_menu(feature: str, label: str) -> str:
+    """Formats a `vision_flat_subfields[feature][label]["menu"]` list as the
+    SAME "{tok1 | tok2 | ...}" brace-and-pipe shape `_menu()` renders for
+    `vision_relational_menus` -- the analogous generalization-gate helper
+    for the FLAT (non-relational) closed sub-fields, so a menu edit in the
+    registry flows into the prompt with zero code change here. Registry is
+    the sole source of the token list, in the registry's own list order
+    (never re-sorted or hand-copied).
+
+    Currently used for SLOPE MAGNITUDE only. SLOPE, BREAK TYPE, and LENGTH
+    EXTENT remain hand-typed literals in `_build_description_system_prompt`
+    below, NOT routed through this helper -- deliberately out of this
+    step's scope (additive-only: add the ask for SLOPE MAGNITUDE, touch
+    nothing else). See that function's own docstring for what routing them
+    through this helper would actually require (a Step 6 candidate, not
+    done here)."""
+    return "{" + " | ".join(_VISION_FLAT_SUBFIELDS[feature][label]["menu"]) + "}"
+
+
 def _relationship_type_menu() -> str:
     """Closed {type1 | type2 | ...} menu of the 8 typed-relationship tokens
     (S99 Step 2) -- identical for every line, since the type vocabulary is
@@ -270,7 +299,32 @@ def _build_description_system_prompt(hand: str) -> str:
     of the inline API-call literal (Generalization step 3, S98) into this pure,
     no-side-effect function purely so the registry-sourced menu substitution
     could be proven byte-identical against the pre-refactor literal for both
-    hand values; the returned text is otherwise unchanged."""
+    hand values; the returned text is otherwise unchanged.
+
+    S123 STEP 3 FINDING (reported, not acted on -- a Step 6 candidate):
+    SLOPE MAGNITUDE is the only vision_flat_subfields field routed through
+    `_flat_subfield_menu()` below. SLOPE (x3, Head/Heart/Fate), BREAK TYPE,
+    and LENGTH EXTENT remain hand-typed literals in this function, for two
+    different reasons, checked directly rather than assumed:
+      - SLOPE/BREAK TYPE already use the SAME "{tok1 | tok2 | ...}" brace
+        shape `_flat_subfield_menu()` renders, so swapping in the helper is
+        mechanically easy -- EXCEPT the hand-typed brace list currently
+        folds the ESCAPE value into the SAME braces (e.g. SLOPE's literal
+        "{upward | downward | straight | not clearly visible}" -- "not
+        clearly visible" is vision_flat_subfields's ESCAPE for this field,
+        not a `menu` member, so `_flat_subfield_menu()` alone would silently
+        DROP it from the rendered braces). The fix is not a bare swap: it is
+        aligning to the pattern ORIGIN/TERMINATION already use elsewhere in
+        this same prompt -- escape rendered OUTSIDE the braces ("exactly one
+        of {menu} or 'none'") -- which is itself a wording change to an
+        existing field, out of this step's additive-only scope.
+      - LENGTH EXTENT is not brace-shaped at all today -- it is pure prose
+        ("write 'cutting_into_finger_of_Saturn'"), even though its registry
+        menu is a real (single-token) list. Routing it through the helper
+        would mean deciding whether to introduce a brace-list phrasing for
+        a single-token menu at all, on top of the same escape-placement
+        question above -- a design decision, not a mechanical refactor.
+    Neither is touched here."""
     return (
         f"You are a trained observer preparing hand notes for a "
         f"Cheiro-tradition palmist. You are NOT the palmist: record only "
@@ -288,8 +342,8 @@ def _build_description_system_prompt(hand: str) -> str:
         f"a separate \"CONVERGENCE: <line>\" line choosing only from {_menu('Line of Life', 'CONVERGENCE')} "
         "-- repeat this line once per additional crossing; if none clearly visible, "
         "write \"CONVERGENCE: none\"\n"
-        "For HEAD, HEART, and FATE lines, after SLOPE also give ORIGIN, TERMINATION, "
-        "PROXIMITY, BRANCHES_TO, CONTACTS as separate indented lines. ORIGIN/TERMINATION: pick "
+        "For HEAD, HEART, and FATE lines, after SLOPE also give SLOPE MAGNITUDE, ORIGIN, "
+        "TERMINATION, PROXIMITY, BRANCHES_TO, CONTACTS as separate indented lines. ORIGIN/TERMINATION: pick "
         "ONLY from that line's listed menu, else 'none'. HEART LINE DIRECTION LAW: the "
         "finger/mount end is ORIGIN and the percussion is TERMINATION (even though common "
         "convention calls the percussion the start). FATE LINE DIRECTION LAW: the "
@@ -303,6 +357,10 @@ def _build_description_system_prompt(hand: str) -> str:
         "HEAD LINE: presence, depth, width, length, direction (straight across vs sloping "
         "downward toward the wrist/Mount of Luna), breaks/chains/forks/islands\n"
         "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
+        "  SLOPE MAGNITUDE: only when SLOPE is upward or downward, exactly one of "
+        f"{_flat_subfield_menu('Line of Head', 'SLOPE MAGNITUDE')}. Write 'n/a' if SLOPE is "
+        "straight or not clearly visible, or if the degree of slope is not clearly judgeable "
+        "-- when unsure, 'n/a' is the correct answer, never guess.\n"
         f"  ORIGIN: exactly one of {_menu('Line of Head', 'ORIGIN')} or 'none'\n"
         f"  TERMINATION: exactly one of {_menu('Line of Head', 'TERMINATION')} or 'none' if the line is short and ends mid-palm\n"
         "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
@@ -310,6 +368,10 @@ def _build_description_system_prompt(hand: str) -> str:
         f"{_contacts_field('Line of Head')}"
         "HEART LINE: same attributes (depth, width, length, direction, breaks/chains/forks/islands)\n"
         "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
+        "  SLOPE MAGNITUDE: only when SLOPE is upward or downward, exactly one of "
+        f"{_flat_subfield_menu('Line of Heart', 'SLOPE MAGNITUDE')}. Write 'n/a' if SLOPE is "
+        "straight or not clearly visible, or if the degree of slope is not clearly judgeable "
+        "-- when unsure, 'n/a' is the correct answer, never guess.\n"
         f"  ORIGIN: exactly one of {_menu('Line of Heart', 'ORIGIN')} or 'none'\n"
         f"  TERMINATION: exactly one of {_menu('Line of Heart', 'TERMINATION')} or 'none'\n"
         "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"
@@ -317,6 +379,10 @@ def _build_description_system_prompt(hand: str) -> str:
         f"{_contacts_field('Line of Heart')}"
         "FATE LINE: same attributes (state plainly if absent or barely visible)\n"
         "  SLOPE: exactly one of {upward | downward | straight | not clearly visible}\n"
+        "  SLOPE MAGNITUDE: only when SLOPE is upward or downward, exactly one of "
+        f"{_flat_subfield_menu('Line of Fate', 'SLOPE MAGNITUDE')}. Write 'n/a' if SLOPE is "
+        "straight or not clearly visible, or if the degree of slope is not clearly judgeable "
+        "-- when unsure, 'n/a' is the correct answer, never guess.\n"
         f"  ORIGIN: exactly one of {_menu('Line of Fate', 'ORIGIN')} or 'none'\n"
         f"  TERMINATION: exactly one of {_menu('Line of Fate', 'TERMINATION')} or 'none'\n"
         "  PROXIMITY: <touching|medium|distant|n/a> to <landmark or none>\n"

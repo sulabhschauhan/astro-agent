@@ -24,11 +24,18 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent.palm_processor import _build_description_system_prompt, _menu, _contacts_field
+from agent.palm_processor import (
+    _build_description_system_prompt,
+    _contacts_field,
+    _flat_subfield_menu,
+    _menu,
+)
+from agent.interpretive.observation_extractor import _FLAT_SUBFIELD_REGISTRY
 
 _REGISTRY_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "ontology_registry.json"
 _REGISTRY: dict = json.loads(_REGISTRY_PATH.read_text(encoding="utf-8"))
 _VISION_RELATIONAL_MENUS: dict[str, dict[str, list[str]]] = _REGISTRY["vision_relational_menus"]
+_VISION_FLAT_SUBFIELDS: dict[str, dict[str, dict]] = _REGISTRY["vision_flat_subfields"]
 _CONVERGENCE_LINES: list[str] = _REGISTRY["convergence_lines"]
 
 _PROMPTS = {hand: _build_description_system_prompt(hand) for hand in ("left", "right")}
@@ -135,3 +142,54 @@ def test_fate_line_origin_menu_includes_plain_of_mars():
     for hand, prompt in _PROMPTS.items():
         assert "Plain of Mars" in prompt, f"'Plain of Mars' missing from built prompt for hand={hand!r}"
         assert expected in prompt
+
+
+# ─── SLOPE MAGNITUDE -- S123 Step 3 ────────────────────────────────────────
+# Guards the registry<->prompt link for the ONE vision_flat_subfields field
+# currently routed through _flat_subfield_menu() (SLOPE, BREAK TYPE, LENGTH
+# EXTENT remain hand-typed -- see _build_description_system_prompt's own
+# docstring for why, a Step 6 candidate not done here). Two separate guards,
+# per the instructing prompt: the MENU must never drift from the registry,
+# and the LABEL must stay byte-identical to the registry key
+# extract_flat_subfields's own regex is built from.
+
+
+def test_slope_magnitude_menu_matches_registry_for_every_declaring_line():
+    """The rendered SLOPE MAGNITUDE menu ("{tok1 | tok2 | ...}") must equal
+    vision_flat_subfields[feature]["SLOPE MAGNITUDE"]["menu"] exactly, for
+    every line that declares the field (Head/Heart/Fate) -- both via the
+    helper directly and verbatim inside the built prompt for both hands, so
+    prompt and registry can never silently drift apart."""
+    for feature, fields in _VISION_FLAT_SUBFIELDS.items():
+        if feature.startswith("_") or "SLOPE MAGNITUDE" not in fields:
+            continue
+        expected = _expected_menu_string(fields["SLOPE MAGNITUDE"]["menu"])
+        assert _flat_subfield_menu(feature, "SLOPE MAGNITUDE") == expected
+        for hand, prompt in _PROMPTS.items():
+            assert expected in prompt, (
+                f"{feature!r} SLOPE MAGNITUDE menu {expected!r} not found verbatim "
+                f"in the built prompt for hand={hand!r}"
+            )
+
+
+def test_slope_magnitude_label_is_byte_identical_to_the_extractor_registry_key():
+    """The literal "SLOPE MAGNITUDE:" label emitted in the prompt must match,
+    byte-for-byte, the registry key
+    observation_extractor.extract_flat_subfields's own regex is built from
+    (_FLAT_SUBFIELD_REGISTRY, S123 Step 2) -- a label typo here would silently
+    desync the ask from the reader even though both ultimately read the same
+    registry block, since the prompt's label text is still a separate hand-
+    typed literal from the regex-building code path. Checked against BOTH
+    ends independently: the registry itself declares the key, and the
+    extractor's own derived structure (not a second hand-copy) carries it
+    too."""
+    for feature in ("Line of Head", "Line of Heart", "Line of Fate"):
+        assert "SLOPE MAGNITUDE" in _VISION_FLAT_SUBFIELDS[feature]
+        assert "SLOPE MAGNITUDE" in _FLAT_SUBFIELD_REGISTRY[feature]
+    for hand, prompt in _PROMPTS.items():
+        # 3 occurrences: once each for Head, Heart, Fate.
+        assert prompt.count("  SLOPE MAGNITUDE:") == 3, (
+            f"expected exactly 3 'SLOPE MAGNITUDE:' labels (Head/Heart/Fate) "
+            f"in the built prompt for hand={hand!r}, found "
+            f"{prompt.count('  SLOPE MAGNITUDE:')}"
+        )
