@@ -20,15 +20,18 @@ matching ontology value token. Proves CAPTURE, not drop: it must land in
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from agent.interpretive.observation_extractor import (
     _CLOSED_VOCAB,
     _FEATURE_ALIAS,
+    _FLAT_SUBFIELD_REGISTRY,
     _MOUNT_DEVELOPMENT_MENUS,
     ObservationRecord,
     all_aliased_features,
+    extract_flat_subfields,
     extract_mount_development,
     extract_observation,
     extract_relations,
@@ -856,3 +859,185 @@ def test_translate_mount_development_drops_unrecognized_key_quarantined():
 
 def test_translate_mount_development_empty_in_empty_out():
     assert translate_mount_development({}) == {}
+
+
+# ─── extract_flat_subfields -- S123 Step 2 (dead-flat-field fix reader) ───
+# UNWIRED: no call site reads this function yet. Hardest case first (project
+# convention): the label-collision case a naive single-word regex would get
+# wrong -- "SLOPE MAGNITUDE" being mis-matched as "SLOPE" plus leftover junk
+# -- since that is the one behavior a careless implementation of this
+# function would silently get wrong, exactly parallel to
+# test_extract_mount_development_per_mount_menu_enforcement_not_global above.
+
+
+def test_extract_flat_subfields_slope_magnitude_not_swallowed_by_slope_pattern():
+    """"SLOPE MAGNITUDE:" must resolve to the Slope_Magnitude attribute, not
+    be mis-matched by a naive "SLOPE:" pattern (which would leave " MAGNITUDE:
+    slight" as unparsed junk, or worse, silently misfile it under Slope).
+    Also proves SLOPE and SLOPE MAGNITUDE are captured INDEPENDENTLY when
+    both appear under the same line -- one label's match does not consume or
+    interfere with the other's."""
+    text = (
+        "HEAD LINE: present, deep\n"
+        "  SLOPE: downward\n"
+        "  SLOPE MAGNITUDE: slight\n"
+    )
+    assert extract_flat_subfields(text) == {
+        "Line of Head": {
+            "Slope": {"value": "downward", "write_policy": "authoritative"},
+            "Slope_Magnitude": {"value": "slight", "write_policy": "authoritative"},
+        }
+    }
+
+
+def test_extract_flat_subfields_slope_escape_value_dropped_no_entry_at_all():
+    """SLOPE's escape value ('not clearly visible') is honest silence --
+    dropped, never written. The returned dict must have NO Slope key for
+    this feature at all, not a key holding a null/empty placeholder."""
+    text = "HEAD LINE: present\n  SLOPE: not clearly visible\n"
+    result = extract_flat_subfields(text)
+    assert result == {}
+    assert "Line of Head" not in result
+
+
+def test_extract_flat_subfields_na_escape_value_dropped_for_each_na_field():
+    """'n/a' is the escape value for SLOPE MAGNITUDE, BREAK TYPE, and LENGTH
+    EXTENT alike -- each dropped independently, each producing NO entry for
+    its own attribute, verified one field at a time so a bug isolated to
+    just one of the three could not hide behind the other two passing."""
+    assert extract_flat_subfields(
+        "HEAD LINE: present\n  SLOPE MAGNITUDE: n/a\n"
+    ) == {}
+    assert extract_flat_subfields(
+        "FATE LINE: present\n  BREAK TYPE: n/a\n"
+    ) == {}
+    assert extract_flat_subfields(
+        "FATE LINE: present\n  LENGTH EXTENT: n/a\n"
+    ) == {}
+
+
+def test_extract_flat_subfields_off_menu_value_quarantined_not_coerced():
+    """A value that is neither a menu member nor an escape value is dropped
+    -- quarantined, never coerced to the "nearest" legal token (e.g.
+    "diagonal" must NOT become "downward" by some fuzzy-match guess)."""
+    text = "HEAD LINE: present\n  SLOPE: diagonal\n"
+    assert extract_flat_subfields(text) == {}
+
+    text_break = "FATE LINE: present\n  BREAK TYPE: hairline_fracture\n"
+    assert extract_flat_subfields(text_break) == {}
+
+
+def test_extract_flat_subfields_break_type_under_head_line_dropped_gate_a():
+    """BREAK TYPE is declared ONLY for Line of Fate in the registry. Seen
+    under HEAD LINE (which does not declare it), it must be dropped by the
+    label-not-declared-for-this-feature gate, not silently accepted because
+    the global label regex matched it."""
+    assert "BREAK TYPE" not in _FLAT_SUBFIELD_REGISTRY["Line of Head"]
+    text = "HEAD LINE: present\n  BREAK TYPE: broken\n"
+    assert extract_flat_subfields(text) == {}
+
+
+def test_extract_flat_subfields_subfield_before_any_header_dropped():
+    """A sub-field line with no preceding line header (tracker still None)
+    is dropped -- there is no feature to attribute it to."""
+    text = "  SLOPE: downward\nHEAD LINE: present\n"
+    assert extract_flat_subfields(text) == {}
+
+
+def test_extract_flat_subfields_repeated_label_last_occurrence_wins():
+    """The SAME label appearing twice under one line's block: the LAST
+    occurrence wins (plain dict-key overwrite) -- documented behavior, not
+    an accumulation. Asserted explicitly here so a future refactor that
+    changes this to "first wins" or "error on conflict" fails a test, not
+    just a docstring."""
+    text = "HEAD LINE: present\n  SLOPE: downward\n  SLOPE: upward\n"
+    assert extract_flat_subfields(text) == {
+        "Line of Head": {"Slope": {"value": "upward", "write_policy": "authoritative"}}
+    }
+
+
+def test_extract_flat_subfields_life_line_header_ignored_cleanly():
+    """LIFE LINE has no vision_flat_subfields entry at all. Its header still
+    matches `_LINE_HEADER` (shared with Head/Heart/Fate), but
+    `_RELATIONAL_LINE_ALIAS` has no "life line" key, so the tracker becomes
+    None -- any sub-field lines under it (even a well-formed "SLOPE:" line,
+    which a naive "any recognised label" implementation might wrongly
+    accept) are ignored via the SAME no-current-feature mechanism a
+    sub-field-before-any-header line uses, not a Life-specific special
+    case."""
+    assert "Line of Life" not in _FLAT_SUBFIELD_REGISTRY
+    text = "LIFE LINE: present, deep, long\n  SLOPE: downward\n"
+    assert extract_flat_subfields(text) == {}
+
+
+def test_extract_flat_subfields_write_policy_authoritative_vs_fill_only():
+    """write_policy travels with the value exactly as declared in the
+    registry: SLOPE/SLOPE MAGNITUDE (menu == full attribute_value_binding)
+    are "authoritative"; BREAK TYPE/LENGTH EXTENT (proper-subset menus) are
+    "fill_only"."""
+    text = (
+        "FATE LINE: present\n"
+        "  SLOPE: straight\n"
+        "  SLOPE MAGNITUDE: very\n"
+        "  BREAK TYPE: broken_overlapping\n"
+        "  LENGTH EXTENT: cutting_into_finger_of_Saturn\n"
+    )
+    result = extract_flat_subfields(text)
+    assert result["Line of Fate"]["Slope"]["write_policy"] == "authoritative"
+    assert result["Line of Fate"]["Slope_Magnitude"]["write_policy"] == "authoritative"
+    assert result["Line of Fate"]["Continuity"]["write_policy"] == "fill_only"
+    assert result["Line of Fate"]["Length"]["write_policy"] == "fill_only"
+
+
+def test_extract_flat_subfields_raises_typeerror_for_non_str_input():
+    with pytest.raises(TypeError):
+        extract_flat_subfields(None)
+
+
+def test_extract_flat_subfields_empty_for_text_with_no_headers_or_subfields():
+    assert extract_flat_subfields("HAND SHAPE: elongated palm, medium build") == {}
+
+
+def test_extract_flat_subfields_empty_for_empty_text():
+    assert extract_flat_subfields("") == {}
+
+
+def test_extract_flat_subfields_real_s120_capture_verbatim():
+    """REAL INPUT, not a hand-authored fixture: loads the exact
+    `vision_description_raw` string from the s120 live dogfood capture,
+    committed verbatim as tests/interpretive/fixtures/
+    s120_vision_description_raw.txt (byte-identical copy of the same field
+    in diagnostics/s120_live_palm_run_raw.json -- that JSON file itself is
+    NOT tracked in git, so this test reads the tracked .txt fixture instead,
+    portable to a fresh clone or CI), and asserts the precise expected
+    output against it. On that hand: HEAD LINE has "SLOPE: downward", HEART
+    LINE has "SLOPE: upward", FATE LINE has "SLOPE: upward" plus "BREAK
+    TYPE: n/a" and "LENGTH EXTENT: n/a" (both escape values, so neither
+    produces a Continuity nor a Length entry) -- verified against the
+    actual file content, not assumed from a summary of it."""
+    fixture_path = (
+        Path(__file__).resolve().parent
+        / "fixtures" / "s120_vision_description_raw.txt"
+    )
+    raw_text = fixture_path.read_text(encoding="utf-8")
+
+    # Guard the fixture's own shape before trusting it -- these are the
+    # literal source lines this test's expected output depends on; if the
+    # fixture ever changes, this assertion (not a silently-wrong pass)
+    # is what should fail first.
+    assert "  SLOPE: downward\n" in raw_text  # under HEAD LINE
+    assert raw_text.count("  SLOPE: upward\n") == 2  # HEART LINE and FATE LINE
+    assert "  BREAK TYPE: n/a\n" in raw_text
+    assert "  LENGTH EXTENT: n/a\n" in raw_text
+
+    assert extract_flat_subfields(raw_text) == {
+        "Line of Head": {
+            "Slope": {"value": "downward", "write_policy": "authoritative"},
+        },
+        "Line of Heart": {
+            "Slope": {"value": "upward", "write_policy": "authoritative"},
+        },
+        "Line of Fate": {
+            "Slope": {"value": "upward", "write_policy": "authoritative"},
+        },
+    }

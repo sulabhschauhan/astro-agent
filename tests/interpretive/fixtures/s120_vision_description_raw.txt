@@ -1,0 +1,49 @@
+HAND SHAPE: elongated, medium build
+
+FINGERS: medium length relative to palm, straight, rounded fingertips, medium spacing
+
+THUMB: medium size, low set, wide angle from the palm
+
+LIFE LINE: present, deep, narrow, long, curves around the base of the thumb, origin near the thumb, no breaks/chains/forks/islands visible
+  CONVERGENCE: none
+
+HEAD LINE: present, deep, narrow, long, sloping downward toward the wrist
+  SLOPE: downward
+  ORIGIN: Line of Life
+  TERMINATION: Mount of Luna
+  PROXIMITY: touching to Line of Life
+  BRANCHES_TO: none
+  CONTACTS: Line of Life | starts together | at start | clear
+
+HEART LINE: present, deep, narrow, long, curves slightly upward
+  SLOPE: upward
+  ORIGIN: Mount of Jupiter
+  TERMINATION: Percussion
+  PROXIMITY: medium to Line of Head
+  BRANCHES_TO: none
+  CONTACTS: none
+
+FATE LINE: present, deep, narrow, long
+  SLOPE: upward
+  ORIGIN: Wrist
+  TERMINATION: Mount of Saturn
+  PROXIMITY: medium to Line of Head
+  BRANCHES_TO: none
+  BREAK TYPE: n/a
+  LENGTH EXTENT: n/a
+  CONTACTS: Line of Head | crosses | mid-course | clear
+
+LINE OF HEALTH: not clearly visible
+
+LINE OF MARRIAGE: not clearly visible
+
+OTHER LINES: not clearly visible
+
+MOUNTS:
+  DEVELOPMENT (Venus): well developed
+  DEVELOPMENT (Jupiter): developed
+  DEVELOPMENT (Saturn): not notably developed
+  DEVELOPMENT (the Sun): not notably developed
+  DEVELOPMENT (Upper Mount of Mars): present
+
+MARKS: not clearly visible

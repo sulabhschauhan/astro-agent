@@ -1595,6 +1595,224 @@ def translate_mount_development(
     return translated
 
 
+# ─── FLAT sub-field parsing (S123 Step 2: dead-flat-field fix reader) ─────
+# Parses the vision-prompt's FLAT (non-relational) closed sub-fields --
+# "  SLOPE: <value>", "  SLOPE MAGNITUDE: <value>", "  BREAK TYPE: <value>",
+# "  LENGTH EXTENT: <value>" -- into `{ontology_feature: {attribute:
+# {"value": str, "write_policy": str}}}`. UNWIRED as of this step: no call
+# site in this codebase reads this function yet (Step 4 of the same S123
+# arc adds the merge that does); registry-only, behaviour-inert until then.
+#
+# WHY A NEW FUNCTION, NOT extract_relations()/extract_mount_development():
+# these sub-fields carry FLAT scalar values (never a relation_target, so
+# extract_relations()'s `targets`-dict shape is the wrong shape for them),
+# AND -- unlike extract_mount_development()'s "DEVELOPMENT (<mount>):
+# <value>" lines, which self-name their own feature inline -- these
+# sub-fields do NOT name their own line; they appear as INDENTED
+# continuation lines under a line's own header, exactly the same placement
+# extract_relations()'s ORIGIN/TERMINATION/PROXIMITY/BRANCHES_TO subfields
+# use. So this parser needs a header tracker -- reusing the module's
+# EXISTING `_LINE_HEADER` regex and `_RELATIONAL_LINE_ALIAS` map verbatim
+# (the same tracker extract_relations()'s directional/proximity parsing
+# uses), never a third, independently-authored header regime.
+#
+# REGISTRY-DRIVEN, NO HARDCODING: the recognised label set, each label's
+# menu/escape/attribute/write_policy, and the regex alternation itself are
+# all built ONCE at import time from ontology_registry.json's
+# `vision_flat_subfields` block (Step 1/1b). Adding a 4th field to that
+# registry block requires ZERO code change here -- `_FLAT_SUBFIELD_REGISTRY`/
+# `_FLAT_SUBFIELD_LABELS`/`_FLAT_SUBFIELD` all regenerate from whatever the
+# block currently declares. The block's own `"_note"` key is documentation,
+# not a feature -- skipped explicitly (same "leading underscore = meta, not
+# data" convention `vision_relational_menus`'s own `_note`/`_convergence_note`/
+# `_location_note` already use elsewhere in the registry).
+
+
+def _build_flat_subfield_registry() -> dict[str, dict[str, dict[str, object]]]:
+    """`{ontology_feature: {LABEL: {"attribute", "menu" (frozenset),
+    "escape" (frozenset), "write_policy"}}}`, derived once from
+    ontology_registry.json's `vision_flat_subfields` block. Skips any
+    feature-level key starting with `"_"` (currently just `"_note"`) --
+    documentation, not a parseable feature."""
+    raw = _REGISTRY.get("vision_flat_subfields", {})
+    registry: dict[str, dict[str, dict[str, object]]] = {}
+    for feature, fields in raw.items():
+        if feature.startswith("_"):
+            continue
+        registry[feature] = {
+            label: {
+                "attribute": spec["attribute"],
+                "menu": frozenset(spec["menu"]),
+                "escape": frozenset(spec["escape"]),
+                "write_policy": spec["write_policy"],
+            }
+            for label, spec in fields.items()
+        }
+    return registry
+
+
+_FLAT_SUBFIELD_REGISTRY: dict[str, dict[str, dict[str, object]]] = _build_flat_subfield_registry()
+
+# Every recognised label across every feature, LONGEST FIRST -- so a regex
+# alternation tries "SLOPE MAGNITUDE" before "SLOPE" and can never mis-match
+# "SLOPE MAGNITUDE: slight" as "SLOPE:" followed by " MAGNITUDE: slight"
+# junk. Sorting by length (not alphabetically) is what guarantees this for
+# ANY future label the registry adds, not just today's 4 -- a lexical sort
+# would only separate "BREAK TYPE" from "SLOPE" by coincidence of their
+# first character, not by construction; length-descending is the only order
+# that structurally guarantees a longer label is tried before any label
+# that is one of its own prefixes.
+_FLAT_SUBFIELD_LABELS: tuple[str, ...] = tuple(sorted(
+    {label for fields in _FLAT_SUBFIELD_REGISTRY.values() for label in fields},
+    key=len, reverse=True,
+))
+
+_FLAT_SUBFIELD: re.Pattern | None = (
+    re.compile(r"^(" + "|".join(re.escape(lbl) for lbl in _FLAT_SUBFIELD_LABELS) + r"):\s*(.*)$")
+    if _FLAT_SUBFIELD_LABELS else None
+)
+
+
+def _store_flat_subfield(
+    result: dict[str, dict[str, dict[str, str]]],
+    feature: str,
+    label: str,
+    value_raw: str,
+) -> None:
+    """Files one parsed flat-subfield line into `result[feature][attribute]`.
+    Three gates, each dropped + logged (quarantine), never coerced or
+    guessed -- mirrors `_store_mount_development`'s gate-and-log shape:
+      (a) `label` not declared for `feature` in the registry (e.g. "BREAK
+          TYPE" seen under HEAD LINE, which only declares SLOPE/SLOPE
+          MAGNITUDE)
+      (b) `value` is one of this entry's ESCAPE values -- honest silence,
+          never written, per vision_flat_subfields's own `_note` semantics
+          (i)
+      (c) `value` is neither an escape value nor a menu member -- an
+          off-menu token, quarantined rather than coerced to the nearest
+          legal value
+
+    Comparison is CASE-SENSITIVE on the stripped value, matching
+    `_store_mount_development`'s own precedent (no `.lower()` anywhere in
+    that function either) -- the vision prompt's own closed-menu wording
+    ("exactly one of {upward | downward | straight | ...}") is a verbatim
+    contract the model is instructed to reproduce exactly, so a
+    case-differing answer is itself signal worth quarantining, not noise to
+    normalize away.
+
+    Same label appearing twice under one line's block: LAST occurrence
+    WINS (plain dict-key overwrite) -- these are single-valued flat scalar
+    attributes with no accumulation semantics, unlike CONTACTS' per-feature
+    list."""
+    feature_spec = _FLAT_SUBFIELD_REGISTRY.get(feature, {})
+    entry = feature_spec.get(label)
+    if entry is None:
+        logger.info(
+            "observation_extractor.extract_flat_subfields: label %r not "
+            "declared for feature=%r in vision_flat_subfields -- dropped "
+            "(quarantined).",
+            label, feature,
+        )
+        return
+
+    value = value_raw.strip()
+    if value in entry["escape"]:
+        logger.info(
+            "observation_extractor.extract_flat_subfields: feature=%r "
+            "label=%r value=%r is an escape value -- honest silence, "
+            "dropped (never written).",
+            feature, label, value,
+        )
+        return
+
+    if value not in entry["menu"]:
+        logger.info(
+            "observation_extractor.extract_flat_subfields: feature=%r "
+            "label=%r value=%r not in this field's closed menu %r -- "
+            "dropped (quarantined).",
+            feature, label, value, sorted(entry["menu"]),
+        )
+        return
+
+    result.setdefault(feature, {})[entry["attribute"]] = {
+        "value": value,
+        "write_policy": entry["write_policy"],
+    }
+
+
+def extract_flat_subfields(raw_text: str) -> dict[str, dict[str, dict[str, str]]]:
+    """Parses every recognised FLAT closed sub-field line (SLOPE, SLOPE
+    MAGNITUDE, BREAK TYPE, LENGTH EXTENT -- as currently declared in
+    ontology_registry.json's `vision_flat_subfields` block) into
+    `{ontology_feature: {attribute: {"value": str, "write_policy": str}}}`.
+
+    UNWIRED as of S123 Step 2 -- no call site in this codebase reads this
+    function yet; Step 4 of the same arc adds the merge that does. Pure
+    deterministic string parse of the vision model's own raw output, no LLM
+    call -- never raises for missing/malformed text, returns `{}` for "no
+    signal" (empty text, no headers, only malformed lines), same convention
+    as `extract_mount_development`/`extract_relations`.
+
+    HEADER TRACKING: unlike `extract_mount_development` (state-free -- each
+    DEVELOPMENT line self-names its own mount inline), these sub-field lines
+    do NOT name their own line; they are INDENTED continuation lines under
+    a line's own header ("HEAD LINE:", "HEART LINE:", "FATE LINE:"). Reuses
+    the module's EXISTING `_LINE_HEADER` regex + `_RELATIONAL_LINE_ALIAS` map
+    verbatim (the same tracker `extract_relations`'s directional/proximity
+    parsing uses) -- no third, independently-authored header regime. A
+    header `_RELATIONAL_LINE_ALIAS` doesn't map (e.g. "LIFE LINE:", which
+    has no vision_flat_subfields entry) sets the tracker to None, so any
+    sub-field lines under it are silently ignored -- same mechanism, not a
+    special case. A blank line resets the tracker to None (mirrors
+    `extract_relations`'s own block-boundary convention). A sub-field line
+    seen before ANY header (tracker still None) is likewise silently
+    skipped -- consistent with `extract_relations`'s own subfield checks,
+    which only proceed `if current_feature_rel is not None`.
+
+    write_policy TRAVELS WITH THE VALUE in the return shape specifically so
+    Step 4's merge does not have to re-derive it from the registry a second
+    time. Do NOT reuse `merge_relational_targets` for this shape -- that
+    function's set/scalar cardinality-aware accumulation is designed for
+    `targets`-shaped landmark dicts, not this policy-aware
+    authoritative-vs-fill_only value shape; Step 4 needs its own
+    policy-aware merge (authoritative overwrites unconditionally, fill_only
+    only fills an empty slot), not implemented here.
+    """
+    if not isinstance(raw_text, str):
+        raise TypeError(
+            "observation_extractor.extract_flat_subfields: raw_text must be "
+            f"a str, got {type(raw_text).__name__}"
+        )
+
+    result: dict[str, dict[str, dict[str, str]]] = {}
+    if _FLAT_SUBFIELD is None:
+        return result
+
+    current_feature: str | None = None
+    for line in raw_text.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            current_feature = None
+            continue
+
+        header = _LINE_HEADER.match(stripped)
+        if header:
+            line_label = header.group(1).strip().lower()
+            current_feature = _RELATIONAL_LINE_ALIAS.get(line_label)
+            continue
+
+        if current_feature is None:
+            continue
+
+        m = _FLAT_SUBFIELD.match(stripped)
+        if not m:
+            continue
+        label, value_raw = m.group(1), m.group(2)
+        _store_flat_subfield(result, current_feature, label, value_raw)
+
+    return result
+
+
 # ─── Confidence -- prose hedge-word detection (module docstring point 6) ──
 
 _HEDGE_WORDS: tuple[str, ...] = (
