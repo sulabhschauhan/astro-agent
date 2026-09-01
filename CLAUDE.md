@@ -92,6 +92,42 @@ Older superseded/shipped-feature decisions (Sessions 15-25) archived to SESSION_
 
 - **SELF-GROUNDING INVARIANTS (S119, LAWS -- do not re-litigate)** — five invariants established by the S119 consolidation (Steps 0-8; full arc in SESSION_LOG.md S119). (1) **A rule-sourced claim is SELF-GROUNDING**: it cites its own authored, gate-verified `source_page`+`source_quote`, and NO retrieval chunk is resolved for it. This is the 4th member of the "a retrieval-era mechanism must not gate a rule claim" family, after S117 `3a3d625` (support-gate tuples) and S118 `27a9edd` (banned-mention censor) -- and unlike those, it removes the retrieval dependency itself rather than exempting rule claims from a gate. Never reintroduce chunk resolution, `_c0` selection, or a drop-on-unresolvable branch for rule claims. (2) **BINDING CI DEPENDENCY (Conflict-3 condition, the one that can silently invalidate Step 2)** — `scripts/gate_rule_citations.py` MUST remain a SUITE-ENFORCED gate, never advisory and never removed. It is the SOLE guarantee that by-rule citations are authentic now that chunk resolution is gone: Step 2's entire safety argument is "the gate already verified every authored quote against the real corpus text". If that gate is ever removed, skipped, or downgraded to a warning, the flip's safety argument LAPSES and by-rule citations become unverified assertions. Any change touching it must state this dependency explicitly. (3) **Mount base meanings are DEFINITIONS, not standalone claims** — they supply consequent context to GRADED rules and never fire alone (they read as Barnum statements otherwise: true of everyone, discriminating nobody). Mounts carrying only a base meaning and no graded rule (Saturn, Mercury, Lower Mars, Luna) are HONESTLY SILENT; that silence is correct product behavior per Palm Diagnostic Principle #2, not a coverage gap to close by authoring filler. (4) **`agent/interpretive/feature_needles.py` is THE single source of truth for feature needles** — never re-copy the table into another module. It is a LEAF module (imports nothing from `agent.interpretive`), which is the only reason both `palm_reading` and `claim_voicing` can read it without closing a cycle; adding such an import silently recreates the exact problem it was built to remove. The two purpose-named views (`RETRIEVAL_NEEDLES` = corpus/OCR, substring; `OUTPUT_FEATURE_IDENTIFIERS` = model English, word-boundary) hold identical values TODAY as separate objects, so any future divergence is a conscious, tested edit. The deleted `claim_voicing._FEATURE_TRAIT_NEEDLES` copy drifted to 10 features against 16 while carrying a comment asserting it never would -- a structural (not name-based) test now guards against the next re-transplant. (5) **`dropped_rule_ids` is a RETIRED, always-empty tripwire** — Step 2 deleted the drop path, so this list is empty by construction. A non-empty value is NOT a normal condition: it signals a real regression and is now surfaced as a captured `wrong_source` event, not silently tolerated.
 
+## DESIGN-INTENT-FIRST (standing law, S123)
+
+Default assumption: everything in this codebase that exists, and everything that is deliberately absent, is that way BY DESIGN. Treat it as intentional until the record proves otherwise.
+
+Before describing anything as a bug, gap, defect, dead code, blind spot, or "unfireable", a session MUST:
+1. Search SESSION_LOG.md, both SESSION_LOG_ARCHIVE files, CLAUDE.md, docs/, diagnostics/, and git log for the original objective.
+2. Quote what was found, with session number.
+3. Check whether a later session already diagnosed it, parked it, or scoped it out — and whether a revisit trigger was recorded.
+4. Only then state a view, and label it explicitly as one of:
+   - **BY DESIGN** — working as intended; leave alone
+   - **PARKED** — known, deliberately deferred; name the trigger
+   - **SCOPED OUT** — ruled out by decision; name the session
+   - **KNOWN TRADE-OFF** — diagnosed, fix rejected for a recorded reason
+   - **UNRECORDED** — no rationale found anywhere; say where you searched
+   - **GENUINE DEFECT** — contradicts its own recorded objective
+
+Only GENUINE DEFECT justifies a fix proposal. PARKED items are scheduling decisions, not bugs. UNRECORDED items require Sulabh's call before any action.
+
+Three failure modes this law exists to prevent, all of which have already cost real sessions:
+- Judging the pipeline from the code's side without asking what the RULES required. The ontology, attribute set and vision prompt were all derived FROM rule requirements; code that looks odd usually encodes a rule's need.
+- Acting on an incomplete trace. Trace EVERY channel and EVERY consumer, and confirm on a real hand, before concluding anything is unreachable.
+- Jumping to a solution before the objective behind the current design is understood.
+
+Known-intentional items no session should re-raise as bugs (S123 audit):
+- Position carrying both height and landmark senses — diagnosed S94, fix abandoned deliberately (narrowing would silently kill 8 verified rules).
+- Hand / Type not vision-wired — scoped out S96, revisit trigger recorded.
+- Quadrangle (and palm-region shape features generally) not vision-wired — SCOPED OUT S123. Reason: a flat photograph does not let a vision model read region shape or breadth reliably; this applies to Quadrangle and to similar shape-based features, not just this one. Consequence accepted: H_010a/H_010b/HL_006/HL_021 stay unfireable, and cross-group precedence demotions that depend on them stay inert. Revisit trigger: a measured vision capability for palm-region geometry, not a prompt tweak.
+- SLOPE / BREAK TYPE / LENGTH EXTENT as dedicated closed fields — deliberate S87 pattern, reapplied S97, each closing one narrow doctrinal distinction.
+- `most_specific_wins` suppression — by design; the specific rule carries a different meaning from the generic one.
+- comparative / `magnitudes` — UNRECORDED rationale; PARKED S123, do not build a fix without Sulabh's explicit go-ahead.
+- Line of Life ORIGIN/TERMINATION closed menu — NOT REQUIRED, S123. Audited every live and parked Life-line rule: only L_004/L_005/L_018 use `Starting_Point`, all three already reachable through the LIFE LINE plain sentence's own "origin and end" wording; zero rules need a Life termination landmark. The 8 parked Life rules are blocked on line-to-line relations and branch destinations, not origin. Do not build this menu.
+
+### OPEN GENUINE DEFECT (S123)
+
+- **SLOPE field shipped half-connected.** S87 added BOTH a dedicated closed `SLOPE:` vision field AND a `Slope` `attribute_value_binding` to fix H_026. The binding works; the field is emitted on every hand and then read by NOTHING — it matches neither `_gather_feature_texts`'s flat-label lookup nor `extract_relations`'s subfield regex. H_026 currently fires only because vision independently restates "sloping downward" in the HEAD LINE plain sentence; FT_003 (Line of Fate, Slope=straight) does not get that luck and cannot fire. Two live rules depend on `Slope`. This contradicts S87's own recorded objective, so it is a GENUINE DEFECT, not a design choice. Fix direction: route the `SLOPE:` field into the observation dict the same way `DEVELOPMENT:` already is (`extract_mount_development` pattern). Not yet implemented.
+
 ## Windows Paths (hardcoded)
 - Tesseract: `C:\Program Files\Tesseract-OCR\tesseract.exe`
 - Poppler: `C:\Program Files\poppler-26.02.0\Library\bin`
