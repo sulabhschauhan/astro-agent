@@ -565,10 +565,11 @@
         {
           "feature": "Line of Heart",
           "attribute": "Starting_Point",
-          "value": "rising_from_Mount_of_Jupiter",
+          "value": null,
           "condition_type": "standard",
           "comparator": null,
-          "comparator_feature": null
+          "comparator_feature": null,
+          "relation_target": "Mount of Jupiter"
         }
       ],
       "logic_join": "AND",
@@ -617,10 +618,11 @@
         {
           "feature": "Line of Heart",
           "attribute": "Starting_Point",
-          "value": "between_Jupiter_and_Saturn",
+          "value": null,
           "condition_type": "standard",
           "comparator": null,
-          "comparator_feature": null
+          "comparator_feature": null,
+          "relation_target": "Junction of First and Second Fingers"
         }
       ],
       "logic_join": "AND",
@@ -642,10 +644,11 @@
         {
           "feature": "Line of Heart",
           "attribute": "Starting_Point",
-          "value": "rising_from_Mount_of_Saturn",
+          "value": null,
           "condition_type": "standard",
           "comparator": null,
-          "comparator_feature": null
+          "comparator_feature": null,
+          "relation_target": "Mount of Saturn"
         }
       ],
       "logic_join": "AND",
@@ -667,10 +670,11 @@
         {
           "feature": "Line of Heart",
           "attribute": "Starting_Point",
-          "value": "rising_from_Mount_of_Saturn",
+          "value": null,
           "condition_type": "standard",
           "comparator": null,
-          "comparator_feature": null
+          "comparator_feature": null,
+          "relation_target": "Mount of Saturn"
         },
         {
           "feature": "Line of Heart",
@@ -840,10 +844,11 @@
         {
           "feature": "Line of Heart",
           "attribute": "Starting_Point",
-          "value": "rising_from_Mount_of_Jupiter",
+          "value": null,
           "condition_type": "standard",
           "comparator": null,
-          "comparator_feature": null
+          "comparator_feature": null,
+          "relation_target": "Mount of Jupiter"
         },
         {
           "feature": "Line of Heart",
@@ -1167,10 +1172,11 @@
         {
           "feature": "Line of Heart",
           "attribute": "Starting_Point",
-          "value": "rising_from_Mount_of_Saturn",
+          "value": null,
           "condition_type": "standard",
           "comparator": null,
-          "comparator_feature": null
+          "comparator_feature": null,
+          "relation_target": "Mount of Saturn"
         },
         {
           "feature": "Line of Heart",

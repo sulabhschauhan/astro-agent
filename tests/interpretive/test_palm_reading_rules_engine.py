@@ -731,15 +731,23 @@ def test_claim_features_outside_registry_is_recorded(
 def test_suppression_log_is_captured_not_dropped(
     rules_engine_on, no_llm_extraction, monkeypatch
 ):
-    """HL_004 (Starting_Point=rising_from_Mount_of_Saturn) is a proper
-    antecedent-subset of HL_005 (that + Position=high), so an observation
-    satisfying both suppresses HL_004. The suppression must be visible on
-    the result, not silently swallowed."""
+    """HL_004 (Starting_Point, now relation_target=Mount of Saturn -- S123
+    Heart migration) is a proper antecedent-subset of HL_005 (that +
+    Position=high), so an observation/targets pair satisfying both
+    suppresses HL_004. The suppression must be visible on the result, not
+    silently swallowed.
+
+    UPDATED for the S123 Heart migration: HL_004/HL_005's Starting_Point
+    antecedent now reads through the STRUCTURED `targets` channel
+    (extract_relations' ORIGIN sub-line), not the flat Stage-1 LLM
+    extraction response -- palm_left carries an explicit "  ORIGIN: Mount
+    of Saturn" sub-line for exactly this reason. Position=high is
+    UNTOUCHED by the migration (the height sense, never structured) and
+    still arrives via the flat Stage-1 LLM mock below, same as before."""
     monkeypatch.setattr(palm_reading, "search", _FakeSearch([_chunk()]))
     client = _FakeClient(responses=[
         (_observation_response({
             "Line of Heart": {
-                "Starting_Point": {"value": "rising_from_Mount_of_Saturn"},
                 "Position": {"value": "high"},
             }
         }), None),
@@ -747,12 +755,16 @@ def test_suppression_log_is_captured_not_dropped(
     ])
 
     result = generate_palm_reading(
-        palm_left="HEART LINE: Rising high from beneath the mount of Saturn.",
+        palm_left=(
+            "HEART LINE: Rising high from beneath the mount of Saturn.\n"
+            "  ORIGIN: Mount of Saturn\n"
+        ),
         palm_right=None,
         client=client,
     )
 
     diag = _engine_diag(result)
+    assert diag["targets"]["Line of Heart"]["Starting_Point"] == "Mount of Saturn"
     suppression_log = diag["suppression_log"]
     assert ("HL_005", "HL_004") in [tuple(pair) for pair in suppression_log]
     assert "HL_004" in diag["fired_rule_ids"]
@@ -1735,9 +1747,15 @@ def test_s120_fixture_h026_falls_silent_after_slope_magnitude_repoint():
     which this test alone cannot demonstrate: this fixture has no
     Slope_Magnitude signal to inject via the real merge.)
 
-    H_026 is asserted to be the ONLY difference between the old and new
-    expectations -- any other rule moving would be an unaccounted-for
-    precedence interaction, not this fix, and would need its own STOP."""
+    H_026 is asserted to be the ONLY H_026-related difference between the
+    old and new expectations. UPDATED for the S123 Heart migration
+    (separate task, same fixture): HL_001's Starting_Point antecedent now
+    reads relation_target=Mount of Jupiter against this fixture's own
+    `targets["Line of Heart"]["Starting_Point"] == "Mount of Jupiter"`, so
+    HL_001 ALSO joins the fired set here -- an orthogonal, independently
+    explained gain, not a precedence interaction with H_026's own drop.
+    Any OTHER rule moving beyond these two named, explained differences
+    would need its own STOP."""
     fixture = _load_s120_fixture()
     raw_text = (
         Path(__file__).resolve().parent
@@ -1777,12 +1795,13 @@ def test_s120_fixture_h026_falls_silent_after_slope_magnitude_repoint():
     assert suppression_log == []
     assert new_fired_ids == new_survivor_ids
 
-    assert new_fired_ids == ["H_028", "L_001", "M_001", "M_014", "M_023"]
+    assert new_fired_ids == ["HL_001", "H_028", "L_001", "M_001", "M_014", "M_023"]
 
-    # EXPLICIT assertion that H_026 is the ONLY difference between the two
-    # expectations.
+    # EXPLICIT assertion that H_026's drop and HL_001's gain (S123 Heart
+    # migration, an orthogonal fix on the same fixture) are the ONLY two
+    # differences between the two expectations.
     assert set(old_expectation) - set(new_fired_ids) == {"H_026"}
-    assert set(new_fired_ids) - set(old_expectation) == set()
+    assert set(new_fired_ids) - set(old_expectation) == {"HL_001"}
 
 
 def test_s120_fixture_h026_fires_when_slope_magnitude_slight_injected():
@@ -1792,8 +1811,11 @@ def test_s120_fixture_h026_fires_when_slope_magnitude_slight_injected():
     of Head Slope_Magnitude='slight' injected directly into `observation`
     (simulating a hand where the vision model actually reported the SLOPE
     MAGNITUDE field as 'slight') -- both of H_026's antecedents
-    (Slope=downward, Slope_Magnitude=slight) are now satisfied, restoring
-    the exact old six-rule fired set."""
+    (Slope=downward, Slope_Magnitude=slight) are now satisfied. UPDATED
+    for the S123 Heart migration (separate task, same fixture): HL_001
+    also fires here now (this fixture's Heart ORIGIN target is Mount of
+    Jupiter), so the restored set is the old six PLUS HL_001, not
+    byte-identical to the old six alone."""
     fixture = _load_s120_fixture()
     rules = palm_rules_table.load_rule_set()
     targets = fixture["targets"]
@@ -1808,7 +1830,7 @@ def test_s120_fixture_h026_fires_when_slope_magnitude_slight_injected():
     survivor_ids = sorted(r.rule_id for r in survivors)
 
     assert "H_026" in fired_ids
-    assert fired_ids == ["H_026", "H_028", "L_001", "M_001", "M_014", "M_023"]
+    assert fired_ids == ["HL_001", "H_026", "H_028", "L_001", "M_001", "M_014", "M_023"]
     assert survivor_ids == fired_ids
     assert suppression_log == []
 
@@ -1822,7 +1844,10 @@ def test_s120_fixture_h026_does_not_fire_when_slope_magnitude_very():
     Slope_Magnitude='very' must NOT satisfy H_026's antecedent. No rule is
     authored for the 'very' consequent here; that is an explicitly
     separate authoring task (S123 Step 5 instruction), not attempted in
-    this test or this step."""
+    this test or this step. UPDATED for the S123 Heart migration (separate
+    task, same fixture): HL_001 fires here too (Heart ORIGIN target is
+    Mount of Jupiter on this fixture, unrelated to Head's slope
+    magnitude)."""
     fixture = _load_s120_fixture()
     rules = palm_rules_table.load_rule_set()
     targets = fixture["targets"]
@@ -1835,7 +1860,165 @@ def test_s120_fixture_h026_does_not_fire_when_slope_magnitude_very():
     fired_ids = sorted(r.rule_id for r in fired)
 
     assert "H_026" not in fired_ids
-    assert fired_ids == ["H_028", "L_001", "M_001", "M_014", "M_023"]
+    assert fired_ids == ["HL_001", "H_028", "L_001", "M_001", "M_014", "M_023"]
+
+
+# ─── S123 Heart migration: HL_001/HL_003/HL_004/HL_005/HL_010/HL_018's
+# Starting_Point antecedent moves from a flat compound value to
+# value=None + relation_target=<ORIGIN menu string>. Per the Heart channel
+# audit (report-only task, this session): Heart's flat Starting_Point
+# antecedents predate the structured ORIGIN channel by 11 days and were an
+# authoring-order artifact, ruled by Sulabh for correction. The two
+# connected subset components -- {HL_001, HL_010} and {HL_004, HL_005,
+# HL_018} -- move together atomically (breaking one apart is the literal
+# archive/S122-heart-rewire-wip failure mode: resolve_priority compares
+# WHOLE antecedent tuples, so a partially-migrated rule silently stops
+# being a subset of its unmigrated sibling). HL_003 is free-standing and
+# moves as the same mechanical edit. HL_002 is untouched (its value,
+# "Finger of Jupiter", has no ORIGIN-menu entry and is doctrinally
+# distinct from "Mount of Jupiter" -- a separate task).
+#
+# Real captured data for two of the three replays below (the s120 fixture
+# is already tracked; the two stress-probe draws are NOT -- diagnostics/
+# slope_magnitude_stress_run_1.json and _run_2.json are untracked session
+# artifacts, so their needed observation/targets/magnitudes are transcribed
+# here verbatim as JSON literals rather than read from an untracked path,
+# same portability reasoning that put s120_vision_description_raw.txt in
+# tests/interpretive/fixtures/ instead of reading diagnostics/ directly).
+
+
+def _stress_run_1_engine_state() -> dict:
+    """Transcribed verbatim from diagnostics/slope_magnitude_stress_run_1.json's
+    own `rules_engine` block (Heart Starting_Point=Mount of Jupiter draw).
+    That file is an untracked session artifact from the S123 end-to-end
+    stress-probe task; this is a portable, tracked-in-code copy of only
+    the fields this test needs."""
+    return json.loads("""
+    {"observation": {"Line of Life": {"Depth": "deep", "Width": "medium", "Length": "long", "Curve": "curved", "Continuity": "unbroken", "Starting_Point": "at_base"}, "Line of Head": {"Depth": "deep", "Width": "medium", "Length": "long", "Slope": "straight", "Continuity": "unbroken", "Proximity": "touching"}, "Line of Heart": {"Depth": "deep", "Width": "medium", "Length": "long", "Curve": "curved", "Continuity": "unbroken", "Slope": "upward", "Slope_Magnitude": "slight", "Proximity": "medium"}, "Line of Fate": {"Depth": "deep", "Width": "medium", "Length": "long", "Slope": "straight", "Proximity": "medium"}, "Thumb": {"Proportion": "medium", "Setting": "low", "Angle": "wide"}, "Mount of Venus": {"Development": "well developed"}, "Mount of Jupiter": {"Development": "developed"}, "Mount of Saturn": {"Development": "not notably developed"}, "Mount of the Sun": {"Development": "not notably developed"}, "Upper Mount of Mars": {"Development": "present"}}, "targets": {"Line of Head": {"Starting_Point": "Line of Life", "Position": "Mount of Luna", "Proximity": "Line of Life", "joins_at_origin": ["Line of Life"]}, "Line of Heart": {"Starting_Point": "Mount of Jupiter", "Position": "Percussion", "Proximity": "Line of Head"}, "Line of Fate": {"Starting_Point": "Wrist", "Position": "Mount of Saturn", "Proximity": "Line of Head", "cuts": ["Line of Head"]}}, "magnitudes": {"Line of Life": {"Depth": 1.0, "Width": 1.0, "Length": 1.0, "Curve": 1.0, "Continuity": 1.0, "Starting_Point": 1.0}, "Line of Head": {"Depth": 1.0, "Width": 1.0, "Length": 1.0, "Slope": 1.0, "Continuity": 1.0}, "Line of Heart": {"Depth": 0.6, "Width": 0.6, "Length": 0.6, "Curve": 0.6, "Continuity": 0.6}, "Line of Fate": {"Depth": 1.0, "Width": 1.0, "Length": 1.0, "Slope": 1.0}, "Thumb": {"Proportion": 1.0, "Setting": 1.0, "Angle": 1.0}, "Mount of Venus": {"Development": 1.0}, "Mount of Jupiter": {"Development": 1.0}, "_dropped": [], "_canonicalized": []}, "fired_rule_ids": ["FT_003", "H_028", "M_001", "M_014", "M_023"]}
+    """)
+
+
+def _stress_run_2_engine_state() -> dict:
+    """Transcribed verbatim from diagnostics/slope_magnitude_stress_run_2.json's
+    own `rules_engine` block (Heart Starting_Point=Junction of First and
+    Second Fingers draw). Same untracked-source rationale as
+    `_stress_run_1_engine_state` above."""
+    return json.loads("""
+    {"observation": {"Line of Life": {"Depth": "deep", "Width": "medium", "Length": "long", "Curve": "curved", "Continuity": "unbroken"}, "Line of Head": {"Depth": "deep", "Width": "medium", "Length": "long", "Direction": "straight", "Continuity": "unbroken", "Slope": "straight", "Proximity": "touching"}, "Line of Heart": {"Depth": "deep", "Width": "medium", "Length": "long", "Curve": "curved", "Continuity": "unbroken", "Slope": "upward", "Slope_Magnitude": "slight", "Proximity": "medium"}, "Line of Fate": {"Depth": "deep", "Width": "medium", "Length": "long", "Direction": "straight", "Slope": "straight", "Proximity": "medium"}, "Thumb": {"Proportion": "medium", "Setting": "low", "Angle": "wide"}, "Mount of Venus": {"Development": "well developed"}, "Mount of Jupiter": {"Development": "developed"}, "Mount of Saturn": {"Development": "not notably developed"}, "Mount of the Sun": {"Development": "not notably developed"}, "Upper Mount of Mars": {"Development": "present"}}, "targets": {"Line of Head": {"Starting_Point": "Line of Life", "Position": "Percussion", "Proximity": "Line of Life", "joins_at_origin": ["Line of Life"]}, "Line of Heart": {"Starting_Point": "Junction of First and Second Fingers", "Position": "Percussion", "Proximity": "Line of Head"}, "Line of Fate": {"Starting_Point": "Wrist", "Position": "Mount of Saturn", "Proximity": "Line of Head", "cuts": ["Line of Head"]}}, "magnitudes": {"Line of Life": {"Depth": 1.0, "Width": 1.0, "Length": 1.0, "Curve": 1.0, "Continuity": 1.0}, "Line of Head": {"Depth": 1.0, "Width": 1.0, "Length": 1.0, "Direction": 1.0, "Continuity": 1.0}, "Line of Heart": {"Depth": 0.6, "Width": 0.6, "Length": 0.6, "Curve": 0.6, "Continuity": 0.6}, "Line of Fate": {"Depth": 1.0, "Width": 1.0, "Length": 1.0, "Direction": 1.0}, "Thumb": {"Proportion": 1.0, "Setting": 1.0, "Angle": 1.0}, "Mount of Venus": {"Development": 1.0}, "Mount of Jupiter": {"Development": 1.0}, "_dropped": [], "_canonicalized": []}, "fired_rule_ids": ["FT_003", "H_028", "M_001", "M_014", "M_023"]}
+    """)
+
+
+def test_heart_migration_s120_jupiter_draw_fires_hl_001_only():
+    """s120 fixture (tests/interpretive/fixtures/s120_engine_state.json):
+    Heart's Starting_Point target is Mount of Jupiter. Post-migration,
+    HL_001 (single antecedent, now relation_target=Mount of Jupiter) fires;
+    HL_010 does NOT, because its co-required Continuity=forked was never
+    observed on this hand -- migrating HL_001/HL_010 together preserves
+    the subset PAIR structurally (see test_hl_001_remains_proper_subset_
+    of_hl_010_after_migration below) without both rules needing to fire
+    together. The ONLY difference from the pre-migration fired set is
+    HL_001 joining it.
+
+    pre_migration_fired is HARDCODED to ['H_028', 'L_001', 'M_001',
+    'M_014', 'M_023'], NOT read from the fixture's own `fired_rule_ids`
+    field -- that field is STALE, captured at S123 Step 4 before H_026 was
+    re-pointed to require Slope_Magnitude (Step 5) and still literally
+    contains 'H_026', which no longer fires on this hand (this fixture's
+    raw text has no SLOPE MAGNITUDE line for Head at all). Verified
+    directly against the real engine at current HEAD, before this Heart
+    migration's own edit, as part of this task's own pre/post replay."""
+    fixture = _load_s120_fixture()
+    rules = palm_rules_table.load_rule_set()
+    targets = fixture["targets"]
+    magnitudes = fixture["magnitudes"]
+    pre_migration_fired = ["H_028", "L_001", "M_001", "M_014", "M_023"]
+
+    fired = palm_rules_table.match(
+        copy.deepcopy(fixture["observation"]), magnitudes, rules, targets=targets
+    )
+    survivors, suppression_log = palm_rules_table.resolve_priority(fired)
+    fired_ids = sorted(r.rule_id for r in fired)
+    survivor_ids = sorted(r.rule_id for r in survivors)
+
+    assert "HL_001" in fired_ids
+    assert "HL_010" not in fired_ids
+    assert fired_ids == sorted(pre_migration_fired + ["HL_001"])
+    assert set(fired_ids) - set(pre_migration_fired) == {"HL_001"}  # the ONLY difference
+    assert survivor_ids == fired_ids
+    assert suppression_log == []
+
+
+def test_heart_migration_stress_run1_jupiter_draw_fires_hl_001_only():
+    """diagnostics/slope_magnitude_stress_run_1.json (untracked; data
+    transcribed above in _stress_run_1_engine_state): a SECOND, independent
+    real Jupiter-origin draw. Same shape of proof as the s120 test above --
+    HL_001 joins, HL_010 stays silent (Continuity=forked never observed on
+    this hand either), nothing else moves relative to this draw's own
+    pre-migration fired set."""
+    state = _stress_run_1_engine_state()
+    rules = palm_rules_table.load_rule_set()
+    pre_migration_fired = sorted(state["fired_rule_ids"])
+
+    fired = palm_rules_table.match(
+        copy.deepcopy(state["observation"]), state["magnitudes"], rules, targets=state["targets"]
+    )
+    survivors, suppression_log = palm_rules_table.resolve_priority(fired)
+    fired_ids = sorted(r.rule_id for r in fired)
+    survivor_ids = sorted(r.rule_id for r in survivors)
+
+    assert "HL_001" in fired_ids
+    assert "HL_010" not in fired_ids
+    assert fired_ids == sorted(pre_migration_fired + ["HL_001"])
+    assert set(fired_ids) - set(pre_migration_fired) == {"HL_001"}
+    assert survivor_ids == fired_ids
+    assert suppression_log == []
+
+
+def test_heart_migration_stress_run2_junction_draw_fires_hl_003_only():
+    """diagnostics/slope_magnitude_stress_run_2.json (untracked; data
+    transcribed above in _stress_run_2_engine_state): the Junction-of-
+    First-and-Second-Fingers origin draw. Post-migration, HL_003 (single
+    antecedent, now relation_target=Junction of First and Second Fingers)
+    fires -- HL_003 has no subset partner at all (isolated in the
+    precedence graph), so there is no companion rule to check for silence
+    here, unlike HL_001/HL_010 above."""
+    state = _stress_run_2_engine_state()
+    rules = palm_rules_table.load_rule_set()
+    pre_migration_fired = sorted(state["fired_rule_ids"])
+
+    fired = palm_rules_table.match(
+        copy.deepcopy(state["observation"]), state["magnitudes"], rules, targets=state["targets"]
+    )
+    survivors, suppression_log = palm_rules_table.resolve_priority(fired)
+    fired_ids = sorted(r.rule_id for r in fired)
+    survivor_ids = sorted(r.rule_id for r in survivors)
+
+    assert "HL_003" in fired_ids
+    assert fired_ids == sorted(pre_migration_fired + ["HL_003"])
+    assert set(fired_ids) - set(pre_migration_fired) == {"HL_003"}
+    assert survivor_ids == fired_ids
+    assert suppression_log == []
+
+
+def test_hl_001_remains_proper_subset_of_hl_010_after_migration():
+    """THE S122 GUARD, expressed directly against the real loaded rules --
+    not inferred from a fired-set replay. archive/S122-heart-rewire-wip
+    broke test_suppression_log_is_captured_not_dropped by migrating a rule
+    PARTIALLY: resolve_priority's most_specific_wins depends on
+    PalmRule.antecedent_set() being a proper SUBSET relationship between a
+    generic/specific pair, and that relationship is only preserved if both
+    rules in a connected component move to the SAME relation_target tuple
+    shape together. HL_001 (single antecedent, now Starting_Point
+    value=None + relation_target=Mount of Jupiter) must still be a proper
+    subset of HL_010 (same Starting_Point antecedent, plus Continuity=
+    forked, unchanged) after this migration -- this is exactly what would
+    have broken had HL_001 and HL_010 been migrated separately."""
+    rules = palm_rules_table.load_rule_set()
+    by_id = {r.rule_id: r for r in rules}
+
+    hl_001, hl_010 = by_id["HL_001"], by_id["HL_010"]
+
+    assert hl_001.antecedent_set() < hl_010.antecedent_set()  # proper subset
 
 
 def test_flat_subfield_fill_only_cannot_clobber_ft_013_protection():
