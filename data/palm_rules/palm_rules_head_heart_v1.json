@@ -1294,7 +1294,7 @@
     {
       "rule_id": "H_026",
       "topic_group": "line_head",
-      "is_compound": false,
+      "is_compound": true,
       "feature": "Line of Head",
       "role": "base_rule",
       "antecedents": [
@@ -1302,8 +1302,14 @@
           "feature": "Line of Head",
           "attribute": "Slope",
           "value": "downward"
+        },
+        {
+          "feature": "Line of Head",
+          "attribute": "Slope_Magnitude",
+          "value": "slight"
         }
       ],
+      "logic_join": "AND",
       "claim": "A head line with a slight downward slope indicates a leaning toward imaginative rather than practical work.",
       "source_chunk_id": "cheiroslanguageo00chei_1_p146",
       "source_page": 146,

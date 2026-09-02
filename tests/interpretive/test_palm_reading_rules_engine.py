@@ -1704,28 +1704,40 @@ def _load_s120_fixture() -> dict:
     return json.loads(fixture_path.read_text(encoding="utf-8"))
 
 
-def test_s120_fixture_flat_subfield_merge_leaves_fired_set_byte_identical():
-    """REGRESSION PROOF for the S123 Step 4 wiring -- the deliverable that
-    matters. Replays the s120 fixture through the REAL engine
-    (palm_rules_table.match + resolve_priority, called exactly as
-    _prepare_claims_from_rules calls them) once WITHOUT the new merge and
-    once WITH it.
+def test_s120_fixture_h026_falls_silent_after_slope_magnitude_repoint():
+    """S123 Step 5 DELIBERATE RE-BASELINE (not silent) of this test, which
+    used to be named test_s120_fixture_flat_subfield_merge_leaves_fired_
+    set_byte_identical.
 
-    On this hand: HEAD LINE already has Slope=downward from the plain-
-    sentence LLM extraction path ("sloping downward toward the wrist");
-    the flat-subfield merge writes the SAME value again (authoritative,
-    a no-op in effect). HEART LINE already has Slope=upward from its own
-    plain sentence ("curves slightly upward"); the merge again writes the
-    same value. FATE LINE has NO Slope key in the baseline observation at
-    all -- the merge genuinely ADDS Slope=upward to it (so this is not a
-    vacuous test: `observation` really does change). BREAK TYPE and
-    LENGTH EXTENT are both 'n/a' (escape values) on this hand, so
-    extract_flat_subfields drops them before the merge ever sees them --
-    neither Continuity nor Length is touched. No rule in the live rule
-    set keys on Head/Heart/Fate's Slope attribute except H_026, which
-    already fired in the baseline off the SAME plain-sentence Slope=
-    downward value. So an UNCHANGED fired set is the CORRECT result here
-    -- any difference would be a defect, not an expectation to adjust."""
+    OLD EXPECTATION (Step 4, H_026 single-antecedent -- Line of Head
+    Slope=downward alone): the flat-subfield merge left the fired set
+    BYTE-IDENTICAL to the fixture's own captured six --
+    ["H_026", "H_028", "L_001", "M_001", "M_014", "M_023"].
+
+    NEW EXPECTATION (Step 5, H_026 re-pointed to require a SECOND
+    antecedent -- Line of Head Slope_Magnitude=slight, closing the
+    over-firing bug where H_026's slight-slope claim fired on ANY
+    downward slope, accentuated included): the fired set now DROPS TO
+    FIVE, losing ONLY H_026 -- ["H_028", "L_001", "M_001", "M_014",
+    "M_023"].
+
+    WHY H_026 correctly falls silent on this capture: the s120 hand
+    predates the Step 3 SLOPE MAGNITUDE vision field entirely --
+    tests/interpretive/fixtures/s120_vision_description_raw.txt has a
+    "SLOPE: downward" line under HEAD LINE but NO "SLOPE MAGNITUDE:" line
+    at all, so extract_flat_subfields never produces a Slope_Magnitude
+    entry for Line of Head on this hand, the Step-4 merge never writes
+    one, and H_026's new second antecedent is honestly unsatisfied. This
+    is the FAIL-SAFE half of the fix working as intended -- the hand
+    where the magnitude was simply never measured must not have H_026
+    guess in its favor. (The other half -- H_026 actually firing when the
+    magnitude IS present -- is proved by the two tests immediately below,
+    which this test alone cannot demonstrate: this fixture has no
+    Slope_Magnitude signal to inject via the real merge.)
+
+    H_026 is asserted to be the ONLY difference between the old and new
+    expectations -- any other rule moving would be an unaccounted-for
+    precedence interaction, not this fix, and would need its own STOP."""
     fixture = _load_s120_fixture()
     raw_text = (
         Path(__file__).resolve().parent
@@ -1736,43 +1748,94 @@ def test_s120_fixture_flat_subfield_merge_leaves_fired_set_byte_identical():
     targets = fixture["targets"]
     magnitudes = fixture["magnitudes"]
 
-    # WITHOUT the merge: baseline reproduces exactly.
-    baseline_observation = copy.deepcopy(fixture["observation"])
-    fired_baseline = palm_rules_table.match(
-        baseline_observation, magnitudes, rules, targets=targets
-    )
-    survivors_baseline, _ = palm_rules_table.resolve_priority(fired_baseline)
-    baseline_ids = sorted(r.rule_id for r in survivors_baseline)
-    assert baseline_ids == ["H_026", "H_028", "L_001", "M_001", "M_014", "M_023"]
-    assert baseline_ids == sorted(fixture["fired_rule_ids"])
+    old_expectation = sorted(fixture["fired_rule_ids"])
+    assert old_expectation == ["H_026", "H_028", "L_001", "M_001", "M_014", "M_023"]
 
-    # WITH the merge: the REAL _merge_flat_subfields function, fed the
-    # REAL extract_flat_subfields output for this exact hand's raw text.
-    assert "Slope" not in fixture["observation"]["Line of Fate"]  # pre-merge state
+    # Apply the REAL flat-subfield merge (Step 4, unchanged by this step)
+    # -- production behavior, not switched off for this test.
     flat_subfields = observation_extractor.extract_flat_subfields(raw_text)
     assert flat_subfields == {
         "Line of Head": {"Slope": {"value": "downward", "write_policy": "authoritative"}},
         "Line of Heart": {"Slope": {"value": "upward", "write_policy": "authoritative"}},
         "Line of Fate": {"Slope": {"value": "upward", "write_policy": "authoritative"}},
     }
+    # Confirms WHY H_026 falls silent: no Slope_Magnitude entry exists to merge.
+    assert "Slope_Magnitude" not in flat_subfields.get("Line of Head", {})
 
     merged_observation = copy.deepcopy(fixture["observation"])
-    merge_log = palm_reading._merge_flat_subfields(merged_observation, flat_subfields)
+    palm_reading._merge_flat_subfields(merged_observation, flat_subfields)
+    assert "Slope_Magnitude" not in merged_observation["Line of Head"]
 
-    # The merge DID change observation -- Fate genuinely gained a Slope
-    # key, proving this isn't a vacuous no-op test.
-    assert merged_observation["Line of Fate"]["Slope"] == "upward"
-    assert merged_observation["Line of Head"]["Slope"] == "downward"
-    assert merged_observation["Line of Heart"]["Slope"] == "upward"
-    assert {entry["decision"] for entry in merge_log} == {"written_authoritative"}
+    fired = palm_rules_table.match(merged_observation, magnitudes, rules, targets=targets)
+    survivors, suppression_log = palm_rules_table.resolve_priority(fired)
+    new_fired_ids = sorted(r.rule_id for r in fired)
+    new_survivor_ids = sorted(r.rule_id for r in survivors)
 
-    fired_with_merge = palm_rules_table.match(
-        merged_observation, magnitudes, rules, targets=targets
-    )
-    survivors_with_merge, _ = palm_rules_table.resolve_priority(fired_with_merge)
-    merged_ids = sorted(r.rule_id for r in survivors_with_merge)
+    # No precedence interaction: nothing was suppressed either before H_026
+    # left the fired set or after -- the fired and surviving sets are
+    # identical, and dropping H_026 promoted nothing previously suppressed.
+    assert suppression_log == []
+    assert new_fired_ids == new_survivor_ids
 
-    assert merged_ids == baseline_ids  # BYTE-IDENTICAL fired set
+    assert new_fired_ids == ["H_028", "L_001", "M_001", "M_014", "M_023"]
+
+    # EXPLICIT assertion that H_026 is the ONLY difference between the two
+    # expectations.
+    assert set(old_expectation) - set(new_fired_ids) == {"H_026"}
+    assert set(new_fired_ids) - set(old_expectation) == set()
+
+
+def test_s120_fixture_h026_fires_when_slope_magnitude_slight_injected():
+    """The REAL proof the Step 5 fix works -- the fail-safe test above
+    only proves H_026 stays silent when the signal is absent; this proves
+    it fires when the signal IS present. Same s120 fixture, but with Line
+    of Head Slope_Magnitude='slight' injected directly into `observation`
+    (simulating a hand where the vision model actually reported the SLOPE
+    MAGNITUDE field as 'slight') -- both of H_026's antecedents
+    (Slope=downward, Slope_Magnitude=slight) are now satisfied, restoring
+    the exact old six-rule fired set."""
+    fixture = _load_s120_fixture()
+    rules = palm_rules_table.load_rule_set()
+    targets = fixture["targets"]
+    magnitudes = fixture["magnitudes"]
+
+    observation = copy.deepcopy(fixture["observation"])
+    observation["Line of Head"]["Slope_Magnitude"] = "slight"
+
+    fired = palm_rules_table.match(observation, magnitudes, rules, targets=targets)
+    survivors, suppression_log = palm_rules_table.resolve_priority(fired)
+    fired_ids = sorted(r.rule_id for r in fired)
+    survivor_ids = sorted(r.rule_id for r in survivors)
+
+    assert "H_026" in fired_ids
+    assert fired_ids == ["H_026", "H_028", "L_001", "M_001", "M_014", "M_023"]
+    assert survivor_ids == fired_ids
+    assert suppression_log == []
+
+
+def test_s120_fixture_h026_does_not_fire_when_slope_magnitude_very():
+    """Complement to the 'slight' test above -- proves the fix
+    DISCRIMINATES, not just that it can fire at all. Cheiro p146 states
+    "very sloping" as a SEPARATE, doctrinally distinct consequent
+    ("romance, idealism, imaginative work, and Bohemianism") from the
+    "slight slope" one H_026's claim text actually asserts -- so
+    Slope_Magnitude='very' must NOT satisfy H_026's antecedent. No rule is
+    authored for the 'very' consequent here; that is an explicitly
+    separate authoring task (S123 Step 5 instruction), not attempted in
+    this test or this step."""
+    fixture = _load_s120_fixture()
+    rules = palm_rules_table.load_rule_set()
+    targets = fixture["targets"]
+    magnitudes = fixture["magnitudes"]
+
+    observation = copy.deepcopy(fixture["observation"])
+    observation["Line of Head"]["Slope_Magnitude"] = "very"
+
+    fired = palm_rules_table.match(observation, magnitudes, rules, targets=targets)
+    fired_ids = sorted(r.rule_id for r in fired)
+
+    assert "H_026" not in fired_ids
+    assert fired_ids == ["H_028", "L_001", "M_001", "M_014", "M_023"]
 
 
 def test_flat_subfield_fill_only_cannot_clobber_ft_013_protection():
