@@ -1983,6 +1983,132 @@ def test_absence_islands_regression_guard_stays_present_for_line_features(featur
     assert palm_reading._is_absence(text, feature) is False
 
 
+# ─── S125: absence-detection / vision-prompt vocabulary contract ────────
+#
+# Found live on David's hand (S124 probe, diagnostics/latest_run.md S124):
+# his FATE LINE is genuinely absent; the vision prompt correctly wrote
+# "FATE LINE: absent" (agent/palm_processor.py's own prompt instructs the
+# model to "state plainly if absent or barely visible" for this field),
+# but "absent" was not in _ABSENCE_PHRASES -- so _is_genuine_negative_
+# absence returned False, the feature stayed in the retrieval query pool,
+# cleared the score floor on a junk match, landed in supported_features,
+# produced zero claims, and _compute_decline_features folded it into the
+# same decline sentence as "doctrine doesn't address this feature" (false
+# -- FT_003 fires for other hands in the same probe). Root cause: the
+# prompt's invited absence vocabulary and this detector's recognised
+# vocabulary are maintained in two different files and had drifted apart.
+#
+# _PROMPT_INVITED_ABSENCE_PHRASES below is the single hand-curated list of
+# every literal absence-signaling phrase agent/palm_processor.py's vision
+# prompt (_build_description_system_prompt) actually invites the model to
+# write, verified by direct inspection of that prompt (S125): "not clearly
+# visible" (the general per-attribute fallback, and the SLOPE/CONTACTS
+# escape), "none" (CONVERGENCE/CONTACTS "if none clearly visible ... write
+# 'none'"), "unremarkable" (the MOUNTS guidance line), and "absent" (FATE
+# LINE's own field instruction). The two tests below are a two-way sync
+# guard, not a one-off patch: test_prompt_invites_every_listed_absence_
+# phrase catches this list going stale if a phrase is ever REMOVED from
+# the prompt; test_every_prompt_invited_absence_phrase_is_recognised_by_
+# is_absence is the standing regression guard for this whole class of
+# drift -- add a new prompt-invited absence phrase to BOTH this list and
+# _ABSENCE_PHRASES (or a TIER 2 per-feature pattern) in the SAME change
+# that adds it to the prompt, or this test fails.
+#
+# "barely visible" is DELIBERATELY excluded from this list -- it names the
+# SAME prompt sentence as "absent" but is a real, non-absent quality (the
+# line IS visible, just faintly, and doctrine-queryable on that basis).
+# This is not a new judgment call: _is_genuine_negative_absence's own
+# docstring already gives "Barely visible" as an example of a quality that
+# must stay unrecognised here. test_barely_visible_is_deliberately_not_
+# absence locks that decision down so a future "fix" doesn't undo it.
+_PROMPT_INVITED_ABSENCE_PHRASES = (
+    "not clearly visible",
+    "none",
+    "unremarkable",
+    "absent",
+)
+
+
+def test_prompt_invites_every_listed_absence_phrase():
+    """Sync guard: every phrase this test module claims the vision prompt
+    invites must actually be findable in the prompt text -- catches the
+    list above going stale if a phrase is ever removed from the prompt."""
+    from agent import palm_processor
+
+    prompt = palm_processor._build_description_system_prompt("left")
+
+    for phrase in _PROMPT_INVITED_ABSENCE_PHRASES:
+        assert phrase.lower() in prompt.lower(), (
+            f"{phrase!r} is no longer present in agent/palm_processor.py's "
+            "vision prompt -- update _PROMPT_INVITED_ABSENCE_PHRASES (and "
+            "_ABSENCE_PHRASES if it should be retired there too)."
+        )
+
+
+def test_every_prompt_invited_absence_phrase_is_recognised_by_is_absence():
+    """THE S125 regression guard: if a future prompt edit invites a NEW
+    absence-signaling word, add it to _PROMPT_INVITED_ABSENCE_PHRASES above
+    -- this test then fails until palm_reading._ABSENCE_PHRASES (or a
+    per-feature TIER 2 pattern) is taught to recognise it too, closing the
+    exact drift class the David/fate-line defect was an instance of."""
+    for phrase in _PROMPT_INVITED_ABSENCE_PHRASES:
+        assert palm_reading._is_absence(phrase), (
+            f"agent/palm_processor.py's vision prompt invites {phrase!r} to "
+            "signal absence, but palm_reading._is_absence() does not "
+            "recognise it -- _ABSENCE_PHRASES has drifted from the prompt's "
+            "vocabulary."
+        )
+
+
+def test_bare_word_absent_is_recognised_as_absence():
+    """Direct reproduction of the David/fate-line defect's own raw field
+    text (diagnostics/s124_david_e2e_raw.json: 'FATE LINE: absent' parses
+    to the bare field value 'absent')."""
+    assert palm_reading._is_absence("absent") is True
+    assert palm_reading._is_absence("absent", "fate line") is True
+
+
+def test_barely_visible_is_deliberately_not_absence():
+    """'barely visible' is real, doctrine-queryable line quality (the line
+    IS visible, just faintly) -- _is_genuine_negative_absence's own
+    docstring already documents this as intentional. Locks the design
+    decision so a future patch doesn't fold it into the absence vocabulary
+    by mistake."""
+    assert palm_reading._is_absence("barely visible") is False
+    assert palm_reading._is_absence("barely visible", "fate line") is False
+
+
+def test_genuine_negative_absence_true_for_bare_absent_fate_line():
+    """The actual downstream flip this defect was about:
+    _is_genuine_negative_absence -- not just _is_absence -- must return
+    True for David's real raw text, so the feature exits the retrieval
+    query pool and cannot land in supported_features."""
+    assert palm_reading._is_genuine_negative_absence("fate line", ["absent"]) is True
+
+
+def test_apply_support_gate_excludes_genuinely_absent_fate_line():
+    """End of the fix's effect chain: with the retrieval query never run
+    (empty per_feature_results, matching what _retrieve_per_feature now
+    produces for a bare "absent" field, since _resolve_feature_quality
+    returns None), fate line must land in NEITHER supported_features NOR
+    unsupported_features -- nothing to decline, per _apply_support_gate's
+    own genuine-negative-absence branch -- so it cannot reach the
+    "classical texts do not clearly address" decline sentence at all.
+    Every OTHER registry feature is absent from both input dicts here (an
+    empty per_feature_results / texts_by_feature entry, same as "never
+    mentioned by any hand"), so _apply_support_gate correctly treats them
+    as ordinary unsupported features -- this test only asserts about
+    'fate line', the one under test."""
+    gated, supported, unsupported = palm_reading._apply_support_gate(
+        {"fate line": []}, {"fate line": ["absent"]},
+    )
+
+    assert "fate line" not in supported
+    assert "fate line" not in unsupported
+    decline = palm_reading._compute_decline_features(supported, unsupported, (), ())
+    assert "fate line" not in decline
+
+
 # ═══ S119 STEP 5: sources rebuilt from by-rule citations ════════════════
 #
 # _build_sources_from_claims used to look up

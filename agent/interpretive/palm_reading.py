@@ -342,11 +342,46 @@ _PALM_LEXICON_PATH = Path(os.getenv(
 # agnostic on purpose -- a field's own LABEL already establishes context
 # (e.g. "LIFE LINE: Not clearly visible." never says "life" in its
 # value), so these short generic markers still need no noun to fire.
+#
+# S125 ADDITION: "absent" -- agent/palm_processor.py's vision prompt
+# (FATE LINE's field instruction) explicitly invites the model to "state
+# plainly if absent or barely visible", i.e. the prompt's OWN invited
+# vocabulary and this detector's recognised vocabulary had drifted apart.
+# Found live: David's hand (no fate line) got `FATE LINE: absent`, which
+# this list did not recognise -- so the feature stayed in the retrieval
+# query pool, cleared the score floor on junk, landed in
+# supported_features, produced zero claims, and _compute_decline_features
+# folded it into the SAME decline sentence as "doctrine doesn't address
+# this feature" -- false (FT_003 fires for other hands) and reads as
+# breakage, not honest silence. See diagnostics/latest_run.md (S125) for
+# the full trace and diagnostics/s125_absence_regression_check.py for the
+# regression sweep (228 captured raw-text fields across 9 capture files,
+# exactly 1 flip: this exact David/fate-line case; zero collateral
+# reclassifications).
+#
+# "barely visible" -- named in the SAME prompt sentence as "absent" -- is
+# DELIBERATELY NOT added here. It is a real, non-absent quality (the line
+# IS visible, just faintly, and doctrine-queryable on that basis); folding
+# it into the absence list would silently suppress a genuine observation.
+# This is not a new judgment call -- _is_genuine_negative_absence's own
+# docstring already documents "Barely visible" as an example of a quality
+# that must stay unrecognised by this list. Locked by
+# test_barely_visible_is_deliberately_not_absence
+# (tests/interpretive/test_palm_reading.py) so a future "fix" doesn't
+# undo this by mistake.
+#
+# tests/interpretive/test_palm_reading.py's
+# test_every_prompt_invited_absence_phrase_is_recognised_by_is_absence is
+# the standing regression guard for this whole class of drift: it walks a
+# hand-curated list of every absence-signaling phrase the vision prompt
+# actually invites and asserts each one is recognised here. Add a new
+# prompt-invited absence phrase to that list (and this tuple, or a TIER 2
+# per-feature pattern) in the SAME change that adds it to the prompt.
 _ABSENCE_PHRASES: tuple[re.Pattern, ...] = tuple(
     re.compile(re.escape(phrase), re.IGNORECASE)
     for phrase in (
         "not clearly visible", "no clear marks", "unremarkable",
-        "not observed", "not visible", "none",
+        "not observed", "not visible", "none", "absent",
     )
 )
 
