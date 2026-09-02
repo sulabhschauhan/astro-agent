@@ -128,7 +128,9 @@ Known-intentional items no session should re-raise as bugs (S123 audit):
 - Line of Marriage — PARKED, unmeasurable from a flat photo. Build only if a not-visible/undefined rule is ever needed. Vision emits presence only.
 - Line of Health — PARKED, no structured vision block, presence only. L_P10 (point-of-death) is parked specifically pending Health-line strength emission.
 - Sun / intuition lines — PARKED, collapsed into the free-text OTHER LINES field with no structured fields.
+- Thumb — PARKED S123 (Sulabh's ruling). Angle and proportion are RELATIVE judgements a flat photo makes error-prone for a vision model, the same class of failure as proximity_degree. Vision does capture them today, but do not author thumb rules on that basis.
 - Line of Heart Position high/low — NO RECORDED RATIONALE for a benchmark, and no vision field asks it. Do not build a subjective high/medium/low scale: proximity_degree was exactly that shape and proved a DEAD AXIS (gpt-4o returned "medium" universally). Any revival needs a measurable anchor, not a subjective scale. Sulabh's call, not an engineering one.
+- Line of Heart flat Starting_Point/Position antecedents — UNRECORDED, and ruled S123 by Sulabh as an authoring-order artifact to be corrected, not a design choice. The Heart rules were authored 11 days BEFORE the structured ORIGIN/TERMINATION channel existed and were never revisited; no session anywhere states a reason to keep Heart flat. Audit evidence: across 6 real draws Heart's ORIGIN is always either Mount of Jupiter (3/6) or Junction of First and Second Fingers (3/6), and TERMINATION is Percussion 6/6, so migrating makes HL_001 or HL_003 fire on every hand. Migration is per CONNECTED SUBSET COMPONENT, never partial: {HL_001, HL_010} and {HL_004, HL_005, HL_018} each move atomically — that is the literal S122 failure mode. The other 14 Heart rules have no structured target to migrate to and are out of scope.
 
 ### RESOLVED (S123)
 
