@@ -10,6 +10,7 @@ real-world example (documented at each such test).
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 
 import pytest
@@ -47,13 +48,32 @@ def test_loader_emits_warning_only_when_unverified_rules_present(caplog):
 
 
 def test_a_rule_flipped_verified_true_is_matchable():
-    # All loaded rules are already verified=true, so simplest proof: take
-    # a real one (H_002, single antecedent) and confirm match() fires it.
-    rule = BY_ID["H_002"]
-    assert rule.verified is True
-    observation = {"Line of Head": {"Starting_Point": "rising_from_Line_of_Life"}}
-    fired = match(observation, {}, [rule])
-    assert fired == [rule]
+    # SYNTHETIC rule -- do NOT re-point this at a real rule_id (e.g.
+    # BY_ID["H_002"]). This test asserts a generic engine mechanic: a rule
+    # with verified=True is included in match()'s fired output once its
+    # antecedent's value equality holds -- the verified gate itself does
+    # not block firing. That is a fact about match(), not about any rule's
+    # doctrine, so a live rule edit (e.g. the S123 Head migration turning
+    # H_002 into a directed antecedent) must never be able to break it.
+    # Built by literally FLIPPING test_unverified_rule_is_skipped_not_
+    # raised's fake_rule from verified=False to verified=True via
+    # dataclasses.replace, so the "flipped" in this test's name is a real
+    # fact about its construction, not just a label.
+    direction_ante = Antecedent(
+        feature="Line of Head", attribute="Direction", value="straight",
+        condition_type="standard", comparator=None, comparator_feature=None,
+    )
+    unverified_rule = PalmRule(
+        rule_id="SYNTH_FLIPPED_001", source_page=1, topic_group="test_group", is_compound=False,
+        antecedents=(direction_ante,), claim="placeholder", source_quote="placeholder",
+        verified=False, verifier=None, verified_date=None, source_fidelity=None,
+        schema_flags=(),
+    )
+    flipped_rule = dataclasses.replace(unverified_rule, verified=True)
+    assert flipped_rule.verified is True
+    observation = {"Line of Head": {"Direction": "straight"}}
+    fired = match(observation, {}, [flipped_rule])
+    assert fired == [flipped_rule]
 
 
 def test_unverified_rule_is_skipped_not_raised():
@@ -111,6 +131,29 @@ def _make_directed_rule() -> PalmRule:
     )
 
 
+def _make_undirected_rule() -> PalmRule:
+    """SYNTHETIC rule -- do NOT re-point this at a real rule_id (e.g.
+    BY_ID["H_002"]). H_002 was undirected (relation_target=None) when
+    test_undirected_antecedent_ignores_populated_targets and test_
+    backward_compat_existing_style_positional_call_unaffected were first
+    authored; the S123 Head migration made H_002 directed (value=None,
+    relation_target="Line of Life"), which is exactly the kind of
+    legitimate doctrine edit that must never be able to break a test about
+    generic engine mechanics. This fixture pins "undirected single-
+    antecedent rule" as a durable SHAPE, not a borrowed real rule_id, so
+    the next legitimate rule edit can't relocate this landmine either."""
+    undirected = Antecedent(
+        feature="Line of Head", attribute="Starting_Point", value="synthetic_origin_value",
+        condition_type="standard", comparator=None, comparator_feature=None,
+    )
+    return PalmRule(
+        rule_id="SYNTH_UNDIRECTED_TEST", source_page=1, topic_group="test_group", is_compound=False,
+        antecedents=(undirected,), claim="placeholder", source_quote="placeholder",
+        verified=True, verifier="test-harness", verified_date="2026-08-09",
+        source_fidelity="chunk_exact", schema_flags=(),
+    )
+
+
 def test_relation_target_fires_when_target_matches():
     rule = _make_directed_rule()
     observation = {"Line of Head": {"Proximity": "distant"}}
@@ -138,10 +181,11 @@ def test_relation_target_no_fire_when_targets_empty_fail_closed():
 
 
 def test_undirected_antecedent_ignores_populated_targets():
-    # H_002 has relation_target=None -- a populated (even wrong) targets
-    # graph must be irrelevant to it; only plain value equality governs.
-    rule = BY_ID["H_002"]
-    observation = {"Line of Head": {"Starting_Point": "rising_from_Line_of_Life"}}
+    # SYNTHETIC rule (see _make_undirected_rule) -- relation_target=None --
+    # a populated (even wrong) targets graph must be irrelevant to it; only
+    # plain value equality governs.
+    rule = _make_undirected_rule()
+    observation = {"Line of Head": {"Starting_Point": "synthetic_origin_value"}}
     targets = {"Line of Head": {"Starting_Point": "some_irrelevant_target"}}
     fired = match(observation, {}, [rule], targets=targets)
     assert fired == [rule]
@@ -158,11 +202,11 @@ def test_signature_differs_by_relation_target_only():
 
 
 def test_backward_compat_existing_style_positional_call_unaffected():
-    # Pre-existing caller shape (agent/interpretive/palm_reading.py:2024) --
-    # exactly 3 positional args, no targets -- must behave identically to
-    # before this prompt's change.
-    rule = BY_ID["H_002"]
-    observation = {"Line of Head": {"Starting_Point": "rising_from_Line_of_Life"}}
+    # SYNTHETIC rule (see _make_undirected_rule). Pre-existing caller shape
+    # (agent/interpretive/palm_reading.py:2024) -- exactly 3 positional
+    # args, no targets -- must behave identically to omitting targets.
+    rule = _make_undirected_rule()
+    observation = {"Line of Head": {"Starting_Point": "synthetic_origin_value"}}
     assert match(observation, {}, [rule]) == [rule]
 
 

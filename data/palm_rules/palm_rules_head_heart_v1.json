@@ -10,10 +10,11 @@
         {
           "feature": "Line of Head",
           "attribute": "Starting_Point",
-          "value": "rising_from_Line_of_Life",
+          "value": null,
           "condition_type": "standard",
           "comparator": null,
-          "comparator_feature": null
+          "comparator_feature": null,
+          "relation_target": "Line of Life"
         }
       ],
       "logic_join": "AND",
@@ -35,10 +36,11 @@
         {
           "feature": "Line of Head",
           "attribute": "Starting_Point",
-          "value": "rising_from_Mount_of_Mars",
+          "value": null,
           "condition_type": "standard",
           "comparator": null,
-          "comparator_feature": null
+          "comparator_feature": null,
+          "relation_target": "Lower Mount of Mars"
         }
       ],
       "logic_join": "AND",
@@ -361,24 +363,17 @@
       "rule_id": "H_013",
       "source_page": 148,
       "topic_group": "line_head",
-      "is_compound": true,
+      "is_compound": false,
       "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
           "attribute": "Branching",
-          "value": "branched",
+          "value": null,
           "condition_type": "standard",
           "comparator": null,
-          "comparator_feature": null
-        },
-        {
-          "feature": "Line of Head",
-          "attribute": "Position",
-          "value": "terminating_on_Mount_of_Jupiter",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
+          "comparator_feature": null,
+          "relation_target": "Mount of Jupiter"
         }
       ],
       "logic_join": "AND",
@@ -1058,24 +1053,17 @@
       "rule_id": "H_024",
       "source_page": 147,
       "topic_group": "line_head",
-      "is_compound": true,
+      "is_compound": false,
       "baseline": false,
       "antecedents": [
         {
           "feature": "Line of Head",
           "attribute": "Branching",
-          "value": "branched",
+          "value": null,
           "condition_type": "standard",
           "comparator": null,
-          "comparator_feature": null
-        },
-        {
-          "feature": "Line of Head",
-          "attribute": "Position",
-          "value": "terminating_on_Mount_of_Moon",
-          "condition_type": "standard",
-          "comparator": null,
-          "comparator_feature": null
+          "comparator_feature": null,
+          "relation_target": "Mount of Luna"
         }
       ],
       "logic_join": "AND",

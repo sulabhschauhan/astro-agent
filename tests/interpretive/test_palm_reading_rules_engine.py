@@ -1795,13 +1795,17 @@ def test_s120_fixture_h026_falls_silent_after_slope_magnitude_repoint():
     assert suppression_log == []
     assert new_fired_ids == new_survivor_ids
 
-    assert new_fired_ids == ["HL_001", "H_028", "L_001", "M_001", "M_014", "M_023"]
+    # UPDATED for the S123 Head migration (separate task, same fixture):
+    # H_002's Starting_Point antecedent now reads relation_target=Line of
+    # Life against this fixture's own targets["Line of Head"]["Starting_
+    # Point"] == "Line of Life", so H_002 ALSO joins the fired set here --
+    # another orthogonal, independently explained gain.
+    assert new_fired_ids == ["HL_001", "H_002", "H_028", "L_001", "M_001", "M_014", "M_023"]
 
-    # EXPLICIT assertion that H_026's drop and HL_001's gain (S123 Heart
-    # migration, an orthogonal fix on the same fixture) are the ONLY two
-    # differences between the two expectations.
+    # EXPLICIT assertion that H_026's drop and HL_001's/H_002's gains are
+    # the ONLY differences between the two expectations.
     assert set(old_expectation) - set(new_fired_ids) == {"H_026"}
-    assert set(new_fired_ids) - set(old_expectation) == {"HL_001"}
+    assert set(new_fired_ids) - set(old_expectation) == {"HL_001", "H_002"}
 
 
 def test_s120_fixture_h026_fires_when_slope_magnitude_slight_injected():
@@ -1830,7 +1834,10 @@ def test_s120_fixture_h026_fires_when_slope_magnitude_slight_injected():
     survivor_ids = sorted(r.rule_id for r in survivors)
 
     assert "H_026" in fired_ids
-    assert fired_ids == ["HL_001", "H_026", "H_028", "L_001", "M_001", "M_014", "M_023"]
+    # UPDATED for the S123 Head migration (separate task, same fixture):
+    # H_002 also fires here now (Head ORIGIN target is Line of Life on
+    # this fixture, unrelated to Head's slope magnitude).
+    assert fired_ids == ["HL_001", "H_002", "H_026", "H_028", "L_001", "M_001", "M_014", "M_023"]
     assert survivor_ids == fired_ids
     assert suppression_log == []
 
@@ -1860,7 +1867,10 @@ def test_s120_fixture_h026_does_not_fire_when_slope_magnitude_very():
     fired_ids = sorted(r.rule_id for r in fired)
 
     assert "H_026" not in fired_ids
-    assert fired_ids == ["HL_001", "H_028", "L_001", "M_001", "M_014", "M_023"]
+    # UPDATED for the S123 Head migration (separate task, same fixture):
+    # H_002 also fires here now (Head ORIGIN target is Line of Life on
+    # this fixture, unrelated to Head's slope magnitude).
+    assert fired_ids == ["HL_001", "H_002", "H_028", "L_001", "M_001", "M_014", "M_023"]
 
 
 # ─── S123 Heart migration: HL_001/HL_003/HL_004/HL_005/HL_010/HL_018's
@@ -1942,8 +1952,12 @@ def test_heart_migration_s120_jupiter_draw_fires_hl_001_only():
 
     assert "HL_001" in fired_ids
     assert "HL_010" not in fired_ids
-    assert fired_ids == sorted(pre_migration_fired + ["HL_001"])
-    assert set(fired_ids) - set(pre_migration_fired) == {"HL_001"}  # the ONLY difference
+    # UPDATED for the S123 Head migration (separate task, same fixture):
+    # H_002 also fires here now (Head ORIGIN target is Line of Life on
+    # this fixture) -- an orthogonal, independently explained gain, not a
+    # precedence interaction with HL_001's own gain.
+    assert fired_ids == sorted(pre_migration_fired + ["HL_001", "H_002"])
+    assert set(fired_ids) - set(pre_migration_fired) == {"HL_001", "H_002"}
     assert survivor_ids == fired_ids
     assert suppression_log == []
 
@@ -1968,8 +1982,11 @@ def test_heart_migration_stress_run1_jupiter_draw_fires_hl_001_only():
 
     assert "HL_001" in fired_ids
     assert "HL_010" not in fired_ids
-    assert fired_ids == sorted(pre_migration_fired + ["HL_001"])
-    assert set(fired_ids) - set(pre_migration_fired) == {"HL_001"}
+    # UPDATED for the S123 Head migration (separate task, same fixture):
+    # H_002 also fires here now (Head ORIGIN target is Line of Life on
+    # this fixture) -- an orthogonal, independently explained gain.
+    assert fired_ids == sorted(pre_migration_fired + ["HL_001", "H_002"])
+    assert set(fired_ids) - set(pre_migration_fired) == {"HL_001", "H_002"}
     assert survivor_ids == fired_ids
     assert suppression_log == []
 
@@ -1994,8 +2011,11 @@ def test_heart_migration_stress_run2_junction_draw_fires_hl_003_only():
     survivor_ids = sorted(r.rule_id for r in survivors)
 
     assert "HL_003" in fired_ids
-    assert fired_ids == sorted(pre_migration_fired + ["HL_003"])
-    assert set(fired_ids) - set(pre_migration_fired) == {"HL_003"}
+    # UPDATED for the S123 Head migration (separate task, same fixture):
+    # H_002 also fires here now (Head ORIGIN target is Line of Life on
+    # this fixture) -- an orthogonal, independently explained gain.
+    assert fired_ids == sorted(pre_migration_fired + ["HL_003", "H_002"])
+    assert set(fired_ids) - set(pre_migration_fired) == {"HL_003", "H_002"}
     assert survivor_ids == fired_ids
     assert suppression_log == []
 
@@ -2019,6 +2039,135 @@ def test_hl_001_remains_proper_subset_of_hl_010_after_migration():
     hl_001, hl_010 = by_id["HL_001"], by_id["HL_010"]
 
     assert hl_001.antecedent_set() < hl_010.antecedent_set()  # proper subset
+
+
+# ─── S123 Head migration: H_002/H_003/H_013/H_024 move from flat
+# compound-value antecedents (dead since the 2026-08-07 reconciliation_
+# head.md audit -- the extractor never emits a "Position" flat value, and
+# H_002/H_003's own "rising_from_X" Starting_Point tokens were never
+# emitted either) onto the structured relational channel already proven
+# live by H_014/H_027/H_028. H_002/H_003: Starting_Point value=None +
+# relation_target (Line of Life / Lower Mount of Mars). H_013/H_024:
+# RESHAPED, not just swapped -- the old two-antecedent (Branching=branched
+# AND Position=terminating_on_Mount_of_X) collapses to ONE antecedent
+# (Branching value=None + relation_target=Mount of X), following the
+# H_014 precedent exactly (dropping the flat Branching=branched
+# co-antecedent, since real vision never supplies both the flat and
+# relational Branching signal simultaneously).
+#
+# Of the three real hands replayed, only H_002 ever joins the fired set
+# (Head ORIGIN reads Line of Life on every draw on record); H_003/H_013/
+# H_024 fire on none of them (Lower Mount of Mars origin and any
+# BRANCHES_TO value are both unobserved on every captured hand so far).
+# pre_migration_fired lists below are hardcoded, NOT read from any
+# fixture's own stale fired_rule_ids field -- verified directly against
+# the real engine at current HEAD, before this Head migration's own edit,
+# as part of this task's own pre/post replay (see diagnostics/latest_run.md).
+
+
+def test_head_migration_s120_fires_h002_only():
+    """tests/interpretive/fixtures/s120_engine_state.json: Head's
+    Starting_Point target is Line of Life. Post-migration, H_002 (single
+    antecedent, now relation_target=Line of Life) fires. The ONLY
+    difference from the pre-migration fired set is H_002 joining it --
+    H_003/H_013/H_024 stay silent (no Lower Mount of Mars origin, no
+    Branching target observed on this hand)."""
+    fixture = _load_s120_fixture()
+    rules = palm_rules_table.load_rule_set()
+    targets = fixture["targets"]
+    magnitudes = fixture["magnitudes"]
+    pre_migration_fired = ["HL_001", "H_028", "L_001", "M_001", "M_014", "M_023"]
+
+    fired = palm_rules_table.match(
+        copy.deepcopy(fixture["observation"]), magnitudes, rules, targets=targets
+    )
+    survivors, suppression_log = palm_rules_table.resolve_priority(fired)
+    fired_ids = sorted(r.rule_id for r in fired)
+    survivor_ids = sorted(r.rule_id for r in survivors)
+
+    assert "H_002" in fired_ids
+    assert "H_003" not in fired_ids
+    assert "H_013" not in fired_ids
+    assert "H_024" not in fired_ids
+    assert fired_ids == sorted(pre_migration_fired + ["H_002"])
+    assert set(fired_ids) - set(pre_migration_fired) == {"H_002"}  # the ONLY difference
+    assert survivor_ids == fired_ids
+    assert suppression_log == []
+
+
+def test_head_migration_stress_run1_fires_h002_only():
+    """diagnostics/slope_magnitude_stress_run_1.json (untracked; data
+    transcribed above in _stress_run_1_engine_state): a second, independent
+    real Line-of-Life-origin draw. Same shape of proof as the s120 test
+    above -- H_002 joins, H_003/H_013/H_024 stay silent, nothing else
+    moves relative to this draw's own pre-migration fired set."""
+    state = _stress_run_1_engine_state()
+    rules = palm_rules_table.load_rule_set()
+    pre_migration_fired = ["FT_003", "HL_001", "H_028", "M_001", "M_014", "M_023"]
+
+    fired = palm_rules_table.match(
+        copy.deepcopy(state["observation"]), state["magnitudes"], rules, targets=state["targets"]
+    )
+    survivors, suppression_log = palm_rules_table.resolve_priority(fired)
+    fired_ids = sorted(r.rule_id for r in fired)
+    survivor_ids = sorted(r.rule_id for r in survivors)
+
+    assert "H_002" in fired_ids
+    assert "H_003" not in fired_ids
+    assert "H_013" not in fired_ids
+    assert "H_024" not in fired_ids
+    assert fired_ids == sorted(pre_migration_fired + ["H_002"])
+    assert set(fired_ids) - set(pre_migration_fired) == {"H_002"}
+    assert survivor_ids == fired_ids
+    assert suppression_log == []
+
+
+def test_head_migration_stress_run2_fires_h002_only():
+    """diagnostics/slope_magnitude_stress_run_2.json (untracked; data
+    transcribed above in _stress_run_2_engine_state): a third, independent
+    real Line-of-Life-origin draw (also the Heart Junction-of-Fingers
+    draw, hence HL_003 rather than HL_001 in the pre-migration set). Same
+    shape of proof -- H_002 joins, H_003/H_013/H_024 stay silent."""
+    state = _stress_run_2_engine_state()
+    rules = palm_rules_table.load_rule_set()
+    pre_migration_fired = ["FT_003", "HL_003", "H_028", "M_001", "M_014", "M_023"]
+
+    fired = palm_rules_table.match(
+        copy.deepcopy(state["observation"]), state["magnitudes"], rules, targets=state["targets"]
+    )
+    survivors, suppression_log = palm_rules_table.resolve_priority(fired)
+    fired_ids = sorted(r.rule_id for r in fired)
+    survivor_ids = sorted(r.rule_id for r in survivors)
+
+    assert "H_002" in fired_ids
+    assert "H_003" not in fired_ids
+    assert "H_013" not in fired_ids
+    assert "H_024" not in fired_ids
+    assert fired_ids == sorted(pre_migration_fired + ["H_002"])
+    assert set(fired_ids) - set(pre_migration_fired) == {"H_002"}
+    assert survivor_ids == fired_ids
+    assert suppression_log == []
+
+
+def test_h002_and_h028_remain_independent_after_migration():
+    """H_002 (Starting_Point value=None + relation_target=Line of Life)
+    and H_028 (joins_at_origin value=None + relation_target=Line of Life)
+    both target Line of Life via the SAME source doctrine (Cheiro p146,
+    head line from the commencement of the life line) but through
+    DIFFERENT attributes (Starting_Point vs. the typed joins_at_origin
+    relation) -- their antecedent signatures are therefore never equal
+    and neither is a subset of the other. This is the pairwise-subset-
+    graph guard for the one pair this migration could plausibly have
+    collided with (both single-antecedent rules pointing at the same
+    relation_target)."""
+    rules = palm_rules_table.load_rule_set()
+    by_id = {r.rule_id: r for r in rules}
+
+    h_002, h_028 = by_id["H_002"], by_id["H_028"]
+
+    assert not (h_002.antecedent_set() < h_028.antecedent_set())
+    assert not (h_028.antecedent_set() < h_002.antecedent_set())
+    assert h_002.antecedent_set() != h_028.antecedent_set()
 
 
 def test_flat_subfield_fill_only_cannot_clobber_ft_013_protection():
