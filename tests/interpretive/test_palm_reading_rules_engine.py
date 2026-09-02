@@ -32,8 +32,10 @@ synthetic fixture so a future verified-flag edit can never re-break it.)
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 import json
+from pathlib import Path
 
 import pytest
 
@@ -1672,6 +1674,195 @@ def test_mount_development_extractor_raising_degrades_no_crash_no_mount_claims(
     assert "M_009" not in diag["fired_rule_ids"]
     assert prep.claims == ()  # completed normally with zero claims, no exception propagated
     assert client.completions.calls == []
+
+
+# ─── S123 Step 4: flat-subfield merge (SLOPE/SLOPE MAGNITUDE/BREAK TYPE/
+# LENGTH EXTENT) -- write_policy-aware, unlike Proximity/Development's
+# unconditional overwrite. `_merge_flat_subfields` is called directly
+# below (real production code, factored out of `_prepare_claims_from_
+# rules` for exactly this reason) rather than re-implemented in-test.
+
+
+def _load_s120_fixture() -> dict:
+    """tests/interpretive/fixtures/s120_engine_state.json -- the
+    post-extraction deterministic state (observation, targets,
+    magnitudes, proximity_observations, mount_development,
+    fired_rule_ids, surviving_rule_ids) from the s120 live dogfood
+    capture (diagnostics/s120_live_palm_run_raw.json's own rules_engine
+    block, hand=right -- that JSON file itself is NOT tracked in git, so
+    this fixture is a tracked, verified copy, portable to a fresh clone
+    or CI). `magnitudes` was not itself a captured diagnostics key on
+    that run (only magnitudes["_dropped"], which survived as the empty
+    `dropped_tokens` list) -- reconstructed as confidence=1.0 for every
+    (feature, attribute) already in `observation`, per observation_to_
+    tokens.to_tokens's own documented default, justified by the empty
+    dropped_tokens list proving no information was lost in that
+    reconstruction."""
+    fixture_path = (
+        Path(__file__).resolve().parent / "fixtures" / "s120_engine_state.json"
+    )
+    return json.loads(fixture_path.read_text(encoding="utf-8"))
+
+
+def test_s120_fixture_flat_subfield_merge_leaves_fired_set_byte_identical():
+    """REGRESSION PROOF for the S123 Step 4 wiring -- the deliverable that
+    matters. Replays the s120 fixture through the REAL engine
+    (palm_rules_table.match + resolve_priority, called exactly as
+    _prepare_claims_from_rules calls them) once WITHOUT the new merge and
+    once WITH it.
+
+    On this hand: HEAD LINE already has Slope=downward from the plain-
+    sentence LLM extraction path ("sloping downward toward the wrist");
+    the flat-subfield merge writes the SAME value again (authoritative,
+    a no-op in effect). HEART LINE already has Slope=upward from its own
+    plain sentence ("curves slightly upward"); the merge again writes the
+    same value. FATE LINE has NO Slope key in the baseline observation at
+    all -- the merge genuinely ADDS Slope=upward to it (so this is not a
+    vacuous test: `observation` really does change). BREAK TYPE and
+    LENGTH EXTENT are both 'n/a' (escape values) on this hand, so
+    extract_flat_subfields drops them before the merge ever sees them --
+    neither Continuity nor Length is touched. No rule in the live rule
+    set keys on Head/Heart/Fate's Slope attribute except H_026, which
+    already fired in the baseline off the SAME plain-sentence Slope=
+    downward value. So an UNCHANGED fired set is the CORRECT result here
+    -- any difference would be a defect, not an expectation to adjust."""
+    fixture = _load_s120_fixture()
+    raw_text = (
+        Path(__file__).resolve().parent
+        / "fixtures" / "s120_vision_description_raw.txt"
+    ).read_text(encoding="utf-8")
+
+    rules = palm_rules_table.load_rule_set()
+    targets = fixture["targets"]
+    magnitudes = fixture["magnitudes"]
+
+    # WITHOUT the merge: baseline reproduces exactly.
+    baseline_observation = copy.deepcopy(fixture["observation"])
+    fired_baseline = palm_rules_table.match(
+        baseline_observation, magnitudes, rules, targets=targets
+    )
+    survivors_baseline, _ = palm_rules_table.resolve_priority(fired_baseline)
+    baseline_ids = sorted(r.rule_id for r in survivors_baseline)
+    assert baseline_ids == ["H_026", "H_028", "L_001", "M_001", "M_014", "M_023"]
+    assert baseline_ids == sorted(fixture["fired_rule_ids"])
+
+    # WITH the merge: the REAL _merge_flat_subfields function, fed the
+    # REAL extract_flat_subfields output for this exact hand's raw text.
+    assert "Slope" not in fixture["observation"]["Line of Fate"]  # pre-merge state
+    flat_subfields = observation_extractor.extract_flat_subfields(raw_text)
+    assert flat_subfields == {
+        "Line of Head": {"Slope": {"value": "downward", "write_policy": "authoritative"}},
+        "Line of Heart": {"Slope": {"value": "upward", "write_policy": "authoritative"}},
+        "Line of Fate": {"Slope": {"value": "upward", "write_policy": "authoritative"}},
+    }
+
+    merged_observation = copy.deepcopy(fixture["observation"])
+    merge_log = palm_reading._merge_flat_subfields(merged_observation, flat_subfields)
+
+    # The merge DID change observation -- Fate genuinely gained a Slope
+    # key, proving this isn't a vacuous no-op test.
+    assert merged_observation["Line of Fate"]["Slope"] == "upward"
+    assert merged_observation["Line of Head"]["Slope"] == "downward"
+    assert merged_observation["Line of Heart"]["Slope"] == "upward"
+    assert {entry["decision"] for entry in merge_log} == {"written_authoritative"}
+
+    fired_with_merge = palm_rules_table.match(
+        merged_observation, magnitudes, rules, targets=targets
+    )
+    survivors_with_merge, _ = palm_rules_table.resolve_priority(fired_with_merge)
+    merged_ids = sorted(r.rule_id for r in survivors_with_merge)
+
+    assert merged_ids == baseline_ids  # BYTE-IDENTICAL fired set
+
+
+def test_flat_subfield_fill_only_cannot_clobber_ft_013_protection():
+    """FT_013 protection: a fill_only BREAK TYPE=broken must NEVER
+    overwrite a Continuity value the plain-sentence channel already
+    supplied -- unconditional overwrite here would silently kill FT_013
+    while fixing FT_012, trading one dead rule for another (see
+    ontology_registry.json's vision_flat_subfields "_note", which is
+    explicit about this exact failure mode)."""
+    observation = {"Line of Fate": {"Continuity": "double"}}
+    flat_subfields = {
+        "Line of Fate": {
+            "Continuity": {"value": "broken", "write_policy": "fill_only"},
+        },
+    }
+
+    log = palm_reading._merge_flat_subfields(observation, flat_subfields)
+
+    assert observation["Line of Fate"]["Continuity"] == "double"  # unclobbered
+    assert log == [{
+        "feature": "Line of Fate", "attribute": "Continuity",
+        "incoming_value": "broken", "existing_value": "double",
+        "policy": "fill_only", "decision": "skipped_fill_only_occupied",
+    }]  # the skip is LOGGED -- a normal outcome, not a silent no-op
+
+
+def test_flat_subfield_fill_only_writes_when_slot_is_empty():
+    """Complements the clobber-guard test above: fill_only DOES write when
+    the slot was never occupied by another channel (the whole point of
+    LENGTH EXTENT/BREAK TYPE existing at all)."""
+    observation = {"Line of Fate": {}}
+    flat_subfields = {
+        "Line of Fate": {
+            "Continuity": {"value": "broken", "write_policy": "fill_only"},
+        },
+    }
+
+    log = palm_reading._merge_flat_subfields(observation, flat_subfields)
+
+    assert observation["Line of Fate"]["Continuity"] == "broken"
+    assert log == [{
+        "feature": "Line of Fate", "attribute": "Continuity",
+        "incoming_value": "broken", "existing_value": None,
+        "policy": "fill_only", "decision": "written_fill_only",
+    }]
+
+
+def test_flat_subfield_authoritative_overwrites_existing_value():
+    """authoritative SLOPE wins over any LLM-emitted Slope, mirroring the
+    P-wins/Development-wins precedent exactly -- proves the OTHER half of
+    write_policy, complementing the fill_only tests above."""
+    observation = {"Line of Head": {"Slope": "straight"}}
+    flat_subfields = {
+        "Line of Head": {
+            "Slope": {"value": "downward", "write_policy": "authoritative"},
+        },
+    }
+
+    log = palm_reading._merge_flat_subfields(observation, flat_subfields)
+
+    assert observation["Line of Head"]["Slope"] == "downward"  # overwritten
+    assert log == [{
+        "feature": "Line of Head", "attribute": "Slope",
+        "incoming_value": "downward", "existing_value": "straight",
+        "policy": "authoritative", "decision": "written_authoritative",
+    }]
+
+
+def test_flat_subfield_illegal_pair_dropped_and_logged():
+    """Defensive legality gate: a (feature, attribute) pair not declared
+    for that feature in the registry's attribute_feature_mapping is
+    dropped and logged, never written -- proven with a synthetic pair
+    extract_flat_subfields itself could never actually produce (its own
+    per-feature vision_flat_subfields menu already ties each label to a
+    legal feature), so this exercises the defensive check in isolation."""
+    observation = {}
+    flat_subfields = {
+        "Thumb": {
+            "Slope": {"value": "downward", "write_policy": "authoritative"},
+        },
+    }
+
+    log = palm_reading._merge_flat_subfields(observation, flat_subfields)
+
+    assert observation == {}  # nothing written
+    assert log == [{
+        "feature": "Thumb", "attribute": "Slope",
+        "incoming_value": "downward", "existing_value": None,
+        "policy": "authoritative", "decision": "skipped_illegal_pair",
+    }]
 
 
 # ─── S118: censor jurisdiction (the ratified principle, generalized) ────

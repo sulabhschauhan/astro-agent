@@ -2060,12 +2060,115 @@ def _json_safe_targets(targets: dict[str, dict[str, object]]) -> dict[str, dict[
     }
 
 
+def _merge_flat_subfields(
+    observation: dict[str, dict[str, str]],
+    flat_subfields: dict[str, dict[str, dict[str, str]]] | None,
+) -> list[dict]:
+    """S123 Step 4: merges SLOPE/SLOPE MAGNITUDE/BREAK TYPE/LENGTH EXTENT
+    flat sub-field values into the FLAT `observation` dict IN PLACE,
+    called by `_prepare_claims_from_rules` immediately after `to_tokens`
+    -- for the SAME reason as the Proximity/Development merges just below
+    that call site: extract_flat_subfields's own per-line closed-menu
+    enforcement (ontology_registry.json's vision_flat_subfields block)
+    already happened upstream, independent of to_tokens'/
+    attribute_value_binding's global gate, so this merge must land AFTER
+    to_tokens, not be routed through it.
+
+    UNLIKE Proximity/Development, this is NOT a blanket "deterministic
+    always wins": each entry carries its OWN write_policy (registry-
+    derived, see vision_flat_subfields's own "_note"). "authoritative"
+    overwrites unconditionally, mirroring P-wins/Development-wins exactly
+    (SLOPE, SLOPE MAGNITUDE today). "fill_only" writes ONLY into a
+    currently-empty (feature, attribute) slot and must NEVER clobber a
+    value another channel already supplied (BREAK TYPE, LENGTH EXTENT
+    today) -- this is the FT_013 protection: a fill_only BREAK
+    TYPE=broken must not silently overwrite a plain-sentence
+    Continuity=double and trade one dead rule for another.
+
+    Every (feature, attribute) pair is asserted legal against the
+    registry's own attribute_feature_mapping (observation_extractor.
+    _ATTRIBUTE_FEATURE_MAP) before writing -- extract_flat_subfields' own
+    per-feature vision_flat_subfields block should never produce an
+    illegal pair, but this is a defensive check, not an assumption: an
+    illegal pair is logged and skipped, never written.
+
+    Returns the audit log: one dict per (feature, attribute) pair
+    processed -- {"feature", "attribute", "incoming_value",
+    "existing_value", "policy", "decision"} -- recording every write AND
+    every skip. A fill_only skip is a NORMAL outcome, not an error; this
+    is the audit trail for why a value did or did not land. Factored out
+    of `_prepare_claims_from_rules` (rather than inlined at its call
+    site) so it is directly testable against the real engine without
+    re-implementing this logic in a test."""
+    from agent.interpretive import observation_extractor  # local -- matches this file's existing convention
+
+    flat_subfield_log: list[dict] = []
+    for feature, attrs in (flat_subfields or {}).items():
+        for attribute, entry in attrs.items():
+            incoming_value = entry["value"]
+            policy = entry["write_policy"]
+            legal_features = observation_extractor._ATTRIBUTE_FEATURE_MAP.get(
+                attribute, frozenset()
+            )
+            if feature not in legal_features:
+                logger.warning(
+                    "palm_reading._merge_flat_subfields: flat-subfield "
+                    "(feature=%r, attribute=%r) is not a legal pair in "
+                    "attribute_feature_mapping -- dropped (quarantined).",
+                    feature, attribute,
+                )
+                flat_subfield_log.append({
+                    "feature": feature, "attribute": attribute,
+                    "incoming_value": incoming_value, "existing_value": None,
+                    "policy": policy, "decision": "skipped_illegal_pair",
+                })
+                continue
+
+            existing_value = observation.get(feature, {}).get(attribute)
+            if policy == "authoritative":
+                observation.setdefault(feature, {})[attribute] = incoming_value
+                decision = "written_authoritative"
+            elif policy == "fill_only":
+                if existing_value is None:
+                    observation.setdefault(feature, {})[attribute] = incoming_value
+                    decision = "written_fill_only"
+                else:
+                    decision = "skipped_fill_only_occupied"
+            else:
+                logger.warning(
+                    "palm_reading._merge_flat_subfields: flat-subfield "
+                    "(feature=%r, attribute=%r) has unrecognized "
+                    "write_policy %r -- dropped (quarantined).",
+                    feature, attribute, policy,
+                )
+                flat_subfield_log.append({
+                    "feature": feature, "attribute": attribute,
+                    "incoming_value": incoming_value, "existing_value": existing_value,
+                    "policy": policy, "decision": "skipped_unrecognized_policy",
+                })
+                continue
+
+            logger.info(
+                "palm_reading._merge_flat_subfields: feature=%r "
+                "attribute=%r incoming=%r existing=%r policy=%r "
+                "decision=%r",
+                feature, attribute, incoming_value, existing_value, policy, decision,
+            )
+            flat_subfield_log.append({
+                "feature": feature, "attribute": attribute,
+                "incoming_value": incoming_value, "existing_value": existing_value,
+                "policy": policy, "decision": decision,
+            })
+    return flat_subfield_log
+
+
 def _prepare_claims_from_rules(
     raw_texts_by_feature: dict[str, list[str]],
     client=None,
     targets: dict[str, dict[str, str]] | None = None,
     proximity_observations: dict[str, dict[str, str]] | None = None,
     mount_development: dict[str, dict[str, str]] | None = None,
+    flat_subfields: dict[str, dict[str, dict[str, str]]] | None = None,
 ) -> tuple[tuple[Claim, ...], dict]:
     """Deterministic replacement for `claim_extraction.extract_claims` as
     the Stage-1 claim SOURCE (flag-gated, see
@@ -2081,11 +2184,15 @@ def _prepare_claims_from_rules(
     `{feature: {attribute: {value, confidence}}}` shape, allow-list
     applied here) -> observation_to_tokens.to_tokens ->
     palm_rules_table.match / resolve_priority ->
-    rule_to_claim.claims_from_rules. `proximity_observations` (built by
-    the caller, see `prepare_palm_reading`) merges into the flat
+    rule_to_claim.claims_from_rules. `proximity_observations`,
+    `mount_development`, and (S123 Step 4) `flat_subfields` (all built by
+    the caller, see `prepare_palm_reading`) merge into the flat
     `observation` dict immediately after `to_tokens`, before `match` --
-    see the tripwire comment at that merge site for why it cannot be
+    see the tripwire comment at each merge site for why it cannot be
     folded into the `to_vision_payload`/`to_tokens` leg of this chain.
+    `flat_subfields` is the only one of the three merges that is
+    write_policy-aware rather than an unconditional overwrite -- see that
+    merge site's own comment.
 
     FAIL-CLOSED, no silent LLM fallback -- but SCOPED, not blanket. Four
     boundaries, deliberately different:
@@ -2170,6 +2277,8 @@ def _prepare_claims_from_rules(
             "targets": {},
             "proximity_observations": {},
             "mount_development": {},
+            "flat_subfields": {},
+            "flat_subfield_log": [],
         })
         return (), engine_diagnostics
 
@@ -2222,6 +2331,16 @@ def _prepare_claims_from_rules(
     vision_payload = observation_extractor.to_vision_payload(record, enabled_features)
     observation, magnitudes = observation_to_tokens.to_tokens(vision_payload)
 
+    # S123 Step 4: SLOPE/SLOPE MAGNITUDE/BREAK TYPE/LENGTH EXTENT flat
+    # sub-fields merge into the FLAT observation AFTER to_tokens, for the
+    # SAME reason as Proximity/Development immediately below -- see
+    # _merge_flat_subfields's own docstring for the full rationale
+    # (write_policy-aware, unlike the unconditional-overwrite Proximity/
+    # Development merges). Factored into its own function so it is
+    # directly testable against the real engine without re-implementing
+    # this logic in a test.
+    flat_subfield_log = _merge_flat_subfields(observation, flat_subfields)
+
     # P (proximity degree) merges into the FLAT observation AFTER to_tokens on purpose:
     # 'touching' is NOT in the registry value pool, so routing it through to_tokens'
     # _VALID_TRIPLES would silently drop it and kill H_027. attribute_value_binding does
@@ -2267,6 +2386,8 @@ def _prepare_claims_from_rules(
         "targets": _json_safe_targets(targets or {}),
         "proximity_observations": proximity_observations or {},
         "mount_development": mount_development or {},
+        "flat_subfields": flat_subfields or {},
+        "flat_subfield_log": flat_subfield_log,
         "dropped_tokens": magnitudes.get("_dropped", []),
         "fired_rule_ids": [r.rule_id for r in fired],
         "surviving_rule_ids": [r.rule_id for r in survivors],
@@ -2325,6 +2446,7 @@ def _prepare_deterministic_prep(
     targets: dict[str, dict[str, str]] | None = None,
     proximity_observations: dict[str, dict[str, str]] | None = None,
     mount_development: dict[str, dict[str, str]] | None = None,
+    flat_subfields: dict[str, dict[str, dict[str, str]]] | None = None,
     reading_id: str | None = None,
 ) -> PalmReadingPrep:
     """Builds the SAME PalmReadingPrep shape the LLM Stage-1 path builds,
@@ -2360,6 +2482,7 @@ def _prepare_deterministic_prep(
         raw_texts_by_feature, client=client, targets=targets,
         proximity_observations=proximity_observations,
         mount_development=mount_development,
+        flat_subfields=flat_subfields,
     )
     engine_diagnostics["final_outcome"] = (
         "rules_engine_failed" if engine_diagnostics.get("failed") else "rules_engine_ok"
@@ -2780,6 +2903,37 @@ def prepare_palm_reading(
                 type(exc).__name__, exc,
             )
             mount_development = {}
+        try:
+            # S123 Step 4: SLOPE/SLOPE MAGNITUDE/BREAK TYPE/LENGTH EXTENT
+            # flat sub-fields -- a pure deterministic parse of each hand's
+            # raw text (observation_extractor.extract_flat_subfields), same
+            # calling convention as extract_mount_development above.
+            # merge_relational_targets is NOT reused here (unlike targets/
+            # proximity/mount_development) -- extract_flat_subfields's own
+            # docstring is explicit that its {attribute: {"value",
+            # "write_policy"}} shape is the wrong shape for that function's
+            # set/scalar cardinality-aware accumulation. These are plain
+            # scalar attributes (Slope, Slope_Magnitude, Continuity,
+            # Length), never registered in relation_cardinality as "multi",
+            # so a plain dict.update mirrors mount_development's own
+            # right-hand-wins convention exactly: right merged after left.
+            left_flat = observation_extractor.extract_flat_subfields(palm_left or "")
+            right_flat = observation_extractor.extract_flat_subfields(palm_right or "")
+            flat_subfields: dict[str, dict[str, dict[str, str]]] = {}
+            for feature, attrs in left_flat.items():
+                flat_subfields.setdefault(feature, {}).update(attrs)
+            for feature, attrs in right_flat.items():
+                flat_subfields.setdefault(feature, {}).update(attrs)
+        except Exception as exc:  # noqa: BLE001 -- fail-closed, mirrors
+            # mount_development's own posture immediately above: a
+            # flat-subfield parse failure must not crash the reading, only
+            # degrade to no flat-subfield signal.
+            logger.error(
+                "palm_reading.prepare_palm_reading: flat-subfield parse "
+                "failed (%s: %s) -- proceeding with no flat-subfield signal.",
+                type(exc).__name__, exc,
+            )
+            flat_subfields = {}
         return _prepare_deterministic_prep(
             raw_texts_by_feature,
             texts_by_feature,
@@ -2791,6 +2945,7 @@ def prepare_palm_reading(
             targets=targets,
             proximity_observations=proximity_observations,
             mount_development=mount_development,
+            flat_subfields=flat_subfields,
             # Same id the S109 fallback events above were recorded under.
             reading_id=reading_id,
         )

@@ -1,0 +1,173 @@
+{
+  "_source": "diagnostics/s120_live_palm_run_raw.json (untracked) rules_engine block, hand=right, S123 Step 4",
+  "_magnitudes_note": "magnitudes was not itself a captured diagnostics key (only magnitudes[\"_dropped\"] survives as dropped_tokens, which is empty here) -- reconstructed as confidence=1.0 for every (feature, attribute) already in observation, per observation_to_tokens.to_tokens's own documented default and the empty dropped_tokens list proving no information was lost.",
+  "observation": {
+    "Line of Life": {
+      "Depth": "deep",
+      "Length": "long",
+      "Curve": "curved",
+      "Width": "narrow",
+      "Continuity": "unbroken"
+    },
+    "Line of Head": {
+      "Depth": "deep",
+      "Length": "long",
+      "Slope": "downward",
+      "Width": "narrow",
+      "Proximity": "touching"
+    },
+    "Line of Heart": {
+      "Depth": "deep",
+      "Length": "long",
+      "Curve": "curved",
+      "Width": "narrow",
+      "Slope": "upward",
+      "Proximity": "medium"
+    },
+    "Line of Fate": {
+      "Depth": "deep",
+      "Length": "long",
+      "Width": "narrow",
+      "Proximity": "medium"
+    },
+    "Thumb": {
+      "Proportion": "medium",
+      "Setting": "low",
+      "Angle": "wide"
+    },
+    "Mount of Venus": {
+      "Development": "well developed"
+    },
+    "Mount of Jupiter": {
+      "Development": "developed"
+    },
+    "Mount of Saturn": {
+      "Development": "not notably developed"
+    },
+    "Mount of the Sun": {
+      "Development": "not notably developed"
+    },
+    "Upper Mount of Mars": {
+      "Development": "present"
+    }
+  },
+  "targets": {
+    "Line of Head": {
+      "Starting_Point": "Line of Life",
+      "Position": "Mount of Luna",
+      "Proximity": "Line of Life",
+      "joins_at_origin": [
+        "Line of Life"
+      ]
+    },
+    "Line of Heart": {
+      "Starting_Point": "Mount of Jupiter",
+      "Position": "Percussion",
+      "Proximity": "Line of Head"
+    },
+    "Line of Fate": {
+      "Starting_Point": "Wrist",
+      "Position": "Mount of Saturn",
+      "Proximity": "Line of Head",
+      "cuts": [
+        "Line of Head"
+      ]
+    }
+  },
+  "magnitudes": {
+    "Line of Life": {
+      "Depth": 1.0,
+      "Length": 1.0,
+      "Curve": 1.0,
+      "Width": 1.0,
+      "Continuity": 1.0
+    },
+    "Line of Head": {
+      "Depth": 1.0,
+      "Length": 1.0,
+      "Slope": 1.0,
+      "Width": 1.0,
+      "Proximity": 1.0
+    },
+    "Line of Heart": {
+      "Depth": 1.0,
+      "Length": 1.0,
+      "Curve": 1.0,
+      "Width": 1.0,
+      "Slope": 1.0,
+      "Proximity": 1.0
+    },
+    "Line of Fate": {
+      "Depth": 1.0,
+      "Length": 1.0,
+      "Width": 1.0,
+      "Proximity": 1.0
+    },
+    "Thumb": {
+      "Proportion": 1.0,
+      "Setting": 1.0,
+      "Angle": 1.0
+    },
+    "Mount of Venus": {
+      "Development": 1.0
+    },
+    "Mount of Jupiter": {
+      "Development": 1.0
+    },
+    "Mount of Saturn": {
+      "Development": 1.0
+    },
+    "Mount of the Sun": {
+      "Development": 1.0
+    },
+    "Upper Mount of Mars": {
+      "Development": 1.0
+    },
+    "_dropped": [],
+    "_canonicalized": []
+  },
+  "proximity_observations": {
+    "Line of Head": {
+      "Proximity": "touching"
+    },
+    "Line of Heart": {
+      "Proximity": "medium"
+    },
+    "Line of Fate": {
+      "Proximity": "medium"
+    }
+  },
+  "mount_development": {
+    "Mount of Venus": {
+      "Development": "well developed"
+    },
+    "Mount of Jupiter": {
+      "Development": "developed"
+    },
+    "Mount of Saturn": {
+      "Development": "not notably developed"
+    },
+    "Mount of the Sun": {
+      "Development": "not notably developed"
+    },
+    "Upper Mount of Mars": {
+      "Development": "present"
+    }
+  },
+  "fired_rule_ids": [
+    "H_026",
+    "H_028",
+    "L_001",
+    "M_001",
+    "M_014",
+    "M_023"
+  ],
+  "surviving_rule_ids": [
+    "H_026",
+    "H_028",
+    "L_001",
+    "M_001",
+    "M_014",
+    "M_023"
+  ]
+}
