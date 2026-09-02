@@ -409,6 +409,11 @@ def _capture_dogfood_run(palm_left, palm_right, hand_detail, reading) -> None:
     lines.append("### feature_support")
     lines.append(f"supported_features: {reading.supported_features}")
     lines.append(f"unsupported_features: {reading.unsupported_features}")
+    # SCOPE CORRECTION (this task): render, don't just store, per the
+    # standing Palm Diagnostic Principle #4 -- a diagnostics field that
+    # only lives on the dataclass is invisible until the dogfood
+    # formatter actually prints it.
+    lines.append(f"absent_features: {reading.absent_features}")
     lines.append("")
 
     # S69 F-H P5 / S70 P6a: full Stage-1 extraction inventory

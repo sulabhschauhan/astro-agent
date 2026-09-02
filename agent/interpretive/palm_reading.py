@@ -377,12 +377,43 @@ _PALM_LEXICON_PATH = Path(os.getenv(
 # actually invites and asserts each one is recognised here. Add a new
 # prompt-invited absence phrase to that list (and this tuple, or a TIER 2
 # per-feature pattern) in the SAME change that adds it to the prompt.
+# SCOPE CORRECTION (this task, ratified): not every absence phrase
+# licenses STATING the absence in the reading -- only a DEFINITE claim
+# that the feature does not exist does. A flat photograph cannot show what
+# a palmist would find by folding and tilting the hand, so a can't-tell/
+# visibility-hedged phrase ("not clearly visible", "not observed", "none",
+# "unremarkable", "no clear marks", "not visible") is honest silence, not
+# a finding -- it stays silent exactly as before this task. Only "absent"
+# is an unhedged, positive determination that the feature is not there.
+# SINGLE SOURCE, per this task's instruction: _ABSENCE_PHRASES (drives
+# _is_absence, unchanged behavior) and _DEFINITE_ABSENCE_PHRASES (drives
+# the new _is_definite_absence) are BOTH derived from this one tuple --
+# there is no second, parallel vocabulary list anywhere. TIER 2
+# (_ABSENCE_PATTERNS_BY_FEATURE, below) is deliberately EXCLUDED from
+# "definite": every TIER 2 pattern ends in the literal word "visible" by
+# construction (see _build_absence_noun_pattern), i.e. it is inherently a
+# visibility claim ("no X ... visible"), never an existence claim -- so it
+# can never license a stated absence, only the genuine-negative-absence
+# gate's existing (silent) exclusion from supported/unsupported.
+_ABSENCE_VOCABULARY: tuple[tuple[str, str], ...] = (
+    ("not clearly visible", "uncertain"),
+    ("no clear marks", "uncertain"),
+    ("unremarkable", "uncertain"),
+    ("not observed", "uncertain"),
+    ("not visible", "uncertain"),
+    ("none", "uncertain"),
+    ("absent", "definite"),
+)
+
 _ABSENCE_PHRASES: tuple[re.Pattern, ...] = tuple(
     re.compile(re.escape(phrase), re.IGNORECASE)
-    for phrase in (
-        "not clearly visible", "no clear marks", "unremarkable",
-        "not observed", "not visible", "none", "absent",
-    )
+    for phrase, _certainty in _ABSENCE_VOCABULARY
+)
+
+_DEFINITE_ABSENCE_PHRASES: tuple[re.Pattern, ...] = tuple(
+    re.compile(re.escape(phrase), re.IGNORECASE)
+    for phrase, certainty in _ABSENCE_VOCABULARY
+    if certainty == "definite"
 )
 
 _FIELD_LINE = re.compile(r"^([A-Z][A-Z ]{2,}):\s*(.*)$")
@@ -471,6 +502,17 @@ def _is_absence(text: str, feature: str | None = None) -> bool:
         if pattern is not None and pattern.search(text):
             return True
     return False
+
+
+def _is_definite_absence(text: str) -> bool:
+    """SCOPE CORRECTION (this task): a stricter subset of _is_absence --
+    True only for a phrase asserting the feature definitely does not
+    exist (_DEFINITE_ABSENCE_PHRASES, today just "absent"), never for a
+    can't-tell/visibility-hedged phrase. Deliberately feature-agnostic
+    and TIER-2-blind, same reasoning TIER 2's exclusion comment above
+    _ABSENCE_VOCABULARY gives: every TIER 2 pattern is a visibility claim
+    by construction, never an existence claim."""
+    return any(p.search(text) for p in _DEFINITE_ABSENCE_PHRASES)
 
 
 def _extract_needle_clause(text: str, needle: str) -> str:
@@ -906,30 +948,56 @@ def _is_genuine_negative_absence(feature: str, raw_texts: list[str]) -> bool:
     return all(_is_absence(t, feature) for t in raw_texts)
 
 
+def _is_definitely_absent(feature: str, raw_texts: list[str]) -> bool:
+    """SCOPE CORRECTION (this task): among features _is_genuine_negative_
+    absence already excludes from both gate tuples, this decides which
+    ones are DEFINITE enough to state in the reading -- True only when
+    EVERY source's text is a definite-absence phrase (_is_definite_
+    absence), never for a can't-tell/visibility-hedged finding. Same
+    all() quantifier _is_genuine_negative_absence itself uses (a mixed
+    signal -- one source definite, another only uncertain -- is treated
+    conservatively as NOT definite, i.e. stays silent, consistent with
+    "only a positive determination of absence is a finding")."""
+    if not raw_texts:
+        return False
+    return all(_is_definite_absence(t) for t in raw_texts)
+
+
 def _apply_support_gate(
     per_feature_results: dict[str, list[dict]],
     texts_by_feature: dict[str, list[str]],
-) -> tuple[dict[str, list[dict]], tuple[str, ...], tuple[str, ...]]:
+) -> tuple[dict[str, list[dict]], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     """Gates R1's per-feature map down to chunks that actually SUPPORT
     their feature. Returns (gated_results, supported_features,
-    unsupported_features) -- both feature tuples in _FEATURE_REGISTRY
-    order. unsupported_features covers every feature with zero
-    surviving chunks EXCEPT the genuine-negative-absence case (see
-    _is_genuine_negative_absence) -- those simply don't appear in
-    either tuple, since there is nothing to support and nothing to
-    decline."""
+    unsupported_features, definitely_absent_features) -- all three
+    feature tuples in _FEATURE_REGISTRY order. unsupported_features
+    covers every feature with zero surviving chunks EXCEPT the
+    genuine-negative-absence case (see _is_genuine_negative_absence) --
+    those simply don't appear in supported/unsupported, since there is
+    nothing to support and nothing to decline. SCOPE CORRECTION (this
+    task): of THOSE genuinely-absent features, definitely_absent_features
+    carries the subset whose absence is DEFINITE (_is_definitely_absent),
+    not merely can't-tell -- a feature can be genuinely-absent (silent,
+    as before) without being definitely-absent (stated); it can never be
+    definitely-absent without also being genuinely-absent, since the
+    definite check only runs on features the genuine-absence gate already
+    excluded below."""
     gated: dict[str, list[dict]] = {}
     supported: list[str] = []
     unsupported: list[str] = []
+    definitely_absent: list[str] = []
     for feature in _FEATURE_REGISTRY:
         chunks = per_feature_results.get(feature, [])
         surviving = [c for c in chunks if _chunk_supports_feature(c, feature)]
         gated[feature] = surviving
         if surviving:
             supported.append(feature)
-        elif not _is_genuine_negative_absence(feature, texts_by_feature.get(feature, [])):
+        elif _is_genuine_negative_absence(feature, texts_by_feature.get(feature, [])):
+            if _is_definitely_absent(feature, texts_by_feature.get(feature, [])):
+                definitely_absent.append(feature)
+        else:
             unsupported.append(feature)
-    return gated, tuple(supported), tuple(unsupported)
+    return gated, tuple(supported), tuple(unsupported), tuple(definitely_absent)
 
 
 # Human-friendly display names for the decline block -- only
@@ -961,6 +1029,44 @@ def _build_decline_block(unsupported_features: tuple[str, ...]) -> str:
         return ""
     names = ", ".join(_feature_display_name(f) for f in unsupported_features)
     return _DECLINE_BLOCK_TEMPLATE.format(features=names)
+
+
+# SCOPE CORRECTION (this task): a DELIBERATELY DIFFERENT statement from
+# _DECLINE_BLOCK_TEMPLATE above -- "the classical texts do not address
+# this" (a doctrine-coverage gap) and "this is not present in your hand"
+# (a plain observation) are different claims and must not share a
+# sentence or a bucket, per the ratified requirement. Python-owned
+# string, same "formatter owns demotion strings" principle as the decline
+# block -- no LLM call anywhere near this text (see _build_absence_block
+# below and complete_palm_reading's call site: this is built and appended
+# entirely outside claim_voicing.voice_claims' prompt/context). Plain,
+# neutral, observation-only wording -- no doctrinal meaning, no hedging
+# about photographs (the reasoning for WHY only "definite" phrases reach
+# here lives in code comments only, e.g. _ABSENCE_VOCABULARY above -- the
+# user-facing sentence itself states the fact and nothing else). Singular
+# and plural forms kept separate (rather than one template with awkward
+# always-plural grammar) so the single-feature case -- the common case per
+# the Step 3 evidence sweep -- reads naturally.
+_ABSENCE_BLOCK_TEMPLATE_SINGULAR = (
+    "A note on what I did not find: {features} was not detected in your "
+    "hands, so there is nothing for me to interpret from it."
+)
+_ABSENCE_BLOCK_TEMPLATE_PLURAL = (
+    "A note on what I did not find: {features} were not detected in your "
+    "hands, so there is nothing for me to interpret from them."
+)
+
+
+def _build_absence_block(absent_features: tuple[str, ...]) -> str:
+    if not absent_features:
+        return ""
+    names = ", ".join(_feature_display_name(f) for f in absent_features)
+    template = (
+        _ABSENCE_BLOCK_TEMPLATE_SINGULAR
+        if len(absent_features) == 1
+        else _ABSENCE_BLOCK_TEMPLATE_PLURAL
+    )
+    return template.format(features=names)
 
 
 # ─── System prompt ──────────────────────────────────────────────────────
@@ -1946,6 +2052,15 @@ class PalmReadingResult:
     # left no way to tell whether the retry was exemplar-echo-related or
     # something else entirely.
     stage2_first_attempt_failures: tuple[str, ...] = ()
+    # SCOPE CORRECTION (this task): registry-order tuple of features
+    # stated absent in reading_text's dedicated absence paragraph (see
+    # _build_absence_block) -- the DEFINITE subset of genuine-negative-
+    # absence (_is_definitely_absent), narrowed by the same rule-claim
+    # jurisdiction exclusion supported_features/unsupported_features
+    # already carry. Defaults empty, same convention as reading_text_
+    # tagged/claims/etc. above, so any pre-existing PalmReadingResult(...)
+    # construction site keeps working unmodified.
+    absent_features: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1984,6 +2099,19 @@ class PalmReadingPrep:
     # jurisdiction and grant no censor exemption -- that path's censor
     # behavior is therefore byte-identical to pre-S118.
     rule_claim_features: frozenset[str] = frozenset()
+    # SCOPE CORRECTION (this task): registry-order tuple of features
+    # _apply_support_gate found DEFINITELY absent (see
+    # _is_definitely_absent) -- the subset of genuinely-negative-absence
+    # features whose absence is an unhedged, positive determination, not
+    # a can't-tell/visibility-hedged one. Narrowed by the SAME rule-claim
+    # jurisdiction exclusion supported_features/unsupported_features
+    # already get (_prepare_deterministic_prep), so a feature can never be
+    # both here and voiced by a firing rule claim. Defaults empty, same
+    # convention as rule_claim_features -- the plain LLM Stage-1 path
+    # (prepare_palm_reading's non-deterministic branch) sets this from
+    # _apply_support_gate's own output directly, no narrowing needed there
+    # since that path never produces rule claims.
+    absent_features: tuple[str, ...] = ()
 
 
 def _enabled_features_from_rules(rules) -> frozenset[str]:
@@ -2483,6 +2611,7 @@ def _prepare_deterministic_prep(
     mount_development: dict[str, dict[str, str]] | None = None,
     flat_subfields: dict[str, dict[str, dict[str, str]]] | None = None,
     reading_id: str | None = None,
+    absent_features: tuple[str, ...] = (),
 ) -> PalmReadingPrep:
     """Builds the SAME PalmReadingPrep shape the LLM Stage-1 path builds,
     with `claims` sourced from the deterministic rule engine. Everything
@@ -2597,6 +2726,21 @@ def _prepare_deterministic_prep(
     unsupported_features = tuple(
         f for f in unsupported_features if f not in features_with_surviving_rule_claims
     )
+    # RISK 1 FIX (this task's design report, "Could a feature end up BOTH
+    # stated as absent AND mentioned elsewhere"): the SAME jurisdiction
+    # principle applied to supported/unsupported above extends to the
+    # third bucket -- a feature with a surviving rule claim is removed
+    # from absent_features too, so it is voiced normally via its rule
+    # claim and never ALSO gets the "not detected" sentence. Without this,
+    # a feature whose raw text is "absent" (e.g. David's fate line ->
+    # Branching=absent, per the S123 absence-doctrine feasibility study)
+    # could in principle be both interpreted by a firing rule and declared
+    # not-detected in the same reading -- a direct contradiction the
+    # ratified behaviour forbids. Rule-sourced jurisdiction wins outright,
+    # same as it already does for the other two tuples.
+    absent_features = tuple(
+        f for f in absent_features if f not in features_with_surviving_rule_claims
+    )
 
     stage1_features: dict[str, dict] = {
         feature: {"candidates": candidates}
@@ -2610,10 +2754,11 @@ def _prepare_deterministic_prep(
         unsupported_features=unsupported_features,
         claims=claims,
         texts_by_feature=texts_by_feature,
-        # NOT recomputed -- the very same survivor-sourced set the two
-        # tuple narrowings just above were built from, so all three
+        # NOT recomputed -- the very same survivor-sourced set the three
+        # tuple narrowings just above were built from, so all four
         # consumers read one source of truth.
         rule_claim_features=frozenset(features_with_surviving_rule_claims),
+        absent_features=absent_features,
         diagnostics={
             "stage1": {"features": stage1_features},
             # No LLM extraction ran, so there is no per-feature
@@ -2827,7 +2972,7 @@ def prepare_palm_reading(
         )
 
     raw_texts_by_feature = _gather_feature_texts(left_fields, right_fields, hd_fields)
-    gated_results, supported_features, unsupported_features = _apply_support_gate(
+    gated_results, supported_features, unsupported_features, absent_features = _apply_support_gate(
         per_feature_results, raw_texts_by_feature
     )
     texts_by_feature = _join_feature_texts(raw_texts_by_feature)
@@ -2983,6 +3128,7 @@ def prepare_palm_reading(
             flat_subfields=flat_subfields,
             # Same id the S109 fallback events above were recorded under.
             reading_id=reading_id,
+            absent_features=absent_features,
         )
 
     extraction_result = claim_extraction.extract_claims(
@@ -3012,6 +3158,10 @@ def prepare_palm_reading(
             "stage1_failed_features": extraction_result.failed_features,
             "stage1_retry_features": stage1_retry_features,
         },
+        # No rules engine ran on this path, so rule_claim_features stays
+        # at its empty default -- no jurisdiction narrowing applies here,
+        # unlike _prepare_deterministic_prep below.
+        absent_features=absent_features,
     )
 
 
@@ -3134,8 +3284,18 @@ def complete_palm_reading(
         prep.claims,
     )
     decline_block = _build_decline_block(decline_features)
+    # SCOPE CORRECTION (this task): built and appended entirely outside
+    # claim_voicing.voice_claims' prompt/context -- prep.absent_features
+    # is never passed to that call, never enters the claim inventory, and
+    # this Python-templated string is the only place it produces text.
+    # A separate paragraph from decline_block, never merged into its
+    # sentence or its feature list, per the ratified requirement that the
+    # two must not share a bucket.
+    absence_block = _build_absence_block(prep.absent_features)
 
     final_text = stripped.rstrip()
+    if absence_block:
+        final_text += "\n\n" + absence_block
     if decline_block:
         final_text += "\n\n" + decline_block
     final_text += "\n\n" + DISCLAIMER
@@ -3165,6 +3325,7 @@ def complete_palm_reading(
         stage1_feature_diagnostics=stage1_feature_diagnostics,
         stage2_retry_used=stage2_retry_used,
         stage2_first_attempt_failures=stage2_first_attempt_failures,
+        absent_features=prep.absent_features,
     )
 
 

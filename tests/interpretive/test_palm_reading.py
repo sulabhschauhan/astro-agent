@@ -2098,15 +2098,176 @@ def test_apply_support_gate_excludes_genuinely_absent_fate_line():
     empty per_feature_results / texts_by_feature entry, same as "never
     mentioned by any hand"), so _apply_support_gate correctly treats them
     as ordinary unsupported features -- this test only asserts about
-    'fate line', the one under test."""
-    gated, supported, unsupported = palm_reading._apply_support_gate(
+    'fate line', the one under test.
+
+    SCOPE CORRECTION (absence-statement task): _apply_support_gate now
+    returns a 4th tuple, definitely_absent_features -- "absent" is a
+    DEFINITE absence phrase (see _ABSENCE_VOCABULARY), so fate line must
+    land THERE, distinct from (and never reaching) the decline block."""
+    gated, supported, unsupported, absent = palm_reading._apply_support_gate(
         {"fate line": []}, {"fate line": ["absent"]},
     )
 
     assert "fate line" not in supported
     assert "fate line" not in unsupported
+    assert "fate line" in absent
     decline = palm_reading._compute_decline_features(supported, unsupported, (), ())
     assert "fate line" not in decline
+
+
+# ═══ SCOPE CORRECTION: definite-vs-uncertain absence split ═══════════════
+#
+# Ratified: only a DEFINITE absence claim ("absent") is stated in the
+# reading. A can't-tell/visibility-hedged phrase ("not clearly visible",
+# "not observed", "none", "unremarkable", "no clear marks", "not visible")
+# stays silent, exactly as before this task -- a flat photograph cannot
+# show what a palmist would find by folding and tilting the hand.
+
+
+def test_is_definite_absence_true_only_for_absent():
+    assert palm_reading._is_definite_absence("absent") is True
+    assert palm_reading._is_definite_absence("Absent.") is True
+
+
+def test_is_definite_absence_false_for_every_uncertain_phrase():
+    """The exact set of phrases the ratified rule names as "can't-tell" --
+    every one must stay False, i.e. never license a stated absence."""
+    for phrase in (
+        "not clearly visible", "not observed", "none",
+        "unremarkable", "no clear marks", "not visible",
+    ):
+        assert palm_reading._is_definite_absence(phrase) is False, phrase
+
+
+def test_apply_support_gate_markings_not_clearly_visible_is_genuine_but_not_definite():
+    """The Step 3 evidence sweep's dominant case (markings/other features,
+    9 of 9 captured hands): genuinely absent (silent, unchanged) but NOT
+    definitely absent (no stated sentence) -- "not clearly visible" is a
+    can't-tell phrase, not a positive determination."""
+    gated, supported, unsupported, absent = palm_reading._apply_support_gate(
+        {"markings/other features": []},
+        {"markings/other features": ["not clearly visible"]},
+    )
+    assert "markings/other features" not in supported
+    assert "markings/other features" not in unsupported
+    assert "markings/other features" not in absent
+
+
+def test_is_definitely_absent_mixed_signal_is_conservative():
+    """One source says "absent", another only "not clearly visible" --
+    treated as NOT definite (stays silent), same all() quantifier
+    _is_genuine_negative_absence itself uses for its own absence check."""
+    assert palm_reading._is_definitely_absent(
+        "fate line", ["absent", "not clearly visible"]
+    ) is False
+    assert palm_reading._is_definitely_absent(
+        "fate line", ["absent", "absent"]
+    ) is True
+
+
+def test_build_absence_block_empty_when_no_definite_absence():
+    assert palm_reading._build_absence_block(()) == ""
+
+
+def test_build_absence_block_singular_reads_naturally():
+    text = palm_reading._build_absence_block(("fate line",))
+    assert "fate line" in text
+    assert "was not detected" in text
+    assert "interpret from it" in text
+    # Must not share wording with the decline sentence -- different claim.
+    assert "classical texts" not in text
+    assert "do not clearly address" not in text
+
+
+def test_build_absence_block_plural_reads_naturally():
+    text = palm_reading._build_absence_block(("fate line", "heart line"))
+    assert "fate line, heart line" in text
+    assert "were not detected" in text
+    assert "interpret from them" in text
+
+
+def test_build_absence_block_generalises_to_any_feature_no_hardcoding():
+    """GENERALIZATION GATE: a feature never seen in this test module before
+    (a synthetic name, not fate/heart/markings) must render identically --
+    nothing in the template or builder is keyed to a specific feature
+    name."""
+    text = palm_reading._build_absence_block(("mount of luna",))
+    assert "mount of luna was not detected" in text
+
+
+# ─── Risk 1: a feature can never be both stated-absent and rule-voiced ──
+
+
+def test_prepare_deterministic_prep_excludes_rule_claimed_feature_from_absent_features(
+    monkeypatch,
+):
+    """RISK 1 FIX: if a feature is BOTH definitely-absent (per
+    _apply_support_gate) AND holds a surviving rule claim, the rule's
+    jurisdiction wins outright -- the feature must NOT appear in
+    prep.absent_features, so it is voiced normally by its rule claim and
+    never also gets the "not detected" sentence in the same reading."""
+    def _fake_prepare_claims_from_rules(raw_texts_by_feature, **kwargs):
+        engine_diagnostics = {
+            "failed": False,
+            "fired_rule_ids": ["FT_TEST"],
+            "surviving_rule_ids": ["FT_TEST"],
+            "surviving_rule_features": ["fate line"],
+            "dropped_rule_ids": [],
+            "citations": {},
+        }
+        return (), engine_diagnostics
+
+    monkeypatch.setattr(
+        palm_reading, "_prepare_claims_from_rules", _fake_prepare_claims_from_rules
+    )
+
+    prep = palm_reading._prepare_deterministic_prep(
+        raw_texts_by_feature={"fate line": ["absent"]},
+        texts_by_feature={"fate line": "absent"},
+        gated_results={"fate line": []},
+        supported_features=(),
+        unsupported_features=(),
+        full_candidates={},
+        absent_features=("fate line",),
+    )
+
+    assert prep.rule_claim_features == frozenset({"fate line"})
+    assert "fate line" not in prep.absent_features
+
+
+def test_prepare_deterministic_prep_keeps_absent_features_with_no_surviving_rule(
+    monkeypatch,
+):
+    """Regression guard for the fix above: a definitely-absent feature with
+    NO surviving rule claim must still reach prep.absent_features
+    unnarrowed."""
+    def _fake_prepare_claims_from_rules(raw_texts_by_feature, **kwargs):
+        engine_diagnostics = {
+            "failed": False,
+            "fired_rule_ids": [],
+            "surviving_rule_ids": [],
+            "surviving_rule_features": [],
+            "dropped_rule_ids": [],
+            "citations": {},
+        }
+        return (), engine_diagnostics
+
+    monkeypatch.setattr(
+        palm_reading, "_prepare_claims_from_rules", _fake_prepare_claims_from_rules
+    )
+
+    prep = palm_reading._prepare_deterministic_prep(
+        raw_texts_by_feature={"fate line": ["absent"]},
+        texts_by_feature={"fate line": "absent"},
+        gated_results={"fate line": []},
+        supported_features=(),
+        unsupported_features=(),
+        full_candidates={},
+        absent_features=("fate line",),
+    )
+
+    assert prep.rule_claim_features == frozenset()
+    assert prep.absent_features == ("fate line",)
 
 
 # ═══ S119 STEP 5: sources rebuilt from by-rule citations ════════════════
