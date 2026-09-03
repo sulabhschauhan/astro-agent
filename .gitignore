@@ -17,7 +17,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 data/sessions/
-data/progress/
 data/chunked_chunks.json
 data/*.log
 
