@@ -1,10 +1,8 @@
-## chart_calculator.py Design (locked before Session 5)
+# SESSION 5 PLAN — DEAD (retired 2026-09-05)
 
-- **Location:** `agent/chart_calculator.py`
-- **Input:** `name, dob, tob, place` (city, country string)
-- **Output:** `kundali_context` dict matching `kundali_summary.txt` format
-- **Engine:** pyswisseph with `SIDM_LAHIRI` ayanamsha
-- **Timezone:** IST handling (critical — birth times are local Indian time)
-- **Geocoding:** geopy for lat/lon from city name
-- **Verification:** must match Sulabh's AstroSage chart exactly before use in prod
-- **Dependencies:** `pyswisseph`, `geopy`
+This file described Session 5 and has been superseded roughly 120 sessions over.
+It is retained only so the filename does not 404 in old references.
+
+Authoritative: `CLAUDE.md` (locked decisions) and
+`ASTRO AGENT — MASTER BUILD PLAN.md` (the map).
+Original content is in git history.

@@ -348,3 +348,110 @@ KEY LEARNINGS:
 **FILED, NOT FIXED: ABSENCE VOCABULARY LIVES IN THREE PLACES (`cbe02fe`).** Closing this arc surfaced the same drift shape that produced the SLOPE half-connected defect earlier in this session: the vision prompt's own English (`agent/palm_processor.py`), the runtime `_ABSENCE_VOCABULARY` tuple (`agent/interpretive/palm_reading.py`), and the test module's `_PROMPT_INVITED_ABSENCE_PHRASES` list are three separate places carrying the same vocabulary, inconsistent with `vision_flat_subfields`, which the SLOPE arc put in the registry for exactly this reason. Nothing is currently broken -- the S125 two-way sync test bridges the prompt and the test list, and the two runtime lists derive from one tuple -- so this was deliberately NOT moved to `ontology_registry.json` mid-arc: the feature is working, tested and guarded, and relocating vocabulary now is risk for zero behaviour change. Filed as CLAUDE.md's S123 open item (f) specifically so it is not discovered a third time and mistaken for a new finding.
 
 **SESSION CLOSE, UPDATED.** Full suite at final close: **3840 passed / 7 skipped / 0 failed** (`cbe02fe`).
+
+## S124
+
+SESSION: ASTROLOGY RETRIEVAL ARCHITECTURE
+
+DECISIONS RATIFIED (locked, do not revisit)
+- Rule authoring is DEAD. No hand-authored doctrine rules. Fidelity moves from build time to run time.
+- Retrieval IS in the citation path. The prior constraint forbidding this is formally retired.
+- Retrieval unit = CHAPTER. Median 3,336 tokens. Notes/commentary stay attached to their verse.
+- Citations are INTERNAL ONLY, for debug logs. Never shown to the user.
+- Addressing = ORDINAL position (ch24_s001..sNNN), contiguous, no gaps. Printed verse numbers are metadata only: 35 of ch24's 144 are missing due to OCR, so they cannot be addresses.
+- Printed PDF page numbers dropped entirely. page_ref is the internal key.
+- Devanagari stripped from payloads, retained in storage. 37% real token cut, no quality loss (6-run A/B).
+- Interpreter never quotes. It cites a location; the system fetches text.
+- LLM never computes chart facts. One chart, one source, always.
+- Filter fails SAFE: unparsed or untagged content is KEPT, never dropped.
+- No answer skeletons, no priority/ranking tags, no relevance-ordered payloads. Ranking cannot be defined domain-free.
+- Router will REASON about houses (including derived/bhavat-bhavam), not use a fixed domain-to-house table.
+- 16-domain closed vocabulary is correct and locked: career, marriage, wealth, children, health, education, longevity, travel, property, parents, siblings, spirituality, enemies_conflict, timing_dasha, technique_method, planetary_nature.
+
+ARTIFACTS BUILT
+- data/chapter_index_bphs.json - 100 units, all 7 validation checks pass, zero character loss. Canary: bphs1_ch24 starts at page_ref 188.
+- data/segment_index_bphs_career3.json v2 - 135 segments, ordinals, text_sha256 drift protection.
+- data/career_payload_bphs.json - filtered career payload, 31.6% cut.
+- data/domain_tags_bphs.json - 1129 segments, 100 units. SEE CAVEAT.
+- agent/astro/payload_builder.py - generic payload builder (component).
+- scripts/verify_claim_direction.py - direction-checking verifier.
+
+MEASURED FACTS
+- Zero genuine fabrications across all interpreter runs. Location-based citation was never beaten.
+- Three separate times a "fabrication" was called and was WRONG - the tool or the diagnostic was at fault (Raja Yoga verse, 5th-lord-in-2nd, ch24_v25/v41). Check the tool before blaming the model.
+- Relation filter cuts 31.6% within selected chapters, but only 4.6% across the whole book (242,571 -> 231,470). 46 of 69 splittable chapters yield ZERO lord-house relations; 76.3% of kept tokens arrive via fail-safe. It is a WITHIN-CHAPTER tool, not a selector.
+- Domain tagging is reproducible: 8/8 probe units re-tagged blind returned identical domain sets.
+- Unfittable rate 0.09% - the 16-domain vocabulary holds at scale.
+- Temperature 0 + fixed seed did NOT produce identical OpenAI output. Some nondeterminism is inherent to the serving stack.
+- Zero CONTRADICT findings across 3 clean OpenAI runs, but only ONE conclusion appeared in all three. Gist is directionally stable, thin on consistency.
+- Reading corpus text costs ~9x source tokens due to Devanagari fragments. This constrains any future full re-read.
+
+REJECTED APPROACHES (do not retry)
+- Entity-level tagging (houses/planets as flat lists): kept 122/135, a 4% cut. Cannot narrow a placement census, because a chart matches exactly 12 of 144 cells and only the RELATIONSHIP identifies which.
+- Priority/ranking tags: measured WORSE citation agreement than plain free-form (0.60 vs 0.625 Jaccard).
+- Strict verbatim quoting: 73% failure, almost all cosmetic (case, curly quotes, model silently correcting OCR typos).
+- TOC-based chapter detection: OCR-damaged; sequential walk works.
+- Subagents as interpreters: tool access CANNOT be disabled in Claude Code, so context isolation is impossible and repo contamination is live. Cost 167k per run. Use OpenAI for interpreter runs.
+- Parallel/multi-agent fan-out: 300k+ overruns. Sequential only.
+
+OPEN ITEMS
+1. data/domain_tags_bphs.json is PARTLY TITLE-INFERRED, not text-derived. Reading stopped after ~70 units. 61.9% of tags are low confidence (vs 14% when text was actually read). Career selection pulls 21.2% of the corpus (51,454 tokens) versus 4% on the properly-read subset. High-confidence tags are trustworthy; the rest need a text re-read before the router depends on them.
+2. Router does not exist. Must output: domains (from the closed 16), houses (reasoned, including derived), whose-chart (self/other), and time scope. Must widen when uncertain, never narrow. Log every decision.
+3. Silence gate does not exist. Verifier currently detects only.
+4. Direction verifier catches reversed citations only where a relation was extracted. Partial coverage by design; do not chase the gap.
+5. 16 of 74 calculation modules are stubs (vargas, vimshottari, yogas, shadbala, chart_d1 and others). Facts gate rules as hard as text does.
+6. Two live bugs unfixed: "will my child succeed in his career" returns the USER's Shadbala; the out-of-scope guard matches by substring so any question naming the sign Cancer is refused as medical.
+7. Only BPHS 1+2 is in scope. 11 other books untouched.
+8. diagnostics/latest_run.md was overwrite-only and destroyed evidence twice. Now archived to diagnostics/runs/<timestamp>.md with a copy.
+
+
+## S125 — Planner + Silence Gate built; five-stage pipeline PROVEN end to end; palm scope corrected; V1 order re-ratified (2026-09-05)
+
+**POC VERDICT: PASSED.** The S124 five-stage architecture answered real questions end to end for the first time, without a hand-picked chapter list. Question -> plan -> chapters -> verses -> grounded, cited, chart-specific answer, with honest refusal where material runs out. Zero ghost citations in every run on record.
+
+### BUILT (both uncommitted at session close — no ratification token was given)
+- `agent/astro/planner.py` (`planner-1.0`) — the missing Stage 1. One LLM call emitting `{domains, houses, whose_chart, time_scope, in_scope, reasoning}`. Python validates SHAPE ONLY (house 1-12, domain in the closed 16, whose_chart/time_scope in their sets); it never judges doctrine, deliberately, so the domain->house table this architecture removed cannot creep back. Malformed -> ONE retry -> deterministic keyword fallback stamped `planner_fallback: true`, every decision appended to `diagnostics/planner_decisions.jsonl`. Fallback never guesses houses and refuses outright when nothing matches. `plan_and_build()` runs plan -> select_units -> build_payload -> filter_segments_by_domain.
+- `agent/astro/silence_gate.py` (`silence-gate-1.0`) — Stage 5a. Deterministic, no LLM (Working Style #9). Drops a claim ONLY when the CLAIM'S OWN text states a lord-in-house condition that is readable, unambiguous, and positively false for the chart. Fail-open everywhere; any internal error ships the answer unmodified with the failure recorded.
+- Tests: `tests/astro/test_planner.py` (41) + `tests/astro/test_silence_gate.py` (51) = **92 passing, 0 failed**. These are ADDITIVE to the 3,840-test suite, which was not re-run this session.
+
+### BOTH S124 LIVE BUGS ARE CLOSED BY CONSTRUCTION
+- "will my child succeed in his career" -> `whose_chart: other`, houses `[5, 2, 10]`, the 2nd being the 10th-from-the-5th. No second birth record needed, ever.
+- the "Cancer = medical" substring guard -> **there is no substring guard anywhere**. `in_scope` is the planner's judgement; Python only checks it is a boolean. A test asserts the constructs `_OUT_OF_SCOPE` / `OUT_OF_SCOPE_KEYWORDS` / `_MEDICAL` cannot be reintroduced.
+
+### MEASURED — do not re-derive
+1. **S124 open item 1 was FALSE and is CLOSED.** `domain_tags_bphs.json` is NOT partly title-inferred. ZERO of 100 units. Every unit was tagged from real corpus text at one of three read depths. No re-read budget is needed; the audit that proved it is `diagnostics/runs/20260905T101738Z_audit_tag_coverage.md`.
+2. **`approx_tokens` undercounts the real tokeniser by 1.61-1.66x**, measured against real OpenAI `prompt_tokens` (48,589 -> 80,882; 12,864 -> 20,736; 91,418 -> 152,542). A chars/4 estimate is itself ~17% low on this corpus. NEVER size a payload from `approx_tokens` or chars/4 again — only from `prompt_tokens`.
+3. **gpt-4o TPM cap is 30,000 at this account tier.** A 68,342-token request was rejected 429 pre-billing. The cap binds long before the 128k context window does. Tier-specific; a tier upgrade changes it with no code change.
+4. **Unit-level selection ships 37-48% of the corpus**; stacking the per-segment domain tags cuts a further 22-46% (career 90,653 -> 48,589 approx-tokens). Segment ids in `domain_tags_bphs.json` and `payload_builder` resolve 1,129/1,129 — one id scheme, no bridging needed.
+5. **WIDE IS DEAD for house-shaped questions.** Career, ARM A vs ARM B: dropping 298 of 304 segments changed gpt-4o-mini's citation set by NOTHING, and the smaller payload cleared the TPM cap so gpt-4o could run at all — producing the better answer (2 claims, a real verse citation, a specific reading). The fail-safe segments contributed ZERO citations.
+6. **STRICT IS DEAD for timing questions.** "When will I get married": 336 of 350 kept segments (96%) have zero extractable relations. **14 is the hard ceiling** on what a house-keyed filter can EVER keep, at ANY house list — measured across `[7]`, `[7,2,11]`, `[7,2,11,8]` and all 12 houses (2 / 9 / 9 / 14 segments). The planner's thin `[7]` cost 7 segments; the filter's design costs 336. Off by a factor of 48.
+7. **Only 3 of 10 subjects land in a workable band today** (>=6 segments, under the TPM cap): career, children, health. Over TPM: wealth, marriage — both fixed by a tier upgrade, not by code. Too thin: education, property, siblings, travel, spirituality. ROOT CAUSE: `extract_relations` recognises essentially one sentence shape, so 90-95% of verses are invisible to it in every domain.
+8. **gpt-4o-mini never cites a verse.** Across every mini arm on record it cited only whole-chapter units; `domain_match` count zero. gpt-4o is the only model that cited real segments. Every mini-only result is a weaker signal than it appeared.
+9. **gpt-4o refuses correctly where mini invents.** Given 2 thin segments on a timing question, gpt-4o produced 0 claims and said the material could not answer it; mini produced 3 Barnum claims from the same input. More claims was never the goal.
+10. **The precondition-mismatch defect, quantified.** 3 of 12 shipped claims in the live three-domain run recite doctrine whose "if" clause is false for this chart ("if the 12th lord is in the ascendant" — chart has 12th->6th; "5th lord in the 5th"/"in the 6th" — chart has 5th->2nd). Correctly cited, correctly quoted, not about this person. SAME defect class as the `p139_c0` finding that reversed the T4 palm ratification at S71.
+11. **The silence gate, replayed on those 12 real claims: 3 dropped, 9 kept, zero false drops.** Coverage varies hard by question — health 100% judged, career 50%, children 38%. The gate REPORTS its own `ungated_pct` on every answer so a human always knows how much was actually checked.
+
+### THE SILENCE GATE'S OWN NEAR-MISS — recorded because the lesson generalises
+`silence-gate-1.0`'s first implementation reused `payload_builder.extract_relations`. An adversarial review pass reproduced **six classes of WRONG DROP** on ordinary interpreter prose: negation ("NOT in the 5th" read as "in the 5th"), cross-sentence bridging (the 200-char DOTALL window inventing a relation from two unrelated sentences), missed disjunctions ("in the 9th or the 2nd" reading only the first), foreign reference frames ("from the Moon", navamsa, D-10, Arudha, transits all judged against the ascendant map), indirect attribution ("aspected by Jupiter in the 9th" — the 9th belongs to Jupiter), and bare numerals ("the 2 charts examined" read as the 2nd house).
+
+**ROOT CAUSE, and it is a doctrine mismatch rather than a bug:** `extract_relations` is a RETRIEVAL filter, deliberately permissive because over-matching there merely keeps extra text (fail-safe). As a precision judge, an over-match SILENCES A TRUE CLAIM — invisible in production. **A permissive matcher can never be a precision judge.** Fixed by replacing it with a purpose-built strict reader that works one sentence at a time and refuses to judge at the first sign of negation, alternatives, another reference frame, indirect attribution, dasha phrasing, or a compound condition. All six are now locked regression tests.
+
+### DECISIONS RATIFIED (do not re-litigate)
+- **PALM IS IN V1 and is BUILT.** Reverses the S71 "V1 PALM DROPPED" Option-Z lock, which is now stamped SUPERSEDED in CLAUDE.md (entry preserved; its technical content about GPT-4o-mini's limits on hedged classical prose remains valid and is what the two-stage extract-then-voice architecture answers).
+- **The S124 five-stage pipeline is the FINAL answer architecture.** The old S23 "no LLM-synthesised answer text" lock does not survive it; the deterministic calc domains become the fact block the Interpreter reads.
+- **V1 ORDER, re-ratified by Sulabh at session close: SELECTION FIRST, calculations after.** The 16 calculation stubs are stubs *because those calculations were hard to get right* — each carries the 4-reference-chart validation protocol and will take a long time. Selection is a one-file problem gating 7 of 10 subjects today. Doing the slow item first leaves most of the corpus unreachable for months.
+- **`calc_router.py` was deliberately NOT used as the planner's fallback.** It emits CALCULATION domains (`current_dasha`, `muhurta_window`...), a different output type in a different stage; mapping it onto the 16 TEXT domains would be a fresh hardcoded table — exactly what this architecture removed. It is untouched and continues to serve Track A.
+
+### CORRECTIONS MADE ON THE RECORD
+- **PALM IS COMPLETE FOR V1 SCOPE — an in-session claim to the contrary was WRONG and is retracted.** Sun / Health / Mars / Marks / hand-types / fingers / thumb / nails were read off S95's forward-looking list and called "remaining chapters". **S96 formally scoped them out**, per-configuration reasons recorded in `data/palm_rules/unauthorable_register.json` (marks and signs, hand-type family, two-hand laterality, and the whole p136-139 Influence-ray subsystem — "not emission-reachable" or outside the Cheiro-Western core). Marriage lines PARKED (no vision emitter block exists — architecturally unmeasurable). Thumb PARKED (S123, same relative-judgement class as the dead `proximity_degree` axis). The four live rule files — `head_heart`, `life_line`, `fate_line`, `mounts` — ARE the V1 palm scope. **The register exists precisely so closed questions are not re-litigated. This session re-litigated one.**
+- **CLAUDE.md's duplicate S72 palm-UI-gate entry resolved by grep, not argument.** `_PALM_ENABLED` EXISTS at `frontend/app.py:47` and gates 4 UI render blocks (868, 889, 1259, 1440). The "PLANNED, NOT YET IMPLEMENTED" twin is stamped STALE in place (supersede-don't-delete).
+- **`ASTRO AGENT — MASTER BUILD PLAN.md` REWRITTEN.** The prior version was frozen at **Session 42-44** — it named V1 as "3-domain deterministic calc Q&A", carried the S23 no-LLM-text lock, and contained no mention of the palm rules engine or the BPHS text pipeline. It described a system that no longer exists. Replaced with a three-track map (calculations / palm / BPHS text) through V2, with every open decision carrying its gate. `SESSION_5_PLAN.md` and `claude_handover_S97.md` reduced to one-paragraph tombstones — a stale handover is worse than none, because it is confidently wrong.
+- **A verification whose expected value was invented buys nothing (Working Style #16, violated in-session).** A prompt asked Claude Code to `grep -c HARD_CONTEXT_CEILING` and "expect 4". The true count is 3, in BOTH the old and new versions of the file — so the check could never have discriminated. The value, not the count, is the discriminating grep. Chasing it did surface a real problem: repeated writes to `agent/astro/planner.py` were reverted between commits (twice observed). **Cause unknown, not investigated — flag for the next session if it recurs.**
+
+### CARRY-FORWARD, OPEN
+1. **SELECTION is the next arc and the only V1 blocker of its size.** Broaden the relevance signal beyond the single lord-in-house sentence shape. **FLAG, recorded not buried:** selection can only be MEASURED on the eight non-timing subjects, because `timing_dasha` material cannot be validated until `vimshottari` exists. MITIGATION, to be built INTO the selection arc rather than deferred — design the timing relevance signal (planet and period names, NOT houses) now, ship it unmeasured, validate the day `vimshottari` lands. Do NOT leave `timing_dasha` out of the selection design because it cannot yet be tested.
+2. **Planner + silence gate are UNCOMMITTED.** Both built, both tested, awaiting a ratification token.
+3. **The silence gate is a scalpel, not a net.** It judges only the plain "the Nth lord is in the Mth" sentence. Dasha, conjunction and aspect claims pass through unjudged — not because the gate is weak, but because the fact block holds only 12 lord placements and an ascendant. Each calculation stub closed widens gate coverage with NO new gate code.
+4. **16 calculation stubs, 1,087 bytes total, all docstring-only** — `vimshottari` (gates every "when" question), `chart_d1` (gates the fact block), `yogas/detector` + 4 catalogs, `shadbala` roll-up, `vargas/divisional`, `vimshopaka`, 3 more dashas, `varshaphal`/`muntha`/`sahams`. **Closing these retires AstroSage as a side effect** — the PDF exists only because the engine cannot compute these yet.
+5. The planner's live house lists run thin (`[7]` for a marriage-timing question). A widening instruction was added to `SYSTEM_PROMPT`; its effect is UNMEASURED — the first run that would have tested it used a stale copy of the file.
+6. Repeated silent reverts of `agent/astro/planner.py` between writes — see the correction above.
