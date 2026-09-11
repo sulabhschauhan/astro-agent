@@ -455,3 +455,43 @@ OPEN ITEMS
 4. **16 calculation stubs, 1,087 bytes total, all docstring-only** — `vimshottari` (gates every "when" question), `chart_d1` (gates the fact block), `yogas/detector` + 4 catalogs, `shadbala` roll-up, `vargas/divisional`, `vimshopaka`, 3 more dashas, `varshaphal`/`muntha`/`sahams`. **Closing these retires AstroSage as a side effect** — the PDF exists only because the engine cannot compute these yet.
 5. The planner's live house lists run thin (`[7]` for a marriage-timing question). A widening instruction was added to `SYSTEM_PROMPT`; its effect is UNMEASURED — the first run that would have tested it used a stale copy of the file.
 6. Repeated silent reverts of `agent/astro/planner.py` between writes — see the correction above.
+
+
+## S126 — Answer pipeline complete end-to-end; interpreter locked to gpt-5; selection reconciled to the locked 16 domains; Fix1 timing-tag cleanup (2026-09-11)
+
+DESIGN-CHAT session (Cowork). Executed directly against the working tree via the device bridge; the GPT validation ran on Sulabh's machine (the Cowork sandbox is firewalled from api.openai.com by egress policy). Suite after the session's commit: **3938 passed, 7 skipped, 0 failed** (`diagnostics/latest_run.md`).
+
+### BUILT + COMMITTED (S126)
+- `agent/astro/interpreter.py` (`interpreter-1.0`) — Stage 4. Emits STRUCTURED claims `{statement, segment_ids}` (so the silence gate can judge each claim's precondition), corpus-first prompt (verse block leads the system message = cacheable prefix), GHOST GUARD (any cited id not in the payload is stripped; a claim left with no real id is dropped, so the gate never sees a ghost id), `reasoning_effort=minimal`, dependency-injected `llm` for stub tests. Model locked `gpt-5`.
+- `agent/astro/pipeline.py` (`pipeline-1.0`) — `answer_question`: plan → select_units → build_payload → filter_segments_by_domain → interpret → apply_silence_gate → rendered answer. Builds the FACT BLOCK from the chart's lord→house map + ascendant. Fails open / refuses with the reason on record; never raises for a model/gate problem.
+- `tests/astro/test_interpreter.py` (6) + `tests/astro/test_pipeline.py` (2) — stub-llm, no API. End-to-end proof: a true-precondition claim kept, a false-precondition claim dropped by the gate, a ghost id stripped.
+- `agent/astro/planner.py` config: `INTERPRETER_CONTEXT_WINDOW` 128_000→400_000, `HARD_CONTEXT_CEILING` 72_000→225_000 (= (400k real − ~15k output/reasoning reserve) / 1.70 approx-ratio).
+- `data/domain_tags_bphs.json` — Fix 1 (below).
+- planner.py + silence_gate.py (built S125, previously uncommitted) landed in the same commit under a ratification token.
+
+### FIX 1 — timing-tag pollution removed (data-only; the ONE tagging fix that survived)
+`timing_dasha` was wrongly co-tagged on machinery and out-of-scope material. Dropped it from: `bphs2_ch46` (the dasha COMPUTATION manual → now `technique_method` only) and `bphs2_ch61/62/63` (Effects of Pratyantar/Sookshma/Prana dashas — the SUPPRESSED sub-dasha levels, ±37-day drift lock). Result: `timing_dasha` 252→38 segs (−36% of the domain was pollution); the "when will I marry" payload fell 158k→113k real tokens with ZERO doctrine dropped, because every removed segment was computation or a suppressed level. All 1,129 segments preserved; unit `per_domain` rollups recomputed.
+
+### MODEL — gpt-4o → gpt-5 (VALIDATED on real calls, do not re-derive)
+Validation (`scripts/validate_model.py`, run on Sulabh's machine 2026-09-10, real gpt-5): 4 real questions + 1 out-of-scope.
+- **0 ghost citations on every question** — every cited id exists in the payload. (career 6 real cites, wealth 7, property 4.)
+- **Honest refusal on "when will I marry"** — gpt-5 walked the marriage-timing yogas, ruled out the ones that don't fit the chart, and refused to give an age because the FACT BLOCK lacks planet positions (only lord→house today). This is the correct behaviour AND the concrete proof that timing needs `vimshottari`/`chart_d1`.
+- **Recall held at 99k–105k prompt tokens** (no degradation). The account cleared 105k with **no 429**, so gpt-5's TPM headroom is far above gpt-4o's 30k — the TPM wall is effectively gone on gpt-5.
+- **Cost ~$0.16 per big question** at `reasoning_effort=minimal` (reasoning ran ~2k–5.7k tokens, higher than the "~0.6k" estimate, but the payload is input-dominated ~82k:1.2k so it stays cheaper than gpt-4o's $0.22 and far cheaper cached).
+- gpt-5 fits EVERY question (max wealth_timing ~149k real) in ONE 400k-window call — no split, no narrowing, no doctrine dropped.
+
+Model comparison (live 2026 pricing, third-party, [Likely]): gpt-4o $2.50/$10, 128k, FAILS big+timing (over window); **gpt-5 $1.25/$10 cached $0.125, 400k — chosen**; GPT-5.6 Terra $2.50/$15, 1M, 89.6% recall (safety net, unused); GPT-5.6 Luna/mini **REJECTED — 41.3% long-context recall = cites wrong verses (the S125 mini-trap, benchmark-confirmed)**. Caching is automatic, ~24h TTL, 90% off the repeated prefix — keep the user-independent verse block as the prompt PREFIX.
+
+### DECISIONS RATIFIED (do not re-litigate)
+- **Interpreter model = gpt-5** (config in planner.py). `reasoning_effort=minimal`, corpus-first prompt.
+- **Selection speaks ONLY the locked 16-domain vocabulary** (S124). No topic/rule_type/facet axis was adopted. The planner emits `domains` (which it already did) + the `time_scope` it already emits; selection is `filter_segments_by_domain` + the within-chapter relation funnel (demoting the funnel was TESTED and REJECTED — it only enlarges payloads).
+- **Standing cost/correctness doctrine: never narrow, never fail-open to silence doctrine.** Window overflow is solved by the 400k model (lossless); TPM by account tier (money). Sub-tagging / a per-query LLM filter were considered and rejected as narrowing judges (a wrong drop silences a true claim).
+
+### CORRECTIONS ON THE RECORD (mistakes made and reversed this session — read before repeating)
+- **Anchored the whole first design on a REJECTED artifact.** Built a topic + `rule_type` tag layer on top of `segment_tags_bphs_career3.json` (segtag-2.0), and invented a `property_home` topic. Both wrong: S124 locks the 16 domains as the vocabulary (`property` is already in it), and S124 REJECTED entity-level (houses/planets) tagging. Sulabh caught it ("why segtag/property_home as external?… we decided not to design based on rule… read the log"). Retracted; `topic_select.py` and the topic-tag experiment are NOT part of the design. **Lesson: check the locked vocabulary and the REJECTED-APPROACHES list before proposing a new tagging axis.**
+- **`rule_type` (single or multi-valued) was scope creep** on the axis we agreed to keep backstage. The timing-vs-machinery distinction it was meant to carry is already carried by the 16 domains (`technique_method` = machinery, `timing_dasha` = timing). Dropped.
+
+### CARRY-FORWARD / NEXT (see claude_handover_S126.md)
+1. **`vimshottari` + `chart_d1` calc stubs** — the immediate next work. They widen the FACT BLOCK beyond lord→house (planet positions + running dasha), which is exactly what gpt-5's honest timing-refusal proved is missing. Unlocks all "when" questions and retires AstroSage. Each carries the 4-reference-chart validation protocol.
+2. **Vision / palm track** — Sulabh flagged starting the vision work in the next session (palm is already COMPLETE for V1 scope per S125; this is new vision work, scope to be defined next session).
+3. The silence gate stays a scalpel (judges only plain lord-in-house claims) until the fact block grows; each calc stub widens its coverage with no new gate code.
