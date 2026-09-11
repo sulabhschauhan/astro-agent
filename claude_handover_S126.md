@@ -27,6 +27,7 @@ runs end to end. Suite **3938 passed / 7 skipped / 0 failed**.
 - **Selection speaks ONLY the locked 16 domains** (S124). There is NO topic/rule_type/facet axis, and there will not be one without a lock change. `segment_tags_bphs_career3.json` (segtag-2.0) entity-tagging is on the S124 REJECTED list. `property` is a domain; there is no `property_home`. **Do not build a new tagging layer — S126 tried, it was wrong, it was reverted.**
 - **Demoting the relation funnel was TESTED and REJECTED** — it only enlarges payloads. Leave it.
 - **Never narrow, never fail-open to silence doctrine.** Window is solved by the 400k model; TPM by tier. Sub-tagging / per-query LLM filters are narrowing judges — rejected.
+- **The `parked_cost_reduction` item is SUPERSEDED — do not resume it.** S126 overtook it: its top lever (gpt-4o-mini interpreter) is REJECTED (mini = 41.3% long-context recall, cites wrong verses); its prompt-caching sub-idea is ADOPTED (gpt-5 automatic 90% cache + corpus-first prompt); per-question cost is already ~$0.16 (~$0.03 cached) and nothing refuses over ceiling. Only remnant (cache the interpreter ANSWER for chart-independent questions) is LOW priority. The doc was removed from the project.
 
 ## MEASURED — cite, do not re-derive
 - gpt-5: `INTERPRETER_CONTEXT_WINDOW=400_000`, `HARD_CONTEXT_CEILING=225_000` approx (planner.py). `reasoning_effort=minimal`. Corpus-first prompt → automatic 90% cache (~24h TTL) on the user-independent verse block.
