@@ -634,6 +634,23 @@ def _calc_yogas(planets: dict) -> dict:
     }
 
 
+def _surface_longitude(planet: str, planet_data: dict) -> float:
+    """
+    Surface the absolute sidereal longitude (0-360 deg, Lahiri) that
+    _calc_planets() already computes internally (used for e.g. the
+    kalsarpa-yoga check) but calculate_chart() previously discarded when
+    building the public planetary_positions dict. No new ephemeris call —
+    this reads the already-computed value.
+    """
+    try:
+        return float(planet_data["longitude"]) % 360.0
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"_surface_longitude: missing or invalid 'longitude' for "
+            f"{planet} in planet_data={planet_data!r}: {exc}"
+        ) from exc
+
+
 # ─── Public API ───────────────────────────────────────────────────────────────
 
 def calculate_chart(name: str, dob: str, tob: str, place: str) -> dict:
@@ -713,6 +730,7 @@ def calculate_chart(name: str, dob: str, tob: str, place: str) -> dict:
                 "sign": d["sign"],
                 "dignity": d["dignity"],
                 "retrograde": d["retrograde"],
+                "longitude": _surface_longitude(planet, d),
             }
             for planet, d in planets.items()
         },

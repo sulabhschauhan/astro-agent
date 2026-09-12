@@ -4,9 +4,17 @@ hardest of the 4 canonical reference charts), public fields only.
 
 Scope (1a): lagna_chart's ascendant/ascendant_lord/rasi/rasi_lord/
 nakshatra/nakshatra_pada/nakshatra_lord, and each of the 9
-planetary_positions bodies' house/sign/dignity/retrograde. Longitude,
-dasha/pratyantar, meta, and aspects are explicitly OUT of scope for
-this pass (longitudes deferred to 1b).
+planetary_positions bodies' house/sign/dignity/retrograde.
+
+Scope (1b-lock): each of the 9 planetary_positions bodies' absolute
+sidereal `longitude` (0-360 deg, Lahiri), additively surfaced by
+calculate_chart() in 1b. This is a DRIFT-GUARD on production's own
+reproducibility (tight 1e-6 deg tolerance), not a JHora/AstroSage
+oracle-parity assertion -- see the JHora comparison note above
+GOLDEN_LONGITUDES below and reference/oracle_fixtures/david.md for the
+actual oracle reconciliation.
+
+dasha/pratyantar, meta, and aspects remain explicitly OUT of scope.
 
 This is a CHARACTERIZATION test, not an oracle-parity test: it locks
 CURRENT production behavior of the zero-coverage D1 dignity/house path
@@ -62,6 +70,23 @@ GOLDEN_PLANETARY_POSITIONS = {
     "Ketu":    {"house": 8,  "sign": "Aries",       "dignity": "Neutral",  "retrograde": True},
 }
 
+# GOLDEN LONGITUDE: production sidereal (Lahiri, geometric/Camp-Y).
+# Drift-guard, NOT JHora parity. Matched-mode JHora (Trad-Lahiri) deltas:
+# max 30.7" (Venus), Sun -20.9" ~= annual aberration -- documented Camp-Y
+# apparent-position divergence (S75/Gap A1), not drift.
+_LONGITUDE_TOLERANCE_DEG = 1e-6
+GOLDEN_LONGITUDES = {
+    "Sun": 275.4382085195396,
+    "Moon": 131.65790104926788,
+    "Mars": 51.210713661689894,
+    "Mercury": 282.74683007621394,
+    "Jupiter": 353.9064231771519,
+    "Venus": 238.73827069923064,
+    "Saturn": 96.03364889141777,
+    "Rahu": 204.73956801600377,
+    "Ketu": 24.739568016003773,
+}
+
 
 @pytest.fixture(scope="module")
 def david_chart():
@@ -95,3 +120,16 @@ class TestPlanetaryPositionsCharacterization:
                 f"David {planet}.{field}: expected {expected_value!r}, "
                 f"got {actual_value!r}"
             )
+
+
+class TestPlanetaryLongitudeCharacterization:
+    @pytest.mark.parametrize("planet", sorted(GOLDEN_LONGITUDES.keys()))
+    def test_planet_longitude(self, david_chart, planet):
+        expected = GOLDEN_LONGITUDES[planet]
+        actual = david_chart["planetary_positions"].get(planet, {}).get("longitude")
+        assert actual is not None, f"David {planet}.longitude: missing from output"
+        diff = abs(actual - expected)
+        assert diff <= _LONGITUDE_TOLERANCE_DEG, (
+            f"David {planet}.longitude: expected {expected!r}, got {actual!r} "
+            f"(diff {diff:.8f} deg exceeds tolerance {_LONGITUDE_TOLERANCE_DEG} deg)"
+        )
