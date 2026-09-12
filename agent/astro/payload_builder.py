@@ -1,4 +1,14 @@
 """
+
+================================================================
+PATH B / LAB TRACK -- NOT WIRED TO THE PRODUCT (S128 lock).
+
+This module has NO non-test caller. The live answer path is
+agent/infra/orchestrator.answer_question, imported by
+frontend/app.py:31. Changing this file ships NOTHING to users.
+Read docs/ANSWER_PATHS.md before editing or proposing work here.
+================================================================
+
 Production component: generalises scripts/build_career_payload.py's proven
 relation-filter logic from a hardcoded 3-chapter/1-chart/1-question build
 into a general-purpose payload builder over any subset (or all) of the 100

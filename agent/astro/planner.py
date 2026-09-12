@@ -1,4 +1,14 @@
 """
+
+================================================================
+PATH B / LAB TRACK -- NOT WIRED TO THE PRODUCT (S128 lock).
+
+This module has NO non-test caller. The live answer path is
+agent/infra/orchestrator.answer_question, imported by
+frontend/app.py:31. Changing this file ships NOTHING to users.
+Read docs/ANSWER_PATHS.md before editing or proposing work here.
+================================================================
+
 Astro Agent -- STAGE 1: THE PLANNER (a.k.a. the router).
 
 The missing keystone stage. Reads the user's question and says what the
