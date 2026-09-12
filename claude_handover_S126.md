@@ -6,6 +6,7 @@ MODEL: Opus for the design decision. Sonnet 4.6 for Claude Code implementation.
 State the model on the first line of every Claude Code prompt.
 
 ## READ THIS ORDER, THEN TRUST IT — do not re-derive
+0. **CONFIRM you are on `wip/interpretive-pilot`** (`git branch --show-current`). `main` is stale at S84 — building on it silently drops the whole pipeline. `wip` @ `a0569b0` is self-contained (clones clean, 3938 pass). If the project RAG surfaces S84-era content, the GitHub sync still points at `main` (repoint it to `wip/interpretive-pilot` in project settings) — until then, trust these docs over RAG. Detail: SESSION_LOG § "S126 close addendum".
 1. `CLAUDE.md` — Current Session Focus + Locked Decisions. **AUTHORITATIVE.**
 2. `SESSION_LOG.md` § S126 — the evidence behind every number below.
 3. `ASTRO AGENT — MASTER BUILD PLAN.md` — the map.
@@ -38,6 +39,10 @@ runs end to end. Suite **3938 passed / 7 skipped / 0 failed**.
 gpt-5's honest refusal on "when will I marry" is the proof: the FACT BLOCK today is only the chart's lord→house map + ascendant, so timing and planet-placement questions cannot be answered. Build `vimshottari` (running dasha) + `chart_d1` (planet positions) FIRST — they widen the fact block, unlock every "when" question, and retire the AstroSage PDF. Each carries the 4-reference-chart validation protocol (`calculations/` package; PVR book + JHora oracle; empirical validation across the 4 charts, zero free parameters). The silence gate's coverage widens automatically as the block grows — no new gate code.
 
 Then: the **vision / palm track** (new work; palm rules engine is already COMPLETE for V1 per S125 — this is a separate vision effort, scope it in the next session with Sulabh).
+
+## HOUSEKEEPING BACKLOG (not blocking; Sulabh flagged S126)
+- **Split `diagnostics/` — it conflates ephemeral output with durable cited evidence.** The folder name says "throwaway" but it also holds the `_S<n>.md` reports, `KNOWN_PATTERNS.md`, golden scorecards and `dogfood_capture.md` that locked decisions cite (a cleanup had to hand-guard them). Refactor: `diagnostics/` = ephemeral only (`latest_run.md`, `runs/`, `*.log`, scratch — gitignore the whole dir); new `audit/` (git-tracked, "do-not-touch") = the cited evidence. Migrate with `git mv` (keeps history), update `.gitignore` + the CLAUDE.md diagnostics convention, and add ONE SESSION_LOG note that pre-S127 `diagnostics/*_S<n>.md` citations now resolve under `audit/` (cheaper than re-pointing ~50 citations). It touches a documented convention (WS#21/#26) so treat it as a deliberate refactor, not a quick move.
+- **Content-role tagging (`ingestion/chunker.py` + `embedder.py`) was DRAFTED then REVERTED at S126** (undocumented, incomplete — no upstream producer emits the values, so they were always `"unknown"`; V1 doesn't use the ChromaDB path). First half of the S115 HORIZON "ingest-time content-role tagging". To finish: (1) build producers in `pdf_processor.py`/`image_extractor.py` emitting real `text_source`/`content_class`, (2) re-add the lines, (3) re-embed. Reverted lines, so nothing is lost: `chunker.py` `_make_sub_chunks` add `"text_source": parent.get("text_source"), "content_class": parent.get("content_class"),`; `embedder.py` `_to_metadata` add `"text_source": chunk.get("text_source") or "unknown", "content_class": chunk.get("content_class") or "unknown",`.
 
 ## WORKING STYLE REMINDERS THAT MATTERED THIS SESSION
 - The Cowork sandbox is FIREWALLED from api.openai.com — any GPT run goes on Sulabh's machine (hand him a Claude Code prompt that writes to `diagnostics/latest_run.md`).
