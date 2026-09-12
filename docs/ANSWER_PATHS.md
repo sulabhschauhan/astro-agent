@@ -1,73 +1,102 @@
 # ANSWER PATHS -- which code actually answers a user question
 
-**STATUS: LOCKED S128 (2026-09-12).** Read this before touching anything under
-`agent/astro/` or `agent/infra/`, and before calling either one "the pipeline".
+**STATUS: PATH B IS THE ANSWER PATH (S129, 2026-09-12).** Supersedes the S128
+version of this file, which recorded Path A as the product and Path B as
+unwired. Read this before touching anything under `agent/astro/` or
+`agent/infra/`, and before calling either one "the pipeline".
 
-There are TWO answer paths in this repo. Only ONE is wired to the product.
+## PATH B -- THE PRODUCT (live as of S129)
 
-## PATH A -- THE PRODUCT (live)
-
-`frontend/app.py:31` -- `from agent.infra.orchestrator import answer_question`
-`frontend/app.py:1600` -- calls it with `(prompt, st.session_state.chart)`
+`frontend/app.py` -- `from agent.astro.pipeline import answer_question`
+and `from agent.astro.chart_facts import build_chart_facts, ChartFactsError`
 
 ```
 question
-  -> agent/infra/calc_router.route_question        (Stage 1 keywords + Stage 2 LLM)
-  -> agent/infra/chart_profile.build_domain_profile
-  -> agent/infra/result_formatter.format_answer / format_refusal
-  -> agent/interpretive/answer_renderer.render_answer   (frontend/app.py:1601)
+  -> planner.plan_question                     Stage 1  (gpt-4o, JSON plan)
+  -> capability_gate.assess                    Stage 1.5 (deterministic)
+  -> planner.build_from_plan                   Stage 2+3 (chapters, verses)
+       chart_facts.build_chart_facts(chart)    Stage 3.5 (the fact block)
+  -> interpreter.interpret                     Stage 4  (gpt-5, cited claims)
+  -> silence_gate.apply_silence_gate           Stage 5a
+  -> pipeline._render                          answer + decline notes
 ```
 
-- Deterministic. No LLM writes answer prose (S23 lock).
-- Chart comes from `agent/chart_calculator.calculate_chart` (`frontend/app.py:767`).
-- Pratyantar is stripped HERE, at `agent/infra/chart_profile.py:817`.
-- Every V1 behaviour, golden row, scorecard and `_KNOWN_GAPS` entry describes
-  THIS path.
+This is the objective: question -> plan -> chapters -> verses -> grounded,
+cited, chart-specific answer.
 
-## PATH B -- THE LAB TRACK (not wired, by design as of S128)
+### What the fact block carries TODAY
 
-`agent/astro/{planner,payload_builder,interpreter,silence_gate,pipeline}.py`
+Ascendant sign, and the 12 house-lord placements. Nothing else. It is built by
+`chart_facts.build_chart_facts()`, which RESTATES `calculate_chart()`'s
+`house_lord_mapping` and `lagna_chart.ascendant` -- it computes nothing.
 
-```
-question -> plan -> select -> payload -> Interpreter (gpt-5) -> silence gate -> answer
-```
+Independently validated against the JHora oracle (S129): Sulabh's 12 lord
+placements derived from `reference/oracle_fixtures/sulabh.md`'s planet signs
+match the adapter's output 12/12.
 
-- **NO non-test caller exists anywhere in the repo.** Verified 2026-09-12 on
-  `wip/interpretive-pilot @ 2bf850a` by grepping `agent.astro` / `agent/astro`
-  across the whole tree. The only importers are `tests/astro/*` and
-  `scripts/{run_planner_poc, validate_model, probe_wide_vs_strict,
-  spike_option2_timing, build_domain_tags}.py`. `frontend/` and `agent/infra/`
-  import it NOWHERE.
-- **It cannot be wired as it stands.** Nothing converts `calculate_chart()`'s
-  `house_lord_mapping` (list of dicts, `chart_calculator.py:697-707`) into the
-  `lord_house_map` that `payload_builder.parse_lord_house_map` demands
-  (`payload_builder.py:282-306`). That adapter does not exist. Path B runs today
-  only on a hand-built dict (`scripts/run_planner_poc.py:44`) or the frozen
-  header of `data/career_payload_bphs.json`.
-- **Pratyantar has no suppression hook on this path.** The fact block
-  (`pipeline.py:29-34`) carries no dasha data at all, so there is nothing to
-  strip. The S125 "pratyantar suppressed downstream" lock is satisfied by
-  PATH A only. Any widening of the fact block to include dasha MUST add the
-  hook in the same change.
+### The capability gate is what makes this honest
 
-## What "S126: ANSWER PIPELINE COMPLETE END-TO-END" actually means
+`agent/astro/capability_gate.py` runs BEFORE retrieval and before the
+Interpreter. It holds one declaration -- `FACT_BLOCK_PROVIDES` -- of what the
+fact block carries, and a register of requirements saying which planner
+domains and time_scopes need facts beyond it.
 
-It means Path B is complete end-to-end **within itself** -- `plan -> answer`,
-given a `chart_facts` dict someone hands it. It does NOT mean Path B is
-reachable from the app. That single sentence is what misled S127 and S128 into
-planning product work against dead code.
+Today exactly one requirement fires: anything planning `timing_dasha`, or
+carrying `time_scope` of `future` / `specific_period`, needs dasha periods the
+block does not have. That domain is dropped from the plan and the user is told
+plainly. If nothing answerable remains, the question is refused outright and no
+model is called at all.
+
+This exists because the silence gate CANNOT protect a dated claim: it judges
+only claims shaped "the Nth lord is in the Mth", and it fails open on
+everything else. Without this gate, a timing question would reach gpt-5 with
+timing doctrine and no timing facts, and anything it produced would ship
+unverified -- Working Style #5.
+
+**Growing it:** when `chart_d1` / `vimshottari` land and `pipeline._fact_block`
+widens, add the new capability key to `FACT_BLOCK_PROVIDES` IN THE SAME CHANGE.
+The matching requirement goes inert automatically; nothing else is edited.
+`tests/astro/test_capability_gate.py` pins the declaration against what
+`_fact_block` actually renders, so the two cannot drift silently.
+
+### Pratyantar
+
+`calculate_chart` still returns `current_pratyantar` / `next_5_pratyantars`
+(`chart_calculator.py:609-610`). The adapter never reads them, and the fact
+block carries no dasha at all, so nothing pratyantar-shaped can reach the
+Interpreter. THE SUPPRESSION HOOK IS STILL OWED: whoever widens the fact block
+to carry dasha MUST strip pratyantar in that same change (+/-37d drift, wrong
+lord). There is no hook to inherit -- the safety today is absence, not a guard.
+
+## PATH A -- THE DETERMINISTIC ROUTER (retained, no longer wired)
+
+`agent/infra/{orchestrator,calc_router,chart_profile,result_formatter}.py`
+plus `agent/interpretive/answer_renderer.py`.
+
+Nine routed domains, fully deterministic, answers assembled from fixed
+templates. It opens no book and produces no citation, which is why it cannot
+serve the objective and why S129 cut over away from it.
+
+**It is retained, tested and intact -- do not delete it.** It is the revert
+target if the cutover is reversed, and its calculation layer
+(`chart_profile.build_domain_profile`) is the natural source for future fact
+block widening.
+
+Known defects found in the S129 audit, unfixed because it is no longer wired:
+`answer_renderer` has no branch for `yogini_dasha` or `av_transit` (both route
+and format, then raise); the career timing block renders Antardasha dates
+without its own `resolution_note`; and `calc_router`'s out-of-scope guard is a
+plain substring match, so a question naming the sign Cancer is refused as
+medical (`calc_router.py:1077`). That last one is the S124 "live bug" CLAUDE.md
+records as closed -- it was closed in the PLANNER, i.e. on Path B, never on
+Path A. Path B's planner judges intent and handles it correctly.
 
 ## Rules
 
-1. A change to **product behaviour** is a change to **Path A**. A change to
-   `agent/astro/` ships nothing to users.
-2. Every prompt or design note proposing work on `agent/astro/` must state
-   which path it serves, in its first line.
-3. Path B does not become the product by being improved. It becomes the product
-   only when all three land:
-   a. the `calculate_chart() -> chart_facts` adapter is built and tested;
-   b. `frontend/app.py:31` is repointed at it;
-   c. a pratyantar suppression hook exists on the fact-block path.
-   Until all three land, **Path A is the product.**
-4. Do not delete Path B. It is the ratified target architecture (S125) and its
-   suite is green. It is dormant, not dead.
+1. A change to product behaviour is a change to **Path B**.
+2. Before proposing work on `agent/infra/`, state why it is not Path B work.
+3. Do not re-wire `frontend/app.py` to `agent.infra.orchestrator` without
+   re-reading this file and recording the reason.
+4. The capability gate is the ONLY place that decides "we cannot answer this
+   for lack of facts". Do not add a second such judgement in the interpreter
+   prompt, the renderer, or the app.

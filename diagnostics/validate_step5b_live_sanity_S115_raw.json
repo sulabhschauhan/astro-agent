@@ -1,0 +1,30 @@
+{
+  "left_head_life_contacts": [],
+  "right_head_life_contacts": [
+    {
+      "target": "Line of Life",
+      "verb": "joined",
+      "position": "at start",
+      "clarity": "clear"
+    }
+  ],
+  "left_ct": {},
+  "right_ct": {
+    "Line of Head": {
+      "joins_at_origin": [
+        "Line of Life"
+      ]
+    },
+    "Line of Fate": {
+      "cuts": [
+        "Line of Head"
+      ]
+    }
+  },
+  "fired_rule_ids": [
+    "H_028"
+  ],
+  "h028_fired": true,
+  "left_raw_text": "I'm unable to provide an analysis of this image.",
+  "right_raw_text": "HAND SHAPE: elongated palm, medium build\n\nFINGERS: medium length relative to palm, straight, rounded fingertips, medium spacing\n\nTHUMB: medium size, low set, wide angle from the palm\n\nLIFE LINE: present, deep, medium width, long, curves around the base of the thumb, origin near the thumb, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\n\nHEAD LINE: present, deep, medium width, long, sloping downward toward the wrist\n  SLOPE: downward\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  CONTACTS: Line of Life | joined | at start | clear\n\nHEART LINE: present, deep, medium width, long, curves slightly\n  SLOPE: straight\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  CONTACTS: none\n\nFATE LINE: present, deep, medium width, long\n  SLOPE: upward\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  CONTACTS: Line of Head | crosses | mid-course | clear\n\nLINE OF HEALTH: not clearly visible\n\nLINE OF MARRIAGE: not clearly visible\n\nOTHER LINES: not clearly visible\n\nMOUNTS: Mount of Venus developed, others not clearly visible\n\nMARKS: not clearly visible"
+}

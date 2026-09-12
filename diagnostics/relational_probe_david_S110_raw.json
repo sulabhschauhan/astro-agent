@@ -1,0 +1,218 @@
+[
+  {
+    "run": 0,
+    "error": null,
+    "raw_text": "HAND SHAPE: elongated, medium build\n\nFINGERS: long relative to palm, straight, rounded fingertips, medium spacing\n\nTHUMB: medium size, low set, wide angle from the palm\n\nLIFE LINE: present, deep, narrow, long, curves around the base of the thumb, origin near the thumb, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\n\nHEAD LINE: present, deep, narrow, long, sloping downward toward the wrist/Mount of Luna, no breaks/chains/forks/islands\n  SLOPE: downward\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  CONTACTS: Line of Life | joined | at start | clear\n\nHEART LINE: present, deep, narrow, long, curves slightly upward, no breaks/chains/forks/islands\n  SLOPE: upward\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Mount of Jupiter\n  BRANCHES_TO: none\n  CONTACTS: none\n\nFATE LINE: present, deep, narrow, long, straight, no breaks/chains/forks/islands\n  SLOPE: straight\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  CONTACTS: Line of Head | crosses | mid-course | clear\n\nLINE OF HEALTH: not clearly visible\n\nLINE OF MARRIAGE: not clearly visible\n\nOTHER LINES: not clearly visible\n\nMOUNTS: Mount of Venus developed, others not clearly visible\n\nMARKS: not clearly visible",
+    "contacts": {
+      "Line of Head": [
+        {
+          "target": "Line of Life",
+          "verb": "joined",
+          "position": "at start",
+          "clarity": "clear"
+        }
+      ],
+      "Line of Heart": [],
+      "Line of Fate": [
+        {
+          "target": "Line of Head",
+          "verb": "crosses",
+          "position": "mid-course",
+          "clarity": "clear"
+        }
+      ]
+    },
+    "per_contact_disposition": [
+      {
+        "feature": "Line of Head",
+        "target": "Line of Life",
+        "raw_verb": "joined",
+        "position": "at start",
+        "clarity": "clear",
+        "verb_source_class": "s106_inflected",
+        "disposition": "already_resolved_no_llm_needed",
+        "final_token": "joins_at_origin",
+        "llm_canonical_choice": null
+      },
+      {
+        "feature": "Line of Fate",
+        "target": "Line of Head",
+        "raw_verb": "crosses",
+        "position": "mid-course",
+        "clarity": "clear",
+        "verb_source_class": "exact_deterministic",
+        "disposition": "already_resolved_no_llm_needed",
+        "final_token": "cuts",
+        "llm_canonical_choice": null
+      }
+    ],
+    "fired_rule_ids": [
+      "FT_003",
+      "H_026",
+      "H_028",
+      "L_001"
+    ],
+    "fallback_call_count": 0,
+    "audits": [
+      {
+        "raw_verb": "joined",
+        "target": "Line of Life",
+        "position": "at start",
+        "llm_canonical_choice": null,
+        "final_token": "joins_at_origin",
+        "disposition": "already_resolved_no_llm_needed"
+      },
+      {
+        "raw_verb": "crosses",
+        "target": "Line of Head",
+        "position": "mid-course",
+        "llm_canonical_choice": null,
+        "final_token": "cuts",
+        "disposition": "already_resolved_no_llm_needed"
+      }
+    ]
+  },
+  {
+    "run": 1,
+    "error": null,
+    "raw_text": "HAND SHAPE: elongated, slender build\n\nFINGERS: long relative to palm, straight, rounded fingertips, close spacing\n\nTHUMB: medium size, low set, wide angle from the palm\n\nLIFE LINE: present, deep, narrow, long, curves around the base of the thumb, no breaks\n  CONVERGENCE: none\n\nHEAD LINE: present, deep, narrow, long, straight across\n  SLOPE: straight\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  CONTACTS: Line of Life | joins | at start | clear\n\nHEART LINE: present, deep, narrow, long, slight curve\n  SLOPE: straight\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Mount of Mercury\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  CONTACTS: none\n\nFATE LINE: present, deep, narrow, long\n  SLOPE: upward\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  CONTACTS: Line of Head | crosses | mid-course | clear\n\nLINE OF HEALTH: not clearly visible\n\nLINE OF MARRIAGE: not clearly visible\n\nOTHER LINES: not clearly visible\n\nMOUNTS: Mount of Venus developed, others unremarkable\n\nMARKS: not clearly visible",
+    "contacts": {
+      "Line of Head": [
+        {
+          "target": "Line of Life",
+          "verb": "joins",
+          "position": "at start",
+          "clarity": "clear"
+        }
+      ],
+      "Line of Heart": [],
+      "Line of Fate": [
+        {
+          "target": "Line of Head",
+          "verb": "crosses",
+          "position": "mid-course",
+          "clarity": "clear"
+        }
+      ]
+    },
+    "per_contact_disposition": [
+      {
+        "feature": "Line of Head",
+        "target": "Line of Life",
+        "raw_verb": "joins",
+        "position": "at start",
+        "clarity": "clear",
+        "verb_source_class": "exact_deterministic",
+        "disposition": "already_resolved_no_llm_needed",
+        "final_token": "joins_at_origin",
+        "llm_canonical_choice": null
+      },
+      {
+        "feature": "Line of Fate",
+        "target": "Line of Head",
+        "raw_verb": "crosses",
+        "position": "mid-course",
+        "clarity": "clear",
+        "verb_source_class": "exact_deterministic",
+        "disposition": "already_resolved_no_llm_needed",
+        "final_token": "cuts",
+        "llm_canonical_choice": null
+      }
+    ],
+    "fired_rule_ids": [
+      "H_028",
+      "L_001"
+    ],
+    "fallback_call_count": 0,
+    "audits": [
+      {
+        "raw_verb": "joins",
+        "target": "Line of Life",
+        "position": "at start",
+        "llm_canonical_choice": null,
+        "final_token": "joins_at_origin",
+        "disposition": "already_resolved_no_llm_needed"
+      },
+      {
+        "raw_verb": "crosses",
+        "target": "Line of Head",
+        "position": "mid-course",
+        "llm_canonical_choice": null,
+        "final_token": "cuts",
+        "disposition": "already_resolved_no_llm_needed"
+      }
+    ]
+  },
+  {
+    "run": 2,
+    "error": null,
+    "raw_text": "HAND SHAPE: elongated, slender build\n\nFINGERS: long relative to palm, straight, rounded fingertips, slight spacing\n\nTHUMB: medium size, low set, wide angle from the palm\n\nLIFE LINE: present, deep, narrow, long, curves around the base of the thumb, origin near the thumb, ends near the wrist, no breaks/chains/forks/islands\n  CONVERGENCE: none\n\nHEAD LINE: present, deep, narrow, long, sloping downward toward the wrist\n  SLOPE: downward\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  CONTACTS: Line of Life | joins | at start | clear\n\nHEART LINE: present, deep, narrow, long, curves slightly\n  SLOPE: straight\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Mount of Jupiter\n  BRANCHES_TO: none\n  CONTACTS: none\n\nFATE LINE: present, deep, narrow, long\n  SLOPE: upward\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  CONTACTS: Line of Head | crosses | mid-course | clear\n\nLINE OF HEALTH: not clearly visible\n\nLINE OF MARRIAGE: not clearly visible\n\nOTHER LINES: not clearly visible\n\nMOUNTS: Mount of Venus developed, others not clearly visible\n\nMARKS: not clearly visible",
+    "contacts": {
+      "Line of Head": [
+        {
+          "target": "Line of Life",
+          "verb": "joins",
+          "position": "at start",
+          "clarity": "clear"
+        }
+      ],
+      "Line of Heart": [],
+      "Line of Fate": [
+        {
+          "target": "Line of Head",
+          "verb": "crosses",
+          "position": "mid-course",
+          "clarity": "clear"
+        }
+      ]
+    },
+    "per_contact_disposition": [
+      {
+        "feature": "Line of Head",
+        "target": "Line of Life",
+        "raw_verb": "joins",
+        "position": "at start",
+        "clarity": "clear",
+        "verb_source_class": "exact_deterministic",
+        "disposition": "already_resolved_no_llm_needed",
+        "final_token": "joins_at_origin",
+        "llm_canonical_choice": null
+      },
+      {
+        "feature": "Line of Fate",
+        "target": "Line of Head",
+        "raw_verb": "crosses",
+        "position": "mid-course",
+        "clarity": "clear",
+        "verb_source_class": "exact_deterministic",
+        "disposition": "already_resolved_no_llm_needed",
+        "final_token": "cuts",
+        "llm_canonical_choice": null
+      }
+    ],
+    "fired_rule_ids": [
+      "H_026",
+      "H_028",
+      "L_001"
+    ],
+    "fallback_call_count": 0,
+    "audits": [
+      {
+        "raw_verb": "joins",
+        "target": "Line of Life",
+        "position": "at start",
+        "llm_canonical_choice": null,
+        "final_token": "joins_at_origin",
+        "disposition": "already_resolved_no_llm_needed"
+      },
+      {
+        "raw_verb": "crosses",
+        "target": "Line of Head",
+        "position": "mid-course",
+        "llm_canonical_choice": null,
+        "final_token": "cuts",
+        "disposition": "already_resolved_no_llm_needed"
+      }
+    ]
+  }
+]

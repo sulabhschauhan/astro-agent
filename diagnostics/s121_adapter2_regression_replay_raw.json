@@ -1,0 +1,528 @@
+[
+ {
+  "capture": "s117_live_confirmation",
+  "captured_observation": {
+   "Line of Life": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow"
+   },
+   "Line of Head": {
+    "Depth": "deep",
+    "Length": "long",
+    "Slope": "straight",
+    "Width": "narrow",
+    "Proximity": "touching"
+   },
+   "Line of Heart": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Line of Fate": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Thumb": {
+    "Proportion": "medium",
+    "Setting": "low",
+    "Angle": "wide"
+   },
+   "Mount of Venus": {
+    "Development": "well developed"
+   },
+   "Mount of Jupiter": {
+    "Development": "developed"
+   },
+   "Mount of Saturn": {
+    "Development": "not notably developed"
+   },
+   "Mount of the Sun": {
+    "Development": "not notably developed"
+   },
+   "Upper Mount of Mars": {
+    "Development": "present"
+   }
+  },
+  "vision_payload_reconstructed": {
+   "Line of Life": {
+    "Depth": {
+     "value": "deep",
+     "confidence": 1.0
+    },
+    "Length": {
+     "value": "long",
+     "confidence": 1.0
+    },
+    "Curve": {
+     "value": "curved",
+     "confidence": 1.0
+    },
+    "Width": {
+     "value": "narrow",
+     "confidence": 1.0
+    }
+   },
+   "Line of Head": {
+    "Depth": {
+     "value": "deep",
+     "confidence": 1.0
+    },
+    "Length": {
+     "value": "long",
+     "confidence": 1.0
+    },
+    "Slope": {
+     "value": "straight",
+     "confidence": 1.0
+    },
+    "Width": {
+     "value": "narrow",
+     "confidence": 1.0
+    }
+   },
+   "Line of Heart": {
+    "Depth": {
+     "value": "deep",
+     "confidence": 1.0
+    },
+    "Length": {
+     "value": "long",
+     "confidence": 1.0
+    },
+    "Width": {
+     "value": "narrow",
+     "confidence": 1.0
+    }
+   },
+   "Line of Fate": {
+    "Depth": {
+     "value": "deep",
+     "confidence": 1.0
+    },
+    "Length": {
+     "value": "long",
+     "confidence": 1.0
+    },
+    "Width": {
+     "value": "narrow",
+     "confidence": 1.0
+    }
+   },
+   "Thumb": {
+    "Proportion": {
+     "value": "medium",
+     "confidence": 1.0
+    },
+    "Setting": {
+     "value": "low",
+     "confidence": 1.0
+    },
+    "Angle": {
+     "value": "wide",
+     "confidence": 1.0
+    }
+   }
+  },
+  "observation_before": {
+   "Line of Life": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow"
+   },
+   "Line of Head": {
+    "Depth": "deep",
+    "Length": "long",
+    "Slope": "straight",
+    "Width": "narrow",
+    "Proximity": "touching"
+   },
+   "Line of Heart": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Line of Fate": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Thumb": {
+    "Proportion": "medium",
+    "Setting": "low",
+    "Angle": "wide"
+   },
+   "Mount of Venus": {
+    "Development": "well developed"
+   },
+   "Mount of Jupiter": {
+    "Development": "developed"
+   },
+   "Mount of Saturn": {
+    "Development": "not notably developed"
+   },
+   "Mount of the Sun": {
+    "Development": "not notably developed"
+   },
+   "Upper Mount of Mars": {
+    "Development": "present"
+   }
+  },
+  "observation_after": {
+   "Line of Life": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow"
+   },
+   "Line of Head": {
+    "Depth": "deep",
+    "Length": "long",
+    "Slope": "straight",
+    "Width": "narrow",
+    "Proximity": "touching"
+   },
+   "Line of Heart": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Line of Fate": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Thumb": {
+    "Proportion": "medium",
+    "Setting": "low",
+    "Angle": "wide"
+   },
+   "Mount of Venus": {
+    "Development": "well developed"
+   },
+   "Mount of Jupiter": {
+    "Development": "developed"
+   },
+   "Mount of Saturn": {
+    "Development": "not notably developed"
+   },
+   "Mount of the Sun": {
+    "Development": "not notably developed"
+   },
+   "Upper Mount of Mars": {
+    "Development": "present"
+   }
+  },
+  "observation_diff": {},
+  "fired_before": [
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_014",
+   "M_023"
+  ],
+  "fired_after": [
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_014",
+   "M_023"
+  ],
+  "fired_diff": {
+   "only_before": [],
+   "only_after": []
+  },
+  "capture_reported_fired_or_surviving": [
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_009",
+   "M_014",
+   "M_019",
+   "M_023"
+  ]
+ },
+ {
+  "capture": "s120_live_palm_run",
+  "captured_observation": {
+   "Line of Life": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow",
+    "Continuity": "unbroken"
+   },
+   "Line of Head": {
+    "Depth": "deep",
+    "Length": "long",
+    "Slope": "downward",
+    "Width": "narrow",
+    "Proximity": "touching"
+   },
+   "Line of Heart": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow",
+    "Slope": "upward",
+    "Proximity": "medium"
+   },
+   "Line of Fate": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Thumb": {
+    "Proportion": "medium",
+    "Setting": "low",
+    "Angle": "wide"
+   },
+   "Mount of Venus": {
+    "Development": "well developed"
+   },
+   "Mount of Jupiter": {
+    "Development": "developed"
+   },
+   "Mount of Saturn": {
+    "Development": "not notably developed"
+   },
+   "Mount of the Sun": {
+    "Development": "not notably developed"
+   },
+   "Upper Mount of Mars": {
+    "Development": "present"
+   }
+  },
+  "vision_payload_reconstructed": {
+   "Line of Life": {
+    "Depth": {
+     "value": "deep",
+     "confidence": 1.0
+    },
+    "Length": {
+     "value": "long",
+     "confidence": 1.0
+    },
+    "Curve": {
+     "value": "curved",
+     "confidence": 1.0
+    },
+    "Width": {
+     "value": "narrow",
+     "confidence": 1.0
+    },
+    "Continuity": {
+     "value": "unbroken",
+     "confidence": 1.0
+    }
+   },
+   "Line of Head": {
+    "Depth": {
+     "value": "deep",
+     "confidence": 1.0
+    },
+    "Length": {
+     "value": "long",
+     "confidence": 1.0
+    },
+    "Slope": {
+     "value": "downward",
+     "confidence": 1.0
+    },
+    "Width": {
+     "value": "narrow",
+     "confidence": 1.0
+    }
+   },
+   "Line of Heart": {
+    "Depth": {
+     "value": "deep",
+     "confidence": 1.0
+    },
+    "Length": {
+     "value": "long",
+     "confidence": 1.0
+    },
+    "Curve": {
+     "value": "curved",
+     "confidence": 1.0
+    },
+    "Width": {
+     "value": "narrow",
+     "confidence": 1.0
+    },
+    "Slope": {
+     "value": "upward",
+     "confidence": 1.0
+    }
+   },
+   "Line of Fate": {
+    "Depth": {
+     "value": "deep",
+     "confidence": 1.0
+    },
+    "Length": {
+     "value": "long",
+     "confidence": 1.0
+    },
+    "Width": {
+     "value": "narrow",
+     "confidence": 1.0
+    }
+   },
+   "Thumb": {
+    "Proportion": {
+     "value": "medium",
+     "confidence": 1.0
+    },
+    "Setting": {
+     "value": "low",
+     "confidence": 1.0
+    },
+    "Angle": {
+     "value": "wide",
+     "confidence": 1.0
+    }
+   }
+  },
+  "observation_before": {
+   "Line of Life": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow",
+    "Continuity": "unbroken"
+   },
+   "Line of Head": {
+    "Depth": "deep",
+    "Length": "long",
+    "Slope": "downward",
+    "Width": "narrow",
+    "Proximity": "touching"
+   },
+   "Line of Heart": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow",
+    "Slope": "upward",
+    "Proximity": "medium"
+   },
+   "Line of Fate": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Thumb": {
+    "Proportion": "medium",
+    "Setting": "low",
+    "Angle": "wide"
+   },
+   "Mount of Venus": {
+    "Development": "well developed"
+   },
+   "Mount of Jupiter": {
+    "Development": "developed"
+   },
+   "Mount of Saturn": {
+    "Development": "not notably developed"
+   },
+   "Mount of the Sun": {
+    "Development": "not notably developed"
+   },
+   "Upper Mount of Mars": {
+    "Development": "present"
+   }
+  },
+  "observation_after": {
+   "Line of Life": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow",
+    "Continuity": "unbroken"
+   },
+   "Line of Head": {
+    "Depth": "deep",
+    "Length": "long",
+    "Slope": "downward",
+    "Width": "narrow",
+    "Proximity": "touching"
+   },
+   "Line of Heart": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow",
+    "Slope": "upward",
+    "Proximity": "medium"
+   },
+   "Line of Fate": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Thumb": {
+    "Proportion": "medium",
+    "Setting": "low",
+    "Angle": "wide"
+   },
+   "Mount of Venus": {
+    "Development": "well developed"
+   },
+   "Mount of Jupiter": {
+    "Development": "developed"
+   },
+   "Mount of Saturn": {
+    "Development": "not notably developed"
+   },
+   "Mount of the Sun": {
+    "Development": "not notably developed"
+   },
+   "Upper Mount of Mars": {
+    "Development": "present"
+   }
+  },
+  "observation_diff": {},
+  "fired_before": [
+   "H_026",
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_014",
+   "M_023"
+  ],
+  "fired_after": [
+   "H_026",
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_014",
+   "M_023"
+  ],
+  "fired_diff": {
+   "only_before": [],
+   "only_after": []
+  },
+  "capture_reported_fired_or_surviving": [
+   "H_026",
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_014",
+   "M_023"
+  ]
+ }
+]

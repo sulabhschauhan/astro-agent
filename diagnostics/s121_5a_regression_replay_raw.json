@@ -1,0 +1,198 @@
+[
+ {
+  "capture": "s117_live_confirmation",
+  "targets": {
+   "Line of Head": {
+    "Starting_Point": "Line of Life",
+    "Position": "Mount of Luna",
+    "Proximity": "Line of Life",
+    "joins_at_origin": "{'Line of Life'}"
+   },
+   "Line of Heart": {
+    "Starting_Point": "Mount of Jupiter",
+    "Position": "Percussion",
+    "Proximity": "Line of Head"
+   },
+   "Line of Fate": {
+    "Starting_Point": "Wrist",
+    "Position": "Mount of Saturn",
+    "Proximity": "Line of Head",
+    "cuts": "{'Line of Head'}"
+   }
+  },
+  "observation": {
+   "Line of Life": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow"
+   },
+   "Line of Head": {
+    "Depth": "deep",
+    "Length": "long",
+    "Slope": "straight",
+    "Width": "narrow",
+    "Proximity": "touching"
+   },
+   "Line of Heart": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Line of Fate": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Thumb": {
+    "Proportion": "medium",
+    "Setting": "low",
+    "Angle": "wide"
+   },
+   "Mount of Venus": {
+    "Development": "well developed"
+   },
+   "Mount of Jupiter": {
+    "Development": "developed"
+   },
+   "Mount of Saturn": {
+    "Development": "not notably developed"
+   },
+   "Mount of the Sun": {
+    "Development": "not notably developed"
+   },
+   "Upper Mount of Mars": {
+    "Development": "present"
+   }
+  },
+  "fired_old": [
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_014",
+   "M_023"
+  ],
+  "fired_new": [
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_014",
+   "M_023"
+  ],
+  "fired_diff": {
+   "only_old": [],
+   "only_new": []
+  },
+  "capture_reported_fired_or_surviving": [
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_009",
+   "M_014",
+   "M_019",
+   "M_023"
+  ]
+ },
+ {
+  "capture": "s120_live_palm_run",
+  "targets": {
+   "Line of Head": {
+    "Starting_Point": "Line of Life",
+    "Position": "Mount of Luna",
+    "Proximity": "Line of Life",
+    "joins_at_origin": "{'Line of Life'}"
+   },
+   "Line of Heart": {
+    "Starting_Point": "Mount of Jupiter",
+    "Position": "Percussion",
+    "Proximity": "Line of Head"
+   },
+   "Line of Fate": {
+    "Starting_Point": "Wrist",
+    "Position": "Mount of Saturn",
+    "Proximity": "Line of Head",
+    "cuts": "{'Line of Head'}"
+   }
+  },
+  "observation": {
+   "Line of Life": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow",
+    "Continuity": "unbroken"
+   },
+   "Line of Head": {
+    "Depth": "deep",
+    "Length": "long",
+    "Slope": "downward",
+    "Width": "narrow",
+    "Proximity": "touching"
+   },
+   "Line of Heart": {
+    "Depth": "deep",
+    "Length": "long",
+    "Curve": "curved",
+    "Width": "narrow",
+    "Slope": "upward",
+    "Proximity": "medium"
+   },
+   "Line of Fate": {
+    "Depth": "deep",
+    "Length": "long",
+    "Width": "narrow",
+    "Proximity": "medium"
+   },
+   "Thumb": {
+    "Proportion": "medium",
+    "Setting": "low",
+    "Angle": "wide"
+   },
+   "Mount of Venus": {
+    "Development": "well developed"
+   },
+   "Mount of Jupiter": {
+    "Development": "developed"
+   },
+   "Mount of Saturn": {
+    "Development": "not notably developed"
+   },
+   "Mount of the Sun": {
+    "Development": "not notably developed"
+   },
+   "Upper Mount of Mars": {
+    "Development": "present"
+   }
+  },
+  "fired_old": [
+   "H_026",
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_014",
+   "M_023"
+  ],
+  "fired_new": [
+   "H_026",
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_014",
+   "M_023"
+  ],
+  "fired_diff": {
+   "only_old": [],
+   "only_new": []
+  },
+  "capture_reported_fired_or_surviving": [
+   "H_026",
+   "H_028",
+   "L_001",
+   "M_001",
+   "M_014",
+   "M_023"
+  ]
+ }
+]

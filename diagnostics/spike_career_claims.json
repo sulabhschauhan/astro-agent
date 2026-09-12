@@ -1,0 +1,48 @@
+{
+  "claims": [
+    {
+      "statement": "Mercury, the 10th lord, is debilitated in this chart (placed in Pisces, house 4) -- i.e. devoid of strength -- and the text states that a 10th lord devoid of strength causes obstructions in the native's work.",
+      "unit_id": "bphs1_ch21",
+      "quote": "३. If the 10th lord is devoid of Strength, the native will\nface obstructions in his work",
+      "sloka_number": 3
+    },
+    {
+      "statement": "The 10th lord (Mercury) is placed in the 4th house in this chart, and the text gives a direct rule for exactly this placement: happiness, care for the mother's welfare, and rulership over conveyances, lands and houses, with virtue and wealth.",
+      "unit_id": "bphs1_ch24",
+      "quote": "112. If the 10th lord is in the 4th, the native will be happy,\nbe always interested in his mother’s welfare, will lord over\nconveyances, lands and houses, be virtuous and wealthy.",
+      "sloka_number": 112
+    },
+    {
+      "statement": "The text explicitly qualifies all such house-lord placement results (including the 10th-lord-in-4th result above) by the lord's own strength, giving only a fraction of the stated effect when the lord is weak -- directly relevant here since Mercury is debilitated.",
+      "unit_id": "bphs1_ch24",
+      "quote": "The planet will yield full, half or a quarter of\nthe effects according to its strength being full, medium and\n_ hegligible respectively.",
+      "sloka_number": 145
+    },
+    {
+      "statement": "For a Sagittarius ascendant specifically (this chart's ascendant), the text names Mercury -- together with the Sun -- as capable of conferring a yoga, treating Mercury as one of the ascendant's more favourable planets by virtue of his rulership pattern (he owns the 10th house, which is his Moolatrikona for this ascendant).",
+      "unit_id": "bphs1_ch34",
+      "quote": "The Sun and\nMercury are capable of conferring a yoga",
+      "sloka_number": 37
+    },
+    {
+      "statement": "The same Sagittarius-ascendant passage names Venus, the current Antardasha lord in this chart's active dasha period, as the one inauspicious planet for this ascendant.",
+      "unit_id": "bphs1_ch34",
+      "quote": "37-38. SAGITTARIUS ASCENDANT : Only Venus is\ninauspicious",
+      "sloka_number": 37
+    },
+    {
+      "statement": "For this same ascendant, the text further states that Venus -- the current Antardasha lord -- acquires killing (maraka) powers, without elaborating further on what that means during a Venus period specifically.",
+      "unit_id": "bphs1_ch34",
+      "quote": "Venus acquires killing powers.",
+      "sloka_number": 38
+    }
+  ],
+  "silent_on": [
+    "The chart's 9th lord and any 9th-lord/10th-lord relationship (Raja Yoga conditions described in ch.34 slokas 11-13) -- the 9th lord's house placement was not supplied in the fact block, so this cannot be checked.",
+    "Rahu's house placement -- ch.21 sloka 3's second clause ('If Rahu is in an angle or in a trine, he will perform religious sacrifices') and several ch.24 rules depend on it, but it was not supplied.",
+    "Any planet conjunct Mercury in the 4th house/Pisces -- several ch.21 and ch.24 rules key on the 10th lord being 'with a benefic' or 'with a malefic', but conjunctions were not supplied in the fact block, only occupants of the 10th house and aspects to it.",
+    "What Saturn's and the Sun's aspect to the 10th house specifically means -- the supplied chapters give rules keyed on planets occupying houses, not on this specific aspect-to-the-10th-house configuration.",
+    "What the current Ketu Mahadasha specifically means for career -- the supplied text's Rahu/Ketu framing (ch.34 slokas 16-17) depends on the node's own house placement and relationships, which were not supplied."
+  ],
+  "reading": "Your ascendant is Sagittarius, and your 10th house of career falls in Virgo, ruled by Mercury. For a Sagittarius ascendant specifically, the text names Mercury as one of the more favourable planets: Mercury, together with the Sun, is described as capable of conferring a yoga, and this is tied to Mercury ruling the 10th house as his Moolatrikona for this ascendant. Applied to the actual placement in your chart, the 10th lord Mercury sits in the 4th house, and the text gives a direct rule for that: happiness, close attention to the mother's welfare, and rulership over conveyances, lands and houses, along with virtue and wealth.\n\nHowever, this chart's Mercury is debilitated, and the text is explicit that a house lord's placement results must be scaled by the lord's own strength -- full, half, or a mere fraction depending on whether the lord is strong, medium, or weak. A separate, more direct verse states the sharper version of the same caution: a 10th lord devoid of strength brings obstructions in the native's work. Taken together, the supplied text points to a career naturally oriented toward home, land, conveyances and family life through the 10th lord's placement in the 4th house, but with real friction in its execution because the significator itself, Mercury, is currently weak.\n\nOn timing: your current period is Ketu Mahadasha with a Venus Antardasha. The supplied text does not address what the Ketu period specifically means for career in this chart. For Venus, though, it is explicit for a Sagittarius ascendant: Venus is named as the one inauspicious planet for this ascendant, and separately as a planet that acquires killing (maraka) powers here -- which the supplied text does not elaborate on further, so I can only flag it as a caution for this period rather than a specific prediction."
+}

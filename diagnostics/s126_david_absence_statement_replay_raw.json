@@ -1,0 +1,30 @@
+{
+  "fate_line_raw_texts": [
+    "absent"
+  ],
+  "fate_line_in_supported": false,
+  "fate_line_in_unsupported": false,
+  "fate_line_in_absent_features": true,
+  "absent_features": [
+    "fate line"
+  ],
+  "decline_features": [
+    "life line",
+    "head line",
+    "heart line",
+    "sun line",
+    "thumb",
+    "fingers",
+    "mount of venus",
+    "mount of jupiter",
+    "mount of saturn",
+    "mount of apollo",
+    "mount of mercury",
+    "mount of mars positive",
+    "mount of mars negative",
+    "mount of luna"
+  ],
+  "decline_block_AFTER": "A note on what I have not interpreted: the classical texts I work from do not clearly address the following as they appear in your hands: life line, head line, heart line, sun line, thumb, fingers, mount of venus, mount of jupiter, mount of saturn, mount of apollo, mount of mercury, mount of mars positive, mount of mars negative, mount of luna. Rather than guess, I have left these out of your reading.",
+  "absence_block_AFTER": "A note on what I did not find: fate line was not detected in your hands, so there is nothing for me to interpret from it.",
+  "absence_block_BEFORE": "(did not exist -- feature was silent, no sentence anywhere)"
+}

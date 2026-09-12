@@ -626,9 +626,26 @@ def plan_and_build(
     Returns {plan, selection, payload, tokens, over_budget}. Does NOT call
     the Interpreter -- that is the next stage and stays separate.
     """
+    plan = plan_question(question, llm=llm, log_path=log_path)
+    return build_from_plan(plan, chart_facts, token_budget=token_budget)
+
+
+def build_from_plan(
+    plan: Plan,
+    chart_facts: dict,
+    *,
+    token_budget: int = DEFAULT_TOKEN_BUDGET,
+) -> dict:
+    """Everything `plan_and_build` does AFTER the plan exists.
+
+    Split out (S129) so a caller can interpose a step between planning and
+    retrieval -- specifically `capability_gate.assess`, which narrows the
+    plan's domains to those the current fact block can actually support
+    before a single chapter is selected. `plan_and_build` is unchanged in
+    behaviour and remains the entry point for every existing caller.
+    """
     from agent.astro import payload_builder  # local: keeps import cost off CI
 
-    plan = plan_question(question, llm=llm, log_path=log_path)
     if not plan.in_scope or not plan.domains:
         return {"plan": plan, "selection": None, "payload": None,
                 "tokens": 0, "over_budget": False,

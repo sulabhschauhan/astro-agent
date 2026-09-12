@@ -1,0 +1,18 @@
+{
+  "total_sub_chunks": 5,
+  "total_embedded": 5,
+  "total_pending": 0,
+  "total_failed": 0,
+  "failed_chunk_ids": [],
+  "skipped_duplicate_text": 0,
+  "collection_count": 5,
+  "by_book": {
+    "BPHS - 1 RSanthanam": {
+      "text": 2,
+      "diagram": 2,
+      "mixed": 1,
+      "embedded": 5,
+      "pending": 0
+    }
+  }
+}

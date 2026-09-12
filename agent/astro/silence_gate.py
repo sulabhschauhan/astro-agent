@@ -313,6 +313,108 @@ def read_condition(statement: str) -> tuple[Optional[tuple[int, int]], str]:
 
 
 # ---------------------------------------------------------------------------
+# SECOND CONDITION SHAPE: "<graha> is in the <Nth>"  -- ADVISORY ONLY (S129)
+# ---------------------------------------------------------------------------
+# WHY IT EXISTS. The fact block now carries per-graha house+sign, so the
+# Interpreter can make planet-placement claims it previously could not. The
+# lord reader above cannot see them: they fall to UNDETERMINED and are kept
+# unchecked. Corpus measurement (S129, whole 2-book corpus, 20,426 sentences):
+# 344 sentences state a plain planet-in-house condition against 176 that state
+# a lord-in-house one, and 94.5% of the planet ones survive the four
+# disqualifiers above. So this is the LARGER doctrinal shape, not a corner.
+#
+# WHY ADVISORY AND NOT ENFORCING. The lord reader earned its authority to DROP
+# a claim from six MEASURED classes of wrong drop (S125). No equivalent
+# measurement exists for this shape, and it cannot exist until live runs
+# produce planet claims -- which they could not do before the block carried
+# planet facts. Granting drop authority on an unmeasured axis is the same
+# mistake S125 names, pointed at a new target.
+#
+# So `judge_planet_claim` RECORDS a verdict and NEVER removes a claim.
+# `apply_silence_gate` reports the advisory tallies in `stats`; the capture
+# writes them down. After a live run yields a real distribution with zero
+# observed wrong drops, this can be promoted to enforcing -- a one-line change
+# at the call site, not a rewrite.
+#
+# TUNING NOTE: promote only on measured evidence, never on the tally looking
+# healthy. Demote on the first observed wrong drop.
+_GRAHAS: dict[str, str] = {
+    "sun": "Sun", "moon": "Moon", "mars": "Mars", "mercury": "Mercury",
+    "jupiter": "Jupiter", "venus": "Venus", "saturn": "Saturn",
+    "rahu": "Rahu", "ketu": "Ketu",
+}
+_GRAHA_ALT = "|".join(sorted((re.escape(k) for k in _GRAHAS), key=len, reverse=True))
+
+# Same 40-character window and the same justification as _CONDITION_RE: it
+# absorbs "is placed in" / "happens to be in" without reaching a second clause,
+# and sentences are split before matching so it can never cross one.
+_PLANET_CONDITION_RE = re.compile(
+    rf"\b({_GRAHA_ALT})\b.{{0,40}}?\bin\s+the\s+\b({_ORD_ALT})\b",
+    re.IGNORECASE,
+)
+
+
+def read_planet_condition(statement: str):
+    """(graha, house) for a plain planet-in-house claim, else (None, why).
+
+    Mirrors `read_condition` exactly -- same sentence split, same four
+    disqualifiers -- so the two readers cannot diverge in judgement style.
+
+    AMBIGUITY RULE: a sentence matching BOTH shapes ("Mars, the lord of the
+    3rd, is in the 7th") is refused outright rather than guessed at. Measured:
+    5 such sentences in the whole corpus. Picking one reading would let a
+    single sentence produce two different verdicts.
+    """
+    found: list[tuple[str, int]] = []
+    for sentence in _SENTENCE_SPLIT_RE.split(statement or ""):
+        if _CONDITION_RE.search(sentence) and _PLANET_CONDITION_RE.search(sentence):
+            return None, ("sentence states both a lord-in-house and a "
+                          "planet-in-house condition; ambiguous, not judged")
+        for m in _PLANET_CONDITION_RE.finditer(sentence):
+            antecedent = sentence[:m.end()]
+            if _NEGATION.search(antecedent):
+                return None, "condition is negated or exclusionary; not judged"
+            if _OTHER_FRAME.search(sentence):
+                return None, ("sentence uses a reference frame other than the "
+                              "natal ascendant; not judged")
+            if _INDIRECT.search(antecedent):
+                return None, ("the house named belongs to an aspecting or "
+                              "conjunct body, not to the graha; not judged")
+            if _disjunction_after(sentence, m.end()):
+                return None, ("the claim lists alternative houses and only the "
+                              "first is readable; not judged")
+            found.append((_GRAHAS[m.group(1).lower()],
+                          _ORDINALS[m.group(2).lower()]))
+
+    if not found:
+        return None, "no plain planet-in-house condition stated; not judged"
+    if len(set(found)) > 1:
+        return None, (f"claim states {len(set(found))} planet conditions "
+                      f"{sorted(set(found))}; compound, not judged")
+    return found[0], "plain planet-in-house condition"
+
+
+def judge_planet_claim(statement: str, planet_house: dict[str, int]) -> tuple[str, str]:
+    """ADVISORY verdict on one claim. Returns (verdict, reason). Never drops."""
+    if not planet_house:
+        return UNDETERMINED, "no planet positions in the chart facts; not judged"
+    try:
+        relation, why = read_planet_condition(statement)
+    except Exception as e:  # noqa: BLE001 -- advisory must never break the gate
+        return UNDETERMINED, f"planet reader failed ({type(e).__name__}: {e})"
+    if relation is None:
+        return UNDETERMINED, why
+    graha, house = relation
+    actual = planet_house.get(graha)
+    if actual is None:
+        return UNDETERMINED, f"{graha} is not in the supplied positions; not judged"
+    if actual == house:
+        return APPLICABLE, f"chart satisfies: {graha} is in the {house}"
+    return NOT_APPLICABLE, (f"claim requires {graha} in the {house}; "
+                            f"this chart has it in the {actual}")
+
+
+# ---------------------------------------------------------------------------
 # Claim-level judgement -- the CLAIM's own words are the primary signal
 # ---------------------------------------------------------------------------
 # WHY THE CLAIM AND NOT THE CITED SOURCE. Measured on the S125 three-domain
@@ -400,6 +502,30 @@ def apply_silence_gate(interpreter_output: dict, payload: dict,
                 "the classical text I have on some of these points describes "
                 "placements this chart does not have, so I have left them out")
 
+        # ADVISORY second pass (S129). Judges the planet-in-house shape and
+        # RECORDS the result; it removes nothing. Its only job right now is to
+        # produce the measured distribution that would justify promoting it to
+        # enforcing -- including, critically, any claim it would have WRONGLY
+        # dropped, which a human reads off the capture.
+        planet_house = {p: v.get("house") for p, v in
+                        (chart_facts.get("planet_positions") or {}).items()
+                        if isinstance(v, dict)}
+        advisory = []
+        for claim, v in zip((c for c in claims if isinstance(c, dict)), verdicts):
+            pv, why = judge_planet_claim(str(claim.get("statement", "")), planet_house)
+            advisory.append({"statement": str(claim.get("statement", ""))[:160],
+                             "advisory_verdict": pv, "reason": why,
+                             "enforced_verdict": v.verdict})
+        adv_counts = {f"advisory_{k}": sum(1 for a in advisory
+                                           if a["advisory_verdict"] == k)
+                      for k in (APPLICABLE, NOT_APPLICABLE, UNDETERMINED)}
+        # The number that decides promotion: claims the enforcing gate KEPT
+        # which the advisory reader would have dropped. Each one needs a human
+        # to say whether the drop would have been right.
+        adv_counts["advisory_would_drop_a_kept_claim"] = sum(
+            1 for a, claim in zip(advisory, (c for c in claims if isinstance(c, dict)))
+            if a["advisory_verdict"] == NOT_APPLICABLE and claim in kept)
+
         counts = {k: sum(1 for v in verdicts if v.verdict == k)
                   for k in (APPLICABLE, NOT_APPLICABLE, UNDETERMINED)}
         total = len(verdicts) or 1
@@ -408,6 +534,9 @@ def apply_silence_gate(interpreter_output: dict, payload: dict,
             "claims_kept": len(kept),
             "claims_dropped": len(dropped),
             **counts,
+            **adv_counts,
+            "planet_reader_mode": "advisory",
+            "advisory_detail": advisory,
             # How much of the shipped answer this gate could not judge at
             # all. NOT a threshold -- a visibility metric. A high number
             # means the gate is mostly decorative for that question and the

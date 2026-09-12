@@ -1,0 +1,249 @@
+{
+  "image": "C:\\Users\\sulab\\Documents\\Python Scripts\\astro-agent\\data\\test_images\\David_right.jpeg",
+  "palm_right_description_raw": "HAND SHAPE: elongated, slender build\n\nFINGERS: long relative to palm, straight, rounded fingertips, close spacing\n\nTHUMB: medium size, low set, wide angle from the palm\n\nLIFE LINE: present, deep, narrow, long, curves around the base of the thumb, origin near the thumb, ends near the wrist, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\n\nHEAD LINE: present, deep, narrow, long, straight across\n  SLOPE: straight\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  CONTACTS: Line of Life | joins | at start | clear\n\nHEART LINE: present, deep, narrow, long, slightly curved\n  SLOPE: straight\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  CONTACTS: none\n\nFATE LINE: present, deep, narrow, long\n  SLOPE: upward\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  CONTACTS: Line of Head | crosses | mid-course | clear\n\nLINE OF HEALTH: not clearly visible\n\nLINE OF MARRIAGE: not clearly visible\n\nOTHER LINES: not clearly visible\n\nMOUNTS:\n  DEVELOPMENT (Venus): well developed\n  DEVELOPMENT (Jupiter): developed\n  DEVELOPMENT (Saturn): not notably developed\n  DEVELOPMENT (the Sun): not notably developed\n  DEVELOPMENT (Upper Mount of Mars): present\n\nMARKS: not clearly visible",
+  "fired_rule_ids": [
+    "H_028",
+    "L_001",
+    "M_001",
+    "M_009",
+    "M_014",
+    "M_019",
+    "M_023"
+  ],
+  "surviving_rule_ids": [
+    "H_028",
+    "L_001",
+    "M_001",
+    "M_014",
+    "M_019",
+    "M_023"
+  ],
+  "suppression_log": [
+    [
+      "M_001",
+      "M_009"
+    ]
+  ],
+  "dropped_rule_ids": [],
+  "observation": {
+    "Line of Life": {
+      "Depth": "deep",
+      "Length": "long",
+      "Curve": "curved",
+      "Width": "narrow"
+    },
+    "Line of Head": {
+      "Depth": "deep",
+      "Length": "long",
+      "Slope": "straight",
+      "Width": "narrow",
+      "Proximity": "touching"
+    },
+    "Line of Heart": {
+      "Depth": "deep",
+      "Length": "long",
+      "Width": "narrow",
+      "Proximity": "medium"
+    },
+    "Line of Fate": {
+      "Depth": "deep",
+      "Length": "long",
+      "Width": "narrow",
+      "Proximity": "medium"
+    },
+    "Thumb": {
+      "Proportion": "medium",
+      "Setting": "low",
+      "Angle": "wide"
+    },
+    "Mount of Venus": {
+      "Development": "well developed"
+    },
+    "Mount of Jupiter": {
+      "Development": "developed"
+    },
+    "Mount of Saturn": {
+      "Development": "not notably developed"
+    },
+    "Mount of the Sun": {
+      "Development": "not notably developed"
+    },
+    "Upper Mount of Mars": {
+      "Development": "present"
+    }
+  },
+  "mount_development": {
+    "Mount of Venus": {
+      "Development": "well developed"
+    },
+    "Mount of Jupiter": {
+      "Development": "developed"
+    },
+    "Mount of Saturn": {
+      "Development": "not notably developed"
+    },
+    "Mount of the Sun": {
+      "Development": "not notably developed"
+    },
+    "Upper Mount of Mars": {
+      "Development": "present"
+    }
+  },
+  "citations": {
+    "C1": {
+      "rule_id": "H_028",
+      "chunk_id": "cheiroslanguageo00chei_1_p146_c0",
+      "source_page": 146,
+      "source_quote": "The line of head from the commencement of the line of life, and connected with it (d-d, Plate XVI.), indicates a sensitive and more nervous temperament; it denotes excess of caution; even clever people with this mark rein themselves down too tightly.",
+      "topic_group": "line_head",
+      "evidence_confidence": null
+    },
+    "C2": {
+      "rule_id": "L_001",
+      "chunk_id": "cheiroslanguageo00chei_1_p134_c0",
+      "source_page": 134,
+      "source_quote": "The line of life should be long, narrow, and deep, without irregularities, breaks, or crosses of any kind. Such a formation promises long life, good health, and vitality.",
+      "topic_group": "line_life",
+      "evidence_confidence": 1.0
+    },
+    "C3": {
+      "rule_id": "M_001",
+      "chunk_id": "cheiroslanguageo00chei_1_p112_c0",
+      "source_page": 112,
+      "source_quote": "Venus be well developed, it indicates strong and robust health.",
+      "topic_group": "mount_venus",
+      "evidence_confidence": 1.0
+    },
+    "C4": {
+      "rule_id": "M_014",
+      "chunk_id": "cheiroslanguageo00chei_1_p112_c0",
+      "source_page": 112,
+      "source_quote": "When developed it shows ambition, pride, enthusiasm in anything attempted, and desire for power.",
+      "topic_group": "mount_jupiter",
+      "evidence_confidence": 1.0
+    },
+    "C5": {
+      "rule_id": "M_019",
+      "chunk_id": "cheiroslanguageo00chei_1_p112_c0",
+      "source_page": 112,
+      "source_quote": "This is found at the base of the second finger (Plate XII.), and denotes love of solitude, quietness, prudence, earnestness in work, proneness to the study of somber things, and appreciation of music of a sacred or classical order.",
+      "topic_group": "mount_saturn",
+      "evidence_confidence": null
+    },
+    "C6": {
+      "rule_id": "M_023",
+      "chunk_id": "cheiroslanguageo00chei_1_p113_c0",
+      "source_page": 113,
+      "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition.",
+      "topic_group": "mount_mars_positive",
+      "evidence_confidence": null
+    }
+  },
+  "claims": [
+    {
+      "claim_id": "C1",
+      "feature": "head line",
+      "chunk_id": "cheiroslanguageo00chei_1_p146_c0",
+      "claim_text": "A head line rising from the commencement of the life line, and connected with it, indicates a sensitive and more nervous temperament, with an excess of caution that leads even clever people to hold themselves back too tightly.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Line of Head joins_at_origin=None",
+      "excluded_from_voice": false,
+      "exclusion_reason": null
+    },
+    {
+      "claim_id": "C2",
+      "feature": "life line",
+      "chunk_id": "cheiroslanguageo00chei_1_p134_c0",
+      "claim_text": "A long, narrow, deep life line without irregularities promises long life, good health, and vitality.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Line of Life Length=long; Line of Life Width=narrow; Line of Life Depth=deep",
+      "excluded_from_voice": false,
+      "exclusion_reason": null
+    },
+    {
+      "claim_id": "C3",
+      "feature": "mount of venus",
+      "chunk_id": "cheiroslanguageo00chei_1_p112_c0",
+      "claim_text": "A well developed Mount of Venus indicates strong and robust health.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Mount of Venus Development=well developed",
+      "excluded_from_voice": false,
+      "exclusion_reason": null
+    },
+    {
+      "claim_id": "C4",
+      "feature": "mount of jupiter",
+      "chunk_id": "cheiroslanguageo00chei_1_p112_c0",
+      "claim_text": "A developed Mount of Jupiter shows ambition, pride, enthusiasm in anything attempted, and desire for power.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Mount of Jupiter Development=developed",
+      "excluded_from_voice": false,
+      "exclusion_reason": null
+    },
+    {
+      "claim_id": "C5",
+      "feature": "mount of saturn",
+      "chunk_id": "cheiroslanguageo00chei_1_p112_c0",
+      "claim_text": "The Mount of Saturn denotes love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and appreciation of sacred or classical music.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Mount of Saturn Development=not notably developed",
+      "excluded_from_voice": false,
+      "exclusion_reason": null
+    },
+    {
+      "claim_id": "C6",
+      "feature": "mount of mars positive",
+      "chunk_id": "cheiroslanguageo00chei_1_p113_c0",
+      "claim_text": "The Upper Mount of Mars gives active courage and the martial spirit.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Upper Mount of Mars Development=present",
+      "excluded_from_voice": false,
+      "exclusion_reason": null
+    }
+  ],
+  "validation_passed": false,
+  "validation_failures": [
+    "unsupported feature mentioned: mount of mars negative",
+    "unsupported feature mentioned: mount of mars negative"
+  ],
+  "supported_features": [
+    "heart line",
+    "fate line",
+    "thumb",
+    "fingers",
+    "mount of apollo"
+  ],
+  "unsupported_features": [
+    "sun line",
+    "mount of mercury",
+    "mount of mars negative",
+    "mount of luna"
+  ],
+  "reading_text_tagged": "The head line on your palm, rising from the commencement of the life line and connected with it, reveals a sensitive and more nervous temperament. This connection indicates an excess of caution, which can lead even the cleverest individuals to restrain themselves too tightly. [C1] Your life line is long, narrow, and deep, without any irregularities. This promises you a long life, accompanied by good health and vitality. [C2] The Mount of Venus on your hand is well developed, further indicating strong and robust health. [C3]\n\nTurning to the Mount of Jupiter, its development shows ambition, pride, and enthusiasm in anything you undertake, along with a desire for power. [C4] The Mount of Saturn, however, is not notably developed, which denotes a love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and an appreciation of sacred or classical music. [C5] The Upper Mount of Mars gives you active courage and a martial spirit. [C6]",
+  "reading_text": "The head line on your palm, rising from the commencement of the life line and connected with it, reveals a sensitive and more nervous temperament. This connection indicates an excess of caution, which can lead even the cleverest individuals to restrain themselves too tightly. Your life line is long, narrow, and deep, without any irregularities. This promises you a long life, accompanied by good health and vitality. The Mount of Venus on your hand is well developed, further indicating strong and robust health.\n\nTurning to the Mount of Jupiter, its development shows ambition, pride, and enthusiasm in anything you undertake, along with a desire for power. The Mount of Saturn, however, is not notably developed, which denotes a love of solitude, quietness, prudence, earnestness in work, a taste for sombre subjects, and an appreciation of sacred or classical music. The Upper Mount of Mars gives you active courage and a martial spirit.\n\nA note on what I have not interpreted: the classical texts I work from do not clearly address the following as they appear in your hands: heart line, fate line, sun line, thumb, fingers, mount of apollo, mount of mercury, mount of mars negative, mount of luna. Rather than guess, I have left these out of your reading.\n\nFor major life decisions, I recommend consulting a qualified astrologer or palm reader for a personal reading.",
+  "sources": [
+    {
+      "book": "cheiroslanguageo00chei_1",
+      "page": 112,
+      "score": 0.5435,
+      "feature": "mount of venus"
+    },
+    {
+      "book": "cheiroslanguageo00chei_1",
+      "page": 112,
+      "score": 0.5427,
+      "feature": "mount of jupiter"
+    }
+  ],
+  "stage2_retry_used": true,
+  "stage2_first_attempt_failures": [
+    "unsupported feature mentioned: mount of mars negative"
+  ],
+  "retry_used": true
+}

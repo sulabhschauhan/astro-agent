@@ -272,3 +272,65 @@ Source: <file path — fixture / diagnostic / classical reference PDF>
 Data: <verbatim or table>
 Supersedes: <prior entry ref if any>
 ```
+
+---
+
+S129 — Saturn retrograde flag conflict, Sulabh D1 (RESOLVED same session — see the resolution entry below; heading kept for the record)
+Source: reference/oracle_fixtures/sulabh.md (committed, §3e line 182 + the
+        assertion at lines 197-198); production `agent/chart_calculator.py`
+        (`retrograde = xx[3] < 0`, swe.FLG_SPEED, line 402/416)
+Data:
+  - The ratified matched-mode oracle tags Saturn "(R)":
+        | Saturn | Sg 8°50'14.60" (R) | 248.837389 | 248.836890 | -1.79 |
+  - The same file asserts at line 197: "Saturn's retrograde flag (R) in this
+    capture matches production/AstroSage."
+  - IT DOES NOT. Production computes Saturn DIRECT for this chart. Recomputed
+    independently this session against pyswisseph (SIDM_LAHIRI, FLG_SPEED,
+    jd_ut 2447257.291667): Saturn daily motion = +0.008719 deg/day, i.e.
+    direct and very nearly stationary (~1/100 of mean speed).
+  - Bisected station: Saturn turns retrograde at jd 2447262.5614 =
+    1988-04-11 01:47 UT, which is 5.27 DAYS AFTER birth. Sampled speeds:
+        -12d +0.028340 | -4d +0.015303 | 0d +0.008719 | +4d +0.002104
+        | +6d -0.001210 (RETRO) | +12d -0.011089
+  - So production is astronomically correct and the fixture's "matches
+    production" claim was never verified. Whether JHora's (R) reflects a
+    within-N-days-of-station convention, a different node/speed setting, or a
+    transcription error is NOT determined here.
+Consequence taken this session: `retrograde` is NOT restated into the
+    interpreter's fact block (agent/astro/chart_facts.py). Three grounds, of
+    which this conflict is one; the others are yield (10 of 20,426 corpus
+    sentences key on retrograde/vakri = 0.05%) and the fact that a boolean
+    flattens a near-stationary graha into an ordinary direct one.
+Supersedes: the unverified "matches production/AstroSage" assertion at
+    reference/oracle_fixtures/sulabh.md:197-198. That line should be corrected
+    or scoped when Sulabh adjudicates; it is left in place for now rather than
+    silently amended.
+
+---
+
+S129 — Saturn retrograde, Sulabh D1: RESOLVED. Transcription slip, now corrected.
+Source: reference/oracle_fixtures/sulabh.md — its OWN raw JHora v8 export block
+        (Traditional Lahiri), already committed in that file
+Data:
+  - The export prints:
+        Saturn - BK              8 Sg 50' 14.60" Mool      3    Sg   Ge
+    with NO (R). 8 Sg 50'14.60" is exactly the §3e row's value, so this line is
+    that row's source.
+  - The same export format DOES mark retrograde bodies in the other fixtures:
+        david    Saturn (R) - PK   6 Cn 01' 47.43"
+        sheridan Saturn (R) - MK  17 Li 44' 27.51"
+        surbhi   Saturn (R) - PK  19 Cp 01' 47.26"
+  - Cross-chart census, 4 charts x 7 grahas: JHora marks 8 bodies (R); 7 agreed
+    with production exactly (-0.0125 to -1.0241 deg/day). The lone disagreement
+    was this row. With the slip removed: 8/8.
+  - david/Mars at -0.012495 deg/day is nearly as slow as Sulabh's Saturn
+    (+0.008719) and still flags correctly, which RULES OUT a JHora
+    near-station convention. The marker tracks the sign of motion.
+Conclusion: JHora, production and the astronomy all agree that Sulabh's Saturn
+  is DIRECT at birth (stationing retrograde 5.27 days later). The "(R)" existed
+  only in the hand-built §3e table. Corrected in place, with the superseded
+  sentence retained per the supersede-don't-delete convention.
+Supersedes: the preceding S129 entry's "UNRESOLVED, needs Sulabh's call" status,
+  and the sulabh.md line-197 assertion, which was wrong on both halves.
+No production code changed. `retrograde` stays out of the fact block on its
+  other two grounds (0.05% doctrinal yield; a boolean flattens a near-station).

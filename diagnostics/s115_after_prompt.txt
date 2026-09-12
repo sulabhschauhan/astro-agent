@@ -1,0 +1,11 @@
+FEATURE: Line of Head
+PROSE: present, deep, narrow, long
+VALID ATTRIBUTES FOR THIS FEATURE: Branching, Clarity, Color, Continuity, Convergence, Convergence_Location, Curve, Depth, Direction, Ending_Point, Formation, Laterality, Length, Position, Proximity, Slope, Slope_Magnitude, Starting_Point, Thickness, Width
+VALUE CONSTRAINTS (choose only from these for the named attribute, overriding the global vocabulary): Proximity: touching, medium, distant; Slope: upward, downward, straight; Slope_Magnitude: slight, very
+
+FEATURE: Line of Fate
+PROSE: present, deep, narrow, long
+VALID ATTRIBUTES FOR THIS FEATURE: Branching, Clarity, Color, Continuity, Convergence, Convergence_Location, Curve, Depth, Direction, Ending_Point, Formation, Laterality, Length, Position, Proximity, Slope, Slope_Magnitude, Starting_Point, Thickness, Width
+VALUE CONSTRAINTS (choose only from these for the named attribute, overriding the global vocabulary): Proximity: touching, medium, distant; Slope: upward, downward, straight; Slope_Magnitude: slight, very
+
+Extract observations per your instructions.

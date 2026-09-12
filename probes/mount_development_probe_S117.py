@@ -1,0 +1,174 @@
+"""
+probes/mount_development_probe_S117.py
+
+Standalone measurement probe (S117): does gpt-4o vision return
+DISCRIMINATING, STABLE mount-development values from a single real palm
+photo? NOT imported by the pipeline, NOT wired anywhere -- a one-shot
+measurement script whose output feeds a human go/no-go decision on
+whether a mount chapter is even worth authoring, per CLAUDE.md's
+"measure before parking or building" working law (S98 method learnings).
+
+Method: ONE system+image vision call, gpt-4o, temperature=0, asking for
+all 8 classical (Cheiro) mounts' located/development/reason in one
+closed-vocabulary JSON response. Run 3 times (SAME call, same image,
+temp=0) -- any variance across the 3 runs at temp=0 is itself the
+stability signal being measured, not noise to average away.
+
+NO image enhancement, NO cropping -- raw upload bytes only, unmodified
+(per this project's prior A/B findings that neither helps the vision
+model's palm-feature reads).
+
+NO verdict automation: this script reports counts/raw values only. A
+human reads diagnostics/latest_run.md's four-question breakdown and
+decides whether a mount chapter is worth authoring.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
+from openai import OpenAI
+
+load_dotenv(Path(__file__).parent.parent / ".env")
+
+_N_RUNS = 3
+_MODEL = "gpt-4o"
+
+_MOUNTS = (
+    "jupiter", "saturn", "apollo", "mercury",
+    "mars_positive", "mars_negative", "venus", "luna",
+)
+
+_LOCATED_VALUES = frozenset({"yes", "no"})
+_DEVELOPMENT_VALUES = frozenset({
+    "over-developed", "well-developed", "normal", "deficient/flat", "cannot-tell",
+})
+
+_SYSTEM_PROMPT = """You are analysing a photograph of a human palm for the fleshy mounts used in traditional Western (Cheiro-system) palmistry.
+
+The 8 mounts and where each sits on the palm:
+- jupiter: base of the index finger
+- saturn: base of the middle finger
+- apollo: base of the ring finger (also called the Sun mount)
+- mercury: base of the little finger
+- mars_positive: the pad between the thumb and the Life line, upper thumb-side edge of the palm (also called Mars Active/Positive)
+- mars_negative: the pad on the percussion (outer) edge of the palm, opposite the thumb, above Luna (also called Mars Passive/Negative)
+- venus: the large fleshy pad at the base of the thumb, encircled by the Life line
+- luna: the pad on the lower percussion edge of the palm, opposite the thumb, below mars_negative (also called the Moon mount)
+
+For EACH of the 8 mounts, report exactly these three fields:
+- "located": "yes" if you can identify where this mount is in the image, "no" if you cannot (e.g. cropped out of frame, occluded).
+- "development": your judgment of how raised/fleshy/prominent this mount appears, relative to the rest of the palm. Must be EXACTLY one of:
+  "over-developed", "well-developed", "normal", "deficient/flat", "cannot-tell".
+  Use "cannot-tell" whenever the image does not give you enough information to judge confidently -- do NOT guess. This is a fully legitimate, expected answer, not a failure.
+- "reason": one short clause (under 15 words) stating what you observed.
+
+Return ONLY valid JSON, no markdown, in exactly this shape:
+{
+  "jupiter": {"located": "yes|no", "development": "...", "reason": "..."},
+  "saturn": {"located": "yes|no", "development": "...", "reason": "..."},
+  "apollo": {"located": "yes|no", "development": "...", "reason": "..."},
+  "mercury": {"located": "yes|no", "development": "...", "reason": "..."},
+  "mars_positive": {"located": "yes|no", "development": "...", "reason": "..."},
+  "mars_negative": {"located": "yes|no", "development": "...", "reason": "..."},
+  "venus": {"located": "yes|no", "development": "...", "reason": "..."},
+  "luna": {"located": "yes|no", "development": "...", "reason": "..."}
+}
+"""
+
+
+def _encode_image(image_path: Path) -> tuple[str, str]:
+    image_bytes = image_path.read_bytes()
+    mime = "image/png" if image_bytes[:8].startswith(b"\x89PNG") else "image/jpeg"
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+    return mime, b64
+
+
+def _run_once(client: OpenAI, mime: str, b64: str) -> dict:
+    """One vision call. Returns a result dict with either 'parsed' (the
+    JSON dict) or 'error' (a string) -- never raises, so one bad run
+    doesn't kill the other N-1 runs."""
+    try:
+        response = client.chat.completions.create(
+            model=_MODEL,
+            messages=[
+                {"role": "system", "content": _SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
+                    ],
+                },
+            ],
+            max_tokens=1200,
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+        raw = response.choices[0].message.content
+    except Exception as exc:  # noqa: BLE001 -- a probe run failing must not kill the other runs
+        return {"raw": None, "parsed": None, "error": f"{type(exc).__name__}: {exc}"}
+
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        return {"raw": raw, "parsed": None, "error": f"JSONDecodeError: {exc}"}
+
+    return {"raw": raw, "parsed": parsed, "error": None}
+
+
+def _validate_closed_vocab(parsed: dict) -> dict:
+    """Reports, never coerces: which mounts are missing from the response
+    entirely, and any located/development value outside the closed set.
+    Purely diagnostic -- no silent fallback to a default value."""
+    missing_mounts = [m for m in _MOUNTS if m not in parsed]
+    off_vocab: list[str] = []
+    for mount in _MOUNTS:
+        entry = parsed.get(mount)
+        if not isinstance(entry, dict):
+            continue
+        located = entry.get("located")
+        development = entry.get("development")
+        if located not in _LOCATED_VALUES:
+            off_vocab.append(f"{mount}.located={located!r}")
+        if development not in _DEVELOPMENT_VALUES:
+            off_vocab.append(f"{mount}.development={development!r}")
+    return {"missing_mounts": missing_mounts, "off_vocab": off_vocab}
+
+
+def run_probe(image_path: Path, n_runs: int = _N_RUNS) -> list[dict]:
+    mime, b64 = _encode_image(image_path)
+    client = OpenAI()
+    results = []
+    for _ in range(n_runs):
+        result = _run_once(client, mime, b64)
+        result["vocab_check"] = _validate_closed_vocab(result["parsed"]) if result["parsed"] is not None else None
+        results.append(result)
+    return results
+
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        print("Usage: python probes/mount_development_probe_S117.py <image_path>")
+        sys.exit(1)
+    image_path = Path(sys.argv[1])
+    if not image_path.exists():
+        print(f"Image not found: {image_path}")
+        sys.exit(1)
+
+    results = run_probe(image_path)
+
+    out_path = Path(__file__).parent.parent / "diagnostics" / "mount_development_probe_S117_raw.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        json.dumps({"image": str(image_path), "n_runs": len(results), "runs": results}, indent=2),
+        encoding="utf-8",
+    )
+    print(f"Wrote {len(results)} run(s) to {out_path}")
+
+
+if __name__ == "__main__":
+    main()

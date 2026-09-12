@@ -1,0 +1,22 @@
+[
+  {
+    "Line of Fate": {
+      "Depth": "deep"
+    },
+    "Line of Head": {
+      "Depth": "deep",
+      "Length": "long"
+    }
+  },
+  {
+    "Line of Fate": {
+      "Depth": 1.0
+    },
+    "Line of Head": {
+      "Depth": 1.0,
+      "Length": 1.0
+    },
+    "_canonicalized": [],
+    "_dropped": []
+  }
+]

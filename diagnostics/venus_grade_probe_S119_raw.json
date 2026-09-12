@@ -1,0 +1,108 @@
+{
+  "hand_a": {
+    "image": "data\\test_images\\David_right.jpeg",
+    "runs": [
+      {
+        "raw": "{\n  \"visual_observation\": {\n    \"fullness_size\": \"moderate\",\n    \"elevation\": \"moderate\",\n    \"distinctly_sunken_or_concave\": \"no\"\n  },\n  \"mapped_cheiro_grade\": \"well developed\",\n  \"reason\": \"moderate size and elevation, not sunken\"\n}",
+        "parsed": {
+          "visual_observation": {
+            "fullness_size": "moderate",
+            "elevation": "moderate",
+            "distinctly_sunken_or_concave": "no"
+          },
+          "mapped_cheiro_grade": "well developed",
+          "reason": "moderate size and elevation, not sunken"
+        },
+        "error": null,
+        "vocab_check": {
+          "off_vocab": []
+        }
+      },
+      {
+        "raw": "{\n  \"visual_observation\": {\n    \"fullness_size\": \"moderate\",\n    \"elevation\": \"moderate\",\n    \"distinctly_sunken_or_concave\": \"no\"\n  },\n  \"mapped_cheiro_grade\": \"well developed\",\n  \"reason\": \"moderate size and elevation, not sunken\"\n}",
+        "parsed": {
+          "visual_observation": {
+            "fullness_size": "moderate",
+            "elevation": "moderate",
+            "distinctly_sunken_or_concave": "no"
+          },
+          "mapped_cheiro_grade": "well developed",
+          "reason": "moderate size and elevation, not sunken"
+        },
+        "error": null,
+        "vocab_check": {
+          "off_vocab": []
+        }
+      },
+      {
+        "raw": "{\n  \"visual_observation\": {\n    \"fullness_size\": \"moderate\",\n    \"elevation\": \"moderate\",\n    \"distinctly_sunken_or_concave\": \"no\"\n  },\n  \"mapped_cheiro_grade\": \"well developed\",\n  \"reason\": \"moderate size and elevation, not sunken\"\n}",
+        "parsed": {
+          "visual_observation": {
+            "fullness_size": "moderate",
+            "elevation": "moderate",
+            "distinctly_sunken_or_concave": "no"
+          },
+          "mapped_cheiro_grade": "well developed",
+          "reason": "moderate size and elevation, not sunken"
+        },
+        "error": null,
+        "vocab_check": {
+          "off_vocab": []
+        }
+      }
+    ]
+  },
+  "hand_b": {
+    "image": "data\\test_images\\palm_right_test.jpg",
+    "runs": [
+      {
+        "raw": "{\n  \"visual_observation\": {\n    \"fullness_size\": \"moderate\",\n    \"elevation\": \"moderate\",\n    \"distinctly_sunken_or_concave\": \"no\"\n  },\n  \"mapped_cheiro_grade\": \"well developed\",\n  \"reason\": \"moderate size and elevation, not concave\"\n}",
+        "parsed": {
+          "visual_observation": {
+            "fullness_size": "moderate",
+            "elevation": "moderate",
+            "distinctly_sunken_or_concave": "no"
+          },
+          "mapped_cheiro_grade": "well developed",
+          "reason": "moderate size and elevation, not concave"
+        },
+        "error": null,
+        "vocab_check": {
+          "off_vocab": []
+        }
+      },
+      {
+        "raw": "{\n  \"visual_observation\": {\n    \"fullness_size\": \"moderate\",\n    \"elevation\": \"moderate\",\n    \"distinctly_sunken_or_concave\": \"no\"\n  },\n  \"mapped_cheiro_grade\": \"well developed\",\n  \"reason\": \"moderate size and elevation, not sunken\"\n}",
+        "parsed": {
+          "visual_observation": {
+            "fullness_size": "moderate",
+            "elevation": "moderate",
+            "distinctly_sunken_or_concave": "no"
+          },
+          "mapped_cheiro_grade": "well developed",
+          "reason": "moderate size and elevation, not sunken"
+        },
+        "error": null,
+        "vocab_check": {
+          "off_vocab": []
+        }
+      },
+      {
+        "raw": "{\n  \"visual_observation\": {\n    \"fullness_size\": \"moderate\",\n    \"elevation\": \"moderate\",\n    \"distinctly_sunken_or_concave\": \"no\"\n  },\n  \"mapped_cheiro_grade\": \"well developed\",\n  \"reason\": \"moderate size and elevation, not sunken\"\n}",
+        "parsed": {
+          "visual_observation": {
+            "fullness_size": "moderate",
+            "elevation": "moderate",
+            "distinctly_sunken_or_concave": "no"
+          },
+          "mapped_cheiro_grade": "well developed",
+          "reason": "moderate size and elevation, not sunken"
+        },
+        "error": null,
+        "vocab_check": {
+          "off_vocab": []
+        }
+      }
+    ]
+  }
+}

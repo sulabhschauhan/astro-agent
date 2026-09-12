@@ -1,0 +1,17 @@
+{
+  "fate_line_raw_text": "absent",
+  "before": {
+    "is_absence": false,
+    "is_genuine_negative_absence": false,
+    "fate_line_in_supported_features": true,
+    "fate_line_in_decline_features": true,
+    "decline_sentence": "A note on what I have not interpreted: the classical texts I work from do not clearly address the following as they appear in your hands: fate line, sun line, thumb, fingers, mount of saturn, mount of apollo, mount of mercury, mount of mars negative, mount of luna. Rather than guess, I have left these out of your reading."
+  },
+  "after": {
+    "is_absence": true,
+    "is_genuine_negative_absence": true,
+    "fate_line_in_supported_features": false,
+    "fate_line_in_decline_features": false,
+    "decline_sentence": "A note on what I have not interpreted: the classical texts I work from do not clearly address the following as they appear in your hands: sun line, thumb, fingers, mount of saturn, mount of apollo, mount of mercury, mount of mars negative, mount of luna. Rather than guess, I have left these out of your reading."
+  }
+}

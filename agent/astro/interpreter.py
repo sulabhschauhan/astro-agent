@@ -54,7 +54,21 @@ _SYSTEM_HEAD = (
     '"silent_on": ["<what you could not address and why>"], "refused": false}\n'
     "Each claim.statement must be self-contained and name the placement it relies on so it can be "
     "checked (e.g. \"With the 10th lord in the 4th, ...\"). Put NOTHING in a statement that is not "
-    "supported by a cited verse.\n"
+    "supported by a cited verse.\n\n"
+    "VOICE -- the reader has never studied astrology and is reading about their own life:\n"
+    "- Address them directly: \"you\", \"your\". NEVER write \"the native\", \"the subject\", "
+    "\"one will\". The classical texts use the third person; you must not.\n"
+    "- KEEP the opening placement clause exactly as specified above -- it is machine-checked -- "
+    "but write the RESULT of that placement in everyday English.\n"
+    "- No untranslated technical terms in a statement: kendra, trikona, trine, angle, angular, "
+    "dispositor, Navamsa, varga, divisional, Atmakaraka, Amatyakaraka, Karakamsa, Arudha, "
+    "Moolatrikona, exalted, debilitated. If such an idea is load-bearing, put it in plain words "
+    "and add the Sanskrit once in brackets -- e.g. \"a strong supporting house (kendra)\".\n"
+    "- Where a verse is unfavourable, report it plainly and without drama, as what the text says, "
+    "not as a prediction about their life. No fatalism, no alarm, no reassurance either.\n"
+    "- One or two sentences per claim. No preamble, no summary claim restating the others.\n\n"
+    "`silent_on` is INTERNAL DIAGNOSTICS and is never shown to the user, so be terse and "
+    "technical there: name the verse ids and the missing precondition, nothing more.\n"
 )
 
 
@@ -86,9 +100,15 @@ def _default_llm(system: str, user: str, *, model: str, reasoning_effort: str) -
     kwargs = dict(model=model, response_format={"type": "json_object"},
                   messages=[{"role": "system", "content": system},
                             {"role": "user", "content": user}])
+    # The fallback below silently drops reasoning_effort on an SDK/model that
+    # does not accept it. That is correct behaviour but it was INVISIBLE: a live
+    # run showed 8,640 reasoning tokens on "minimal" with no way to tell whether
+    # the setting had been applied or quietly discarded. Record which path ran.
+    effort_applied = True
     try:
         resp = client.chat.completions.create(reasoning_effort=reasoning_effort, **kwargs)
     except TypeError:
+        effort_applied = False
         resp = client.chat.completions.create(**kwargs)  # SDK/model without the param
     u = resp.usage
     usage = {
@@ -98,6 +118,8 @@ def _default_llm(system: str, user: str, *, model: str, reasoning_effort: str) -
                                     "reasoning_tokens", 0) or 0,
         "cached_tokens": getattr(getattr(u, "prompt_tokens_details", None),
                                  "cached_tokens", 0) or 0,
+        "reasoning_effort_requested": reasoning_effort,
+        "reasoning_effort_applied": effort_applied,
     }
     return resp.choices[0].message.content or "", usage
 

@@ -527,3 +527,143 @@ A fresh session (Output.txt) read `main`/S84 and correctly refused to build on u
 **Recon (mapped, not built):** fact-block flow = pipeline._fact_block() renders ONLY lord_house_map + ascendant. Silence-gate **fails open** (non-relation claims -> UNDETERMINED -> kept). Widening with dasha/longitude is NOT gate-blocked but ships UNVERIFIED. chart_facts construction point NOT yet located.
 
 **NEXT:** fact-block widening -- chart_d1 position FIRST (restate-don't-compute, low risk), dasha DEFERRED until the gate can range-verify. Start with the S127 recon prompt (locate chart_facts construction; confirm gate fail-open on live tree; propose longitude wiring). Parked: PVR Ashtakavarga hand-computation cells (David/Sheridan).
+
+## S129 — Path B cutover: app.py rewired, capability gate, fact block widened to planet positions, QA capture + user-facing answer view, advisory planet reader, replay harness, Saturn oracle slip resolved (2026-09-12)
+
+> NOTE ON THE GAP: this file jumps S127 -> S129. **S128 was never logged here.** S128's
+> work is recorded only in `claude_handover_S126.md`-style handover text and in the
+> S128 lock at `CLAUDE.md:17` (now stamped SUPERSEDED). Do not infer S128 content from
+> this entry — it is not a summary of S128.
+
+OUTCOME: the Streamlit app now answers through the five-stage Path B pipeline. Coverage is
+narrow and DELIBERATELY so — what the fact block cannot support, the app declines in plain
+language instead of inventing. AstroSage PDF stays as the covering surface (S125 V1 order).
+
+**BRANCH:** `wip/interpretive-pilot`. Written to disk uncommitted; SHA assigned at Sulabh's
+commit — this entry names no SHA because none existed when it was written (CODE-READ
+PROVENANCE).
+
+**THE CUTOVER (the decision):**
+Two answer paths had been derailing sessions. Path A (`agent/infra/orchestrator`) assembles
+fixed templates and opens no book — it can never produce the objective's grounded, cited,
+chart-specific answer. Path B (`agent/astro/*`) is Planner -> Calculator -> Retriever ->
+Interpreter -> Verifier. Sulabh ratified **everything to B**. `frontend/app.py` now imports
+`answer_question` from `agent.astro.pipeline`, `build_chart_facts` from
+`agent.astro.chart_facts`, `render_user_answer` from `agent.astro.answer_view`, and
+`agent.astro.qa_capture`. Path A is RETAINED, tested, intact as the revert target, and wired
+to nothing. Its known defects are left unfixed BY DECISION.
+
+**BUILT (new modules):**
+- `agent/astro/chart_facts.py` — the adapter that did not exist. Restates
+  `calculate_chart()` output into `{lord_house_map, ascendant_sign, planet_positions}`.
+  **Computes nothing. Fails closed on any partial map.** Emits house + sign ONLY —
+  no dignity (no oracle table to validate it), no longitude (no verse keys on a degree),
+  no retrograde (three recorded grounds). `_GRAHA_ORDER` is classical, for byte-stable
+  rendering. 12/12 against the JHora oracle for Sulabh.
+- `agent/astro/capability_gate.py` — Stage 1.5, deterministic, NO LLM, sits between
+  planning and retrieval. Declines any question needing facts the block does not carry.
+  `FACT_BLOCK_PROVIDES = {ascendant_sign, lord_house_map, planet_positions}`. ONE
+  requirement today: `dasha_timing` (domain `timing_dasha` OR `time_scope in
+  {future, specific_period}`). **This is what makes a narrow fact block SAFE rather than
+  merely narrow** — the silence gate only judges "Nth lord in the Mth" and FAILS OPEN, so
+  a dated claim would otherwise ship unverified (Working Style #5).
+- `agent/astro/qa_capture.py` — per-launch `diagnostics/qa_capture/<UTC>.md`, appended per
+  turn. Records question, chart_facts, BOTH plans (pre- and post-gate), gate verdict,
+  selection + payload, interpreter usage + ghost ids, silence-gate stats, **full
+  untruncated cited verse text with char counts**, per-stage timings, the user answer AND
+  the pipeline render separately, raw interpreter JSON. Never raises. Gitignored (holds a
+  real chart).
+- `agent/astro/answer_view.py` — the user surface. Strips `[ids]`, drops `silent_on`,
+  swaps "the native" -> "you", appends a chapter-level source line. **Deliberately does
+  NOT rewrite claim text** — rewriting is where a verified claim becomes an unverified one.
+  Title guard at 60 chars / sentence punctuation because 20 of 100 chapter `title_raw`
+  values are OCR run-on sentences.
+- `scripts/replay_capture.py` — zero-API-cost replay: payload rebuild -> stored raw
+  response -> silence gate -> advisory -> answer_view -> diff. `CapturedTurn.user_answer_source`
+  distinguishes `answer_view` from `legacy_pipeline_render` so old captures are not
+  spuriously diffed.
+
+**MODIFIED:**
+- `pipeline.py` v1.0 -> v1.2: gate wired in, `_lap()` per-stage timings, `trace` dict
+  (`plan_before_gate`, `gate_refused_outright`, `payload`, `interpreter_raw`, `gate_error`),
+  `_fact_block` renders planet positions.
+- `planner.py`: `plan_and_build` split into `plan_question` + `build_from_plan(...)`.
+  Behaviour-neutral; `plan_and_build` unchanged for every existing caller.
+- `interpreter.py`: VOICE block in `_SYSTEM_HEAD` — address the user directly, NEVER write
+  "the native", ban kendra/trikona/dispositor/Navamsa/Atmakaraka etc., `silent_on` labelled
+  INTERNAL. Added `reasoning_effort_requested`/`_applied` to usage so the `except TypeError`
+  fallback cannot silently drop the param.
+- `silence_gate.py`: new **ADVISORY** planet reader (`read_planet_condition`,
+  `judge_planet_claim`). Records verdicts, **has no drop authority**. A sentence matching
+  both readers returns `None` (ambiguity rule). New stats incl. the promotion metric
+  `advisory_would_drop_a_kept_claim`.
+- `agent/calculations/core/chart_d1.py`: docstring rewritten to open
+  "THIS STUB IS DELIBERATE AND PERMANENT. DO NOT IMPLEMENT IT" with the verbatim S22/S24
+  abort quote.
+- `docs/ANSWER_PATHS.md`: rewritten — records the cutover, the gate, the pratyantar debt,
+  Path A's retained-but-unwired status and its known defects.
+- `CLAUDE.md`: S129 Path B lock added; S128 lock stamped SUPERSEDED; chart_d1 added to the
+  DESIGN-INTENT-FIRST known-intentional list.
+- `diagnostics/KNOWN_PATTERNS.md`: row **P-022** for the chart_d1 confusion.
+
+**FACT-BLOCK GROWTH CONTRACT (enforced by test):** widening `pipeline._fact_block` REQUIRES
+adding the matching key to `capability_gate.FACT_BLOCK_PROVIDES` in the SAME change.
+
+**PRATYANTAR:** still unhooked on Path B. The fact block carries no dasha, so today's safety
+is **ABSENCE, not a guard**. Whoever adds dasha to the block MUST add the suppression in
+that same change (±37d drift, wrong lord).
+
+**MEASURED BEFORE BUILDING:** 344 planet-in-house vs 176 lord-in-house corpus sentences,
+94.5% judgeable. Retrograde-keyed verses = 10/20,426 (0.05%) — the ground for omitting
+retrograde from the fact block.
+
+**SATURN "(R)" ORACLE CONFLICT — RESOLVED from primary sources.**
+Cross-chart retrograde census (4 charts x 7 grahas): 8 `(R)` marks, 7 agreed with recomputed
+pyswisseph speeds. Only `sulabh` Saturn disagreed — production says direct at
+**+0.008719 deg/day**. Decisive evidence is inside `sulabh.md` itself: its raw JHora
+Traditional-Lahiri export prints `Saturn - BK   8 Sg 50' 14.60"  Mool  3  Sg  Ge` with **no
+(R)**, and that value is EXACTLY the section-3e row's value — so that line is provably the
+row's source. The other three fixtures print retrograde Saturns as `Saturn (R) - PK ...` in
+the identical format, so the marker is not being dropped by the export. VERDICT: a
+**transcription slip** when the 3e table was hand-typed. Not a JHora convention, not a
+pyswisseph bug. Near-station is ruled out — `david` Mars at -0.012495 deg/day is nearly as
+slow as Sulabh's Saturn and flags correctly. `sulabh.md` corrected (`(R)` removed, marked,
+correction note retaining the superseded sentence); `docs/PROJECT_FACTS.md` RESOLVED entry
+supersedes the UNRESOLVED one. **Census is now 8/8. No JHora check is needed from Sulabh.**
+
+**COST DISCIPLINE (new, at Sulabh's instruction):** live dogfood runs burn real OpenAI
+credit. A live run is now required ONLY when (1) the interpreter prompt changed, (2) the
+fact block gained a new fact class, (3) model/config changed, (4) something is being
+ratified. Everything else replays through `scripts/replay_capture.py` at zero API cost.
+**The sandbox is FIREWALLED from api.openai.com — live runs happen only on Sulabh's machine.**
+
+**FROZEN FIXTURE:** `tests/fixtures/qa_captures/s129_live_gpt5_20260912T160015Z.md` — the
+real 2026-09-12 gpt-5 run. Costs a live run to recreate; do not delete.
+
+**VERIFIED:** 4 reference charts x 7 question shapes x 2 interpreter modes = 56/56 no
+exception, real retrieval, 21k-67k approx-token payloads. Suite 3939 -> 3982 passed, same 9
+pre-existing key/corpus-dependent failures. Post-Saturn: 123 passed across `tests/astro` +
+`tests/regression`.
+
+**MY OWN ERRORS THIS SESSION (root-caused, not just listed):**
+- Called `ch34_s011` a mis-citation — **for the second time across sessions**. Cause: printed
+  `s["text"][:460]` of a 5,396-char segment; the Raja Yoga verse sits at ~char 1,800. It is
+  5/5 faithful. FIX: `qa_capture` now stores full untruncated verse text with char counts,
+  so truncation can no longer masquerade as a mis-citation.
+- Fabricated Surbhi's birth data ("14 Oct 1992, Delhi"). Real: **11 Sep 1992, 10:30, Patna**.
+  Caught by oracle mismatch. Corrected and re-run.
+- Handed Sulabh a Claude Code prompt instead of doing the work myself. Corrected — I have
+  the access; I do the coding.
+- Asked Sulabh to check JHora when the answer was inside `sulabh.md`. Corrected by running
+  the census myself. **Same root cause as rules 32-34: reaching for a human before reading
+  an available primary source.**
+
+**NEXT:**
+1. Sulabh's stress test with the widened fact block (qualifies as a REQUIRED live run —
+   planet positions are new to the model).
+2. Promote or hold the advisory planet reader on `advisory_would_drop_a_kept_claim` from
+   that run. Do NOT promote on intuition.
+3. Deferred/owed: aspects + conjunctions (Q1 option c); `vimshottari` + pratyantar hook;
+   architect's refactor (`pipeline._fact_block` still calls `payload_builder.parse_lord_house_map`);
+   stale MASTER BUILD PLAN (~13 lines); cost-constraint re-ratification ($0.01 ratified vs
+   measured ~$0.19 / 75s); **`main` is stale at S84, so project RAG is ~45 sessions behind.**

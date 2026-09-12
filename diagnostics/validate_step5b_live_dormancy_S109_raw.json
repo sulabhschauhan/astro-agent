@@ -1,0 +1,83 @@
+{
+  "left_head_life_contacts": [
+    {
+      "target": "Line of Life",
+      "verb": "joined",
+      "position": "at start",
+      "clarity": "clear"
+    }
+  ],
+  "right_head_life_contacts": [
+    {
+      "target": "Line of Life",
+      "verb": "joined",
+      "position": "at start",
+      "clarity": "clear"
+    }
+  ],
+  "left_ct": {
+    "Line of Head": {
+      "joins_at_origin": [
+        "Line of Life"
+      ]
+    },
+    "Line of Fate": {
+      "cuts": [
+        "Line of Head"
+      ]
+    }
+  },
+  "right_ct": {
+    "Line of Head": {
+      "joins_at_origin": [
+        "Line of Life"
+      ]
+    },
+    "Line of Fate": {
+      "cuts": [
+        "Line of Head"
+      ]
+    }
+  },
+  "fired_rule_ids": [
+    "H_028"
+  ],
+  "h028_fired": true,
+  "fallback_llm_call_count": 0,
+  "audits": [
+    {
+      "raw_verb": "joined",
+      "target": "Line of Life",
+      "position": "at start",
+      "llm_canonical_choice": null,
+      "final_token": "joins_at_origin",
+      "disposition": "already_resolved_no_llm_needed"
+    },
+    {
+      "raw_verb": "crosses",
+      "target": "Line of Head",
+      "position": "mid-course",
+      "llm_canonical_choice": null,
+      "final_token": "cuts",
+      "disposition": "already_resolved_no_llm_needed"
+    },
+    {
+      "raw_verb": "joined",
+      "target": "Line of Life",
+      "position": "at start",
+      "llm_canonical_choice": null,
+      "final_token": "joins_at_origin",
+      "disposition": "already_resolved_no_llm_needed"
+    },
+    {
+      "raw_verb": "crosses",
+      "target": "Line of Head",
+      "position": "mid-course",
+      "llm_canonical_choice": null,
+      "final_token": "cuts",
+      "disposition": "already_resolved_no_llm_needed"
+    }
+  ],
+  "left_raw_text": "HAND SHAPE: elongated palm, overall build medium\n\nFINGERS: medium length relative to palm, straight, rounded fingertips, medium spacing\n\nTHUMB: medium size, low set, wide angle from the palm\n\nLIFE LINE: present, deep, narrow, long, curves around the base of the thumb, origin near the thumb, ends near the wrist, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\n\nHEAD LINE: present, deep, narrow, long, sloping downward toward the wrist\n  SLOPE: downward\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  CONTACTS: Line of Life | joined | at start | clear\n\nHEART LINE: present, deep, narrow, long, curves slightly\n  SLOPE: straight\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  CONTACTS: none\n\nFATE LINE: present, deep, narrow, long\n  SLOPE: upward\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: cutting_into_finger_of_Saturn\n  CONTACTS: Line of Head | crosses | mid-course | clear\n\nLINE OF HEALTH: not clearly visible\n\nLINE OF MARRIAGE: not clearly visible\n\nOTHER LINES: not clearly visible\n\nMOUNTS: Mount of Venus developed, Mount of Jupiter developed, others unremarkable\n\nMARKS: not clearly visible",
+  "right_raw_text": "HAND SHAPE: elongated palm, medium build\n\nFINGERS: medium length relative to palm, straight, rounded fingertips, medium spacing\n\nTHUMB: medium size, low set, wide angle from the palm\n\nLIFE LINE: present, deep, medium width, long, curves around the base of the thumb, origin near the thumb, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\n\nHEAD LINE: present, deep, medium width, long, sloping downward\n  SLOPE: downward\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  CONTACTS: Line of Life | joined | at start | clear\n\nHEART LINE: present, deep, medium width, long, slightly curved\n  SLOPE: straight\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  CONTACTS: none\n\nFATE LINE: present, deep, medium width, long\n  SLOPE: upward\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  CONTACTS: Line of Head | crosses | mid-course | clear\n\nLINE OF HEALTH: not clearly visible\n\nLINE OF MARRIAGE: not clearly visible\n\nOTHER LINES: not clearly visible\n\nMOUNTS: Mount of Venus developed, others not clearly visible\n\nMARKS: not clearly visible"
+}

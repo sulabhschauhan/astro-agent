@@ -42,3 +42,20 @@ diagnostics/latest_run.md
 
 # Palm/hand test images — no-storage architecture + privacy, local only (S94)
 data/test_images/
+diagnostics/qa_capture/
+
+# S129: frozen qa_capture fixture contains a real chart (Sulabh's, oracle-
+# verified) — same no-storage-lock privacy ruling as diagnostics/qa_capture/
+# above, applied to the tests/fixtures/ copy. Repo is public (verified S129):
+# never commit. Kept on local disk only; tests/astro/test_replay_capture.py
+# needs it present locally and will fail without it (known, accepted cost).
+tests/fixtures/qa_captures/
+
+# S129: planner decision log, runtime by-product of dogfood/test runs, not a
+# deliverable — same class as diagnostics/calc_router_stage2.log above.
+diagnostics/planner_decisions.jsonl
+
+# S129: pre-rebuild ChromaDB backup, 135MB of generated binary index files —
+# same "ChromaDB — generated locally" class as data/chroma_db/ above, just
+# under a path that dodged that rule. Never commit; local disk only.
+data/_backup/

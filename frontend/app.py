@@ -28,8 +28,16 @@ from agent.interpretive.palm_reading import (
     _N_RESULTS_PER_FEATURE,
 )
 from agent.interpretive.claim_extraction import CitationByChunk, CitationByRule
-from agent.infra.orchestrator import answer_question
-from agent.interpretive.answer_renderer import render_answer
+
+# PATH B is the answer path as of S129 (docs/ANSWER_PATHS.md).
+# agent.infra.orchestrator (Path A, the 9-domain deterministic router) is NOT
+# imported here any more. It stays in the tree, tested and intact, as the
+# fallback if the cutover is reverted -- do not delete it, and do not call it
+# from here without re-reading that doc first.
+from agent.astro.pipeline import answer_question
+from agent.astro.chart_facts import build_chart_facts, ChartFactsError
+from agent.astro.answer_view import render_user_answer
+from agent.astro import qa_capture
 
 logger = logging.getLogger(__name__)
 
@@ -1586,24 +1594,50 @@ if prompt:
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Deterministic calc-engine pipeline ONLY (CLAUDE.md "V1 scope" lock):
-        # answer_question() routes -> builds a DomainChartProfile -> formats
-        # a DomainAnswer (REFUSAL included); render_answer() turns that into
-        # display text. No partner chart wiring in V1 -- marriage questions
-        # will REFUSAL via has_partner_data, same as any other domain's
-        # REFUSAL (rendered like any other answer, not specially handled).
+        # PATH B, the five-stage pipeline (S129 cutover, docs/ANSWER_PATHS.md):
+        #   question -> plan -> capability gate -> chapters/verses
+        #            -> Interpreter (gpt-5) -> silence gate -> cited answer.
+        #
+        # chart_facts is the Calculator stage's output, restated from
+        # calculate_chart() by chart_facts.build_chart_facts(). It carries the
+        # ascendant and the 12 house-lord placements and NOTHING ELSE today --
+        # the capability gate (Stage 1.5) is what declines, in plain language,
+        # any question needing facts the block does not yet hold, rather than
+        # letting the Interpreter guess at them.
+        #
+        # The AstroSage panel above is unchanged and still carries the
+        # sections this pipeline cannot yet answer from; it retires only once
+        # the fact block covers them (CLAUDE.md V1 ORDER, S125).
+        #
         # Both user+assistant messages are appended together, only after a
         # full success, so a failure anywhere in this chain leaves
         # st.session_state.messages completely unchanged (no partial turn).
         try:
-            with st.spinner("Consulting the stars…"):
-                domain_answer = answer_question(prompt, st.session_state.chart)
-                answer_text = render_answer(domain_answer)
+            with st.spinner("Reading the classical text for your chart…"):
+                chart_facts = build_chart_facts(st.session_state.chart)
+                result = answer_question(prompt, chart_facts)
+                # Two surfaces, one result: the user reads render_user_answer's
+                # plain-language view; the full trace (verse text, ids,
+                # silent_on, timings, usage) goes to the capture file.
+                answer_text = render_user_answer(result)
+                qa_capture.capture_turn(prompt, result, chart_facts,
+                                        user_answer=answer_text)
 
             st.session_state.messages.append({"role": "user", "content": prompt})
 
             with st.chat_message("assistant"):
                 st.markdown(answer_text)
+                _ghosts = result.get("ghost_citations") or []
+                if _ghosts:
+                    # Must be empty by construction (interpreter ghost guard).
+                    # Surfaced, never swallowed: a non-empty list is a real
+                    # regression, the same tripwire posture as S119's
+                    # dropped_rule_ids.
+                    st.warning(
+                        "Citation integrity warning — the model cited "
+                        f"{len(_ghosts)} id(s) not present in the retrieved "
+                        "text. They were removed. Please report this run."
+                    )
 
             st.session_state.messages.append({"role": "assistant", "content": answer_text})
 
@@ -1613,5 +1647,14 @@ if prompt:
             except RuntimeError:
                 st.warning("Session could not be saved. Chat history may not persist.")
 
+        except ChartFactsError as e:
+            # The chart itself could not be restated into answerable facts.
+            # Distinct from a model failure and worth its own message, because
+            # the remedy is different: re-enter the birth details.
+            st.error(
+                "I could not read a complete set of house placements from your "
+                f"chart, so I can't answer from it. Details: {e}"
+            )
         except Exception as e:
+            qa_capture.capture_error(prompt, e)
             st.error(f"{type(e).__name__}: {e}")

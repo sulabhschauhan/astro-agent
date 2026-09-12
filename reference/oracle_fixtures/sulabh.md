@@ -179,7 +179,7 @@ and in `diagnostics/manifest_sulabh.md`'s external ask #1.
 | Mercury | Pi 7°52'23.63" | 337.873231 | 337.859921 | -47.92 | matched-mode residual (max) |
 | Jupiter | Ar 12°33'29.29" | 12.558136 | 12.550179 | -28.64 | matched-mode residual |
 | Venus | Ta 8°19'39.31" | 38.327586 | 38.323702 | -13.98 | matched-mode residual |
-| Saturn | Sg 8°50'14.60" (R) | 248.837389 | 248.836890 | -1.79 | matched-mode residual |
+| Saturn | Sg 8°50'14.60" | 248.837389 | 248.836890 | -1.79 | matched-mode residual; **(R) REMOVED S129 — see correction note below** |
 | Rahu | Aq 28°24'06.40" | 328.401778 | 328.401740 | -0.14 | node-convention match (~0) |
 | Ketu | Le 28°24'06.40" | 148.401778 | 148.401740 | -0.14 | node-convention match (~0) |
 
@@ -194,8 +194,39 @@ no FLAG condition (≥100″) triggered. Rahu/Ketu Δ ≈ -0.14″ confirms
 Mean-Node convention match between production and this JHora capture
 (byte-identical to David's own Rahu/Ketu residual, §3e of that file —
 corroborating, not coincidental: both captures share the same JHora
-Mean-Node setting). Saturn's retrograde flag (R) in this capture matches
-production/AstroSage.
+Mean-Node setting).
+
+**CORRECTION (S129, 2026-09-12).** The struck sentence below was wrong on
+both halves and is retained per the supersede-don't-delete convention:
+
+  ~~"Saturn's retrograde flag (R) in this capture matches
+  production/AstroSage."~~
+
+(a) THERE IS NO (R) IN THE CAPTURE. This file's own raw JHora export prints
+    `Saturn - BK              8 Sg 50' 14.60" Mool      3    Sg   Ge`
+    with no retrograde marker — and 8 Sg 50'14.60" is exactly the §3e value,
+    so that line IS the source of this row. For contrast, the same export
+    format in the other three fixtures marks a retrograde Saturn explicitly:
+    david `Saturn (R) - PK  6 Cn 01' 47.43"`, sheridan `Saturn (R) - MK
+    17 Li 44' 27.51"`, surbhi `Saturn (R) - PK  19 Cp 01' 47.26"`.
+    The "(R)" in the §3e row above was introduced when the table was
+    hand-built from the export. It is a transcription slip, now removed.
+(b) IT DID NOT MATCH PRODUCTION EITHER. Production computes Saturn DIRECT
+    for this chart and is correct: recomputed against pyswisseph
+    (SIDM_LAHIRI, FLG_SPEED, jd_ut 2447257.291667) Saturn's motion is
+    +0.008719 deg/day — direct, and ~1/100 of mean speed. It stations
+    retrograde at jd 2447262.5614 = 1988-04-11 01:47 UT, 5.27 days AFTER
+    birth. So JHora, production and the astronomy all agree; only the
+    hand-built table disagreed.
+
+CROSS-CHART CENSUS supporting this (S129, 4 charts x 7 grahas): JHora marks
+8 bodies (R) across the four fixtures. 7 agree with production exactly —
+surbhi/Saturn -0.052846, david/Mars -0.012495, david/Mercury -1.024148,
+david/Saturn -0.082362, sheridan/Mars -0.298606, sheridan/Jupiter -0.081194,
+sheridan/Saturn -0.064846 deg/day. The single disagreement was this row.
+With the slip removed the census is 8/8. Note david/Mars at -0.0125 deg/day
+is nearly as slow as this Saturn and still flags correctly, so JHora is NOT
+applying a near-station convention — the marker tracks the sign of motion.
 
 ### CONFLICT — AstroSage vs JHora S27 (True Chitrapaksha) D1 longitudes for Sulabh (arcminute-scale, both nominally "Lahiri"/"Lahiri-labeled" but see §0 mode caveat)
 

@@ -1,0 +1,1084 @@
+{
+  "subject": "david",
+  "left_image": null,
+  "right_image": "C:\\Users\\sulab\\Documents\\Python Scripts\\astro-agent\\data\\test_images\\David_right.jpeg",
+  "vision_description_left_raw": null,
+  "vision_description_right_raw": "HAND SHAPE: elongated, slender build\n\nFINGERS: long relative to palm, straight, rounded fingertips, close spacing\n\nTHUMB: medium size, low set, wide angle from the palm\n\nLIFE LINE: present, deep, narrow, long, curves around the base of the thumb, origin near the thumb, ends near the wrist, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\n\nHEAD LINE: present, deep, narrow, long, straight across, no breaks/chains/forks/islands\n  SLOPE: straight\n  SLOPE MAGNITUDE: n/a\n  ORIGIN: Line of Life\n  TERMINATION: Percussion\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  CONTACTS: Line of Life | joins | at start | clear\n\nHEART LINE: present, deep, narrow, long, straight, no breaks/chains/forks/islands\n  SLOPE: straight\n  SLOPE MAGNITUDE: n/a\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  CONTACTS: none\n\nFATE LINE: absent\n\nLINE OF HEALTH: not clearly visible\n\nLINE OF MARRIAGE: not clearly visible\n\nOTHER LINES: not clearly visible\n\nMOUNTS: \n  DEVELOPMENT (Venus): well developed\n  DEVELOPMENT (Jupiter): developed\n  DEVELOPMENT (Saturn): not notably developed\n  DEVELOPMENT (the Sun): not notably developed\n  DEVELOPMENT (Upper Mount of Mars): present\n\nMARKS: not clearly visible",
+  "reading_text": "Your hand reveals a profound capacity for love, characterized by the highest type of affection. This is a love that embodies pride and worship of the heart's ideal, marked by firm, strong, and reliable affections. Your head line, rising from the commencement of the life line and connected with it, suggests a sensitive and more nervous temperament. This connection indicates an excess of caution, which may lead even the cleverest individuals to restrain themselves too tightly.\n\nThe life line on your palm is long, narrow, and deep, without any irregularities. This promises you a long life, accompanied by good health and vitality. Additionally, the well-developed Mount of Venus on your hand further indicates strong and robust health.\n\nYour Mount of Jupiter is developed, which shows a strong sense of ambition and pride. You possess enthusiasm in anything you attempt and a desire for power. Lastly, the presence of the Upper Mount of Mars grants you active courage and a martial spirit.\n\nA note on what I have not interpreted: the classical texts I work from do not clearly address the following as they appear in your hands: fate line, sun line, thumb, fingers, mount of saturn, mount of apollo, mount of mercury, mount of mars negative, mount of luna. Rather than guess, I have left these out of your reading.\n\nFor major life decisions, I recommend consulting a qualified astrologer or palm reader for a personal reading.",
+  "reading_text_tagged": "Your hand reveals a profound capacity for love, characterized by the highest type of affection. This is a love that embodies pride and worship of the heart's ideal, marked by firm, strong, and reliable affections. [C1] Your head line, rising from the commencement of the life line and connected with it, suggests a sensitive and more nervous temperament. This connection indicates an excess of caution, which may lead even the cleverest individuals to restrain themselves too tightly. [C2]\n\nThe life line on your palm is long, narrow, and deep, without any irregularities. This promises you a long life, accompanied by good health and vitality. [C3] Additionally, the well-developed Mount of Venus on your hand further indicates strong and robust health. [C4]\n\nYour Mount of Jupiter is developed, which shows a strong sense of ambition and pride. You possess enthusiasm in anything you attempt and a desire for power. [C5] Lastly, the presence of the Upper Mount of Mars grants you active courage and a martial spirit. [C6]",
+  "model": "gpt-4o",
+  "retry_used": false,
+  "stage2_retry_used": false,
+  "stage2_first_attempt_failures": [],
+  "stage1_retry_features": [],
+  "validation_passed": true,
+  "validation_failures": [],
+  "validation_warnings": [],
+  "supported_features": [
+    "fate line",
+    "thumb",
+    "fingers",
+    "mount of saturn",
+    "mount of apollo"
+  ],
+  "unsupported_features": [
+    "sun line",
+    "mount of mercury",
+    "mount of mars negative",
+    "mount of luna"
+  ],
+  "decline_features": [
+    "fate line",
+    "sun line",
+    "thumb",
+    "fingers",
+    "mount of saturn",
+    "mount of apollo",
+    "mount of mercury",
+    "mount of mars negative",
+    "mount of luna"
+  ],
+  "claims": [
+    {
+      "claim_id": "C1",
+      "feature": "heart line",
+      "chunk_id": null,
+      "claim_text": "The highest type of love -- the pride and worship of the heart's ideal; firm, strong, reliable affections.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Line of Heart Starting_Point=None",
+      "excluded_from_voice": false,
+      "exclusion_reason": null,
+      "citation_ref": "rule:HL_001@p156",
+      "citation": {
+        "rule_id": "HL_001",
+        "source_page": 156,
+        "source_quote": "When it rises from the center of Jupiter, it gives the highest type of love -- the pride and the worship of the heart's ideal.",
+        "_kind": "CitationByRule"
+      }
+    },
+    {
+      "claim_id": "C2",
+      "feature": "head line",
+      "chunk_id": null,
+      "claim_text": "A head line rising from the commencement of the life line, and connected with it, indicates a sensitive and more nervous temperament, with an excess of caution that leads even clever people to hold themselves back too tightly.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Line of Head joins_at_origin=None",
+      "excluded_from_voice": false,
+      "exclusion_reason": null,
+      "citation_ref": "rule:H_028@p146",
+      "citation": {
+        "rule_id": "H_028",
+        "source_page": 146,
+        "source_quote": "The line of head from the commencement of the line of life, and connected with it (d-d, Plate XVI.), indicates a sensitive and more nervous temperament; it denotes excess of caution; even clever people with this mark rein themselves down too tightly.",
+        "_kind": "CitationByRule"
+      }
+    },
+    {
+      "claim_id": "C3",
+      "feature": "life line",
+      "chunk_id": null,
+      "claim_text": "A long, narrow, deep life line without irregularities promises long life, good health, and vitality.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Line of Life Length=long; Line of Life Width=narrow; Line of Life Depth=deep",
+      "excluded_from_voice": false,
+      "exclusion_reason": null,
+      "citation_ref": "rule:L_001@p134",
+      "citation": {
+        "rule_id": "L_001",
+        "source_page": 134,
+        "source_quote": "The line of life should be long, narrow, and deep, without irregularities, breaks, or crosses of any kind. Such a formation promises long life, good health, and vitality.",
+        "_kind": "CitationByRule"
+      }
+    },
+    {
+      "claim_id": "C4",
+      "feature": "mount of venus",
+      "chunk_id": null,
+      "claim_text": "A well developed Mount of Venus indicates strong and robust health.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Mount of Venus Development=well developed",
+      "excluded_from_voice": false,
+      "exclusion_reason": null,
+      "citation_ref": "rule:M_001@p112",
+      "citation": {
+        "rule_id": "M_001",
+        "source_page": 112,
+        "source_quote": "Venus be well developed, it indicates strong and robust health.",
+        "_kind": "CitationByRule"
+      }
+    },
+    {
+      "claim_id": "C5",
+      "feature": "mount of jupiter",
+      "chunk_id": null,
+      "claim_text": "A developed Mount of Jupiter shows ambition, pride, enthusiasm in anything attempted, and desire for power.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Mount of Jupiter Development=developed",
+      "excluded_from_voice": false,
+      "exclusion_reason": null,
+      "citation_ref": "rule:M_014@p112",
+      "citation": {
+        "rule_id": "M_014",
+        "source_page": 112,
+        "source_quote": "When developed it shows ambition, pride, enthusiasm in anything attempted, and desire for power.",
+        "_kind": "CitationByRule"
+      }
+    },
+    {
+      "claim_id": "C6",
+      "feature": "mount of mars positive",
+      "chunk_id": null,
+      "claim_text": "The Upper Mount of Mars gives active courage and the martial spirit.",
+      "valence": "supports",
+      "condition_text": null,
+      "observation_basis": "Upper Mount of Mars Development=present",
+      "excluded_from_voice": false,
+      "exclusion_reason": null,
+      "citation_ref": "rule:M_023@p113",
+      "citation": {
+        "rule_id": "M_023",
+        "source_page": 113,
+        "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition.",
+        "_kind": "CitationByRule"
+      }
+    }
+  ],
+  "sources": [
+    {
+      "book": "cheiroslanguageo00chei_1",
+      "page": 156,
+      "score": null,
+      "feature": "heart line",
+      "rule_id": "HL_001",
+      "source_quote": "When it rises from the center of Jupiter, it gives the highest type of love -- the pride and the worship of the heart's ideal."
+    },
+    {
+      "book": "cheiroslanguageo00chei_1",
+      "page": 146,
+      "score": null,
+      "feature": "head line",
+      "rule_id": "H_028",
+      "source_quote": "The line of head from the commencement of the line of life, and connected with it (d-d, Plate XVI.), indicates a sensitive and more nervous temperament; it denotes excess of caution; even clever people with this mark rein themselves down too tightly."
+    },
+    {
+      "book": "cheiroslanguageo00chei_1",
+      "page": 134,
+      "score": null,
+      "feature": "life line",
+      "rule_id": "L_001",
+      "source_quote": "The line of life should be long, narrow, and deep, without irregularities, breaks, or crosses of any kind. Such a formation promises long life, good health, and vitality."
+    },
+    {
+      "book": "cheiroslanguageo00chei_1",
+      "page": 112,
+      "score": null,
+      "feature": "mount of venus",
+      "rule_id": "M_001",
+      "source_quote": "Venus be well developed, it indicates strong and robust health."
+    },
+    {
+      "book": "cheiroslanguageo00chei_1",
+      "page": 112,
+      "score": null,
+      "feature": "mount of jupiter",
+      "rule_id": "M_014",
+      "source_quote": "When developed it shows ambition, pride, enthusiasm in anything attempted, and desire for power."
+    },
+    {
+      "book": "cheiroslanguageo00chei_1",
+      "page": 113,
+      "score": null,
+      "feature": "mount of mars positive",
+      "rule_id": "M_023",
+      "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition."
+    }
+  ],
+  "rules_engine": {
+    "enabled": true,
+    "failed": false,
+    "observation_record": {
+      "enabled_features": [
+        "Line of Fate",
+        "Line of Head",
+        "Line of Heart",
+        "Line of Life",
+        "Line of Sun",
+        "Lower Mount of Mars",
+        "Mount of Jupiter",
+        "Mount of Luna",
+        "Mount of Mercury",
+        "Mount of Saturn",
+        "Mount of Venus",
+        "Mount of the Sun",
+        "Plain of Mars",
+        "Thumb",
+        "Upper Mount of Mars"
+      ],
+      "features": {
+        "Line of Life": {
+          "tokens": {
+            "Length": {
+              "value": "long",
+              "confidence": 1.0
+            },
+            "Depth": {
+              "value": "deep",
+              "confidence": 1.0
+            },
+            "Width": {
+              "value": "narrow",
+              "confidence": 1.0
+            },
+            "Curve": {
+              "value": "curved",
+              "confidence": 1.0
+            },
+            "Continuity": {
+              "value": "unbroken",
+              "confidence": 1.0
+            },
+            "Starting_Point": {
+              "value": "at_start",
+              "confidence": 1.0
+            },
+            "Ending_Point": {
+              "value": "at_end",
+              "confidence": 1.0
+            }
+          },
+          "unmapped": [],
+          "raw_prose": "present, deep, narrow, long, curves around the base of the thumb, origin near the thumb, ends near the wrist, no breaks/chains/forks/islands visible"
+        },
+        "Line of Head": {
+          "tokens": {
+            "Length": {
+              "value": "long",
+              "confidence": 1.0
+            },
+            "Depth": {
+              "value": "deep",
+              "confidence": 1.0
+            },
+            "Width": {
+              "value": "narrow",
+              "confidence": 1.0
+            },
+            "Slope": {
+              "value": "straight",
+              "confidence": 1.0
+            },
+            "Continuity": {
+              "value": "unbroken",
+              "confidence": 1.0
+            }
+          },
+          "unmapped": [],
+          "raw_prose": "present, deep, narrow, long, straight across, no breaks/chains/forks/islands"
+        },
+        "Line of Heart": {
+          "tokens": {
+            "Length": {
+              "value": "long",
+              "confidence": 1.0
+            },
+            "Depth": {
+              "value": "deep",
+              "confidence": 1.0
+            },
+            "Width": {
+              "value": "narrow",
+              "confidence": 1.0
+            },
+            "Slope": {
+              "value": "straight",
+              "confidence": 1.0
+            },
+            "Continuity": {
+              "value": "unbroken",
+              "confidence": 1.0
+            }
+          },
+          "unmapped": [],
+          "raw_prose": "present, deep, narrow, long, straight, no breaks/chains/forks/islands"
+        },
+        "Line of Fate": {
+          "tokens": {
+            "Branching": {
+              "value": "absent",
+              "confidence": 1.0
+            }
+          },
+          "unmapped": [],
+          "raw_prose": "absent"
+        },
+        "Thumb": {
+          "tokens": {
+            "Proportion": {
+              "value": "medium",
+              "confidence": 1.0
+            },
+            "Setting": {
+              "value": "low",
+              "confidence": 1.0
+            },
+            "Angle": {
+              "value": "wide",
+              "confidence": 1.0
+            }
+          },
+          "unmapped": [],
+          "raw_prose": "medium size, low set, wide angle from the palm"
+        },
+        "Mount of Venus": {
+          "tokens": {
+            "Development": {
+              "value": "well_developed",
+              "confidence": 1.0
+            }
+          },
+          "unmapped": [],
+          "raw_prose": "DEVELOPMENT (Venus): well developed DEVELOPMENT (Jupiter): developed DEVELOPMENT (Saturn): not notably developed DEVELOPMENT (the Sun): not notably developed DEVELOPMENT (Upper Mount of Mars): present"
+        },
+        "Mount of Jupiter": {
+          "tokens": {
+            "Development": {
+              "value": "developed",
+              "confidence": 1.0
+            }
+          },
+          "unmapped": [],
+          "raw_prose": "DEVELOPMENT (Venus): well developed DEVELOPMENT (Jupiter): developed DEVELOPMENT (Saturn): not notably developed DEVELOPMENT (the Sun): not notably developed DEVELOPMENT (Upper Mount of Mars): present"
+        },
+        "Mount of Saturn": {
+          "tokens": {},
+          "unmapped": [
+            {
+              "quality": "not_notably_developed",
+              "attribute_guess": "Development"
+            }
+          ],
+          "raw_prose": "DEVELOPMENT (Venus): well developed DEVELOPMENT (Jupiter): developed DEVELOPMENT (Saturn): not notably developed DEVELOPMENT (the Sun): not notably developed DEVELOPMENT (Upper Mount of Mars): present"
+        },
+        "Mount of the Sun": {
+          "tokens": {},
+          "unmapped": [
+            {
+              "quality": "not_notably_developed",
+              "attribute_guess": "Development"
+            }
+          ],
+          "raw_prose": "DEVELOPMENT (Venus): well developed DEVELOPMENT (Jupiter): developed DEVELOPMENT (Saturn): not notably developed DEVELOPMENT (the Sun): not notably developed DEVELOPMENT (Upper Mount of Mars): present"
+        },
+        "Upper Mount of Mars": {
+          "tokens": {},
+          "unmapped": [
+            {
+              "quality": "present",
+              "attribute_guess": "Development"
+            }
+          ],
+          "raw_prose": "DEVELOPMENT (Venus): well developed DEVELOPMENT (Jupiter): developed DEVELOPMENT (Saturn): not notably developed DEVELOPMENT (the Sun): not notably developed DEVELOPMENT (Upper Mount of Mars): present"
+        }
+      },
+      "dropped_disabled": [],
+      "unmappable_prose_features": [
+        {
+          "prose_feature": "fingers",
+          "raw_prose": "long relative to palm, straight, rounded fingertips, close spacing"
+        },
+        {
+          "prose_feature": "markings/other features",
+          "raw_prose": "not clearly visible"
+        }
+      ]
+    },
+    "observation": {
+      "Line of Life": {
+        "Length": "long",
+        "Depth": "deep",
+        "Width": "narrow",
+        "Curve": "curved",
+        "Continuity": "unbroken",
+        "Starting_Point": "at_start",
+        "Ending_Point": "at_end"
+      },
+      "Line of Head": {
+        "Length": "long",
+        "Depth": "deep",
+        "Width": "narrow",
+        "Slope": "straight",
+        "Continuity": "unbroken",
+        "Proximity": "touching"
+      },
+      "Line of Heart": {
+        "Length": "long",
+        "Depth": "deep",
+        "Width": "narrow",
+        "Slope": "straight",
+        "Continuity": "unbroken",
+        "Proximity": "medium"
+      },
+      "Line of Fate": {
+        "Branching": "absent"
+      },
+      "Thumb": {
+        "Proportion": "medium",
+        "Setting": "low",
+        "Angle": "wide"
+      },
+      "Mount of Venus": {
+        "Development": "well developed"
+      },
+      "Mount of Jupiter": {
+        "Development": "developed"
+      },
+      "Mount of Saturn": {
+        "Development": "not notably developed"
+      },
+      "Mount of the Sun": {
+        "Development": "not notably developed"
+      },
+      "Upper Mount of Mars": {
+        "Development": "present"
+      }
+    },
+    "targets": {
+      "Line of Head": {
+        "Starting_Point": "Line of Life",
+        "Position": "Percussion",
+        "Proximity": "Line of Life",
+        "joins_at_origin": [
+          "Line of Life"
+        ]
+      },
+      "Line of Heart": {
+        "Starting_Point": "Mount of Jupiter",
+        "Position": "Percussion",
+        "Proximity": "Line of Head"
+      }
+    },
+    "proximity_observations": {
+      "Line of Head": {
+        "Proximity": "touching"
+      },
+      "Line of Heart": {
+        "Proximity": "medium"
+      }
+    },
+    "mount_development": {
+      "Mount of Venus": {
+        "Development": "well developed"
+      },
+      "Mount of Jupiter": {
+        "Development": "developed"
+      },
+      "Mount of Saturn": {
+        "Development": "not notably developed"
+      },
+      "Mount of the Sun": {
+        "Development": "not notably developed"
+      },
+      "Upper Mount of Mars": {
+        "Development": "present"
+      }
+    },
+    "flat_subfields": {
+      "Line of Head": {
+        "Slope": {
+          "value": "straight",
+          "write_policy": "authoritative"
+        }
+      },
+      "Line of Heart": {
+        "Slope": {
+          "value": "straight",
+          "write_policy": "authoritative"
+        }
+      }
+    },
+    "flat_subfield_log": [
+      {
+        "feature": "Line of Head",
+        "attribute": "Slope",
+        "incoming_value": "straight",
+        "existing_value": "straight",
+        "policy": "authoritative",
+        "decision": "written_authoritative"
+      },
+      {
+        "feature": "Line of Heart",
+        "attribute": "Slope",
+        "incoming_value": "straight",
+        "existing_value": "straight",
+        "policy": "authoritative",
+        "decision": "written_authoritative"
+      }
+    ],
+    "dropped_tokens": [],
+    "fired_rule_ids": [
+      "HL_001",
+      "H_028",
+      "L_001",
+      "M_001",
+      "M_014",
+      "M_023"
+    ],
+    "surviving_rule_ids": [
+      "HL_001",
+      "H_028",
+      "L_001",
+      "M_001",
+      "M_014",
+      "M_023"
+    ],
+    "surviving_rule_features": [
+      "head line",
+      "heart line",
+      "life line",
+      "mount of jupiter",
+      "mount of mars positive",
+      "mount of venus"
+    ],
+    "suppression_log": [],
+    "citations": {
+      "C1": {
+        "rule_id": "HL_001",
+        "chunk_id": null,
+        "source_page": 156,
+        "source_quote": "When it rises from the center of Jupiter, it gives the highest type of love -- the pride and the worship of the heart's ideal.",
+        "topic_group": "line_heart",
+        "evidence_confidence": null
+      },
+      "C2": {
+        "rule_id": "H_028",
+        "chunk_id": null,
+        "source_page": 146,
+        "source_quote": "The line of head from the commencement of the line of life, and connected with it (d-d, Plate XVI.), indicates a sensitive and more nervous temperament; it denotes excess of caution; even clever people with this mark rein themselves down too tightly.",
+        "topic_group": "line_head",
+        "evidence_confidence": null
+      },
+      "C3": {
+        "rule_id": "L_001",
+        "chunk_id": null,
+        "source_page": 134,
+        "source_quote": "The line of life should be long, narrow, and deep, without irregularities, breaks, or crosses of any kind. Such a formation promises long life, good health, and vitality.",
+        "topic_group": "line_life",
+        "evidence_confidence": 1.0
+      },
+      "C4": {
+        "rule_id": "M_001",
+        "chunk_id": null,
+        "source_page": 112,
+        "source_quote": "Venus be well developed, it indicates strong and robust health.",
+        "topic_group": "mount_venus",
+        "evidence_confidence": 1.0
+      },
+      "C5": {
+        "rule_id": "M_014",
+        "chunk_id": null,
+        "source_page": 112,
+        "source_quote": "When developed it shows ambition, pride, enthusiasm in anything attempted, and desire for power.",
+        "topic_group": "mount_jupiter",
+        "evidence_confidence": 1.0
+      },
+      "C6": {
+        "rule_id": "M_023",
+        "chunk_id": null,
+        "source_page": 113,
+        "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition.",
+        "topic_group": "mount_mars_positive",
+        "evidence_confidence": null
+      }
+    },
+    "dropped_rule_ids": [],
+    "claim_features_outside_registry": [],
+    "phrase_promotions": [],
+    "final_outcome": "rules_engine_ok"
+  },
+  "stage1_feature_diagnostics": {
+    "life line": {
+      "candidates": []
+    },
+    "head line": {
+      "candidates": []
+    },
+    "heart line": {
+      "candidates": []
+    },
+    "fate line": {
+      "candidates": []
+    },
+    "sun line": {
+      "candidates": []
+    },
+    "thumb": {
+      "candidates": []
+    },
+    "fingers": {
+      "candidates": []
+    },
+    "mount of venus": {
+      "candidates": []
+    },
+    "mount of jupiter": {
+      "candidates": []
+    },
+    "mount of saturn": {
+      "candidates": []
+    },
+    "mount of apollo": {
+      "candidates": []
+    },
+    "mount of mercury": {
+      "candidates": []
+    },
+    "mount of mars positive": {
+      "candidates": []
+    },
+    "mount of mars negative": {
+      "candidates": []
+    },
+    "mount of luna": {
+      "candidates": []
+    },
+    "markings/other features": {
+      "candidates": []
+    },
+    "_rules_engine": {
+      "enabled": true,
+      "failed": false,
+      "observation_record": {
+        "enabled_features": [
+          "Line of Fate",
+          "Line of Head",
+          "Line of Heart",
+          "Line of Life",
+          "Line of Sun",
+          "Lower Mount of Mars",
+          "Mount of Jupiter",
+          "Mount of Luna",
+          "Mount of Mercury",
+          "Mount of Saturn",
+          "Mount of Venus",
+          "Mount of the Sun",
+          "Plain of Mars",
+          "Thumb",
+          "Upper Mount of Mars"
+        ],
+        "features": {
+          "Line of Life": {
+            "tokens": {
+              "Length": {
+                "value": "long",
+                "confidence": 1.0
+              },
+              "Depth": {
+                "value": "deep",
+                "confidence": 1.0
+              },
+              "Width": {
+                "value": "narrow",
+                "confidence": 1.0
+              },
+              "Curve": {
+                "value": "curved",
+                "confidence": 1.0
+              },
+              "Continuity": {
+                "value": "unbroken",
+                "confidence": 1.0
+              },
+              "Starting_Point": {
+                "value": "at_start",
+                "confidence": 1.0
+              },
+              "Ending_Point": {
+                "value": "at_end",
+                "confidence": 1.0
+              }
+            },
+            "unmapped": [],
+            "raw_prose": "present, deep, narrow, long, curves around the base of the thumb, origin near the thumb, ends near the wrist, no breaks/chains/forks/islands visible"
+          },
+          "Line of Head": {
+            "tokens": {
+              "Length": {
+                "value": "long",
+                "confidence": 1.0
+              },
+              "Depth": {
+                "value": "deep",
+                "confidence": 1.0
+              },
+              "Width": {
+                "value": "narrow",
+                "confidence": 1.0
+              },
+              "Slope": {
+                "value": "straight",
+                "confidence": 1.0
+              },
+              "Continuity": {
+                "value": "unbroken",
+                "confidence": 1.0
+              }
+            },
+            "unmapped": [],
+            "raw_prose": "present, deep, narrow, long, straight across, no breaks/chains/forks/islands"
+          },
+          "Line of Heart": {
+            "tokens": {
+              "Length": {
+                "value": "long",
+                "confidence": 1.0
+              },
+              "Depth": {
+                "value": "deep",
+                "confidence": 1.0
+              },
+              "Width": {
+                "value": "narrow",
+                "confidence": 1.0
+              },
+              "Slope": {
+                "value": "straight",
+                "confidence": 1.0
+              },
+              "Continuity": {
+                "value": "unbroken",
+                "confidence": 1.0
+              }
+            },
+            "unmapped": [],
+            "raw_prose": "present, deep, narrow, long, straight, no breaks/chains/forks/islands"
+          },
+          "Line of Fate": {
+            "tokens": {
+              "Branching": {
+                "value": "absent",
+                "confidence": 1.0
+              }
+            },
+            "unmapped": [],
+            "raw_prose": "absent"
+          },
+          "Thumb": {
+            "tokens": {
+              "Proportion": {
+                "value": "medium",
+                "confidence": 1.0
+              },
+              "Setting": {
+                "value": "low",
+                "confidence": 1.0
+              },
+              "Angle": {
+                "value": "wide",
+                "confidence": 1.0
+              }
+            },
+            "unmapped": [],
+            "raw_prose": "medium size, low set, wide angle from the palm"
+          },
+          "Mount of Venus": {
+            "tokens": {
+              "Development": {
+                "value": "well_developed",
+                "confidence": 1.0
+              }
+            },
+            "unmapped": [],
+            "raw_prose": "DEVELOPMENT (Venus): well developed DEVELOPMENT (Jupiter): developed DEVELOPMENT (Saturn): not notably developed DEVELOPMENT (the Sun): not notably developed DEVELOPMENT (Upper Mount of Mars): present"
+          },
+          "Mount of Jupiter": {
+            "tokens": {
+              "Development": {
+                "value": "developed",
+                "confidence": 1.0
+              }
+            },
+            "unmapped": [],
+            "raw_prose": "DEVELOPMENT (Venus): well developed DEVELOPMENT (Jupiter): developed DEVELOPMENT (Saturn): not notably developed DEVELOPMENT (the Sun): not notably developed DEVELOPMENT (Upper Mount of Mars): present"
+          },
+          "Mount of Saturn": {
+            "tokens": {},
+            "unmapped": [
+              {
+                "quality": "not_notably_developed",
+                "attribute_guess": "Development"
+              }
+            ],
+            "raw_prose": "DEVELOPMENT (Venus): well developed DEVELOPMENT (Jupiter): developed DEVELOPMENT (Saturn): not notably developed DEVELOPMENT (the Sun): not notably developed DEVELOPMENT (Upper Mount of Mars): present"
+          },
+          "Mount of the Sun": {
+            "tokens": {},
+            "unmapped": [
+              {
+                "quality": "not_notably_developed",
+                "attribute_guess": "Development"
+              }
+            ],
+            "raw_prose": "DEVELOPMENT (Venus): well developed DEVELOPMENT (Jupiter): developed DEVELOPMENT (Saturn): not notably developed DEVELOPMENT (the Sun): not notably developed DEVELOPMENT (Upper Mount of Mars): present"
+          },
+          "Upper Mount of Mars": {
+            "tokens": {},
+            "unmapped": [
+              {
+                "quality": "present",
+                "attribute_guess": "Development"
+              }
+            ],
+            "raw_prose": "DEVELOPMENT (Venus): well developed DEVELOPMENT (Jupiter): developed DEVELOPMENT (Saturn): not notably developed DEVELOPMENT (the Sun): not notably developed DEVELOPMENT (Upper Mount of Mars): present"
+          }
+        },
+        "dropped_disabled": [],
+        "unmappable_prose_features": [
+          {
+            "prose_feature": "fingers",
+            "raw_prose": "long relative to palm, straight, rounded fingertips, close spacing"
+          },
+          {
+            "prose_feature": "markings/other features",
+            "raw_prose": "not clearly visible"
+          }
+        ]
+      },
+      "observation": {
+        "Line of Life": {
+          "Length": "long",
+          "Depth": "deep",
+          "Width": "narrow",
+          "Curve": "curved",
+          "Continuity": "unbroken",
+          "Starting_Point": "at_start",
+          "Ending_Point": "at_end"
+        },
+        "Line of Head": {
+          "Length": "long",
+          "Depth": "deep",
+          "Width": "narrow",
+          "Slope": "straight",
+          "Continuity": "unbroken",
+          "Proximity": "touching"
+        },
+        "Line of Heart": {
+          "Length": "long",
+          "Depth": "deep",
+          "Width": "narrow",
+          "Slope": "straight",
+          "Continuity": "unbroken",
+          "Proximity": "medium"
+        },
+        "Line of Fate": {
+          "Branching": "absent"
+        },
+        "Thumb": {
+          "Proportion": "medium",
+          "Setting": "low",
+          "Angle": "wide"
+        },
+        "Mount of Venus": {
+          "Development": "well developed"
+        },
+        "Mount of Jupiter": {
+          "Development": "developed"
+        },
+        "Mount of Saturn": {
+          "Development": "not notably developed"
+        },
+        "Mount of the Sun": {
+          "Development": "not notably developed"
+        },
+        "Upper Mount of Mars": {
+          "Development": "present"
+        }
+      },
+      "targets": {
+        "Line of Head": {
+          "Starting_Point": "Line of Life",
+          "Position": "Percussion",
+          "Proximity": "Line of Life",
+          "joins_at_origin": [
+            "Line of Life"
+          ]
+        },
+        "Line of Heart": {
+          "Starting_Point": "Mount of Jupiter",
+          "Position": "Percussion",
+          "Proximity": "Line of Head"
+        }
+      },
+      "proximity_observations": {
+        "Line of Head": {
+          "Proximity": "touching"
+        },
+        "Line of Heart": {
+          "Proximity": "medium"
+        }
+      },
+      "mount_development": {
+        "Mount of Venus": {
+          "Development": "well developed"
+        },
+        "Mount of Jupiter": {
+          "Development": "developed"
+        },
+        "Mount of Saturn": {
+          "Development": "not notably developed"
+        },
+        "Mount of the Sun": {
+          "Development": "not notably developed"
+        },
+        "Upper Mount of Mars": {
+          "Development": "present"
+        }
+      },
+      "flat_subfields": {
+        "Line of Head": {
+          "Slope": {
+            "value": "straight",
+            "write_policy": "authoritative"
+          }
+        },
+        "Line of Heart": {
+          "Slope": {
+            "value": "straight",
+            "write_policy": "authoritative"
+          }
+        }
+      },
+      "flat_subfield_log": [
+        {
+          "feature": "Line of Head",
+          "attribute": "Slope",
+          "incoming_value": "straight",
+          "existing_value": "straight",
+          "policy": "authoritative",
+          "decision": "written_authoritative"
+        },
+        {
+          "feature": "Line of Heart",
+          "attribute": "Slope",
+          "incoming_value": "straight",
+          "existing_value": "straight",
+          "policy": "authoritative",
+          "decision": "written_authoritative"
+        }
+      ],
+      "dropped_tokens": [],
+      "fired_rule_ids": [
+        "HL_001",
+        "H_028",
+        "L_001",
+        "M_001",
+        "M_014",
+        "M_023"
+      ],
+      "surviving_rule_ids": [
+        "HL_001",
+        "H_028",
+        "L_001",
+        "M_001",
+        "M_014",
+        "M_023"
+      ],
+      "surviving_rule_features": [
+        "head line",
+        "heart line",
+        "life line",
+        "mount of jupiter",
+        "mount of mars positive",
+        "mount of venus"
+      ],
+      "suppression_log": [],
+      "citations": {
+        "C1": {
+          "rule_id": "HL_001",
+          "chunk_id": null,
+          "source_page": 156,
+          "source_quote": "When it rises from the center of Jupiter, it gives the highest type of love -- the pride and the worship of the heart's ideal.",
+          "topic_group": "line_heart",
+          "evidence_confidence": null
+        },
+        "C2": {
+          "rule_id": "H_028",
+          "chunk_id": null,
+          "source_page": 146,
+          "source_quote": "The line of head from the commencement of the line of life, and connected with it (d-d, Plate XVI.), indicates a sensitive and more nervous temperament; it denotes excess of caution; even clever people with this mark rein themselves down too tightly.",
+          "topic_group": "line_head",
+          "evidence_confidence": null
+        },
+        "C3": {
+          "rule_id": "L_001",
+          "chunk_id": null,
+          "source_page": 134,
+          "source_quote": "The line of life should be long, narrow, and deep, without irregularities, breaks, or crosses of any kind. Such a formation promises long life, good health, and vitality.",
+          "topic_group": "line_life",
+          "evidence_confidence": 1.0
+        },
+        "C4": {
+          "rule_id": "M_001",
+          "chunk_id": null,
+          "source_page": 112,
+          "source_quote": "Venus be well developed, it indicates strong and robust health.",
+          "topic_group": "mount_venus",
+          "evidence_confidence": 1.0
+        },
+        "C5": {
+          "rule_id": "M_014",
+          "chunk_id": null,
+          "source_page": 112,
+          "source_quote": "When developed it shows ambition, pride, enthusiasm in anything attempted, and desire for power.",
+          "topic_group": "mount_jupiter",
+          "evidence_confidence": 1.0
+        },
+        "C6": {
+          "rule_id": "M_023",
+          "chunk_id": null,
+          "source_page": 113,
+          "source_quote": "This, the first, gives active courage, the martial spirit, but when large, shows a very quarrelsome, fighting disposition.",
+          "topic_group": "mount_mars_positive",
+          "evidence_confidence": null
+        }
+      },
+      "dropped_rule_ids": [],
+      "claim_features_outside_registry": [],
+      "phrase_promotions": [],
+      "final_outcome": "rules_engine_ok"
+    }
+  },
+  "capture_rows_before": 2,
+  "capture_rows_after": 2,
+  "capture_new_rows": [],
+  "digest": {
+    "total_rows": 2,
+    "date_range_seen": {
+      "min_ts": "2026-09-02T14:26:24.230299+00:00",
+      "max_ts": "2026-09-02T15:28:32.802028+00:00"
+    },
+    "counts_by_trigger": {
+      "ai_decision": 0,
+      "instability": 0,
+      "silence": 2,
+      "wrong_source": 0
+    },
+    "counts_by_trigger_x_feature": {
+      "ai_decision": {},
+      "instability": {},
+      "silence": {
+        "Line of Heart": 2
+      },
+      "wrong_source": {}
+    },
+    "counts_by_disposition": {
+      "llm_unclear": 2
+    },
+    "ai_decision_rows": []
+  },
+  "digest_markdown": "# Capture-Net Digest\n\n**2 row(s)**, 2026-09-02T14:26:24.230299+00:00 to 2026-09-02T15:28:32.802028+00:00.\n\n## Counts by trigger\n\n| trigger | count |\n|---|---|\n| ai_decision | 0 |\n| instability | 0 |\n| silence | 2 |\n| wrong_source | 0 |\n\n## Counts by trigger x feature\n\n| trigger | feature | count |\n|---|---|---|\n| silence | Line of Heart | 2 |\n\n## AI decisions to review\n\nNone in range.\n"
+}

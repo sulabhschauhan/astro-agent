@@ -1,0 +1,277 @@
+{
+ "schema": "sample-tags-v0",
+ "content_timing": [
+  "dasha_effect",
+  "timing_event"
+ ],
+ "content_placement": [
+  "aspect_relation",
+  "general_qualifier",
+  "specific_placement",
+  "yoga_combination"
+ ],
+ "non_content": [
+  "computation_method",
+  "definitional",
+  "narrative",
+  "unusable"
+ ],
+ "segments": [
+  {
+   "segment_id": "ch41_s013",
+   "topics": [
+    "wealth_finance"
+   ],
+   "rule_type": "dasha_effect",
+   "houses": [
+    5,
+    9
+   ],
+   "planets": [],
+   "note": "9th & 5th lords give wealth during their Dasa periods \u2014 real timing-answer content"
+  },
+  {
+   "segment_id": "ch44_s003",
+   "topics": [
+    "health_longevity"
+   ],
+   "rule_type": "timing_event",
+   "houses": [],
+   "planets": [
+    "Saturn"
+   ],
+   "note": "Marakas & lifespan bands (short/med/long) \u2014 death-timing answer content"
+  },
+  {
+   "segment_id": "ch6_s001",
+   "topics": [
+    "health_longevity"
+   ],
+   "rule_type": "computation_method",
+   "houses": [],
+   "planets": [],
+   "note": "How to CALCULATE Soola/Sthira Dasa for time of death \u2014 machinery, not an answer"
+  },
+  {
+   "segment_id": "ch46_s001",
+   "topics": [
+    "general_method"
+   ],
+   "rule_type": "definitional",
+   "houses": [],
+   "planets": [],
+   "note": "Names the Dasa systems (Vimshottari, Ashtottari...) \u2014 definitional machinery"
+  },
+  {
+   "segment_id": "ch46_s002",
+   "topics": [
+    "general_method"
+   ],
+   "rule_type": "computation_method",
+   "houses": [],
+   "planets": [],
+   "note": "How to find the Dasa balance at birth \u2014 pure math"
+  },
+  {
+   "segment_id": "ch46_s014",
+   "topics": [
+    "general_method"
+   ],
+   "rule_type": "computation_method",
+   "houses": [],
+   "planets": [],
+   "note": "Nakshatra-pada table + worked example finding Dasa lord \u2014 math"
+  },
+  {
+   "segment_id": "ch46_s015",
+   "topics": [
+    "general_method"
+   ],
+   "rule_type": "computation_method",
+   "houses": [],
+   "planets": [],
+   "note": "Rule for WHICH dasha system to use (Krishna/Shukla Paksha) \u2014 math"
+  },
+  {
+   "segment_id": "ch46_s016",
+   "topics": [
+    "general_method"
+   ],
+   "rule_type": "computation_method",
+   "houses": [],
+   "planets": [],
+   "note": "Kala Dasa computation \u2014 math"
+  },
+  {
+   "segment_id": "ch46_s017",
+   "topics": [
+    "general_method"
+   ],
+   "rule_type": "narrative",
+   "houses": [],
+   "planets": [],
+   "note": "'Now I shall describe Deha/Jeeva...' \u2014 connective filler"
+  },
+  {
+   "segment_id": "ch46_s018",
+   "topics": [
+    "general_method"
+   ],
+   "rule_type": "computation_method",
+   "houses": [],
+   "planets": [],
+   "note": "Deha/Jeeva reckoning by pada \u2014 math"
+  },
+  {
+   "segment_id": "ch18_s001",
+   "topics": [
+    "progeny_children",
+    "marriage_spouse"
+   ],
+   "rule_type": "specific_placement",
+   "houses": [
+    5,
+    6,
+    12,
+    7
+   ],
+   "planets": [],
+   "note": "Inimical sons (5L/6L) + 7L in own/exalt \u2192 marital happiness"
+  },
+  {
+   "segment_id": "ch18_s002",
+   "topics": [
+    "marriage_spouse"
+   ],
+   "rule_type": "specific_placement",
+   "houses": [
+    7,
+    4
+   ],
+   "planets": [
+    "Sun",
+    "Moon",
+    "Mars",
+    "Venus",
+    "Saturn"
+   ],
+   "note": "7L in Sat/Ven sign \u2192 many wives; planet-in-7th associations"
+  },
+  {
+   "segment_id": "ch18_s003",
+   "topics": [
+    "marriage_spouse"
+   ],
+   "rule_type": "specific_placement",
+   "houses": [
+    5,
+    12,
+    7
+   ],
+   "planets": [
+    "Moon"
+   ],
+   "note": "Moon decreasing in 5th, malefics in 12/7 \u2192 high-handed spouse"
+  },
+  {
+   "segment_id": "ch18_s004",
+   "topics": [
+    "marriage_spouse"
+   ],
+   "rule_type": "general_qualifier",
+   "houses": [
+    7
+   ],
+   "planets": [
+    "Saturn",
+    "Mars"
+   ],
+   "note": "Sat/Mars in or owning 7th \u2192 questionable spouse character"
+  },
+  {
+   "segment_id": "ch18_s005",
+   "topics": [
+    "marriage_spouse"
+   ],
+   "rule_type": "specific_placement",
+   "houses": [],
+   "planets": [
+    "Venus",
+    "Mars"
+   ],
+   "note": "Venus in Mars rasi/navamsa \u2192 sexual conduct"
+  },
+  {
+   "segment_id": "ch18_s006",
+   "topics": [
+    "marriage_spouse"
+   ],
+   "rule_type": "specific_placement",
+   "houses": [
+    7
+   ],
+   "planets": [
+    "Venus",
+    "Saturn"
+   ],
+   "note": "Worthy spouse: 7L exalted + strong asc-lord/benefic in 7th"
+  },
+  {
+   "segment_id": "ch18_s007",
+   "topics": [
+    "marriage_spouse"
+   ],
+   "rule_type": "aspect_relation",
+   "houses": [
+    7
+   ],
+   "planets": [],
+   "note": "7th/7L conjunct malefic \u2192 evils to wife"
+  },
+  {
+   "segment_id": "ch18_s008",
+   "topics": [
+    "marriage_spouse"
+   ],
+   "rule_type": "specific_placement",
+   "houses": [
+    7,
+    12
+   ],
+   "planets": [
+    "Moon",
+    "Venus"
+   ],
+   "note": "Moon in 7th, 7L in 12th, weak Venus \u2192 no marital happiness"
+  },
+  {
+   "segment_id": "ch18_s010",
+   "topics": [
+    "marriage_spouse"
+   ],
+   "rule_type": "timing_event",
+   "houses": [
+    7,
+    9
+   ],
+   "planets": [],
+   "note": "TIME OF MARRIAGE: 7L placement \u2192 age of marriage \u2014 timing content"
+  },
+  {
+   "segment_id": "ch18_s011",
+   "topics": [
+    "marriage_spouse"
+   ],
+   "rule_type": "timing_event",
+   "houses": [
+    7
+   ],
+   "planets": [
+    "Venus",
+    "Saturn",
+    "Moon"
+   ],
+   "note": "Venus/Saturn 7th-from \u2192 marriage in 18th year \u2014 maturity-age timing"
+  }
+ ]
+}

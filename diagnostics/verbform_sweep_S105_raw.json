@@ -1,0 +1,182 @@
+[
+  {
+    "hand": "left",
+    "run": 0,
+    "error": null,
+    "raw_text": "HAND SHAPE: elongated palm, overall build medium\nFINGERS: long relative to palm, straight, rounded fingertips, medium spacing\nTHUMB: medium size, low set, wide angle from the palm\nLIFE LINE: present, deep, medium width, long, curves around the base of the thumb, origin near the thumb, ends near the wrist, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\nHEAD LINE: present, deep, medium width, long, straight across\n  SLOPE: straight\n  ORIGIN: Line of Life\n  TERMINATION: Percussion\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  RELATIONSHIP: joins_at_origin Line of Life\n  CONTACTS: Line of Life | joins | at start | clear\nHEART LINE: present, deep, medium width, long, curves slightly upward\n  SLOPE: upward\n  ORIGIN: Junction of First and Second Fingers\n  TERMINATION: Percussion\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  RELATIONSHIP: none\n  CONTACTS: none\nFATE LINE: present, deep, medium width, long\n  SLOPE: upward\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  RELATIONSHIP: none\n  CONTACTS: none\nLINE OF HEALTH: not clearly visible\nLINE OF MARRIAGE: not clearly visible\nOTHER LINES: not clearly visible\nMOUNTS: Mount of Venus developed, others not clearly visible\nMARKS: not clearly visible",
+    "contacts": {
+      "Line of Head": [
+        {
+          "target": "Line of Life",
+          "verb": "joins",
+          "position": "at start",
+          "clarity": "clear"
+        }
+      ],
+      "Line of Heart": [],
+      "Line of Fate": []
+    },
+    "labeled_contacts": [
+      {
+        "feature": "Line of Head",
+        "token": "joins_at_origin",
+        "confidence": "high",
+        "raw_verb": "joins",
+        "target": "Line of Life",
+        "position": "at start",
+        "reason": null,
+        "clarity": "clear"
+      }
+    ]
+  },
+  {
+    "hand": "left",
+    "run": 1,
+    "error": null,
+    "raw_text": "HAND SHAPE: elongated palm, overall build is medium\nFINGERS: long relative to palm, straight, rounded fingertips, medium spacing\nTHUMB: medium size, low set, wide angle from the palm\nLIFE LINE: present, deep, medium width, long, curves around the base of the thumb, origin near the thumb, ends near the wrist, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\nHEAD LINE: present, deep, medium width, long, sloping downward toward the wrist\n  SLOPE: downward\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  RELATIONSHIP: joins_at_origin Line of Life\n  CONTACTS: Line of Life | joins | at start | clear\nHEART LINE: present, deep, medium width, long, curves slightly\n  SLOPE: straight\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  RELATIONSHIP: none\n  CONTACTS: none\nFATE LINE: present, deep, medium width, long\n  SLOPE: upward\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  RELATIONSHIP: none\n  CONTACTS: none\nLINE OF HEALTH: not clearly visible\nLINE OF MARRIAGE: not clearly visible\nOTHER LINES: not clearly visible\nMOUNTS: Mount of Venus developed, others not clearly visible\nMARKS: not clearly visible",
+    "contacts": {
+      "Line of Head": [
+        {
+          "target": "Line of Life",
+          "verb": "joins",
+          "position": "at start",
+          "clarity": "clear"
+        }
+      ],
+      "Line of Heart": [],
+      "Line of Fate": []
+    },
+    "labeled_contacts": [
+      {
+        "feature": "Line of Head",
+        "token": "joins_at_origin",
+        "confidence": "high",
+        "raw_verb": "joins",
+        "target": "Line of Life",
+        "position": "at start",
+        "reason": null,
+        "clarity": "clear"
+      }
+    ]
+  },
+  {
+    "hand": "left",
+    "run": 2,
+    "error": null,
+    "raw_text": "HAND SHAPE: elongated palm, overall build is medium\nFINGERS: long relative to palm, straight, rounded fingertips, medium spacing\nTHUMB: medium size, low set, wide angle from the palm\nLIFE LINE: present, deep, medium width, long, curves around the base of the thumb, origin near the thumb, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\nHEAD LINE: present, deep, medium width, long, sloping downward toward the wrist\n  SLOPE: downward\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  RELATIONSHIP: joins_at_origin Line of Life\n  CONTACTS: Line of Life | joins | at start | clear\nHEART LINE: present, deep, medium width, long, curves slightly upward\n  SLOPE: upward\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  RELATIONSHIP: none\n  CONTACTS: none\nFATE LINE: present, deep, medium width, long\n  SLOPE: upward\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  RELATIONSHIP: none\n  CONTACTS: none\nLINE OF HEALTH: not clearly visible\nLINE OF MARRIAGE: not clearly visible\nOTHER LINES: not clearly visible\nMOUNTS: Mount of Venus developed, others not clearly visible\nMARKS: not clearly visible",
+    "contacts": {
+      "Line of Head": [
+        {
+          "target": "Line of Life",
+          "verb": "joins",
+          "position": "at start",
+          "clarity": "clear"
+        }
+      ],
+      "Line of Heart": [],
+      "Line of Fate": []
+    },
+    "labeled_contacts": [
+      {
+        "feature": "Line of Head",
+        "token": "joins_at_origin",
+        "confidence": "high",
+        "raw_verb": "joins",
+        "target": "Line of Life",
+        "position": "at start",
+        "reason": null,
+        "clarity": "clear"
+      }
+    ]
+  },
+  {
+    "hand": "right",
+    "run": 0,
+    "error": null,
+    "raw_text": "HAND SHAPE: elongated palm, overall build is medium\nFINGERS: medium length relative to palm, straight, rounded fingertips, medium spacing\nTHUMB: medium size, low set, wide angle from the palm\nLIFE LINE: present, deep, medium width, long, curves around the base of the thumb, origin near the thumb, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\nHEAD LINE: present, deep, medium width, long, sloping downward toward the wrist\n  SLOPE: downward\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  RELATIONSHIP: touches Line of Life\n  CONTACTS: Line of Life | touches | at start | clear\nHEART LINE: present, deep, medium width, long, curves slightly\n  SLOPE: straight\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  RELATIONSHIP: none\n  CONTACTS: none\nFATE LINE: present, deep, medium width, long\n  SLOPE: upward\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  RELATIONSHIP: none\n  CONTACTS: none\nLINE OF HEALTH: not clearly visible\nLINE OF MARRIAGE: not clearly visible\nOTHER LINES: not clearly visible\nMOUNTS: Mount of Venus developed, others not clearly visible\nMARKS: not clearly visible",
+    "contacts": {
+      "Line of Head": [
+        {
+          "target": "Line of Life",
+          "verb": "touches",
+          "position": "at start",
+          "clarity": "clear"
+        }
+      ],
+      "Line of Heart": [],
+      "Line of Fate": []
+    },
+    "labeled_contacts": [
+      {
+        "feature": "Line of Head",
+        "token": "touches",
+        "confidence": "high",
+        "raw_verb": "touches",
+        "target": "Line of Life",
+        "position": "at start",
+        "reason": null,
+        "clarity": "clear"
+      }
+    ]
+  },
+  {
+    "hand": "right",
+    "run": 1,
+    "error": null,
+    "raw_text": "HAND SHAPE: elongated palm, overall build is medium\nFINGERS: fingers are long relative to palm, straight, rounded fingertips, medium spacing\nTHUMB: medium size, low set, wide angle from the palm\nLIFE LINE: present, deep, medium width, long, curves around the base of the thumb, origin near the thumb, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\nHEAD LINE: present, deep, medium width, long, sloping downward toward the wrist\n  SLOPE: downward\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  RELATIONSHIP: joins_at_origin Line of Life\n  CONTACTS: Line of Life | joins | at start | clear\nHEART LINE: present, deep, medium width, long, curves slightly\n  SLOPE: straight\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  RELATIONSHIP: none\n  CONTACTS: none\nFATE LINE: present, deep, medium width, long\n  SLOPE: upward\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  RELATIONSHIP: none\n  CONTACTS: none\nLINE OF HEALTH: not clearly visible\nLINE OF MARRIAGE: not clearly visible\nOTHER LINES: not clearly visible\nMOUNTS: Mount of Venus developed, others not clearly visible\nMARKS: not clearly visible",
+    "contacts": {
+      "Line of Head": [
+        {
+          "target": "Line of Life",
+          "verb": "joins",
+          "position": "at start",
+          "clarity": "clear"
+        }
+      ],
+      "Line of Heart": [],
+      "Line of Fate": []
+    },
+    "labeled_contacts": [
+      {
+        "feature": "Line of Head",
+        "token": "joins_at_origin",
+        "confidence": "high",
+        "raw_verb": "joins",
+        "target": "Line of Life",
+        "position": "at start",
+        "reason": null,
+        "clarity": "clear"
+      }
+    ]
+  },
+  {
+    "hand": "right",
+    "run": 2,
+    "error": null,
+    "raw_text": "HAND SHAPE: elongated palm, medium build\n\nFINGERS: medium length relative to palm, straight, rounded fingertips, medium spacing\n\nTHUMB: medium size, low set, wide angle from the palm\n\nLIFE LINE: present, deep, medium width, long, curves around the base of the thumb, origin near the thumb, no breaks/chains/forks/islands visible\n  CONVERGENCE: none\n\nHEAD LINE: present, deep, medium width, long, sloping downward toward the wrist\n  SLOPE: downward\n  ORIGIN: Line of Life\n  TERMINATION: Mount of Luna\n  PROXIMITY: touching to Line of Life\n  BRANCHES_TO: none\n  RELATIONSHIP: joins_at_origin Line of Life\n  CONTACTS: Line of Life | joins | at start | clear\n\nHEART LINE: present, deep, medium width, long, curves slightly\n  SLOPE: straight\n  ORIGIN: Mount of Jupiter\n  TERMINATION: Percussion\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  RELATIONSHIP: none\n  CONTACTS: none\n\nFATE LINE: present, deep, medium width, long\n  SLOPE: upward\n  ORIGIN: Wrist\n  TERMINATION: Mount of Saturn\n  PROXIMITY: medium to Line of Head\n  BRANCHES_TO: none\n  BREAK TYPE: n/a\n  LENGTH EXTENT: n/a\n  RELATIONSHIP: none\n  CONTACTS: none\n\nLINE OF HEALTH: not clearly visible\n\nLINE OF MARRIAGE: not clearly visible\n\nOTHER LINES: not clearly visible\n\nMOUNTS: Mount of Venus developed, others not clearly visible\n\nMARKS: not clearly visible",
+    "contacts": {
+      "Line of Head": [
+        {
+          "target": "Line of Life",
+          "verb": "joins",
+          "position": "at start",
+          "clarity": "clear"
+        }
+      ],
+      "Line of Heart": [],
+      "Line of Fate": []
+    },
+    "labeled_contacts": [
+      {
+        "feature": "Line of Head",
+        "token": "joins_at_origin",
+        "confidence": "high",
+        "raw_verb": "joins",
+        "target": "Line of Life",
+        "position": "at start",
+        "reason": null,
+        "clarity": "clear"
+      }
+    ]
+  }
+]

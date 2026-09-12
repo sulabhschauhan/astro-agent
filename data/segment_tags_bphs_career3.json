@@ -1,0 +1,3067 @@
+{
+  "source_file": "data/segment_tags_bphs_career3.json",
+  "generated_by": "build_segment_tags.py",
+  "generated_at": "2026-09-04T09:22:11.689967+00:00",
+  "source_segment_index_sha256": "0633d6eaffb92492feeaaf246f549bee57281b77b7b65342bc1277049ff6771e",
+  "tagger_version": "segtag-2.0",
+  "tagger": "claude-code-subagent",
+  "n_batches": 4,
+  "segment_count": 135,
+  "topic_vocabulary": [
+    "wealth_finance",
+    "career_profession",
+    "marriage_spouse",
+    "progeny_children",
+    "father_paternal",
+    "mother_maternal",
+    "siblings",
+    "health_longevity",
+    "royal_status_fame",
+    "character_conduct",
+    "religion_spirituality",
+    "education_learning",
+    "yoga_combination",
+    "planetary_classification",
+    "general_method"
+  ],
+  "segments": [
+    {
+      "segment_id": "bphs1_ch21#1",
+      "ordinal": 1,
+      "rule_type": "specific_placement",
+      "houses": [
+        9
+      ],
+      "planets": [
+        "Moon",
+        "Saturn"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Saturn and Moon in 9th with debilitated ascendant lord causes acquiring food by begging."
+    },
+    {
+      "segment_id": "bphs1_ch21#2",
+      "ordinal": 2,
+      "rule_type": "narrative",
+      "houses": [
+        9,
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [],
+      "confidence": "high",
+      "note": "Closing remarks on 9th-house effects plus Chapter 21 title and opening invocation verse; no rule content."
+    },
+    {
+      "segment_id": "bphs1_ch21#3",
+      "ordinal": 3,
+      "rule_type": "specific_placement",
+      "houses": [
+        9,
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "father_paternal",
+        "royal_status_fame"
+      ],
+      "confidence": "high",
+      "note": "Strong 10th lord exalted or in own sign gives paternal happiness, fame and good deeds; notes contrast 10th vs 9th house domains."
+    },
+    {
+      "segment_id": "bphs1_ch21#4",
+      "ordinal": 4,
+      "rule_type": "specific_placement",
+      "houses": [
+        10
+      ],
+      "planets": [
+        "Rahu"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "religion_spirituality"
+      ],
+      "confidence": "high",
+      "note": "Weak 10th lord causes work obstructions; Rahu strong in angle/trine gives performance of religious sacrifices."
+    },
+    {
+      "segment_id": "bphs1_ch21#5",
+      "ordinal": 5,
+      "rule_type": "specific_placement",
+      "houses": [
+        10,
+        11
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "10th lord with benefic/auspicious house gains via royal patronage and business (opposite if contrary); 10th and 11th both with malefics gives bad deeds."
+    },
+    {
+      "segment_id": "bphs1_ch21#6",
+      "ordinal": 6,
+      "rule_type": "specific_placement",
+      "houses": [
+        8,
+        10
+      ],
+      "planets": [
+        "Rahu"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct"
+      ],
+      "confidence": "high",
+      "note": "10th lord relegated to 8th with Rahu causes hatred, foolishness, bad deeds and spoiled professional happiness."
+    },
+    {
+      "segment_id": "bphs1_ch21#7",
+      "ordinal": 7,
+      "rule_type": "specific_placement",
+      "houses": [
+        7,
+        10
+      ],
+      "planets": [
+        "Mars",
+        "Saturn"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct"
+      ],
+      "confidence": "low",
+      "note": "Saturn, Mars and 10th lord in 7th, with a second lord (OCR-damaged 'Ith lord', likely 11th, omitted) joined to a malefic, gives carnal indulgence."
+    },
+    {
+      "segment_id": "bphs1_ch21#8",
+      "ordinal": 8,
+      "rule_type": "specific_placement",
+      "houses": [
+        9,
+        10,
+        11
+      ],
+      "planets": [
+        "Jupiter"
+      ],
+      "signs": [
+        "Pisces"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Bundled sloka 8-10: exalted 10th lord with Jupiter, 9th lord in 10th, 11th lord in 10th with 10th lord in ascendant, or 10th lord strong in Pisces with Jupiter, all give honour, wealth and happiness."
+    },
+    {
+      "segment_id": "bphs1_ch21#9",
+      "ordinal": 9,
+      "rule_type": "specific_placement",
+      "houses": [],
+      "planets": [
+        "Jupiter",
+        "Moon",
+        "Venus"
+      ],
+      "signs": [
+        "Pisces"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "education_learning",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Jupiter and Venus in Pisces with strong ascendant lord and exalted Moon gives learning, spiritual knowledge and wealth."
+    },
+    {
+      "segment_id": "bphs1_ch21#10",
+      "ordinal": 10,
+      "rule_type": "specific_placement",
+      "houses": [
+        10,
+        11
+      ],
+      "planets": [
+        "Venus"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "10th lord in 11th, 11th lord in ascendant, and Venus in 10th gives precious stones."
+    },
+    {
+      "segment_id": "bphs1_ch21#11",
+      "ordinal": 11,
+      "rule_type": "specific_placement",
+      "houses": [
+        10
+      ],
+      "planets": [
+        "Jupiter"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct"
+      ],
+      "confidence": "high",
+      "note": "10th lord exalted in an angle/trine, joined or aspected by Jupiter, gives worthy deeds."
+    },
+    {
+      "segment_id": "bphs1_ch21#12",
+      "ordinal": 12,
+      "rule_type": "specific_placement",
+      "houses": [
+        10
+      ],
+      "planets": [
+        "Moon"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct"
+      ],
+      "confidence": "high",
+      "note": "10th lord with ascendant lord in ascendant, Moon in an angle/trine, gives interest in good deeds."
+    },
+    {
+      "segment_id": "bphs1_ch21#13",
+      "ordinal": 13,
+      "rule_type": "specific_placement",
+      "houses": [
+        10
+      ],
+      "planets": [
+        "Saturn"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct"
+      ],
+      "confidence": "high",
+      "note": "Saturn in 10th with a debilitated planet, plus navamsa-10th occupied by a malefic, gives lack of virtuous acts."
+    },
+    {
+      "segment_id": "bphs1_ch21#14",
+      "ordinal": 14,
+      "rule_type": "specific_placement",
+      "houses": [
+        7,
+        8,
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct"
+      ],
+      "confidence": "high",
+      "note": "Bundled sloka 17-18: 10th lord in 8th with 8th lord in 10th plus a malefic gives bad acts; 10th lord in fall with malefic occupation of the 10th and 7th (10th-from-10th) gives obstructions."
+    },
+    {
+      "segment_id": "bphs1_ch24#1",
+      "ordinal": 1,
+      "rule_type": "specific_placement",
+      "houses": [
+        2
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "health_longevity",
+        "marriage_spouse",
+        "progeny_children",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Chapter 24 header plus ascendant lord in the ascendant itself (health, prowess) and in the 2nd (gains, scholarship, many wives; notes add obstacles to progeny)."
+    },
+    {
+      "segment_id": "bphs1_ch24#2",
+      "ordinal": 2,
+      "rule_type": "specific_placement",
+      "houses": [
+        3
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "marriage_spouse",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Ascendant lord in the 3rd gives valour, wealth, two wives; notes add kingly respect and unnatural sexual conduct."
+    },
+    {
+      "segment_id": "bphs1_ch24#3",
+      "ordinal": 3,
+      "rule_type": "specific_placement",
+      "houses": [
+        4
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "father_paternal",
+        "mother_maternal",
+        "siblings"
+      ],
+      "confidence": "high",
+      "note": "Ascendant lord in the 4th gives paternal and maternal happiness, many brothers, virtue and charm."
+    },
+    {
+      "segment_id": "bphs1_ch24#4",
+      "ordinal": 4,
+      "rule_type": "specific_placement",
+      "houses": [
+        5,
+        6,
+        7
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [
+        "Scorpio",
+        "Taurus"
+      ],
+      "topics": [
+        "health_longevity",
+        "marriage_spouse",
+        "progeny_children",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Ascendant lord in 5th/6th/7th gives mixed progeny, health and marriage results; notes except Scorpio/Taurus ascendant from the 6th-house health-loss reading."
+    },
+    {
+      "segment_id": "bphs1_ch24#5",
+      "ordinal": 5,
+      "rule_type": "specific_placement",
+      "houses": [
+        8,
+        9
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [
+        "Aries",
+        "Libra"
+      ],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "father_paternal",
+        "health_longevity",
+        "marriage_spouse",
+        "progeny_children",
+        "religion_spirituality",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Ascendant lord in 8th (mixed ill effects, child mortality) or 9th (fortune, devotion, wealth); notes exempt Aries/Libra ascendant from the standard 8th-house evil-result reading."
+    },
+    {
+      "segment_id": "bphs1_ch24#6",
+      "ordinal": 6,
+      "rule_type": "specific_placement",
+      "houses": [
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "father_paternal",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Ascendant lord in the 10th gives paternal happiness, royal honour, fame and self-earned wealth; notes add ambition and prosperity."
+    },
+    {
+      "segment_id": "bphs1_ch24#7",
+      "ordinal": 7,
+      "rule_type": "specific_placement",
+      "houses": [
+        11
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "marriage_spouse",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Ascendant lord in the 11th gives gains, good qualities, fame and many wives."
+    },
+    {
+      "segment_id": "bphs1_ch24#8",
+      "ordinal": 8,
+      "rule_type": "specific_placement",
+      "houses": [
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Ascendant lord in the 12th without benefic aspect gives loss of physical happiness, wasteful spending, anger and vices."
+    },
+    {
+      "segment_id": "bphs1_ch24#9",
+      "ordinal": 9,
+      "rule_type": "specific_placement",
+      "houses": [
+        2
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [
+        "Capricorn"
+      ],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "2nd lord in the ascendant gives sons and wealth but hostility and fraud; notes exempt Capricorn ascendant from the full evil effects."
+    },
+    {
+      "segment_id": "bphs1_ch24#10",
+      "ordinal": 10,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        3
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "marriage_spouse",
+        "progeny_children",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "2nd lord in 2nd gives wealth, pride, many wives, no progeny; 2nd lord in 3rd (confirmed by notes) gives mixed traits depending on benefic/malefic relation."
+    },
+    {
+      "segment_id": "bphs1_ch24#11",
+      "ordinal": 11,
+      "rule_type": "specific_placement",
+      "houses": [
+        4
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars"
+      ],
+      "signs": [],
+      "ascendant_scope": [
+        "Libra"
+      ],
+      "topics": [
+        "character_conduct",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "2nd lord in the 4th gives wealth; exalted and conjunct Jupiter gives kingliness, notes restricting the exaltation case (Mars exalted with Jupiter) to Libra ascendant."
+    },
+    {
+      "segment_id": "bphs1_ch24#12",
+      "ordinal": 12,
+      "rule_type": "specific_placement",
+      "houses": [
+        5,
+        6
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "2nd lord in 5th gives wealth-seeking family but trickery/unhappiness; 2nd lord in 6th gives wealth gain or loss through enemies depending on benefic/malefic, notes add bodily defects."
+    },
+    {
+      "segment_id": "bphs1_ch24#13",
+      "ordinal": 13,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        7,
+        8
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "marriage_spouse",
+        "mother_maternal",
+        "siblings",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "2nd lord in 7th gives adultery/doctor profession and possible spouse or mother character issues (notes cite the 4th house for mother); 2nd lord in 8th gives wealth but poor marital and sibling happiness."
+    },
+    {
+      "segment_id": "bphs1_ch24#14",
+      "ordinal": 14,
+      "rule_type": "specific_placement",
+      "houses": [
+        9
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "2nd lord in 9th gives wealth, diligence, childhood sickness followed by health, and religious observance."
+    },
+    {
+      "segment_id": "bphs1_ch24#15",
+      "ordinal": 15,
+      "rule_type": "specific_placement",
+      "houses": [
+        10,
+        11
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "education_learning",
+        "health_longevity",
+        "marriage_spouse",
+        "progeny_children",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "2nd lord in 10th gives wealth and many wives but no filial happiness; 2nd lord in 11th gives wealth and fame, notes add a childhood-to-adult health arc."
+    },
+    {
+      "segment_id": "bphs1_ch24#16",
+      "ordinal": 16,
+      "rule_type": "specific_placement",
+      "houses": [
+        12
+      ],
+      "planets": [
+        "Venus"
+      ],
+      "signs": [],
+      "ascendant_scope": [
+        "Aries"
+      ],
+      "topics": [
+        "character_conduct",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "2nd lord in 12th generally gives poverty and an unhappy eldest child; notes give an exception for Aries ascendant with dignified Venus in the 12th."
+    },
+    {
+      "segment_id": "bphs1_ch24#17",
+      "ordinal": 17,
+      "rule_type": "specific_placement",
+      "houses": [
+        3
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Header for the 3rd-lord section; 3rd lord in the ascendant gives self-made wealth, worship, valour, but lack of learning."
+    },
+    {
+      "segment_id": "bphs1_ch24#18",
+      "ordinal": 18,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        3
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "marriage_spouse",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "3rd lord in the 2nd gives desire for others' wives and wealth, laziness, and unhappiness."
+    },
+    {
+      "segment_id": "bphs1_ch24#19",
+      "ordinal": 19,
+      "rule_type": "specific_placement",
+      "houses": [
+        3
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "progeny_children",
+        "siblings",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "3rd lord in the 3rd gives co-born happiness, wealth, sons and cheerfulness."
+    },
+    {
+      "segment_id": "bphs1_ch24#20",
+      "ordinal": 20,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        4
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "education_learning",
+        "marriage_spouse",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "3rd lord in the 4th gives happiness, wealth and intelligence, but a wicked spouse."
+    },
+    {
+      "segment_id": "bphs1_ch24#21",
+      "ordinal": 21,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        5
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "marriage_spouse",
+        "progeny_children"
+      ],
+      "confidence": "high",
+      "note": "3rd lord in 5th gives sons/virtue, with an embedded malefic-conjunction exception giving a formidable wife"
+    },
+    {
+      "segment_id": "bphs1_ch24#22",
+      "ordinal": 22,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        6
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "siblings",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "3rd lord in 6th effects plus translator notes debating the maternal-aunt phrase"
+    },
+    {
+      "segment_id": "bphs1_ch24#23",
+      "ordinal": 23,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        7
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct"
+      ],
+      "confidence": "high",
+      "note": "3rd lord in 7th; notes add tendency to steal and a legal penalty"
+    },
+    {
+      "segment_id": "bphs1_ch24#24",
+      "ordinal": 24,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        8
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct"
+      ],
+      "confidence": "high",
+      "note": "3rd lord in 8th: thief, serves others, dies at a royal palace gate"
+    },
+    {
+      "segment_id": "bphs1_ch24#25",
+      "ordinal": 25,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        9,
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "father_paternal",
+        "marriage_spouse",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundles 3rd lord in 9th and 3rd lord in 10th placements"
+    },
+    {
+      "segment_id": "bphs1_ch24#26",
+      "ordinal": 26,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        11
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "education_learning",
+        "health_longevity",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "3rd lord in 11th: trading gains and illiteracy; notes add emaciated body"
+    },
+    {
+      "segment_id": "bphs1_ch24#27",
+      "ordinal": 27,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        12
+      ],
+      "planets": [
+        "Mars"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "father_paternal",
+        "marriage_spouse",
+        "siblings"
+      ],
+      "confidence": "high",
+      "note": "3rd lord in 12th; notes add a Mars-conjunction condition threatening co-born"
+    },
+    {
+      "segment_id": "bphs1_ch24#28",
+      "ordinal": 28,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        4
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "mother_maternal",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "section header plus 4th lord in ascendant and in 2nd house bundled"
+    },
+    {
+      "segment_id": "bphs1_ch24#29",
+      "ordinal": 29,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        4,
+        5
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "education_learning",
+        "health_longevity",
+        "marriage_spouse",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundles 4th lord in 3rd, 4th, and 5th houses"
+    },
+    {
+      "segment_id": "bphs1_ch24#30",
+      "ordinal": 30,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        6
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "mother_maternal"
+      ],
+      "confidence": "high",
+      "note": "4th lord in 6th: maternal happiness lost, thief/conjurer traits"
+    },
+    {
+      "segment_id": "bphs1_ch24#31",
+      "ordinal": 31,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        7
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "education_learning",
+        "father_paternal",
+        "marriage_spouse"
+      ],
+      "confidence": "high",
+      "note": "4th lord in 7th: education gained, patrimony sacrificed, family burdens given up"
+    },
+    {
+      "segment_id": "bphs1_ch24#32",
+      "ordinal": 32,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        8
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "education_learning",
+        "health_longevity",
+        "marriage_spouse",
+        "progeny_children"
+      ],
+      "confidence": "high",
+      "note": "4th lord in 8th: comforts lost, progenic/spousal/education difficulties"
+    },
+    {
+      "segment_id": "bphs1_ch24#33",
+      "ordinal": 33,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        9
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "religion_spirituality"
+      ],
+      "confidence": "high",
+      "note": "4th lord in 9th: devotion to God, universal happiness"
+    },
+    {
+      "segment_id": "bphs1_ch24#34",
+      "ordinal": 34,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "mother_maternal",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "4th lord in 10th; notes add conditional loss of maternal happiness if poorly placed"
+    },
+    {
+      "segment_id": "bphs1_ch24#35",
+      "ordinal": 35,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        5,
+        8,
+        11,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "father_paternal",
+        "health_longevity",
+        "mother_maternal",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundles 4th lord in 11th/12th and 5th lord in ascendant placements"
+    },
+    {
+      "segment_id": "bphs1_ch24#36",
+      "ordinal": 36,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        5
+      ],
+      "planets": [
+        "Ketu",
+        "Mars",
+        "Mercury",
+        "Rahu",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "marriage_spouse",
+        "progeny_children",
+        "royal_status_fame",
+        "wealth_finance",
+        "yoga_combination"
+      ],
+      "confidence": "low",
+      "note": "5th lord in 2nd; extensive Indira Gandhi horoscope example names many planets illustratively, attribution uncertain"
+    },
+    {
+      "segment_id": "bphs1_ch24#37",
+      "ordinal": 37,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        5
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "siblings"
+      ],
+      "confidence": "high",
+      "note": "5th lord in 3rd: attachment to co-born, miserliness, imposture"
+    },
+    {
+      "segment_id": "bphs1_ch24#38",
+      "ordinal": 38,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        5
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "education_learning",
+        "health_longevity",
+        "mother_maternal",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "5th lord in 4th: ministerial status, maternal longevity"
+    },
+    {
+      "segment_id": "bphs1_ch24#39",
+      "ordinal": 39,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        4,
+        5,
+        6,
+        7,
+        9,
+        10
+      ],
+      "planets": [
+        "Saturn"
+      ],
+      "signs": [
+        "Virgo"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "progeny_children",
+        "religion_spirituality"
+      ],
+      "confidence": "high",
+      "note": "bundles 5th lord in 5th/6th/7th with an embedded Saturn-Virgo exception and a separate female-native 9th-lord-in-10th caveat"
+    },
+    {
+      "segment_id": "bphs1_ch24#40",
+      "ordinal": 40,
+      "rule_type": "specific_placement",
+      "houses": [
+        5,
+        8
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "progeny_children"
+      ],
+      "confidence": "high",
+      "note": "5th lord in 8th: reduced progeny happiness, pulmonary trouble, anger"
+    },
+    {
+      "segment_id": "bphs1_ch24#41",
+      "ordinal": 41,
+      "rule_type": "specific_placement",
+      "houses": [
+        5,
+        7,
+        9,
+        10,
+        11
+      ],
+      "planets": [
+        "Jupiter",
+        "Ketu",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Rahu",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Aquarius",
+        "Aries",
+        "Cancer"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "education_learning",
+        "progeny_children",
+        "royal_status_fame",
+        "wealth_finance",
+        "yoga_combination"
+      ],
+      "confidence": "low",
+      "note": "bundles 5th lord in 9th/10th/11th with three illustrative horoscopes naming most planets and several signs, attribution uncertain"
+    },
+    {
+      "segment_id": "bphs1_ch24#42",
+      "ordinal": 42,
+      "rule_type": "specific_placement",
+      "houses": [
+        5,
+        6,
+        12
+      ],
+      "planets": [
+        "Jupiter",
+        "Mercury",
+        "Saturn",
+        "Venus"
+      ],
+      "signs": [
+        "Taurus"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "progeny_children",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "5th lord in 12th and 6th lord in ascendant bundled with a Venus-in-Taurus-ascendant exception note"
+    },
+    {
+      "segment_id": "bphs1_ch24#43",
+      "ordinal": 43,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        3,
+        6
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "health_longevity",
+        "royal_status_fame",
+        "siblings",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundles 6th lord in 2nd and 3rd houses"
+    },
+    {
+      "segment_id": "bphs1_ch24#44",
+      "ordinal": 44,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        6
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "mother_maternal",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "6th lord in 4th: maternal happiness lost, intelligence, wealth"
+    },
+    {
+      "segment_id": "bphs1_ch24#45",
+      "ordinal": 45,
+      "rule_type": "specific_placement",
+      "houses": [
+        5,
+        6
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundles 6th lord in 5th and 6th houses"
+    },
+    {
+      "segment_id": "bphs1_ch24#46",
+      "ordinal": 46,
+      "rule_type": "specific_placement",
+      "houses": [
+        6,
+        7,
+        8
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "health_longevity",
+        "marriage_spouse",
+        "progeny_children",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundles 6th lord in 7th and 8th houses"
+    },
+    {
+      "segment_id": "bphs1_ch24#47",
+      "ordinal": 47,
+      "rule_type": "specific_placement",
+      "houses": [
+        6,
+        9
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession"
+      ],
+      "confidence": "high",
+      "note": "6th lord in 9th: trade in wood/stones, fluctuating professional fortunes"
+    },
+    {
+      "segment_id": "bphs1_ch24#48",
+      "ordinal": 48,
+      "rule_type": "specific_placement",
+      "houses": [
+        6,
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "father_paternal",
+        "royal_status_fame"
+      ],
+      "confidence": "high",
+      "note": "6th lord in 10th: fame, disrespect to father, foreign residence"
+    },
+    {
+      "segment_id": "bphs1_ch24#49",
+      "ordinal": 49,
+      "rule_type": "specific_placement",
+      "houses": [
+        11,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundles 6th lord in 11th and 12th houses (11th number OCR-garbled but confirmed by repetition)"
+    },
+    {
+      "segment_id": "bphs1_ch24#50",
+      "ordinal": 50,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        3,
+        7
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "marriage_spouse",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "section header plus 7th lord in ascendant/2nd/3rd bundled"
+    },
+    {
+      "segment_id": "bphs1_ch24#51",
+      "ordinal": 51,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        5,
+        7
+      ],
+      "planets": [
+        "Ketu",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Rahu",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Cancer",
+        "Taurus"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "marriage_spouse",
+        "progeny_children",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "low",
+      "note": "7th lord in 4th and 5th bundled with Lord Rama and Saptarshi Nadi horoscope examples naming most planets, attribution uncertain"
+    },
+    {
+      "segment_id": "bphs1_ch24#52",
+      "ordinal": 52,
+      "rule_type": "specific_placement",
+      "houses": [
+        6,
+        7
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "marriage_spouse"
+      ],
+      "confidence": "high",
+      "note": "7th lord in 6th: sickly wife, conjugal unhappiness"
+    },
+    {
+      "segment_id": "bphs1_ch24#53",
+      "ordinal": 53,
+      "rule_type": "specific_placement",
+      "houses": [
+        7
+      ],
+      "planets": [
+        "Venus"
+      ],
+      "signs": [
+        "Libra",
+        "Taurus"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "health_longevity",
+        "marriage_spouse"
+      ],
+      "confidence": "high",
+      "note": "7th lord in 7th itself; exception noted for Venus as 7th lord in Taurus/Libra"
+    },
+    {
+      "segment_id": "bphs1_ch24#54",
+      "ordinal": 54,
+      "rule_type": "specific_placement",
+      "houses": [
+        7,
+        8,
+        9,
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "health_longevity",
+        "marriage_spouse",
+        "progeny_children",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundles 7th lord in 8th/9th/10th houses"
+    },
+    {
+      "segment_id": "bphs1_ch24#55",
+      "ordinal": 55,
+      "rule_type": "specific_placement",
+      "houses": [
+        7,
+        11
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "marriage_spouse",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "7th lord in 11th brings wealth through wife but trouble with children"
+    },
+    {
+      "segment_id": "bphs1_ch24#56",
+      "ordinal": 56,
+      "rule_type": "specific_placement",
+      "houses": [
+        7,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "marriage_spouse",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "7th lord in 12th causes penury, miserly livelihood tied to clothes, spendthrift wife"
+    },
+    {
+      "segment_id": "bphs1_ch24#57",
+      "ordinal": 57,
+      "rule_type": "specific_placement",
+      "houses": [
+        1,
+        2,
+        8
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "health_longevity",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled header plus two specific placements of 8th lord in ascendant and 2nd house"
+    },
+    {
+      "segment_id": "bphs1_ch24#58",
+      "ordinal": 58,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        8
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "siblings"
+      ],
+      "confidence": "high",
+      "note": "8th lord in 3rd removes fraternal happiness and strength"
+    },
+    {
+      "segment_id": "bphs1_ch24#59",
+      "ordinal": 59,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        5,
+        8
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "mother_maternal",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled verses for 8th lord in 4th and 5th houses plus notes"
+    },
+    {
+      "segment_id": "bphs1_ch24#60",
+      "ordinal": 60,
+      "rule_type": "specific_placement",
+      "houses": [
+        6,
+        8
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "health_longevity"
+      ],
+      "confidence": "high",
+      "note": "8th lord in 6th gives victory over enemies but disease and childhood danger"
+    },
+    {
+      "segment_id": "bphs1_ch24#61",
+      "ordinal": 61,
+      "rule_type": "specific_placement",
+      "houses": [
+        7,
+        8
+      ],
+      "planets": [
+        "Mercury"
+      ],
+      "signs": [
+        "Aquarius",
+        "Virgo"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "health_longevity",
+        "marriage_spouse",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled 8th lord in 7th and 8th house verses with conjunction conditions and an Aquarius/Mercury exception"
+    },
+    {
+      "segment_id": "bphs1_ch24#62",
+      "ordinal": 62,
+      "rule_type": "specific_placement",
+      "houses": [
+        8,
+        9
+      ],
+      "planets": [
+        "Saturn"
+      ],
+      "signs": [
+        "Gemini"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "father_paternal",
+        "marriage_spouse",
+        "progeny_children",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "8th lord in 9th causes irreligion and wicked wife, with a Gemini/Saturn exception in notes"
+    },
+    {
+      "segment_id": "bphs1_ch24#63",
+      "ordinal": 63,
+      "rule_type": "specific_placement",
+      "houses": [
+        8,
+        9,
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "father_paternal",
+        "wealth_finance"
+      ],
+      "confidence": "low",
+      "note": "verse states 8th lord in 10th but notes text names 9th house, ambiguous/possibly OCR error"
+    },
+    {
+      "segment_id": "bphs1_ch24#64",
+      "ordinal": 64,
+      "rule_type": "specific_placement",
+      "houses": [
+        8,
+        11,
+        12
+      ],
+      "planets": [
+        "Jupiter",
+        "Mercury"
+      ],
+      "signs": [
+        "Scorpio",
+        "Taurus"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "health_longevity",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled 8th lord in 11th and 12th verses with conjunction conditions and Taurus/Scorpio exceptions"
+    },
+    {
+      "segment_id": "bphs1_ch24#65",
+      "ordinal": 65,
+      "rule_type": "specific_placement",
+      "houses": [
+        1,
+        2,
+        3
+      ],
+      "planets": [],
+      "signs": [
+        "Scorpio"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "marriage_spouse",
+        "progeny_children",
+        "royal_status_fame",
+        "siblings",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled header plus 9th lord in ascendant, 2nd, and 3rd house verses with a Scorpio exception"
+    },
+    {
+      "segment_id": "bphs1_ch24#66",
+      "ordinal": 66,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        9
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "mother_maternal",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "9th lord in 4th gives houses, conveyances and devotion to mother"
+    },
+    {
+      "segment_id": "bphs1_ch24#67",
+      "ordinal": 67,
+      "rule_type": "specific_placement",
+      "houses": [
+        5,
+        9
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "9th lord in 5th gives sons, prosperity and learning"
+    },
+    {
+      "segment_id": "bphs1_ch24#68",
+      "ordinal": 68,
+      "rule_type": "specific_placement",
+      "houses": [
+        6,
+        9
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "mother_maternal",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "9th lord in 6th gives meagre prosperity and trouble from enemies"
+    },
+    {
+      "segment_id": "bphs1_ch24#69",
+      "ordinal": 69,
+      "rule_type": "specific_placement",
+      "houses": [
+        7,
+        8,
+        9
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "father_paternal",
+        "marriage_spouse",
+        "royal_status_fame",
+        "siblings",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled 9th lord in 7th and 8th house verses with notes on father and siblings"
+    },
+    {
+      "segment_id": "bphs1_ch24#70",
+      "ordinal": 70,
+      "rule_type": "specific_placement",
+      "houses": [
+        9
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "father_paternal",
+        "health_longevity",
+        "mother_maternal",
+        "siblings",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "9th lord in own house (9th) gives abundant fortune and family blessings per verse and notes"
+    },
+    {
+      "segment_id": "bphs1_ch24#71",
+      "ordinal": 71,
+      "rule_type": "specific_placement",
+      "houses": [
+        9,
+        10,
+        11
+      ],
+      "planets": [
+        "Saturn"
+      ],
+      "signs": [
+        "Gemini"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "father_paternal",
+        "religion_spirituality",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled 9th lord in 10th and 11th house verses with a Gemini ascendant exception"
+    },
+    {
+      "segment_id": "bphs1_ch24#72",
+      "ordinal": 72,
+      "rule_type": "specific_placement",
+      "houses": [
+        9,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "siblings",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "9th lord in 12th causes loss of fortune from spending on guests and auspicious acts"
+    },
+    {
+      "segment_id": "bphs1_ch24#73",
+      "ordinal": 73,
+      "rule_type": "specific_placement",
+      "houses": [
+        1,
+        2,
+        6,
+        10
+      ],
+      "planets": [
+        "Jupiter",
+        "Mercury",
+        "Venus"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "education_learning",
+        "health_longevity",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled header, 10th lord in ascendant verse, a worked chart example, and a 6th-lord exception on childhood disease"
+    },
+    {
+      "segment_id": "bphs1_ch24#74",
+      "ordinal": 74,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        10,
+        11
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Saturn"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "father_paternal",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "10th lord in 2nd verse plus two worked chart examples (Morarji Desai, Indira Gandhi) discussed in notes"
+    },
+    {
+      "segment_id": "bphs1_ch24#75",
+      "ordinal": 75,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "siblings"
+      ],
+      "confidence": "high",
+      "note": "10th lord in 3rd gives happiness from brothers and servants"
+    },
+    {
+      "segment_id": "bphs1_ch24#76",
+      "ordinal": 76,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "mother_maternal",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "10th lord in 4th gives happiness, lands and devotion to mother"
+    },
+    {
+      "segment_id": "bphs1_ch24#77",
+      "ordinal": 77,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        5,
+        10
+      ],
+      "planets": [
+        "Jupiter",
+        "Mercury",
+        "Moon",
+        "Sun"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "10th lord in 5th verse plus a worked chart example (Tagore) discussed in notes"
+    },
+    {
+      "segment_id": "bphs1_ch24#78",
+      "ordinal": 78,
+      "rule_type": "specific_placement",
+      "houses": [
+        6,
+        7,
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "father_paternal",
+        "health_longevity",
+        "marriage_spouse",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled 10th lord in 6th and 7th house verses"
+    },
+    {
+      "segment_id": "bphs1_ch24#79",
+      "ordinal": 79,
+      "rule_type": "specific_placement",
+      "houses": [
+        8,
+        9,
+        10
+      ],
+      "planets": [
+        "Jupiter",
+        "Venus"
+      ],
+      "signs": [
+        "Gemini",
+        "Leo"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "progeny_children",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled 10th lord in 8th and 9th house verses with Gemini and Leo exceptions"
+    },
+    {
+      "segment_id": "bphs1_ch24#80",
+      "ordinal": 80,
+      "rule_type": "specific_placement",
+      "houses": [
+        10
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct"
+      ],
+      "confidence": "high",
+      "note": "10th lord in own house (10th) gives skill in all jobs"
+    },
+    {
+      "segment_id": "bphs1_ch24#81",
+      "ordinal": 81,
+      "rule_type": "specific_placement",
+      "houses": [
+        10,
+        11
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "10th lord in 11th gives wealth, happiness and sons"
+    },
+    {
+      "segment_id": "bphs1_ch24#82",
+      "ordinal": 82,
+      "rule_type": "specific_placement",
+      "houses": [
+        10,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "10th lord in 12th causes expenditure through royal/government matters"
+    },
+    {
+      "segment_id": "bphs1_ch24#83",
+      "ordinal": 83,
+      "rule_type": "specific_placement",
+      "houses": [
+        1,
+        11
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "marriage_spouse",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled header plus 11th lord in ascendant verse"
+    },
+    {
+      "segment_id": "bphs1_ch24#84",
+      "ordinal": 84,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        4
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "health_longevity",
+        "mother_maternal",
+        "religion_spirituality",
+        "siblings",
+        "wealth_finance"
+      ],
+      "confidence": "low",
+      "note": "bundled 11th lord verses for 2nd and 4th houses; the middle verse's house number is OCR-damaged and omitted"
+    },
+    {
+      "segment_id": "bphs1_ch24#85",
+      "ordinal": 85,
+      "rule_type": "specific_placement",
+      "houses": [
+        5,
+        11
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "education_learning",
+        "progeny_children",
+        "religion_spirituality"
+      ],
+      "confidence": "high",
+      "note": "11th lord in 5th gives happy educated children and personal religiosity"
+    },
+    {
+      "segment_id": "bphs1_ch24#86",
+      "ordinal": 86,
+      "rule_type": "specific_placement",
+      "houses": [
+        6,
+        11
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "health_longevity",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "11th lord in 6th causes disease and enemies, with an Aquarius/Virgo deafness exception in notes"
+    },
+    {
+      "segment_id": "bphs1_ch24#87",
+      "ordinal": 87,
+      "rule_type": "specific_placement",
+      "houses": [
+        7,
+        11
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "marriage_spouse",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "11th lord in 7th gives gains through wife's relatives and submission to spouse"
+    },
+    {
+      "segment_id": "bphs1_ch24#88",
+      "ordinal": 88,
+      "rule_type": "specific_placement",
+      "houses": [
+        8,
+        9
+      ],
+      "planets": [
+        "Mars",
+        "Mercury"
+      ],
+      "signs": [
+        "Leo"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "character_conduct",
+        "health_longevity",
+        "marriage_spouse",
+        "royal_status_fame",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "bundled 11th lord in 8th and 9th house verses with a Leo/Mercury exception and Morarji Desai reference"
+    },
+    {
+      "segment_id": "bphs1_ch24#89",
+      "ordinal": 89,
+      "rule_type": "specific_placement",
+      "houses": [
+        9,
+        10,
+        11
+      ],
+      "planets": [
+        "Jupiter",
+        "Ketu",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Rahu",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "religion_spirituality",
+        "royal_status_fame",
+        "yoga_combination"
+      ],
+      "confidence": "low",
+      "note": "Bundled slokas 130 (11th lord in 10th) and 131 (11th lord in 11th) plus a heavily OCR-damaged worked horoscope example naming many planets/houses"
+    },
+    {
+      "segment_id": "bphs1_ch24#90",
+      "ordinal": 90,
+      "rule_type": "specific_placement",
+      "houses": [
+        1,
+        2,
+        3,
+        11,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Bundled slokas 132-135, each a distinct 11th/12th-lord house placement, no planet names"
+    },
+    {
+      "segment_id": "bphs1_ch24#91",
+      "ordinal": 91,
+      "rule_type": "specific_placement",
+      "houses": [
+        4,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "mother_maternal",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Sloka 136: 12th lord in 4th"
+    },
+    {
+      "segment_id": "bphs1_ch24#92",
+      "ordinal": 92,
+      "rule_type": "specific_placement",
+      "houses": [
+        5,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "progeny_children",
+        "religion_spirituality",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Sloka 137: 12th lord in 5th"
+    },
+    {
+      "segment_id": "bphs1_ch24#93",
+      "ordinal": 93,
+      "rule_type": "specific_placement",
+      "houses": [
+        6,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "marriage_spouse"
+      ],
+      "confidence": "high",
+      "note": "Sloka 138: 12th lord in 6th"
+    },
+    {
+      "segment_id": "bphs1_ch24#94",
+      "ordinal": 94,
+      "rule_type": "specific_placement",
+      "houses": [
+        7,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "education_learning",
+        "marriage_spouse",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Sloka 139: 12th lord in 7th"
+    },
+    {
+      "segment_id": "bphs1_ch24#95",
+      "ordinal": 95,
+      "rule_type": "specific_placement",
+      "houses": [
+        8,
+        9,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "character_conduct",
+        "health_longevity",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Bundled slokas 140 (12th lord in 8th, plus note on medium lifespan) and 141 (12th lord in 9th)"
+    },
+    {
+      "segment_id": "bphs1_ch24#96",
+      "ordinal": 96,
+      "rule_type": "specific_placement",
+      "houses": [
+        10,
+        11,
+        12
+      ],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "career_profession",
+        "father_paternal",
+        "progeny_children",
+        "wealth_finance"
+      ],
+      "confidence": "high",
+      "note": "Bundled slokas 142-144: 12th lord in 10th/11th/12th, plus a note on adoption"
+    },
+    {
+      "segment_id": "bphs1_ch24#97",
+      "ordinal": 97,
+      "rule_type": "general_qualifier",
+      "houses": [],
+      "planets": [
+        "Moon",
+        "Sun"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "general_method"
+      ],
+      "confidence": "high",
+      "note": "Slokas 145-148: scaling method (full/half/quarter effects by strength) and rule for planets owning two bhavas, no specific placement"
+    },
+    {
+      "segment_id": "bphs1_ch34#1",
+      "ordinal": 1,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        8
+      ],
+      "planets": [
+        "Moon"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 94-99: malefics in Karakamsa/Arudha Lagna/2nd/8th from these produce Kemadruma yoga, severity modified by Moon's aspect and Dasa timing"
+    },
+    {
+      "segment_id": "bphs1_ch34#2",
+      "ordinal": 2,
+      "rule_type": "narrative",
+      "houses": [],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [],
+      "confidence": "high",
+      "note": "Sloka 1: chapter-transition address to Brahmin, no rule content"
+    },
+    {
+      "segment_id": "bphs1_ch34#3",
+      "ordinal": 3,
+      "rule_type": "general_qualifier",
+      "houses": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "planets": [
+        "Jupiter",
+        "Ketu",
+        "Mars",
+        "Moon",
+        "Rahu",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Aquarius",
+        "Aries",
+        "Cancer",
+        "Capricorn",
+        "Gemini",
+        "Leo",
+        "Libra",
+        "Taurus"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "general_method",
+        "planetary_classification",
+        "wealth_finance"
+      ],
+      "confidence": "low",
+      "note": "Slokas 2-7 plus a dense 10-point notes summary of general angle/trine lordship principles illustrated with many ascendant examples; entity capture uncertain given length and density"
+    },
+    {
+      "segment_id": "bphs1_ch34#4",
+      "ordinal": 4,
+      "rule_type": "definitional",
+      "houses": [],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "planetary_classification"
+      ],
+      "confidence": "high",
+      "note": "Slokas 8-10: classification of natural benefics/malefics and their relative strength ordering"
+    },
+    {
+      "segment_id": "bphs1_ch34#5",
+      "ordinal": 5,
+      "rule_type": "general_qualifier",
+      "houses": [],
+      "planets": [
+        "Mercury",
+        "Saturn"
+      ],
+      "signs": [
+        "Aquarius",
+        "Gemini",
+        "Virgo"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "royal_status_fame",
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 11-12: general condition (angular lord/trinal lord relationship) producing a Rajayoga, illustrated with a Gemini example"
+    },
+    {
+      "segment_id": "bphs1_ch34#6",
+      "ordinal": 6,
+      "rule_type": "exception",
+      "houses": [],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 13-15 qualify/restrict when the sloka 11-12 yoga actually applies (angular lord must also own a trine; an evil-house lordship blocks the yoga)"
+    },
+    {
+      "segment_id": "bphs1_ch34#7",
+      "ordinal": 7,
+      "rule_type": "general_qualifier",
+      "houses": [],
+      "planets": [
+        "Ketu",
+        "Rahu"
+      ],
+      "signs": [
+        "Aquarius",
+        "Scorpio"
+      ],
+      "ascendant_scope": [],
+      "topics": [
+        "general_method",
+        "planetary_classification"
+      ],
+      "confidence": "high",
+      "note": "Sloka 16: method for judging Rahu/Ketu effects via conjunction/occupation, no disposition of their own"
+    },
+    {
+      "segment_id": "bphs1_ch34#8",
+      "ordinal": 8,
+      "rule_type": "general_qualifier",
+      "houses": [],
+      "planets": [
+        "Ketu",
+        "Rahu"
+      ],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Sloka 17: general condition for a node becoming Yogakaraka via angle/trine aspect relations"
+    },
+    {
+      "segment_id": "bphs1_ch34#9",
+      "ordinal": 9,
+      "rule_type": "narrative",
+      "houses": [],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [],
+      "confidence": "high",
+      "note": "Sloka 18: request to narrate ascendant-wise yogakarakas, no rule content itself"
+    },
+    {
+      "segment_id": "bphs1_ch34#10",
+      "ordinal": 10,
+      "rule_type": "specific_placement",
+      "houses": [
+        1,
+        2,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Aries"
+      ],
+      "ascendant_scope": [
+        "Aries"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 19-22: planet-by-planet benefic/malefic/killer classification specific to Aries ascendant"
+    },
+    {
+      "segment_id": "bphs1_ch34#11",
+      "ordinal": 11,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        5,
+        6,
+        7,
+        8,
+        11,
+        12
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Scorpio",
+        "Taurus"
+      ],
+      "ascendant_scope": [
+        "Taurus"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "yoga_combination"
+      ],
+      "confidence": "low",
+      "note": "Slokas 23-24 for Taurus ascendant; notes include a Susloka Sataka cross-reference to Scorpio ascendant that adds extraction uncertainty"
+    },
+    {
+      "segment_id": "bphs1_ch34#12",
+      "ordinal": 12,
+      "rule_type": "specific_placement",
+      "houses": [
+        3,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Gemini",
+        "Libra"
+      ],
+      "ascendant_scope": [
+        "Gemini"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 25-26: planet classification for Gemini ascendant, notes include a Libra ascendant comparison for Mercury"
+    },
+    {
+      "segment_id": "bphs1_ch34#13",
+      "ordinal": 13,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        3,
+        4,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Aries",
+        "Cancer",
+        "Capricorn",
+        "Libra"
+      ],
+      "ascendant_scope": [
+        "Cancer"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "yoga_combination"
+      ],
+      "confidence": "low",
+      "note": "Slokas 27-28 for Cancer ascendant; notes include a movable-sign cross-reference table naming Aries/Libra/Capricorn, raising extraction uncertainty"
+    },
+    {
+      "segment_id": "bphs1_ch34#14",
+      "ordinal": 14,
+      "rule_type": "specific_placement",
+      "houses": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        12
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Leo"
+      ],
+      "ascendant_scope": [
+        "Leo"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 29-30: planet classification for Leo ascendant"
+    },
+    {
+      "segment_id": "bphs1_ch34#15",
+      "ordinal": 15,
+      "rule_type": "unusable",
+      "houses": [],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [],
+      "confidence": "low",
+      "note": "OCR-damaged fragment between the Leo and Virgo ascendant slokas, no readable English content"
+    },
+    {
+      "segment_id": "bphs1_ch34#16",
+      "ordinal": 16,
+      "rule_type": "specific_placement",
+      "houses": [
+        1,
+        2,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Virgo"
+      ],
+      "ascendant_scope": [
+        "Virgo"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 31-32: planet classification for Virgo ascendant"
+    },
+    {
+      "segment_id": "bphs1_ch34#17",
+      "ordinal": 17,
+      "rule_type": "specific_placement",
+      "houses": [
+        1,
+        2,
+        3,
+        6,
+        7,
+        8,
+        11
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Libra"
+      ],
+      "ascendant_scope": [
+        "Libra"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "royal_status_fame",
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 33-34: planet classification for Libra ascendant"
+    },
+    {
+      "segment_id": "bphs1_ch34#18",
+      "ordinal": 18,
+      "rule_type": "specific_placement",
+      "houses": [
+        1,
+        2,
+        5,
+        6,
+        9,
+        10
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Scorpio",
+        "Taurus"
+      ],
+      "ascendant_scope": [
+        "Scorpio"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "royal_status_fame",
+        "wealth_finance",
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 35-36 for Scorpio ascendant, notes include a Taurus/Mercury comparison"
+    },
+    {
+      "segment_id": "bphs1_ch34#19",
+      "ordinal": 19,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        12
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Sagittarius"
+      ],
+      "ascendant_scope": [
+        "Sagittarius"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 37-38: planet classification for Sagittarius ascendant"
+    },
+    {
+      "segment_id": "bphs1_ch34#20",
+      "ordinal": 20,
+      "rule_type": "unusable",
+      "houses": [],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [],
+      "confidence": "low",
+      "note": "OCR-damaged fragment between the Sagittarius and Capricorn ascendant slokas, no readable English content"
+    },
+    {
+      "segment_id": "bphs1_ch34#21",
+      "ordinal": 21,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        4,
+        5,
+        7,
+        10,
+        11,
+        12
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Capricorn"
+      ],
+      "ascendant_scope": [
+        "Capricorn"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 39-40: planet classification for Capricorn ascendant"
+    },
+    {
+      "segment_id": "bphs1_ch34#22",
+      "ordinal": 22,
+      "rule_type": "specific_placement",
+      "houses": [
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Aquarius",
+        "Leo"
+      ],
+      "ascendant_scope": [
+        "Aquarius"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "yoga_combination"
+      ],
+      "confidence": "low",
+      "note": "Slokas 41-42 for Aquarius ascendant, dense notes with many house/lordship clauses and a Leo cross-reference"
+    },
+    {
+      "segment_id": "bphs1_ch34#23",
+      "ordinal": 23,
+      "rule_type": "specific_placement",
+      "houses": [
+        1,
+        2,
+        3,
+        6,
+        8,
+        9,
+        10
+      ],
+      "planets": [
+        "Jupiter",
+        "Mars",
+        "Mercury",
+        "Moon",
+        "Saturn",
+        "Sun",
+        "Venus"
+      ],
+      "signs": [
+        "Pisces"
+      ],
+      "ascendant_scope": [
+        "Pisces"
+      ],
+      "topics": [
+        "health_longevity",
+        "planetary_classification",
+        "yoga_combination"
+      ],
+      "confidence": "high",
+      "note": "Slokas 43-44: planet classification for Pisces ascendant"
+    },
+    {
+      "segment_id": "bphs1_ch34#24",
+      "ordinal": 24,
+      "rule_type": "general_qualifier",
+      "houses": [],
+      "planets": [],
+      "signs": [],
+      "ascendant_scope": [],
+      "topics": [
+        "general_method"
+      ],
+      "confidence": "high",
+      "note": "Slokas 45-46: closing general statement that ascendant-wise lordship effects be estimated this way, no specific placement, segment ends mid-sentence"
+    }
+  ]
+}

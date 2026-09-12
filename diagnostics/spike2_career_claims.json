@@ -1,0 +1,77 @@
+{
+  "claims": [
+    {
+      "statement": "Mercury, the 10th lord, is debilitated in this chart (Pisces, house 4) -- devoid of strength -- and the text states directly that a 10th lord devoid of strength causes obstructions in the native's work.",
+      "unit_id": "bphs1_ch21",
+      "quote": "3. If the 10th lord is devoid of Strength, the native will face obstructions in his work",
+      "sloka_number": 3
+    },
+    {
+      "statement": "The 10th lord (Mercury) is placed in the 4th house in this chart, and the text gives a direct rule for exactly this placement: happiness, care for the mother's welfare, and lordship over conveyances, lands and houses, with virtue and wealth.",
+      "unit_id": "bphs1_ch24",
+      "quote": "112. If the 10th lord is in the 4th, the native will be happy, be always interested in his mother's welfare, will lord over conveyances, lands and houses, be virtuous and wealthy.",
+      "sloka_number": 112
+    },
+    {
+      "statement": "The text qualifies all such house-lord placement results by the lord's own strength, giving only a fraction of the stated effect when the lord is weak -- directly relevant since Mercury, the 10th lord, is debilitated here.",
+      "unit_id": "bphs1_ch24",
+      "quote": "The planet will yield full, half or a quarter of the effects according to its strength being full, medium, and negligible respectively.",
+      "sloka_number": 145
+    },
+    {
+      "statement": "In this chart the Sun is conjunct Mercury (the 10th lord) in the 4th house. The Sun is classified as one of the auspicious planets for a Sagittarius ascendant (see the Sagittarius-ascendant claim below), so the 10th lord here is 'with a benefic', and the text has a direct rule for exactly that configuration: gain through royal patronage and in business.",
+      "unit_id": "bphs1_ch21",
+      "quote": "If the 10th lord is with a benefic or in an auspicious house, one will always gain through royal patronage and in business.",
+      "sloka_number": 4
+    },
+    {
+      "statement": "For a Sagittarius ascendant specifically (this chart's ascendant), the text names Mars and the Sun as auspicious planets.",
+      "unit_id": "bphs1_ch34",
+      "quote": "Mars and the Sun are auspicious",
+      "sloka_number": 37
+    },
+    {
+      "statement": "For the same ascendant, the text names Mercury -- together with the Sun -- as capable of conferring a yoga, tied to Mercury's ownership of the 10th house (his Moolatrikona for this ascendant).",
+      "unit_id": "bphs1_ch34",
+      "quote": "The Sun and Mercury are capable of conferring a yoga.",
+      "sloka_number": 37
+    },
+    {
+      "statement": "In this chart, the 9th lord (Sun, a trinal lord) and the 10th lord (Mercury, an angular lord) are conjunct in the 4th house -- an angle. The text has a general rule for exactly this shape of configuration (an angular lord and a trinal lord joining in an angle or a trine): it produces a yoga that makes the native a king, or famous.",
+      "unit_id": "bphs1_ch34",
+      "quote": "If these two lords join in an angle or in a trine, or if a trinal lord is in an angle or vice versa, or if there be full aspect between them, they cause a yoga. One born in such a yoga will become a king and be famous.",
+      "sloka_number": 12
+    },
+    {
+      "statement": "The 5th lord (Mars) is in the 2nd house in this chart. The text gives a direct rule for this placement, including wealth and being famous in the world -- and the accompanying commentary singles this placement out as conferring worldwide fame.",
+      "unit_id": "bphs1_ch24",
+      "quote": "If the 5th lord is in the 2nd, the native will have many sons and wealth, be a pater familias, be honourable, be attached to his spouse and be famous in the world.",
+      "sloka_number": 50
+    },
+    {
+      "statement": "The 11th lord (Venus) is in the 6th house in this chart. The text's commentary on this exact placement warns that it favours employment/service over an independent profession, and brings financial reversals.",
+      "unit_id": "bphs1_ch24",
+      "quote": "Servitude will befit him rather than an independent profession. He will often undergo financial reversals.",
+      "sloka_number": 126
+    },
+    {
+      "statement": "The same Sagittarius-ascendant passage names Venus, the current Antardasha lord in this chart's active dasha period, as the one inauspicious planet for this ascendant.",
+      "unit_id": "bphs1_ch34",
+      "quote": "Only Venus is inauspicious",
+      "sloka_number": 37
+    },
+    {
+      "statement": "For the same ascendant, the text states that Venus -- the current Antardasha lord -- acquires killing (maraka) powers, without elaborating further on what that means during a Venus period specifically.",
+      "unit_id": "bphs1_ch34",
+      "quote": "Venus acquires killing powers.",
+      "sloka_number": 38
+    }
+  ],
+  "silent_on": [
+    "What the current Ketu Mahadasha specifically means for career -- the text's Rahu/Ketu framing (ch.34) depends on the node's relationships to angular/trinal lords, which is not spelled out clearly enough in the supplied text to apply with confidence to this chart's Ketu (house 9).",
+    "Rahu's placement in house 3 does not trigger the one Rahu-specific rule in the supplied text (ch.21 sloka 3's clause requires Rahu in an angle or a trine; house 3 is neither), so the text is silent on Rahu's role here despite Rahu's placement now being known.",
+    "Whether the ascendant lord's placement in the 5th house (Jupiter) says anything about career specifically -- the supplied rule for this placement is about progeny and temperament, not career, so it is not used as a career claim even though the placement itself is known.",
+    "Precise quantification of how much the debilitation-driven strength discount (claim 3) should reduce the positive 10th-lord-in-4th result (claim 2) and the Raja Yoga claim (claim 7) -- the text states the principle (full/half/quarter) but does not give a way to compute Mercury's exact strength fraction from the supplied facts alone."
+  ],
+  "reading": "Your ascendant is Sagittarius, and your 10th house of career falls in Virgo, ruled by Mercury. The single most significant thing the supplied text says about your chart is a Raja Yoga configuration: your 9th lord (the Sun, a trinal lord, indicating fortune) and your 10th lord (Mercury, an angular lord, indicating career) are conjunct together in your 4th house. The text states directly that an angular lord and a trinal lord joining together in an angle produces a yoga that can make the native a king or bring fame. For a Sagittarius ascendant specifically, both of these planets are independently named as favourable too: the Sun is one of the ascendant's auspicious planets, and Mercury together with the Sun is separately named as capable of conferring a yoga in its own right, tied to Mercury's rulership of the 10th house.\n\nBecause your 10th lord Mercury is 'with a benefic' (the Sun) in this configuration, the text's direct rule for that shape applies: gain through royal patronage and in business. Applied to the specific house Mercury sits in, the text also gives a rule just for a 10th lord in the 4th house: happiness, close attention to your mother's welfare, and lordship over conveyances, lands and houses, along with virtue and wealth.\n\nHowever, this needs a real caveat: Mercury itself is debilitated in this chart, and the text is explicit that these house-lord results scale with the lord's own strength -- full, half, or only a fraction depending on whether the lord is strong or weak. A separate, sharper verse makes the same point directly: a 10th lord devoid of strength brings obstructions in the native's work. So the favourable configuration above (the conjunction, the yoga, the 4th-house placement) is real and textually grounded, but its expression is likely to come with real friction, given Mercury's weakness.\n\nTwo supporting placements reinforce a public-facing, name-making career shape: your 5th lord (Mars) sits in the 2nd house, a placement the text and its commentary tie to wealth and being famous in the world. Your 11th lord (Venus) sits in the 6th house, which the text's commentary reads as favouring service or employment over an independent profession, along with some risk of financial reversals.\n\nOn timing: your current period is Ketu Mahadasha with a Venus Antardasha. The supplied text does not give me enough to say what the Ketu period means for career specifically in this chart. For Venus, the text is direct for a Sagittarius ascendant: Venus is named as the one inauspicious planet for this ascendant, and separately as a planet that acquires killing (maraka) powers here -- the text does not elaborate further, so I can only flag this as a caution for the current period rather than a specific prediction."
+}
