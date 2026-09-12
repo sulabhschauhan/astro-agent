@@ -1,2 +1,3 @@
 # NOTE: only this session's new dependency so far — not the full project dependency list. `pip install -r requirements.txt` will not set up a complete environment.
 timezonefinder
+playwright  # scripts/astrosage_kundli_fetcher.py — standalone backup utility, not a core pipeline dependency
