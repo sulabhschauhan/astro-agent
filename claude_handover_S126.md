@@ -35,8 +35,12 @@ runs end to end. Suite **3938 passed / 7 skipped / 0 failed**.
 - Fix1 cut `timing_dasha` 252→38 segs (ch46 computation + ch61/62/63 suppressed sub-dasha); marriage-timing 158k→113k real, zero doctrine lost.
 - gpt-5 cleared 105k prompt tokens with no 429 → TPM headroom is fine at this tier.
 
-## NEXT TASK — the calculation stubs `vimshottari` + `chart_d1`
-gpt-5's honest refusal on "when will I marry" is the proof: the FACT BLOCK today is only the chart's lord→house map + ascendant, so timing and planet-placement questions cannot be answered. Build `vimshottari` (running dasha) + `chart_d1` (planet positions) FIRST — they widen the fact block, unlock every "when" question, and retire the AstroSage PDF. Each carries the 4-reference-chart validation protocol (`calculations/` package; PVR book + JHora oracle; empirical validation across the 4 charts, zero free parameters). The silence gate's coverage widens automatically as the block grows — no new gate code.
+## NEXT TASK — widen the FACT BLOCK via `vimshottari` + `chart_d1` (read the corrections FIRST)
+gpt-5's honest refusal on "when will I marry" is the proof: the FACT BLOCK today is only the chart's lord→house map + ascendant, so timing and planet-placement questions can't be answered. Widening it is the next work — but three corrections to earlier phrasing (verified vs archives S22–S76; full detail in SESSION_LOG "S127 build-guidance correction"):
+- **`vimshottari` unlocks RANGE-level "when" (which mahadasha/antardasha), NOT day-precise dates.** Gap D1 (S75/S76, ratified) already excludes day-precision from V1 (row-0 residual −0.33 to −2.66d, apparent-Moon convention). MD/AD logic already lives in `agent/chart_calculator.py` (S44: "import the real logic, don't touch the stub") — extract-and-wire WITH regression coverage first, not greenfield.
+- **`chart_d1` is a deliberate stub** (P1.1 Chart-dataclass refactor aborted S22/S24 — consumers take primitives). `calculate_chart()` is the production D1 path with ZERO regression coverage and exposes sign/house/dignity, not raw longitudes. To surface planet positions: **regression-test the production path FIRST (HARDEST-CASE-FIRST), then expose longitudes — do NOT rewrite the stub.**
+- **AstroSage STAYS in V1** (ratified S68). "Retire AstroSage" was an aspiration, not a decision — don't build toward removing it; removal is contingent on the engine demonstrably covering its outputs.
+Each module carries the 4-reference-chart validation protocol (`calculations/`; PVR book + JHora oracle; 4 charts, zero free parameters). The silence gate's coverage widens automatically as the block grows — no new gate code.
 
 Then: the **vision / palm track** (new work; palm rules engine is already COMPLETE for V1 per S125 — this is a separate vision effort, scope it in the next session with Sulabh).
 

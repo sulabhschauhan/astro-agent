@@ -180,3 +180,61 @@ or V2 scope expansion makes the gap user-visible.
 - **Impact:** not measured; likely absorbed into Gap D1.
 - **Expert question:** does tradition demand yoga-tara anchoring, or is
   0° Aries anchoring canonical for Parashari?
+
+---
+
+## Category 6 — Oracle Authority Ratification (S75/S76, written up S127)
+
+The following three ratifications were made in `SESSION_LOG_ARCHIVE_
+S67-S104.md` (S75/S76) but had not previously been written into this
+register. Added here verbatim per their archive citations; no existing
+entry above is edited.
+
+### Gap O1: Canonical oracle split — JHora primary for non-dasha, Drik primary for dasha row-0/AD boundaries
+
+- **Ratified quantities:** AstroSage vs JHora on non-dasha quantities
+  (D1 longitudes, ayanamsa, Ashtakavarga, karakas, D-charts, Panchanga):
+  JHora primary, AstroSage secondary parity not expected. Ratified S75/S76.
+- **Archive citation:** `SESSION_LOG_ARCHIVE_S67-S104.md:1561-1563` —
+  "Canonical oracle reclassification: JHora primary for non-dasha
+  (Ashtakavarga, karakas, D-charts, Panchanga); Drik primary for
+  dasha row-0/AD boundaries going forward. AstroSage secondary parity."
+- **Impact on V1:** clarifies which oracle to trust when AstroSage and
+  JHora disagree on a non-dasha quantity — JHora wins, an AstroSage
+  mismatch on these categories is not itself evidence of a production
+  bug.
+
+### Gap O2: Dasha-boundary oracle — Drik primary over AstroSage
+
+- **Ratified quantity:** AstroSage vs Drik on dasha row-0/AD/PD
+  boundaries: Drik primary. Ratified S75/S76.
+- **Archive citation:** `SESSION_LOG_ARCHIVE_S67-S104.md:1561-1563` (same
+  passage as Gap O1 — "Drik primary for dasha row-0/AD boundaries going
+  forward").
+- **Impact on V1:** an AstroSage-vs-Drik disagreement on a Mahadasha/
+  Antardasha boundary defers to Drik as the reference; Gap D1's own
+  residual measurement already uses Drik as oracle, consistent with
+  this ratification.
+
+### Gap O3: `jhora_*.md` ayanamsa boilerplate discredited
+
+- **Symptom/finding:** the `jhora_*.md` ayanamsa line `23-40-39.08` is
+  True-Chitra template boilerplate carried over from Sulabh's capture,
+  not a per-chart re-measurement — discredited S75.
+- **Archive citation (boilerplate finding):**
+  `SESSION_LOG_ARCHIVE_S67-S104.md:1636-1637` — "jhora_{surbhi,sheridan,
+  david}.md ayanamsa lines are template boilerplate (23-40-39.08
+  identical across 3 different birth epochs, should differ ~13-14
+  arcmin across 1976-1992). Open capture gap."
+- **Archive citation (replacement basis):**
+  `SESSION_LOG_ARCHIVE_S67-S104.md:1537-1538` — "pyswisseph SIDM_LAHIRI
+  ≡ JHora Traditional Lahiri to 0.14" at both epochs tested (Sulabh
+  1988, Sheridan 1984)."
+- **Ratified value:** production `SIDM_LAHIRI` (≡ JHora Traditional
+  Lahiri to 0.14″) replaces the discredited `23-40-39.08` boilerplate
+  as the per-chart ayanamsa reference.
+- **Impact on V1:** `docs/PROJECT_FACTS.md`'s ayanamsa table (the row
+  citing `23-40-39.08` for Surbhi/Sheridan/David) should be read as
+  discredited boilerplate, not a real per-chart oracle value, until
+  that file is itself corrected — this register entry documents the
+  ratification; it does not edit `PROJECT_FACTS.md`.
