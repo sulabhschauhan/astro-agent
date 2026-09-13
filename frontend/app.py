@@ -19,6 +19,8 @@ os.chdir(_ROOT)
 import streamlit as st
 
 from agent.chart_calculator import calculate_chart, format_kundali_context, geocode_place_candidates
+from agent.chart_calculator import _dignity as _sign_dignity  # SSOT: S21 PVR Table 6, never re-tabled here
+from agent.calculations.vargas.navamsa import compute_navamsa
 from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf, _PRIORITY_ORDER
 from PIL import Image
@@ -1614,7 +1616,33 @@ if prompt:
         # st.session_state.messages completely unchanged (no partial turn).
         try:
             with st.spinner("Reading the classical text for your chart…"):
-                chart_facts = build_chart_facts(st.session_state.chart)
+                # D9 COMPOSITION (S130). agent/calculations/vargas/navamsa.py has
+                # been oracle-clean since S20 (4/4 reference charts, David first
+                # for pada-boundary sensitivity) and was wired to nothing, because
+                # S20 locked "Don't touch chart_calculator. Don't retrofit D1".
+                # Composing HERE honours every rule at once: the calculator is
+                # untouched, chart_facts imports no calculator, and the adapter
+                # only restates what it is handed.
+                #
+                # FAIL-SOFT BY DESIGN: losing D9 must cost the Neecha Bhanga check,
+                # never the answer. build_chart_facts treats an absent navamsa key
+                # as an honest absence, so the except branch degrades cleanly.
+                _chart = st.session_state.chart
+                try:
+                    _meta = _chart.get("meta") or {}
+                    _d9 = compute_navamsa(_meta["jd_ut"], _meta["asc_lon_sidereal"])
+                    _chart = dict(_chart, navamsa={
+                        "d9_lagna_sign": _d9.d9_lagna_sign,
+                        "placements": {
+                            _p: {"sign": _pl.d9_sign, "house": _pl.d9_house,
+                                 "dignity": _sign_dignity(_p, _pl.d9_sign)}
+                            for _p, _pl in _d9.placements.items()},
+                    })
+                except Exception as _d9_err:  # noqa: BLE001 -- optional fact class
+                    logger.warning("D9 unavailable, answering without it: %s: %s",
+                                   type(_d9_err).__name__, _d9_err)
+
+                chart_facts = build_chart_facts(_chart)
                 result = answer_question(prompt, chart_facts)
                 # Two surfaces, one result: the user reads render_user_answer's
                 # plain-language view; the full trace (verse text, ids,

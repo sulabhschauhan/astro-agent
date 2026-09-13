@@ -228,6 +228,156 @@ With the slip removed the census is 8/8. Note david/Mars at -0.0125 deg/day
 is nearly as slow as this Saturn and still flags correctly, so JHora is NOT
 applying a near-station convention — the marker tracks the sign of motion.
 
+### 3f. JHora v8 Traditional Lahiri (matched-mode) — FULL body table incl. Navamsa, upagrahas and sphutas (S130)
+
+**Supplied directly by Sulabh (user), 2026-09-13, via JHora's own
+"Copy to clipboard" — NOT hand-typed.** Same mode and same underlying
+capture as §3e (all 9 grahas byte-identical to it), but this one carries
+three things §3e does not: the **Navamsa column**, the **upagrahas**, and
+the **sphutas** — §3e's own note records "upagrahas/sphutas not requested".
+Ayanamsa mode confirmed by the user as **Traditional Lahiri**.
+
+```
+Body                    Longitude        Nakshatra Pada Rasi Navamsa
+Lagna                   22 Sg 41' 58.24" PSha      3    Sg   Li
+Sun - AK                22 Pi 30' 56.53" Reva      2    Pi   Cp
+Moon - GK                2 Sc 13' 56.28" Visa      4    Sc   Cn
+Mars - PK                5 Cp 33' 42.75" USha      3    Cp   Aq
+Mercury - PiK            7 Pi 52' 23.63" UBha      2    Pi   Vi
+Jupiter - AmK           12 Ar 33' 29.29" Aswi      4    Ar   Cn
+Venus - MK               8 Ta 19' 39.31" Krit      4    Ta   Pi
+Saturn - BK              8 Sg 50' 14.60" Mool      3    Sg   Ge
+Rahu - DK               28 Aq 24' 06.40" PBha      3    Aq   Ge
+Ketu                    28 Le 24' 06.40" UPha      1    Le   Sg
+Maandi                   2 Li 13' 37.09" Chit      3    Li   Li
+Gulika                  22 Vi 14' 24.34" Hast      4    Vi   Cn
+Bhava Lagna              6 Cp 56' 15.01" USha      4    Cp   Pi
+Hora Lagna              22 Li 08' 19.90" Visa      1    Li   Ar
+Ghati Lagna              7 Pi 44' 34.57" UBha      2    Pi   Vi
+Vighati Lagna           25 Cp 45' 47.92" Dhan      1    Cp   Le
+Varnada Lagna           22 Cn 41' 58.24" Asre      2    Cn   Sc
+Sree Lagna              22 Sc 58' 17.75" Jye       2    Sc   Cp
+Pranapada Lagna         26 Ta 32' 34.32" Mrig      1    Ta   Le
+Indu Lagna               2 Le 13' 56.28" Magh      1    Le   Ar
+Bhrigu Bindu             0 Cn 19' 01.34" Puna      4    Cn   Cn
+Dhooma                   5 Le 50' 56.53" Magh      2    Le   Ta
+Vyatipata               24 Sc 09' 03.47" Jye       3    Sc   Aq
+Parivesha               24 Ta 09' 03.47" Mrig      1    Ta   Le
+Indra Chapa              5 Aq 50' 56.53" Dhan      4    Aq   Sc
+Upaketu                 22 Aq 30' 56.53" PBha      1    Aq   Ar
+Kaala                   11 Sc 03' 49.13" Anu       3    Sc   Li
+Mrityu                  20 Sg 52' 57.66" PSha      3    Sg   Li
+Artha Prahara           13 Cp 38' 12.72" Srav      2    Cp   Ta
+Yama Ghantaka            9 Aq 38' 52.78" Sata      1    Aq   Sg
+Prana Sphuta            15 Ta 44' 15.53" Rohi      2    Ta   Ta
+Deha Sphuta             10 Ge 05' 54.56" Ardr      2    Ge   Cp
+Mrityu Sphuta           28 Cn 11' 46.88" Asre      4    Cn   Pi
+Sookshma TriSphuta      24 Sc 01' 56.97" Jye       3    Sc   Aq
+Tithi Sphuta             9 Sc 42' 59.75" Anu       2    Sc   Vi
+Yoga Sphuta (Sun-Moon)  24 Li 44' 52.81" Visa      2    Li   Ta
+Rahu Tithi Sphuta        5 Pi 53' 09.87" UBha      1    Pi   Le
+Kshetra Sphuta          20 Le 21' 08.31" PPha      3    Le   Li
+Beeja Sphuta            13 Ta 24' 05.12" Rohi      2    Ta   Ta
+TriSphuta               17 Cp 10' 18.85" Srav      3    Cp   Ge
+ChatusSphuta             9 Cp 41' 15.38" USha      4    Cp   Pi
+PanchaSphuta             8 Sg 05' 21.78" Mool      3    Sg   Ge
+V2                      22 Le 41' 58.24" PPha      3    Le   Sg
+V3                      22 Sc 41' 58.24" Jye       2    Sc   Pi
+V4                      22 Sg 41' 58.24" PSha      3    Sg   Ar
+V5                      22 Pi 41' 58.24" Reva      2    Pi   Cn
+V6                      22 Ar 41' 58.24" Bhar      3    Ar   Le
+V7                      22 Cn 41' 58.24" Asre      2    Cn   Sc
+V8                      22 Le 41' 58.24" PPha      3    Le   Sg
+V9                      22 Sc 41' 58.24" Jye       2    Sc   Pi
+V10                     22 Sg 41' 58.24" PSha      3    Sg   Ar
+V11                     22 Pi 41' 58.24" Reva      2    Pi   Cn
+V12                     22 Ar 41' 58.24" Bhar      3    Ar   Le
+Kunda                    8 Ta 39' 37.30" Krit      4    Ta   Pi
+Yoga Sphuta             28 Cp 04' 52.81" Dhan      2    Cp   Vi
+Avayoga Sphuta           4 Le 44' 52.81" Magh      2    Le   Ta
+```
+
+**D9 (Navamsa) — this is now the matched-mode D9 oracle for Sulabh.**
+The Navamsa column here is byte-identical to §3b's Navamsa column, which is
+a **True Chitrapaksha** capture — so for this chart the D9 signs are stable
+across the two ayanamsa modes even though the D1 longitudes are not. Two
+independent modes, one identical D9 column.
+
+| Body | D9 sign |
+|---|---|
+| Lagna | Libra |
+| Sun | Capricorn |
+| Moon | Cancer |
+| Mars | Aquarius |
+| Mercury | **Virgo (exaltation)** |
+| Jupiter | **Cancer (exaltation)** |
+| Venus | **Pisces (exaltation)** |
+| Saturn | Gemini |
+| Rahu | Gemini |
+| Ketu | Sagittarius |
+
+**PRODUCTION AGREEMENT: 10/10.** `agent/calculations/vargas/navamsa.py`'s
+`compute_navamsa()`, as composed by `frontend/app.py` and restated by
+`chart_facts._read_navamsa`, produces exactly these ten values — captured
+live in `diagnostics/qa_capture/20260913T065603Z.md`. This **closes the S130
+accepted precision gap**: that composition feeds `compute_navamsa` the
+ROUNDED `meta.jd_ut` (6dp) and `meta.asc_lon_sidereal` (4dp), worth ~0.2
+arc-seconds against a 3°20' pada, and the concern was that a boundary case
+could flip a pada. On this chart none does — all ten land exactly where
+JHora puts them. The gap remains a documented theoretical limit; it is now
+MEASURED HARMLESS for Sulabh. Do NOT "fix" it by exposing unrounded values
+from `chart_calculator` — that is the S20 lock.
+
+**Mercury exalted in D9 is load-bearing.** It is the remaining Neecha Bhanga
+route for the debilitated Mercury that participates in this chart's
+Dharma-Karmadhipati yoga (9th lord Sun + 10th lord Mercury conjunct in the
+4th). The other two standard routes fail — Jupiter, Mercury's dispositor, is
+neither exalted nor in a kendra from Lagna or Moon — so this row is what
+decides whether that yoga fires at full strength.
+
+**Upagrahas and sphutas: transcribed verbatim, NOT independently validated.**
+No production code reads them today and no second oracle exists for them in
+this repo. They are recorded because the capture was free and they close the
+"upagrahas/sphutas not requested" gap; treat them as a single-source capture
+until something cross-checks them.
+
+Source: JHora v8 GUI, Basics tab -> Longitudes & Basic Info, clipboard copy.
+Status: oracle-confirmed (matched-mode) for the graha + Navamsa rows;
+single-source-captured for the upagraha/sphuta rows. Session: S130.
+
+### CONFLICT — §3e's Lagna disagrees with §3f's, and §3f is very probably right
+
+§3e and §3f are the SAME capture in the SAME mode: all nine grahas are
+byte-identical between them. Only the Lagna differs.
+
+| | Lagna | abs° | vs production | 
+|---|---|---|---|
+| §3e (hand-built table) | Sg 22°40'59.06" | 262.683072 | **+38.62″** |
+| §3f (clipboard, this session) | Sg 22°41'58.24" | 262.699511 | **−20.56″** |
+
+Production `meta.asc_lon_sidereal` = 262.693800.
+
+**Why §3f is probably correct.** §3e's Lagna residual of +38.62″ is the ONLY
+positive value in that entire table — every other row sits between −0.14″
+and −47.91″, the documented Camp-Y apparent-vs-geometric aberration band.
+§3f's Lagna gives −20.56″, which lands beside Sun's −20.63″. Correcting it
+makes all ten residuals negative and internally coherent; leaving it makes
+one row an unexplained sign flip. The two values also differ as a plausible
+digit-order slip: 40'59 vs 41'58. Nobody caught it because +38.62″ passes
+the ≥100″ FLAG threshold, and §3e's own text reports "Max |Δ| = 47.92″
+(Mercury)" — still true either way.
+
+This is the SAME failure class as the Saturn "(R)" slip resolved above in
+this very file: a hand-built table disagreeing with its own clipboard source.
+
+**NOT auto-corrected.** §3e is the RATIFIED D1 oracle (Gap O1) and
+`meta.asc_lon_sidereal` feeds `compute_navamsa`. Changing a ratified oracle
+row is Sulabh's call, not a session's. Recorded here per the
+supersede-don't-delete convention; §3e's row is left exactly as it stands
+until adjudicated. NOTE: adjudicating it does NOT change the D9 result
+above — production computes its own ascendant and already matches JHora
+10/10 on Navamsa.
+
 ### CONFLICT — AstroSage vs JHora S27 (True Chitrapaksha) D1 longitudes for Sulabh (arcminute-scale, both nominally "Lahiri"/"Lahiri-labeled" but see §0 mode caveat)
 
 | Body | AstroSage (§3a) | JHora S27 (§3b) | Approx delta |
@@ -276,7 +426,32 @@ read-only/no-inference constraint.
 | item | value | source | status |
 |---|---|---|---|
 | Chalit Table (whole-sign bhava boundaries, Bhav Begin / Sign Mid Bhav) | Bhav 1=Sagittarius 09.59.19→Sagittarius 22.46.06; Bhav 2=Capricorn 09.59.19→Capricorn 27.12.32; Bhav 3=Aquarius 14.25.45→Pisces 01.38.58; Bhav 4=Pisces 18.52.11→Aries 06.05.23; Bhav 5=Aries 18.52.11→Taurus 01.38.58; Bhav 6=Taurus 14.25.45→Taurus 27.12.32; Bhav 7=Gemini 09.59.19→Gemini 22.46.06; Bhav 8=Cancer 09.59.19→Cancer 27.12.32; Bhav 9=Leo 14.25.45→Virgo 01.38.58; Bhav 10=Virgo 18.52.11→Libra 06.05.23; Bhav 11=Libra 18.52.11→Scorpion 01.38.58; Bhav 12=Scorpion 14.25.45→Scorpion 27.12.32 | PDF p.3, "Chalit Table" | oracle-confirmed |
-| Sign-level dignity | NOT FOUND IN REPO | — | — |
+| Sign-level dignity | NOT FOUND IN REPO as a printed oracle column | — | — |
+
+**DERIVED dignity (S130) — not an oracle row, recorded as a derivation.**
+No source in this repo PRINTS a dignity column. But exaltation, debilitation
+and own-sign are a fixed lookup on the sign, and the signs ARE oracle-confirmed
+(§3e/§3f). Applying `chart_calculator.py`'s `EXALTATION`/`DEBILITATION`/
+`_OWN_SIGNS` constants — locked S21 from PVR Table 6, uncontested — to JHora's
+own Rasi column gives, and production agrees 7/7:
+
+| Planet | Rasi (§3f) | derived standing |
+|---|---|---|
+| Sun | Pisces | (none — friendship tier, deliberately not stated) |
+| Moon | Scorpio | **Debilitated** |
+| Mars | Capricorn | **Exalted** |
+| Mercury | Pisces | **Debilitated** |
+| Jupiter | Aries | (none) |
+| Venus | Taurus | **Own Sign** |
+| Saturn | Sagittarius | (none) |
+
+SCOPE: only these three tiers are restated into the Path B fact block
+(S130 lock). Friendly/Inimical/Neutral stay out — that is the contested
+tail. Exaltation DEGREES are absent from the tables, so deep-exaltation and
+degree-keyed Neecha Bhanga variants remain unreachable. This block is a
+DERIVATION from oracle-confirmed signs, NOT a transcribed oracle table — the
+§4 no-inference constraint above still applies to anything JHora/AstroSage
+does not print.
 
 ---
 
@@ -680,8 +855,15 @@ this specific 8-karaka-vs-7-karaka scheme choice was found in
 ## Categories explicitly NOT FOUND IN REPO for Sulabh
 
 - Per-planet sign-based dignity table (Exalted/Own/Friendly/Neutral/
-  Inimical/Debilitated) from any oracle source — only the Chalit table
-  (§4) exists; same gap as David's file.
+  Inimical/Debilitated) **printed by** any oracle source — still absent;
+  same gap as David's file. **PARTIALLY ADDRESSED S130:** the three
+  fixed-table tiers (Exalted/Debilitated/Own Sign) are now DERIVED from
+  §3f's oracle-confirmed Rasi column and recorded at §4, 7/7 agreeing with
+  production. The contested friendship tiers remain both unprinted and
+  unused.
+- ~~A matched-mode D9/Navamsa reference for Sulabh~~ — **CLOSED S130, §3f**
+  (Traditional Lahiri clipboard capture, 10/10 against production, and
+  byte-identical to §3b's True Chitrapaksha Navamsa column).
 - A matched-mode (Traditional Lahiri) JHora GUI capture of D1 planetary
   longitudes — the only JHora D1 longitude captures in-repo for Sulabh
   (S27, S74-restated) are True Chitrapaksha. See manifest external asks.
@@ -693,6 +875,10 @@ this specific 8-karaka-vs-7-karaka scheme choice was found in
 
 
 
+<!-- S130: loose paste, retained as-is. Labelled True Chitrapaksha by the
+     user; its Lagna (22 Sg 41' 55.06") differs from BOTH §3e and §3f, which
+     is consistent with it being a third, different-mode capture. Not used
+     as an oracle anywhere. Structured captures live at §3b/§3e/§3f. -->
 Sulabh::
 true lahiri/chitrapaksha:
 Body                    Longitude        Nakshatra Pada Rasi Navamsa

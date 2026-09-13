@@ -68,10 +68,18 @@ def build_chart_facts(chart: dict) -> dict:
     lord_house_map = _read_lord_house_map(chart)
     ascendant_sign = _read_ascendant(chart)
     planet_positions = _read_planet_positions(chart)
+    house_lords = _read_house_lords(chart)
+    aspects = _read_aspects(chart)
+    navamsa = _read_navamsa(chart)
 
-    return {"lord_house_map": lord_house_map,
-            "ascendant_sign": ascendant_sign,
-            "planet_positions": planet_positions}
+    facts = {"lord_house_map": lord_house_map,
+             "ascendant_sign": ascendant_sign,
+             "planet_positions": planet_positions,
+             "house_lords": house_lords,
+             "aspects": aspects}
+    if navamsa:
+        facts["navamsa"] = navamsa
+    return facts
 
 
 # ---------------------------------------------------------------- internals
@@ -256,9 +264,218 @@ def _read_planet_positions(chart: dict) -> dict[str, dict]:
         if not isinstance(sign, str) or not sign.strip():
             raise ChartFactsError(f"{planet}'s sign is missing or blank: {sign!r}")
 
-        out[planet] = {"house": house_i, "sign": sign.strip()}
+        row_out = {"house": house_i, "sign": sign.strip()}
+        standing = _uncontested_dignity(row.get("dignity"))
+        if standing is not None:
+            row_out["dignity"] = standing
+        out[planet] = row_out
     return out
 
+
+# The three dignity tiers `_dignity()` resolves from FIXED tables, before it
+# ever consults planetary friendship (chart_calculator.py:147-162). These are
+# the ones restated.
+_UNCONTESTED_DIGNITY = frozenset({"Exalted", "Debilitated", "Own Sign"})
+
+
+def _uncontested_dignity(value) -> str | None:
+    """Exalted / Debilitated / Own Sign pass through; everything else is
+    dropped. Returns None when there is nothing safe to state.
+
+    WHY THE SPLIT (S130). S129b excluded dignity WHOLESALE, on the stated
+    ground that "no oracle table exists to validate it" and that
+    docs/KNOWN_DIVERGENCES.md "records the dignity vocabulary fragmenting
+    three ways". Checked S130: KNOWN_DIVERGENCES.md contains no dignity entry.
+    The three-way fragmentation it refers to is Gap S1, Saptavargaja Bala,
+    which is about VIRUPA TIER WEIGHTS in Shadbala (Mooltrikona=45 / Own=30 /
+    Pramudita=20 vs Kapoor 45/30/22.5/15) -- how much STRENGTH a tier scores,
+    never which sign a planet is exalted in.
+
+    `_dignity()` tests EXALTATION, then DEBILITATION, then _OWN_SIGNS -- all
+    fixed constants locked in S21 from PVR Table 6 and never contested since --
+    and only then falls through to _FRIENDS, which is the genuinely contested
+    part. So the S129b reasoning correctly blocks the friendship tail and
+    incorrectly blocks the head. This restates the head only.
+
+    WHAT THIS UNBLOCKS: Neecha Bhanga Raja Yoga, which needs exactly a
+    debilitated planet plus its dispositor's exaltation -- named in S21 as the
+    reason dignity mattered at all ("most raja/dhana yogas and Neecha Bhanga
+    literally require knowing exaltation/debilitation/own-sign status").
+
+    STILL OUT: Friendly / Inimical / Neutral (contested tiering), and
+    exaltation DEGREES -- the tables carry signs only, so deep-exaltation and
+    degree-keyed Neecha Bhanga variants remain unreachable. Do not synthesise
+    either here.
+    """
+    if isinstance(value, str) and value.strip() in _UNCONTESTED_DIGNITY:
+        return value.strip()
+    return None
+
+
+def _read_house_lords(chart: dict) -> dict[int, dict]:
+    """Restate the two fields `_read_lord_house_map` throws away: `lord` and
+    `sign`. Returns {house: {"lord": str, "sign": str, "in_house": int}}.
+
+    WHY (S130). `lord_house_map` is house->house. It drops WHICH PLANET owns
+    each house, so the fact block could not say "the 9th lord is Sun", and two
+    lords sharing a house showed up only as two unrelated lines twelve rows
+    apart. Measured on the live run: the Interpreter emitted "the 9th lord in
+    the 4th" and "the 10th lord in the 4th" as SEPARATE claims and never
+    noticed they name the same house -- which is the Dharma-Karmadhipati yoga.
+    Asking the model to join those two lines is exactly the "never LLM-bridge
+    two representations" failure (CLAUDE.md Working Style #23): compute the
+    grouping, feed the grouping.
+
+    STILL A RESTATEMENT. `calculate_chart()` already puts `lord` and `sign` on
+    every `house_lord_mapping` row; this reads them. No sign table, no lord
+    table, no astrology -- the module law at the top of this file holds.
+
+    Absent/short source returns {} rather than raising: the 12-house contract
+    is enforced by `_read_lord_house_map` on the SAME rows, so a hole here can
+    only mean the calculator stopped emitting an optional label.
+    """
+    rows = chart.get("house_lord_mapping")
+    if not isinstance(rows, list):
+        return {}
+
+    out: dict[int, dict] = {}
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            continue
+        lord = row.get("lord")
+        sign = row.get("sign")
+        placement = row.get("lord_in_house")
+        if not isinstance(lord, str) or not lord.strip():
+            continue
+        if placement is None:
+            continue
+        house = _coerce_int(row.get("house"),
+                            f"chart['house_lord_mapping'][{index}]['house']")
+        out[house] = {
+            "lord": lord.strip(),
+            "sign": sign.strip() if isinstance(sign, str) and sign.strip() else None,
+            "in_house": _coerce_int(
+                placement,
+                f"chart['house_lord_mapping'][{index}]['lord_in_house']"),
+        }
+    return out
+
+def _read_aspects(chart: dict) -> dict:
+    """Restate the three aspect fields `calculate_chart()` already returns:
+    `conjunctions`, `aspects_by_planet`, `aspected_by` (chart_calculator.py:
+    437-471, surfaced at 737-741).
+
+    WHY (S130). Two of the four yogas a benchmark answer found for this chart
+    turn on an aspect, and the fact block carried none, so the Interpreter could
+    not reach them at any prompt quality. `aspected_by` also catches the
+    affliction check the benchmark itself got WRONG -- it called a 12th-house
+    Moon "unaspected" when Venus in the 6th casts its 7th aspect onto it.
+
+    RESTATEMENT, not calculation. Every value here is produced by
+    `_calc_aspects` and discarded at the adapter today. No orb, no strength,
+    no drishti arithmetic happens in this module -- the aspect RULES (7th for
+    all, plus Mars 4/8, Jupiter 5/9, Saturn 3/10) live in the calculator, which
+    is where the module law at the top of this file says they belong.
+
+    NOT restated: nothing is filtered or ranked. A benefic/malefic split would
+    need a dignity table this module deliberately does not have (see
+    _read_planet_positions), and the corpus supplies that doctrine anyway.
+
+    Absent source returns {} -- an honest absence, same posture as
+    _read_planet_positions. The capability gate decides what that blocks.
+    """
+    conjunctions = chart.get("conjunctions")
+    by_planet = chart.get("aspects_by_planet")
+    aspected_by = chart.get("aspected_by")
+    if not isinstance(by_planet, dict) and not isinstance(conjunctions, list):
+        return {}
+
+    out: dict = {}
+    if isinstance(conjunctions, list):
+        out["conjunctions"] = [c.strip() for c in conjunctions
+                               if isinstance(c, str) and c.strip()]
+    if isinstance(by_planet, dict):
+        cleaned: dict[str, list[int]] = {}
+        for planet in _GRAHA_ORDER:
+            houses = by_planet.get(planet)
+            if not isinstance(houses, list):
+                continue
+            seen: list[int] = []
+            for h in houses:
+                hi = _coerce_int(h, f"chart['aspects_by_planet'][{planet!r}]")
+                if hi not in _EXPECTED_HOUSES:
+                    raise ChartFactsError(
+                        f"{planet} is recorded as aspecting house {hi}; "
+                        "aspected houses must lie in 1..12")
+                if hi not in seen:
+                    seen.append(hi)
+            cleaned[planet] = sorted(seen)
+        out["aspects_by_planet"] = cleaned
+    if isinstance(aspected_by, dict):
+        out["aspected_by"] = {
+            p: sorted({s for s in v if isinstance(s, str) and s.strip()})
+            for p, v in aspected_by.items()
+            if isinstance(v, list) and p in _GRAHA_ORDER
+        }
+    return out
+
+def _read_navamsa(chart: dict) -> dict:
+    """Restate a D9 chart the CALLER attached at chart["navamsa"].
+
+    Returns {"d9_lagna_sign": str, "placements": {planet: {sign, house,
+    dignity?}}} or {} when the caller supplied none.
+
+    WHO COMPUTES IT, AND WHY NOT HERE. `agent/calculations/vargas/navamsa.py`
+    has been built and oracle-clean since S20 -- `compute_navamsa(jd_ut,
+    asc_lon_sidereal)`, 4/4 reference charts passing, David tested first
+    specifically for pada-boundary sensitivity. It was never wired to anything
+    because S20 locked "Don't touch chart_calculator. Don't retrofit D1" for
+    architectural reasons, and nobody since decided D9 should stay away from
+    USERS -- S20's own V1 scope table marks D9 as required for the two highest
+    value marriage questions. The unwired state is drift, not policy.
+
+    So the composition happens in the CALLER, which already imports both
+    modules, and this adapter only restates the result. That keeps all three
+    rules intact at once: chart_calculator untouched (S20), this module
+    importing no calculator (its own law), and the fact block growing only by
+    restatement (P-022).
+
+    PRECISION NOTE. `calculate_chart()` exposes `meta.jd_ut` rounded to 6dp
+    and `meta.asc_lon_sidereal` to 4dp. Feeding the rounded values costs at
+    most ~0.00005 deg of lagna precision against a 3 deg 20' pada, i.e. a
+    boundary case has to land within ~0.2 arc-seconds to flip. Accepted and
+    recorded rather than resolved, because resolving it means exposing the
+    unrounded values from chart_calculator -- which is the S20 lock.
+    """
+    raw = chart.get("navamsa")
+    if not isinstance(raw, dict):
+        return {}
+    lagna = raw.get("d9_lagna_sign")
+    placements = raw.get("placements")
+    if not isinstance(placements, dict):
+        return {}
+
+    out: dict[str, dict] = {}
+    for planet in _GRAHA_ORDER:
+        row = placements.get(planet)
+        if not isinstance(row, dict):
+            continue
+        sign = row.get("sign")
+        house = row.get("house")
+        if not isinstance(sign, str) or not sign.strip() or house is None:
+            continue
+        entry = {"sign": sign.strip(),
+                 "house": _coerce_int(house, f"navamsa placement {planet}")}
+        standing = _uncontested_dignity(row.get("dignity"))
+        if standing is not None:
+            entry["dignity"] = standing
+        out[planet] = entry
+    if not out:
+        return {}
+    result: dict = {"placements": out}
+    if isinstance(lagna, str) and lagna.strip():
+        result["d9_lagna_sign"] = lagna.strip()
+    return result
 
 def _read_ascendant(chart: dict) -> str:
     """Pull the ascendant sign out of chart['lagna_chart']['ascendant']."""

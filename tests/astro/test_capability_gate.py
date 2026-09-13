@@ -49,7 +49,159 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
         "declining questions it could now answer"
     )
     assert CG.FACT_BLOCK_PROVIDES == frozenset(
-        {"ascendant_sign", "lord_house_map", "planet_positions"})
+        {"ascendant_sign", "lord_house_map", "planet_positions", "house_lords",
+         "aspects", "dignity", "navamsa"})
+
+
+def test_navamsa_is_restated_and_rendered_when_the_caller_supplies_it():
+    """D9 has been oracle-clean since S20 and unwired ever since. The adapter
+    must restate a caller-supplied chart and never compute one itself."""
+    from agent.astro import chart_facts, pipeline
+    chart = {
+        "house_lord_mapping": [{"house": h, "sign": f"S{h}", "lord": f"L{h}",
+                                "lord_in_house": h} for h in range(1, 13)],
+        "lagna_chart": {"ascendant": "Sagittarius"},
+        "planetary_positions": {"Mercury": {"house": 4, "sign": "Pisces",
+                                            "dignity": "Debilitated"}},
+        "navamsa": {"d9_lagna_sign": "Gemini",
+                    "placements": {
+                        "Mercury": {"sign": "Virgo", "house": 4,
+                                    "dignity": "Exalted"},
+                        "Venus": {"sign": "Leo", "house": 3,
+                                  "dignity": "Friendly"}}},
+    }
+    facts = chart_facts.build_chart_facts(chart)
+    nav = facts["navamsa"]["placements"]
+    assert nav["Mercury"] == {"sign": "Virgo", "house": 4, "dignity": "Exalted"}
+    # the contested tail is filtered in D9 exactly as it is in D1
+    assert "dignity" not in nav["Venus"]
+
+    block = pipeline._fact_block(facts)
+    assert "In the Navamsa (D9) divisional chart, whose ascendant is Gemini:" in block
+    # the remaining Neecha Bhanga route, readable in one line
+    assert "Mercury is in Virgo (D9 house 4) -- exalted there" in block
+
+
+def test_no_navamsa_key_when_the_caller_supplies_none():
+    """Composition is the caller's job. Absent D9 is an honest absence, not an
+    error, and must not leave an empty key behind."""
+    from agent.astro import chart_facts, pipeline
+    chart = {
+        "house_lord_mapping": [{"house": h, "sign": f"S{h}", "lord": f"L{h}",
+                                "lord_in_house": h} for h in range(1, 13)],
+        "lagna_chart": {"ascendant": "Sagittarius"},
+    }
+    facts = chart_facts.build_chart_facts(chart)
+    assert "navamsa" not in facts
+    assert "Navamsa" not in pipeline._fact_block(facts)
+
+
+def test_only_the_uncontested_dignity_tiers_are_restated():
+    """S130 split. Exalted/Debilitated/Own Sign come from fixed tables locked in
+    S21 from PVR Table 6. Friendly/Inimical/Neutral come from _FRIENDS, which is
+    the genuinely contested part -- those must never reach the block."""
+    from agent.astro import chart_facts
+    chart = {
+        "house_lord_mapping": [{"house": h, "sign": f"S{h}", "lord": f"L{h}",
+                                "lord_in_house": h} for h in range(1, 13)],
+        "lagna_chart": {"ascendant": "Sagittarius"},
+        "planetary_positions": {
+            "Sun": {"house": 4, "sign": "Pisces", "dignity": "Debilitated"},
+            "Moon": {"house": 12, "sign": "Scorpio", "dignity": "Debilitated"},
+            "Mars": {"house": 2, "sign": "Capricorn", "dignity": "Exalted"},
+            "Mercury": {"house": 4, "sign": "Pisces", "dignity": "Friendly"},
+            "Jupiter": {"house": 5, "sign": "Aries", "dignity": "Inimical"},
+            "Venus": {"house": 6, "sign": "Taurus", "dignity": "Own Sign"},
+            "Saturn": {"house": 1, "sign": "Sagittarius", "dignity": "Neutral"},
+        },
+    }
+    pos = chart_facts.build_chart_facts(chart)["planet_positions"]
+    assert pos["Moon"]["dignity"] == "Debilitated"
+    assert pos["Mars"]["dignity"] == "Exalted"
+    assert pos["Venus"]["dignity"] == "Own Sign"
+    for contested in ("Mercury", "Jupiter", "Saturn"):
+        assert "dignity" not in pos[contested], (
+            f"{contested} carries a contested friendship tier into the block")
+
+
+def test_neecha_bhanga_is_readable_off_the_block_without_inference():
+    """The whole point of the S130 dignity + dispositor work: a debilitated
+    planet and its dispositor's standing must be one read, not a cross-block
+    lookup. Sulabh's chart: Moon debilitated in Scorpio, dispositor Mars exalted
+    in Capricorn -- the textbook cancellation."""
+    from agent.astro import pipeline
+    facts = {
+        "lord_house_map": {h: h for h in range(1, 13)},
+        "ascendant_sign": "Sagittarius",
+        "house_lords": {12: {"lord": "Mars", "sign": "Scorpio", "in_house": 2},
+                        2: {"lord": "Saturn", "sign": "Capricorn", "in_house": 1}},
+        "planet_positions": {
+            "Moon": {"house": 12, "sign": "Scorpio", "dignity": "Debilitated"},
+            "Mars": {"house": 2, "sign": "Capricorn", "dignity": "Exalted"}},
+    }
+    block = pipeline._fact_block(facts)
+    assert "Moon is in house 12 (Scorpio) -- debilitated there." in block
+    assert "Mars is in house 2 (Capricorn) -- exalted there." in block
+    assert ("Moon is in Scorpio, whose lord is Mars; Mars is in Capricorn "
+            "-- exalted there") in block
+
+
+def test_aspects_capability_is_rendered_when_the_facts_carry_it():
+    """Pin all three restated aspect fields plus the MUTUAL grouping. Mutual is
+    the load-bearing one: a one-way aspect and a mutual one carry different
+    doctrinal weight, and a benchmark answer for this chart rated a one-way
+    aspect as a certain raja yoga by not distinguishing them."""
+    from agent.astro import pipeline
+    facts = {"lord_house_map": {h: h for h in range(1, 13)},
+             "ascendant_sign": "Sagittarius",
+             "aspects": {
+                 "conjunctions": ["Sun conjunct Mercury (4th house)"],
+                 "aspects_by_planet": {"Mars": [5, 8, 9], "Jupiter": [1, 9, 11]},
+                 "aspected_by": {"Jupiter": ["Mars"], "Moon": ["Venus"],
+                                 "Saturn": ["Ketu"], "Ketu": ["Saturn"]}}}
+    block = pipeline._fact_block(facts)
+    assert "Sun conjunct Mercury (4th house)" in block
+    assert "Mars aspects houses 5, 8, 9" in block
+    # the affliction check the benchmark missed by eye
+    assert "Moon is aspected by Venus" in block
+    # Mars->Jupiter is ONE-WAY here, so it must NOT appear as mutual
+    assert "Planets that aspect EACH OTHER" in block
+    assert "  Ketu and Saturn" in block
+    assert "  Jupiter and Mars" not in block
+
+
+def test_fact_block_stays_byte_identical_for_a_legacy_facts_dict():
+    """Every S130 key is additive. A pre-S130 chart_facts dict must render
+    exactly as it did, or replaying an old capture reports false diffs."""
+    from agent.astro import pipeline
+    legacy = {"lord_house_map": {h: ((h + 3) % 12) + 1 for h in range(1, 13)},
+              "ascendant_sign": "Sagittarius"}
+    block = pipeline._fact_block(legacy)
+    assert "its lord is" not in block
+    assert "Aspects and conjunctions" not in block
+    assert "share a house" not in block
+    assert block.count("its lord sits in house") == 12
+
+
+def test_house_lords_capability_is_rendered_when_the_facts_carry_it():
+    """house_lords claims TWO things: each house lord's own planet name, and
+    the groupings that follow. Pin both -- the grouping is the half that exists
+    to stop the Interpreter bridging twelve separate lines by itself."""
+    from agent.astro import pipeline
+    facts = {"lord_house_map": {1: 5, 4: 5, 9: 4, 10: 4,
+                                **{h: h for h in (2, 3, 5, 6, 7, 8, 11, 12)}},
+             "ascendant_sign": "Sagittarius",
+             "house_lords": {1: {"lord": "Jupiter", "sign": "Sagittarius", "in_house": 5},
+                             4: {"lord": "Jupiter", "sign": "Pisces", "in_house": 5},
+                             9: {"lord": "Sun", "sign": "Leo", "in_house": 4},
+                             10: {"lord": "Mercury", "sign": "Virgo", "in_house": 4}}}
+    block = pipeline._fact_block(facts)
+    assert "its lord is Sun" in block
+    assert "House 9 (Leo)" in block
+    # the Dharma-Karmadhipati co-location, STATED rather than left to infer
+    assert "the lords of houses 9th, 10th are all in house 4" in block
+    # multi-rulership -- the benchmark answer itself missed Venus ruling 6 AND 11
+    assert "Jupiter rules houses 1 and 4" in block
 
 
 def test_every_requirement_names_a_capability_the_block_does_not_yet_have():

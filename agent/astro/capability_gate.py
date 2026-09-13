@@ -46,7 +46,8 @@ judge" is the law behind both.
 GROWING THIS FILE
 -----------------
 `FACT_BLOCK_PROVIDES` is the single declaration of what the fact block carries.
-When `chart_d1` or `vimshottari` lands and `pipeline._fact_block` widens, add
+When the block widens -- by RESTATING more of `calculate_chart()`, never by
+implementing the permanent `chart_d1` stub (P-022) -- add
 the new capability key here IN THE SAME CHANGE and the matching requirements
 stop firing automatically. A requirement whose `needs` is satisfied is inert;
 nothing else has to be edited, and no requirement ever has to be deleted.
@@ -80,6 +81,10 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
     "ascendant_sign",      # the ascendant line
     "lord_house_map",      # the 12 house-lord placement lines
     "planet_positions",    # per-graha house + sign (S129)
+    "house_lords",         # which planet rules each house + groupings (S130)
+    "aspects",             # conjunctions, aspects_by_planet, aspected_by (S130)
+    "dignity",             # exalted/debilitated/own-sign ONLY, + dispositor (S130)
+    "navamsa",             # D9 signs/houses, restated from vargas/navamsa (S130)
 })
 
 

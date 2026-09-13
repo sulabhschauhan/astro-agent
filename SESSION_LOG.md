@@ -667,3 +667,164 @@ pre-existing key/corpus-dependent failures. Post-Saturn: 123 passed across `test
    architect's refactor (`pipeline._fact_block` still calls `payload_builder.parse_lord_house_map`);
    stale MASTER BUILD PLAN (~13 lines); cost-constraint re-ratification ($0.01 ratified vs
    measured ~$0.19 / 75s); **`main` is stale at S84, so project RAG is ~45 sessions behind.**
+
+
+## S130 — reasoning_effort was never reaching the API; fact block widened 4 ways (house_lords, aspects, dignity head, navamsa); ghost citations root-caused (2026-09-13)
+
+**BRANCH:** `wip/interpretive-pilot`, on top of `c0d6c70`. Written to disk UNCOMMITTED;
+SHA assigned at Sulabh's commit — this entry names none because none existed when it was
+written (CODE-READ PROVENANCE).
+
+**HEADLINE:** three things this project believed were missing or blocked turned out to be
+already built and merely unwired, and the reason each was 'blocked' did not survive being
+checked against its own cited source. Rows P-024 and P-025 exist so this stops recurring.
+
+### 1. `reasoning_effort` NEVER REACHED THE API (P-023, FIXED)
+`interpreter._default_llm` passed `reasoning_effort` as a NAMED kwarg and, on `TypeError`,
+retried WITHOUT the parameter. On an SDK whose `chat.completions.create` signature predates
+that kwarg, the drop path ran on EVERY call. Measured 7/7 turns in
+`diagnostics/qa_capture/20260913T040439Z.md`: `reasoning_effort_applied=false`, 3,328-8,384
+reasoning tokens, 50-58s interpreter stages. FIX: the TypeError path now retries via
+`extra_body={"reasoning_effort": ...}`, which reaches the API on any SDK version; only an
+API-side refusal drops it, and `usage.reasoning_effort_path` records which of the three
+paths ran. MEASURED AFTER (`20260913T051158Z.md`, same Saturn question):
+`path=extra_body`, reasoning_tokens **8384 -> 0**, interpreter **50.51s -> 21.07s**,
+total **55.51s -> 24.37s**. STANDING LESSON: a TypeError on a named kwarg means the SDK
+SIGNATURE is old, NOT that the API rejects the parameter. Never conflate the two.
+
+### 2. FACT BLOCK WIDENED FOUR WAYS — all pure restatement
+Every key below was ALREADY produced by `calculate_chart()` and simply not restated by the
+adapter. No calculation was added anywhere; `chart_calculator.py` is untouched.
+- **`house_lords`** — `house_lord_mapping` rows carry `house/sign/lord/lord_in_house`; the
+  adapter read two and DISCARDED the lord's planet name and the sign. So the block could
+  not say "the 9th lord is Sun", and lord co-location was a 12-line inference. Now
+  restated, plus two pure regroupings: lords sharing a house, and planets ruling two houses.
+- **`aspects`** — `conjunctions` / `aspects_by_planet` / `aspected_by` restated verbatim,
+  plus a MUTUAL grouping (a one-way aspect and a mutual one carry different doctrinal
+  weight; a benchmark answer for this chart rated a one-way aspect as a certain raja yoga
+  precisely by not distinguishing them).
+- **`dignity`, HEAD ONLY** — Exalted / Debilitated / Own Sign restated; Friendly / Inimical
+  / Neutral NOT. See §3.
+- **`navamsa`** — D9 restated from a caller-supplied chart. See §4.
+Growth contract honoured on all four; `tests/astro/test_capability_gate.py` pins each, and
+a further test pins that a pre-S130 `chart_facts` dict still renders BYTE-IDENTICALLY so
+replaying an old capture reports no false diff. Suite 217 -> 228.
+
+**WHY IT MATTERS (measured against a Claude-desktop benchmark answer for the same chart).**
+Before: the Interpreter emitted "the 9th lord in the 4th" and "the 10th lord in the 4th" as
+two UNRELATED claims and never noticed they name one house — which is the
+Dharma-Karmadhipati yoga. After (`20260913T065603Z.md`): "With the 9th lord (Sun) conjoined
+the 10th lord (Mercury) in the 4th, an angle, you have an angle-trine lords' union." It also
+found Venus ruling BOTH the 6th and 11th, which the benchmark answer missed entirely.
+This is Working Style #23 in practice: feed the computed term, never ask the model to bridge
+two representations.
+
+### 3. THE S129b DIGNITY EXCLUSION WAS UNRATIFIED AND ITS STATED GROUND WAS FALSE
+`chart_facts.py` excluded ALL dignity because "no oracle table exists to validate it" and
+because "docs/KNOWN_DIVERGENCES.md records the dignity vocabulary fragmenting three ways".
+CHECKED: **KNOWN_DIVERGENCES.md contains no dignity entry at all.** Its only three-way
+fragmentation is Gap S1, Saptavargaja Bala, which is about VIRUPA TIER WEIGHTS in Shadbala
+(Mooltrikona=45 / Own=30 / Pramudita=20 vs Kapoor 45/30/22.5/15) — how much STRENGTH a tier
+scores, never which sign a planet is exalted in. A full design-chat history search (run by
+Sulabh, pasted to `diagnostics/latest_run.md`) found NO session where the exclusion was
+agreed; the last locatable fact-block session is S127, which had not yet even found the
+`chart_facts` construction point. Treat the old comment as written by Claude Code and never
+ratified.
+`_dignity()` (chart_calculator.py:147-162) tests EXALTATION, then DEBILITATION, then
+`_OWN_SIGNS` — all fixed constants locked S21 from PVR Table 6, uncontested and never
+revisited — and only THEN falls through to `_FRIENDS`, which is the genuinely contested
+part. So the S129b reasoning correctly blocks the tail and incorrectly blocks the head.
+S21 named the consumer at the time: "most raja/dhana yogas and Neecha Bhanga literally
+require knowing exaltation/debilitation/own-sign status".
+**STILL OUT, deliberately:** friendship tiers, and exaltation DEGREES — the tables carry
+signs only, so deep-exaltation and degree-keyed Neecha Bhanga variants stay unreachable.
+Do not synthesise either.
+
+### 4. NAVAMSA (D9) WAS BUILT ALL ALONG — WIRED AT LAST
+`agent/calculations/vargas/navamsa.py` has been built and oracle-clean since **S20**:
+`compute_navamsa(jd_ut, asc_lon_sidereal)`, 4/4 reference charts passing (David tested
+FIRST specifically for pada-boundary sensitivity), commit `2a70f1a`. It was wired to
+NOTHING for ~110 sessions because S20 locked *"Don't touch chart_calculator. Don't retrofit
+D1"* — an ARCHITECTURAL lock. Nobody ever decided D9 should stay away from users; S20's own
+V1 scope table marks D9 REQUIRED for the two highest-value marriage questions. The unwired
+state was DRIFT, not policy.
+That lock is HONOURED, not worked around: `calculate_chart()` already returns
+`meta.jd_ut` + `meta.asc_lon_sidereal`, which are exactly `compute_navamsa`'s two arguments.
+So `frontend/app.py` composes D9 and `chart_facts._read_navamsa` only RESTATES it —
+calculator untouched, adapter still importing no calculator, P-022 respected. FAIL-SOFT: a
+D9 failure costs the Neecha Bhanga check, never the answer.
+**ACCEPTED PRECISION GAP:** those meta values are rounded (jd_ut 6dp, asc_lon 4dp), worth
+~0.2 arc-seconds against a 3d20' pada. Resolving it means exposing unrounded values from
+chart_calculator, i.e. the S20 lock. Recorded, not resolved.
+**FIRST LIVE RESULT:** `Mercury: Virgo, D9 house 12, Exalted` — which ANSWERS the exact
+question the benchmark answer had to leave open ("the remaining route is Mercury being
+exalted in Navamsa… I haven't been asked to read it"). Jupiter and Venus are also exalted
+in D9, Moon in own sign.
+
+### 5. GHOST CITATIONS ROOT-CAUSED (fix landed, NOT yet live-verified)
+Every ghost in the 2026-09-13 runs came from the prompt carrying **two address formats at
+once**: split chapters render as `[ch34_s003]` (book prefix stripped, per-segment) while
+whole chapters render as `[bphs2_ch57]` (full unit id, NO sub-ids). The model normalises to
+the dominant per-segment format and mints sub-ids for the whole ones. 9 of 10 ghosts in one
+turn were `ch57_s001..s016` against `bphs2_ch57` "Effects of the Antardasas in the Dasa of
+Saturn" — a chapter genuinely present, genuinely on-topic, carried WHOLE. The remaining two
+were ordinal overruns: `ch34_s013` where ch34 ends at s012, `ch17_s012` where ch17 ends at
+s004. Measured: 23 of 81 selected units contribute zero segments and are carried whole.
+NOT fabrication — an ADDRESSING failure, and an expensive one, because the ghost guard drops
+the CLAIM along with the id (the Saturn turn shed 10 ids and shipped 2 claims).
+FIX: `interpreter._id_manifest()` renders a complete CITABLE IDS list ahead of the verses,
+whole chapters flagged as having no sub-ids, plus an inline marker on each whole chapter.
+4 tests, incl. one asserting the manifest actually reaches the system prompt.
+This is S124's own law reappearing: an id space the model cannot enumerate produces
+addresses that cannot resolve.
+
+### 6. OPEN, FOUND THIS SESSION, NOT FIXED
+- **A false-precondition claim shipped.** Saturn turn: "…as the 10th lord in the 8th gives
+  obstructions…" — this chart's 10th lord is in the 4th. The enforcing silence gate did NOT
+  judge it: `read_condition` returned `None` with "condition is negated or exclusionary",
+  because the word "unless" appears in a DIFFERENT clause of the same sentence. Fails safe,
+  so it was kept — and shipped. The negation guard is clause-blind.
+- **`ungated_pct` hit 100%** on two turns: the enforcing gate judged nothing at all.
+- **The planner selects almost everything.** 14 of 16 domains for "What does Saturn's
+  placement mean"; 81 units; prompt_tokens 185k-229k against the ~80k the $0.19/question
+  estimate was built on. `cached_tokens` 0 on six of seven turns — the corpus-first cache is
+  not hitting.
+- **`planetary_nature` is a glossary domain.** All five chapters are reference material
+  (ch2 Great Incarnations, ch3 Planetary Characters, ch4 Zodiacal Signs, ch76 Five Elements,
+  ch77 Satwa Guna). The planner picked it ALONE for "What do Mars and Venus say about me?"
+  and gpt-5 correctly recited definitions — "Venus is a female planet" — with a true
+  placement prefix. Faithful, cited, gate-clean, worthless to a reader. Proposed one-line
+  planner gloss is in `diagnostics/planet_reader_evidence_S130.md` §2, NOT applied: a planner
+  prompt change alters planning for every question and cannot be verified without live
+  gpt-4o calls, which the sandbox cannot make.
+- **Answer SHAPE is now the biggest gap to the benchmark.** The facts are no longer the
+  constraint — Sarala VRY (8th lord in 12th) and the Moon's Neecha Bhanga both sit in the
+  block and went unused, and D9 was never mentioned. The benchmark leads with a verdict,
+  ranks by reliability, and states what it rules out; ours emits a flat list of whichever
+  verses matched, and still leaks banned jargon ("angle-trine lords' union").
+  This is an interpreter-prompt + `answer_view` job.
+
+### 7. ADVISORY PLANET READER — HOLD (unchanged)
+`20260913T040439Z.md`: 21 planet claims judged, `advisory_would_drop_a_kept_claim` = **0**.
+A REAL zero, not the vacuous one S129 feared — but gpt-5 wrote every claim as "With <planet>
+in the <TRUE house>, <doctrine>", so the reader validated a true prefix 21 times and was
+never given the chance to refuse. Promotion grants DROP authority; no drop event has been
+observed, so the behaviour promotion actually changes is still unmeasured. `HOLD`.
+`scripts/classify_advisory_drops.py` sorts would-drops into CORRECT_CATCH /
+UNCAUGHT_LORDSHIP / DEFINITIONAL and now has a branch for "fired but never disagreed".
+
+### 8. MY OWN ERRORS THIS SESSION (root-caused)
+- Called `silence_gate.py:525-527` a GENUINE DEFECT (`claim in kept` membership). It is not:
+  `judge_claim` is a pure function of the claim dict, so value-equal claims get equal
+  verdicts and land in the same bucket — the false positive is unreachable BY CONSTRUCTION.
+  Proven with a 2,800-case exhaustive differential harness, 0 mismatches. I asserted a defect
+  without proving reachability (rule 28) and overruled the Architect on a false premise.
+- Asserted the capture lacked a judged-count denominator for the promotion metric. It does
+  not — `advisory_applicable`/`_not_applicable`/`_undetermined` have always been in
+  `gate_stats`. I asserted from the handover instead of the code (rules 32-34).
+- Twice claimed a live-run question set would work without checking what the model actually
+  cites; corrected only after measuring 96 planet-shaped sentences sitting unused in the
+  career payload.
+- Delivered source files as chat file-cards instead of just writing them to the repo.
+
+**NEXT:** see `claude_handover_S130.md`.

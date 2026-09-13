@@ -1,12 +1,17 @@
 """
 
 ================================================================
-PATH B / LAB TRACK -- NOT WIRED TO THE PRODUCT (S128 lock).
+PATH B IS THE PRODUCT (S129 cutover). THIS MODULE IS LIVE.
 
-This module has NO non-test caller. The live answer path is
-agent/infra/orchestrator.answer_question, imported by
-frontend/app.py:31. Changing this file ships NOTHING to users.
+frontend/app.py:37 imports answer_question from
+agent.astro.pipeline. A change here SHIPS TO USERS.
+Path A (agent/infra/orchestrator) is retained, tested and intact
+as the revert target, but is wired to no UI.
 Read docs/ANSWER_PATHS.md before editing or proposing work here.
+
+SUPERSEDES the S128 banner that stood here and said this module
+had no non-test caller and shipped nothing. That was true at S128
+and false from S129 on.
 ================================================================
 
 Astro Agent -- FULL ANSWER PIPELINE.
@@ -16,9 +21,11 @@ Astro Agent -- FULL ANSWER PIPELINE.
            -> Silence gate (Stage 5a) -> answer.
 
 The Calculator (Stage 3.5) supplies the FACT BLOCK the Interpreter reads.
-Today that block is the chart's lord->house map + ascendant; when the
-`chart_d1` / `vimshottari` stubs land it widens automatically and the gate's
-coverage grows with it (S125 lock). The LLM never computes a chart fact.
+Today that block is the chart's ascendant, its lord->house map, and per-graha
+planet positions (house + sign only, S129b). It widens by RESTATING more of
+`agent/chart_calculator.py::calculate_chart()` -- never by implementing
+`agent/calculations/core/chart_d1.py`, which is a permanent deliberate stub
+(P-022). The LLM never computes a chart fact.
 
 Dependency-injected `llm` (planner) and `interpreter_llm` (interpreter) so the
 whole chain is testable with stubs and never calls the API in CI.
@@ -38,6 +45,16 @@ from agent.astro import payload_builder
 PIPELINE_VERSION = "pipeline-1.2"
 
 
+_ORDINAL_SUFFIX = {1: 'st', 2: 'nd', 3: 'rd'}
+
+
+def _ordinal(n: int) -> str:
+    """1 -> 1st. 11/12/13 take "th", which is why this is not n % 10 alone."""
+    if 11 <= n % 100 <= 13:
+        return str(n) + "th"
+    return str(n) + _ORDINAL_SUFFIX.get(n % 10, "th")
+
+
 def _fact_block(chart_facts: dict) -> str:
     """Render the chart facts the Interpreter is allowed to reason from.
 
@@ -50,17 +67,147 @@ def _fact_block(chart_facts: dict) -> str:
     lord_house, asc = payload_builder.parse_lord_house_map(chart_facts)
     lines = ["CHART FACTS (the only chart facts you may use):",
              f"Ascendant sign: {asc}"]
-    lines += [f"House {h}: its lord sits in house {lord_house[h]}" for h in range(1, 13)]
+
+    # House lords. The named form is used when chart_facts carries `house_lords`
+    # (S130); the bare form is the pre-S130 shape and stays byte-identical for
+    # it, so a legacy chart_facts dict renders exactly as it always did.
+    house_lords = chart_facts.get("house_lords") or {}
+    for h in range(1, 13):
+        hl = house_lords.get(h) or house_lords.get(str(h))
+        if hl and hl.get("lord"):
+            sign = f" ({hl['sign']})" if hl.get("sign") else ""
+            lines.append(f"House {h}{sign}: its lord is {hl['lord']}, "
+                         f"and {hl['lord']} sits in house {lord_house[h]}")
+        else:
+            lines.append(f"House {h}: its lord sits in house {lord_house[h]}")
+
+    # GROUPINGS (S130). Pure regrouping of the twelve lines above -- no new
+    # fact, no doctrine, no kendra/trikona labelling (that vocabulary lives in
+    # the corpus, not here). It exists because the Interpreter was emitting
+    # "the 9th lord in the 4th" and "the 10th lord in the 4th" as unrelated
+    # claims across twelve rows and never noticing they name one house. Stating
+    # the grouping is Working Style #23: feed the computed term, never ask the
+    # model to bridge two representations.
+    shared: dict[int, list[int]] = {}
+    for h in range(1, 13):
+        shared.setdefault(lord_house[h], []).append(h)
+    together = [(dest, hs) for dest, hs in sorted(shared.items()) if len(hs) > 1]
+    if together:
+        lines.append("")
+        lines.append("House lords that share a house (they are together there):")
+        for dest, hs in together:
+            names = ", ".join(_ordinal(h) for h in hs)
+            lines.append(f"  the lords of houses {names} are all in house {dest}")
+
+    if house_lords:
+        rules: dict[str, list[int]] = {}
+        for h in range(1, 13):
+            hl = house_lords.get(h) or house_lords.get(str(h))
+            if hl and hl.get("lord"):
+                rules.setdefault(hl["lord"], []).append(h)
+        multi = [(p_, hs) for p_, hs in rules.items() if len(hs) > 1]
+        if multi:
+            lines.append("")
+            lines.append("Planets that rule more than one house:")
+            for p_, hs in multi:
+                lines.append(f"  {p_} rules houses "
+                             + " and ".join(str(h) for h in sorted(hs)))
 
     # Planet positions (S129). Rendered in the classical Navagraha order that
     # chart_facts fixes, so the block is byte-stable across runs. Absent for a
     # chart_facts dict built from `fact_block_text` -- that legacy shape has no
     # planet data, and its absence is honest, not an error.
+    # ASPECTS + CONJUNCTIONS (S130). Restated from calculate_chart(); see
+    # chart_facts._read_aspects. `aspected_by` is the half that matters most --
+    # it is what answers "is this placement afflicted", a check a benchmark
+    # answer for this chart got wrong by eye.
+    aspects = chart_facts.get("aspects") or {}
+    conj = aspects.get("conjunctions") or []
+    by_planet = aspects.get("aspects_by_planet") or {}
+    aspected_by = aspects.get("aspected_by") or {}
+    if conj or by_planet or aspected_by:
+        lines.append("")
+        lines.append("Aspects and conjunctions:")
+    for c in conj:
+        lines.append(f"  {c}")
+    for planet, houses in by_planet.items():
+        if houses:
+            lines.append(f"  {planet} aspects houses "
+                         + ", ".join(str(h) for h in houses))
+    for planet, sources in aspected_by.items():
+        if sources:
+            lines.append(f"  {planet} is aspected by " + ", ".join(sources))
+
+    # MUTUAL aspects. Same regrouping justification as the lord groupings
+    # above: a one-way aspect and a mutual one carry different doctrinal
+    # weight, and asking the model to cross-reference two lists to tell them
+    # apart is the bridging failure Working Style #23 forbids. Stated here so
+    # it cannot be guessed at.
+    mutual = set()
+    for planet, sources in aspected_by.items():
+        for src in sources:
+            if planet in (aspected_by.get(src) or []):
+                mutual.add(tuple(sorted((planet, src))))
+    if mutual:
+        lines.append("")
+        lines.append("Planets that aspect EACH OTHER (mutual, not one-way):")
+        for a, b in sorted(mutual):
+            lines.append(f"  {a} and {b}")
     positions = chart_facts.get("planet_positions") or {}
     if positions:
         lines.append("")
         for planet, pos in positions.items():
-            lines.append(f"{planet} is in house {pos['house']} ({pos['sign']}).")
+            standing = pos.get("dignity")
+            mark = f" -- {standing.lower()} there" if standing else ""
+            lines.append(
+                f"{planet} is in house {pos['house']} ({pos['sign']}){mark}.")
+
+        # DISPOSITOR CHAIN (S130). The lord of the SIGN a planet occupies.
+        # Derived only from (sign, lord) pairs already present in house_lords
+        # -- no lord table is introduced here. Stated because Neecha Bhanga
+        # is a two-step relation (debilitated planet -> its dispositor's own
+        # standing) and step two is otherwise a lookup the model has to
+        # perform across two separate blocks.
+        sign_lord = {}
+        for h in range(1, 13):
+            hl = house_lords.get(h) or house_lords.get(str(h))
+            if hl and hl.get("sign") and hl.get("lord"):
+                sign_lord[hl["sign"]] = hl["lord"]
+        chain = []
+        for planet, pos in positions.items():
+            lord = sign_lord.get(pos.get("sign"))
+            if not lord or lord == planet:
+                continue
+            lord_pos = positions.get(lord) or {}
+            lord_sign = lord_pos.get("sign")
+            lord_dig = lord_pos.get("dignity")
+            if not lord_sign:
+                continue
+            tail = f" -- {lord_dig.lower()} there" if lord_dig else ""
+            chain.append(f"  {planet} is in {pos['sign']}, whose lord is {lord}; "
+                         f"{lord} is in {lord_sign}{tail}")
+        if chain:
+            lines.append("")
+            lines.append("Each planet's sign-lord (its dispositor):")
+            lines.extend(chain)
+
+    # NAVAMSA / D9 (S130). Restated from agent/calculations/vargas/navamsa.py,
+    # oracle-clean on 4/4 reference charts since S20 and unwired until now.
+    # Carried because a debilitated planet exalted in D9 is one of the
+    # classical Neecha Bhanga routes, and it is the ONLY route left open for
+    # this chart once the dispositor tests fail.
+    nav = chart_facts.get("navamsa") or {}
+    nav_places = nav.get("placements") or {}
+    if nav_places:
+        lines.append("")
+        d9l = nav.get("d9_lagna_sign")
+        lines.append("In the Navamsa (D9) divisional chart"
+                     + (f", whose ascendant is {d9l}:" if d9l else ":"))
+        for planet, row in nav_places.items():
+            standing = row.get("dignity")
+            mark = f" -- {standing.lower()} there" if standing else ""
+            lines.append(f"  {planet} is in {row['sign']} "
+                         f"(D9 house {row['house']}){mark}")
     return "\n".join(lines)
 
 

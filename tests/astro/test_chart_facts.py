@@ -50,9 +50,13 @@ def test_planet_positions_restate_house_and_sign_only():
     }
 
 
-def test_dignity_longitude_and_retrograde_are_deliberately_not_restated():
-    """Each is excluded for a recorded, measured reason -- see the module
-    docstring. A future widening must justify itself, not slip in."""
+def test_longitude_retrograde_and_contested_dignity_are_not_restated():
+    """S130 SPLIT dignity: Exalted/Debilitated/Own Sign ARE now restated (fixed
+    S21 PVR Table 6 tables, tested before _FRIENDS), while Friendly/Inimical/
+    Neutral are NOT (the contested tail). _GOOD_PLANETS carries "Neutral", so
+    these positions still render as house+sign only. Longitude and retrograde
+    stay excluded for their own recorded reasons -- see the module docstring.
+    A future widening must justify itself, not slip in."""
     facts = CF.build_chart_facts(_synthetic_chart(planets=_GOOD_PLANETS))
     for pos in facts["planet_positions"].values():
         assert set(pos) == {"house", "sign"}
@@ -149,8 +153,12 @@ def test_real_chart_input_is_not_mutated():
 # ── shape guards ───────────────────────────────────────────────────────────
 
 def test_returns_exactly_the_expected_keys():
+    """S130 widened this to five keys. `navamsa` is the exception -- it is added
+    ONLY when the caller supplies a D9 chart, because composition is the caller's
+    job (see _read_navamsa) and an empty key would misreport an honest absence."""
     facts = CF.build_chart_facts(_synthetic_chart())
-    assert set(facts) == {"lord_house_map", "ascendant_sign", "planet_positions"}
+    assert set(facts) == {"lord_house_map", "ascendant_sign", "planet_positions",
+                          "house_lords", "aspects"}
 
 
 def test_ascendant_is_stripped():

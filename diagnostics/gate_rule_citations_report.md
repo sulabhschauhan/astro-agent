@@ -1,6 +1,6 @@
 # S114 rule-citation gate report (scripts/gate_rule_citations.py)
 
-Run date: 2026-09-12. Corpus: `C:\Users\sulab\Documents\Python Scripts\astro-agent\data\cheiro\cheiro_clean_v1.json`. Rule files scanned: 4 (palm_rules_fate_line_v1.json, palm_rules_head_heart_v1.json, palm_rules_life_line_v1.json, palm_rules_mounts_v1.json).
+Run date: 2026-09-13. Corpus: `C:\Users\sulab\Documents\Python Scripts\astro-agent\data\cheiro\cheiro_clean_v1.json`. Rule files scanned: 4 (palm_rules_fate_line_v1.json, palm_rules_head_heart_v1.json, palm_rules_life_line_v1.json, palm_rules_mounts_v1.json).
 
 **REPORT-ONLY**: this run writes nothing except this report -- no data/palm_rules/ file is read-and-rewritten. Whole-corpus anchor search (not a source_page-vs-page_ref comparison): a quote is CLEAN if it anchors on ANY page or in the full-corpus concatenation, regardless of which page_ref that is -- printed source_page and the corpus's own page_ref are different numbering schemes with a non-trivial (roughly-constant per book) offset.
 

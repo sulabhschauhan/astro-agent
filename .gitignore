@@ -44,6 +44,12 @@ diagnostics/latest_run.md
 data/test_images/
 diagnostics/qa_capture/
 
+# Kundli PDFs fetched by scripts/astrosage_kundli_fetcher.py (manual runs and
+# the frontend "Fetch Kundli Online" option) contain real birth data — same
+# no-storage-lock privacy ruling as diagnostics/qa_capture/ above.
+diagnostics/kundli_fetch_test/
+diagnostics/kundli_fetch_cache/
+
 # S129: frozen qa_capture fixture contains a real chart (Sulabh's, oracle-
 # verified) — same no-storage-lock privacy ruling as diagnostics/qa_capture/
 # above, applied to the tests/fixtures/ copy. Repo is public (verified S129):

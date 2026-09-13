@@ -1,12 +1,17 @@
 """
 
 ================================================================
-PATH B / LAB TRACK -- NOT WIRED TO THE PRODUCT (S128 lock).
+PATH B IS THE PRODUCT (S129 cutover). THIS MODULE IS LIVE.
 
-This module has NO non-test caller. The live answer path is
-agent/infra/orchestrator.answer_question, imported by
-frontend/app.py:31. Changing this file ships NOTHING to users.
+frontend/app.py:37 imports answer_question from
+agent.astro.pipeline. A change here SHIPS TO USERS.
+Path A (agent/infra/orchestrator) is retained, tested and intact
+as the revert target, but is wired to no UI.
 Read docs/ANSWER_PATHS.md before editing or proposing work here.
+
+SUPERSEDES the S128 banner that stood here and said this module
+had no non-test caller and shipped nothing. That was true at S128
+and false from S129 on.
 ================================================================
 
 Astro Agent -- STAGE 5a: THE SILENCE GATE.
