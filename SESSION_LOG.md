@@ -997,3 +997,137 @@ searching the primary source I could already read.
   `device_commit_files` takes a staged path directly; no card is needed.
 
 **NEXT:** see `claude_handover_S131.md`. First task is Neecha Bhanga.
+
+
+## S132 — yoga layer consolidated to one module; formulas re-sourced from PVR; Ghatika Lagna built (2026-09-13)
+
+**Uncommitted on `wip/interpretive-pilot` atop `9473c55`.** S131 IS committed
+(three commits: `4d92e10` composer, `71796fe` yoga detector, `9473c55` docs);
+`claude_handover_S131.md` §1 says "S131 IS UNCOMMITTED" and is stale.
+
+### 1. One module
+
+`agent/calculations/yogas/rules.py` replaces `catalog/raja_yogas.py`,
+`catalog/special.py` and `catalog/neecha_bhanga.py`. Merge verified
+behaviour-identical FIRST — 18 verdicts, same ids, same fired flags, same
+evidence, run against the real capture `20260913T065603Z.md` — then extended.
+Removed two duplicate copies each of `_ordinal`/`_house_lords` and two
+duplicate `KENDRA_HOUSES`.
+
+The three-file split was never a design decision. Verified against the original
+design-chat history: it appears once, as a file path typed inline while
+drafting a Session 40 prompt. `ASTRO AGENT — MASTER BUILD PLAN.md:78` then
+records those names, so the plan inherited an undebated choice rather than
+making one.
+
+`catalog/pancha_mahapurusha.py` deliberately NOT merged: it takes
+degree-level placements and its own dataclasses (19KB of passing tests on that
+interface), which the fact-block contract cannot supply. **It is still wired to
+nothing** — `_CATALOG` never calls it.
+
+### 2. Doctrine prose removed from calculation modules
+
+`source` strings naming books, `_VRY_CONTEST`'s Uttara-Kalamrita sentence, and
+every `reason` that taught the rule rather than stating the placement. Reasons
+now read "Jupiter stands 6th from the Moon (Moon in the 12th, Jupiter in the
+5th)". `BPHS`, `Kalamrita` and `_SOURCE` occur zero times across the modules.
+Rationale (Sulabh's, sharper than the one I was giving): a sentence of doctrine
+in code is a FRAGMENT standing in for a whole chapter — it reads as
+authoritative, so nothing goes back for the rest, and the chapter's own
+conditions never arrive. Row P-029.
+
+### 3. Ghatika Lagna — a real calculation
+
+`agent/calculations/jaimini/special_lagnas.py`. Bhava / Hora / Ghatika Lagna
+from the governing sunrise and the Sun's sidereal longitude; rates 15 / 30 / 75
+degrees per hour. **The Vedic day boundary is the trap**: a pre-sunrise birth
+(Sulabh, 00:30) belongs to the PREVIOUS calendar day's sunrise; using the same
+morning's makes elapsed time negative and lands every special lagna a third of
+a zodiac away.
+
+### 4. Twelve calculations added, formulas re-sourced from PVR
+
+S131's and early-S132's yoga formulas came from JHora's on-screen "Brief
+definition of yoga" column. Re-sourced from
+`data/pdfs/Vedic Astrology_ PVR Narashimha Rao.pdf`. **Four were wrong:**
+
+- **THE VIPAREETA FAMILY WAS INVERTED.** PVR p.145: Harsha = 6th lord in the
+  **6th**, Sarala = 8th lord in the **8th**, Vimala = 12th lord in the
+  **12th**. S131 coded "the dusthana lord in one of the OTHER TWO dusthanas"
+  per Uttara Kalamrita and locked it as a contested definition. PVR is the
+  primary spec source and says own house — the S131 framing was backwards.
+- **Raja Yoga was missing parivartana.** PVR p.146 names three associations:
+  conjunction, graha drishti, exchange. S131 had two.
+- **Nipuna** — PVR p.126 is "together (in one sign)"; "mutual 7ths" is JHora
+  screen text only.
+- **Kalpadruma** — PVR p.140 is "quadrants, trines or exaltation signs"; own
+  sign is not in the spec.
+
+Yogada CONFIRMED as coded (PVR p.179). **Adhi is ambiguous in PVR** — its
+definition says "6th, 7th and 8th from Moon", its own worked example places the
+benefics in the 5th and 4th. Settled by the oracle: the 8th from Sulabh's Moon
+is EMPTY and JHora still fires Adhi listing exactly "Ju, Ve", so the loose
+reading is JHora's and is adopted; giver set matches planet-for-planet.
+Recorded in `_adhi`'s docstring — do not re-litigate.
+
+**BPHS itself was never opened.** PVR only.
+
+### 5. Validation — computed first, compared after
+
+Everything below from birth details only
+(`"Sulabh", "6 Apr 1988", "00:30", "Calcutta, India"`), compared to
+`reference/oracle_fixtures/sulabh.md` afterwards.
+
+| what | computed | oracle | delta |
+|---|---|---|---|
+| Bhava Lagna | Capricorn 6.9341 | Capricorn 6.9375 (§3f) | 12" |
+| Hora Lagna | Libra 22.1378 | Libra 22.1389 (§3f) | 4" |
+| Ghati Lagna | Pisces 7.7489 | Pisces 7.7429 (§3f) | 21" |
+| Chara Karakas | 8/8 | §9a | exact |
+| D9 signs | 9/9 | §3f Navamsa column | exact |
+
+**15 of 16 §10c yogas fire**, giver planets matching where printed.
+
+**The 16th does not fire, correctly.** JHora's "Viparita Raja Yoga (Mo) — 8th
+lord in 6th or 12th" is not PVR's Sarala. Spec source wins; divergence
+RECORDED, same disposition as the Drik Bala AstroSage-vs-JHora split.
+
+**Every NOT-FIRED verdict is unverified** — JHora prints only what it finds, so
+Gajakesari, Vimala, PVR-Sarala and the six kendra-trikona pairs are unproven in
+either direction. Needs a second chart; `surbhi.md` has no Yogas tab yet.
+
+### 6. Oracle migration
+
+`tests/fixtures/jhora_sulabh.md` §7 (the only yoga oracle in the repo for any
+chart) migrated verbatim to `reference/oracle_fixtures/sulabh.md` §10c, 16
+rows. **Before deleting the old file, re-point `SESSION_LOG.md:139`**, which
+cites it as the Pancha Mahapurusha real-chart oracle.
+
+### 7. Process failures — rows P-026..P-029
+
+Every one was caught by Sulabh, not by me.
+
+- **P-026** — answered from `claude_handover_S131.md` repeatedly, retracting
+  each time an older source surfaced. The Master Build Plan settled in one grep
+  what four exchanges could not. Order: build plan → locks → KNOWN_PATTERNS →
+  code → handover LAST.
+- **P-027** — fed `sulabh.md` §3f's Ghati Lagna INTO the Yogada calculations,
+  then "validated" against the same file and reported 16/16. Honest figure was
+  12/16 until GL was computed for real.
+- **P-028** — took formulas from the oracle's own definition text, so JHora
+  supplied the formula and graded the answer.
+- **P-029** — doctrine prose in calculation modules.
+
+Plus two not worth their own rows: shipped a strict AND a wide Harsha rather
+than resolving the conflict (that is not neutrality — the answer layer would
+have told the user both); and used the palm track's vocabulary ("rule", "rule
+condition") for astrology calculations.
+
+### 8. Carry-forward
+
+Tests (none exist for the whole yoga layer); wiring yogas to the answer path
+(and the planner selects chapters from the QUESTION, never the FACTS, so a
+fired yoga does not pull its doctrine chapter in); `pancha_mahapurusha.py`
+unwired; restating `_calc_yogas` into Path B; deleting the three `catalog/`
+stubs; BPHS cross-check; second chart for the ruled-out direction. The wider
+BPHS yoga set stays OUT until the 16 are done — Sulabh's explicit instruction.
