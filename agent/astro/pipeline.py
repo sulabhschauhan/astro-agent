@@ -33,6 +33,7 @@ Python 3.11.
 """
 from __future__ import annotations
 
+import os
 import time
 from typing import Callable, Optional
 
@@ -40,6 +41,7 @@ from agent.astro import planner
 from agent.astro import capability_gate
 from agent.astro import interpreter as _interp
 from agent.astro import silence_gate
+from agent.astro import composer as _composer
 from agent.astro import payload_builder
 
 PIPELINE_VERSION = "pipeline-1.2"
@@ -245,6 +247,8 @@ def answer_question(
     *,
     llm: Optional[Callable] = None,
     interpreter_llm: Optional[Callable] = None,
+    composer_llm: Optional[Callable] = None,
+    compose: Optional[bool] = None,
     token_budget: int = planner.DEFAULT_TOKEN_BUDGET,
 ) -> dict:
     """End-to-end. Never raises for a model/gate problem -- refuses or fails
@@ -304,6 +308,19 @@ def answer_question(
     gate = silence_gate.apply_silence_gate(interp, built["payload"], chart_facts)
     _lap("silence_gate")
 
+    # Stage 5b -- THE COMPOSER. OFF by default: with `compose` false this
+    # branch does not run and the result is byte-identical to pre-S131, so
+    # every existing caller and test is untouched. Enable per-call, or set
+    # ASTRO_COMPOSER_ENABLED=1. It NEVER raises and never replaces the
+    # pipeline's own `answer`; a failed composition simply leaves
+    # `composed["composed"]` false and the old rendering path stands.
+    if compose is None:
+        compose = os.environ.get("ASTRO_COMPOSER_ENABLED", "0") == "1"
+    composed: Optional[dict] = None
+    if compose:
+        composed = _composer.compose(question, gate, llm=composer_llm)
+        _lap("composer")
+
     selection = built.get("selection")
     trace = {
         "timings": timings,
@@ -344,6 +361,9 @@ def answer_question(
         "silent_on": gate.silent_on,
         "ghost_citations": interp["ghost_citations"],  # must be []
         "gate_stats": gate.stats,
+        # Stage 5b output, or None when the composer did not run. `answer_view`
+        # prefers it when present; `answer` above is always the Stage-5a render.
+        "composed": composed,
         "usage": interp["usage"],
         "tokens": built["tokens"],
         "model": interp["model"],

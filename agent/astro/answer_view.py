@@ -197,6 +197,29 @@ def render_user_answer(result: dict) -> str:
         kept = result.get("kept_claims") or []
         declines = [m for _, m in (result.get("declined") or [])]
 
+        # Stage 5b (S131). When the composer ran and produced blocks, IT is
+        # the user surface: it has already ordered the claims and written
+        # them in plain English, and its output passed the invented-fact
+        # check in `composer._verify`. The S129b no-rewrite rule still binds
+        # THIS module -- nothing below rewrites anything; the rewriting is
+        # the composer's, mechanically checked, not ours.
+        composed = result.get("composed") or {}
+        if composed.get("composed") and composed.get("blocks"):
+            from agent.astro import composer as _composer
+
+            body = _composer.render(composed)
+            if body.strip():
+                cited_ids: list[str] = []
+                for b in composed["blocks"]:
+                    for sid in (b.get("segment_ids") or []):
+                        if sid not in cited_ids:
+                            cited_ids.append(sid)
+                parts = [body] + declines
+                src = source_line(cited_ids)
+                if src:
+                    parts.append(f"*{src}*")
+                return "\n\n".join(parts)
+
         if not kept:
             # Nothing survived. Say so once, plainly, then the specific
             # capability limits. The per-verse reasons stay in the log.

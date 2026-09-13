@@ -156,8 +156,12 @@ def parse_capture(path: Path) -> list[CapturedTurn]:
 
 
 # ---------------------------------------------------------------- replay
-def replay_turn(turn: CapturedTurn) -> dict:
-    """Run one captured turn through today's downstream code. No API call."""
+def replay_turn(turn: CapturedTurn, *, compose: bool = False) -> dict:
+    """Run one captured turn through today's downstream code. No API call --
+    UNLESS `compose=True`, which makes exactly one live call to Stage 5b (the
+    composer): the interpreter still replays from the stored raw response, so
+    only the ~1.5k-token composer call touches the network (see composer.py's
+    module docstring for the measured split)."""
     from agent.astro import payload_builder, interpreter as interp_mod
     from agent.astro import silence_gate, answer_view
 
@@ -184,9 +188,19 @@ def replay_turn(turn: CapturedTurn) -> dict:
         "ghost_citations": interp["ghost_citations"],
         "gate_stats": gate.stats,
     }
+
+    composed: Optional[dict] = None
+    if compose:
+        from agent.astro import composer as composer_mod
+
+        # llm=None -> composer._default_llm, the REAL model call. This is the
+        # one live piece of an otherwise zero-cost replay.
+        composed = composer_mod.compose(turn.question, gate)
+        result["composed"] = composed
+
     user_answer = answer_view.render_user_answer(result)
 
-    return {
+    out = {
         "index": turn.index,
         "question": turn.question,
         "ghost_citations": interp["ghost_citations"],
@@ -197,6 +211,9 @@ def replay_turn(turn: CapturedTurn) -> dict:
         "user_answer": user_answer,
         "payload_segments_kept": sum(1 for s in payload.get("segments", []) if s.get("kept")),
     }
+    if composed is not None:
+        out["composed"] = composed
+    return out
 
 
 def _statements(claims) -> list[str]:
@@ -238,11 +255,11 @@ def diff_turn(turn: CapturedTurn, now: dict) -> list[str]:
     return out
 
 
-def replay_file(path: Path) -> dict:
+def replay_file(path: Path, *, compose: bool = False) -> dict:
     turns = parse_capture(path)
     results, diffs = [], {}
     for t in turns:
-        now = replay_turn(t)
+        now = replay_turn(t, compose=compose)
         results.append(now)
         d = diff_turn(t, now)
         if d:
@@ -282,6 +299,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("capture", nargs="?", help="path to a qa_capture markdown file")
     ap.add_argument("--latest", action="store_true", help="use the newest capture")
     ap.add_argument("--json", action="store_true", help="dump the full result as JSON")
+    ap.add_argument("--compose", action="store_true",
+                     help="call the REAL Stage 5b composer on top of the replayed "
+                          "gate (~1.5k tokens, one live API call per turn); "
+                          "everything else still replays at zero cost. Without "
+                          "this flag behaviour is byte-identical to before it existed.")
     a = ap.parse_args(argv)
 
     if a.latest or not a.capture:
@@ -297,7 +319,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        out = replay_file(path)
+        out = replay_file(path, compose=a.compose)
     except ReplayError as e:
         print(f"REPLAY FAILED: {e}", file=sys.stderr)
         return 1
@@ -314,6 +336,20 @@ def main(argv: list[str] | None = None) -> int:
               f"ghosts {len(r['ghost_citations'])} | segments {r['payload_segments_kept']}")
         if r["gate_error"]:
             print(f"   GATE ERROR: {r['gate_error']}")
+        if "composed" in r:
+            c = r["composed"]
+            print(f"   COMPOSER: composed={c.get('composed')} "
+                  f"claims_in={c.get('claims_in')} "
+                  f"claims_rendered={c.get('claims_rendered')} "
+                  f"violations={len(c.get('violations') or [])} "
+                  f"condition_advisory={len(c.get('condition_advisory') or [])} "
+                  f"unaccounted_restored={c.get('unaccounted_restored')}")
+            for v in c.get("violations") or []:
+                print(f"      VIOLATION: {v.get('why')}")
+            for cadv in c.get("condition_advisory") or []:
+                print(f"      condition_advisory: {cadv.get('why')}")
+            print(f"      usage: {c.get('usage')}")
+            print(f"   USER-FACING ANSWER:\n{r['user_answer']}")
     print("\n## Differences vs the capture")
     if not out["diffs"]:
         print("  none -- today's code reproduces the captured run exactly.")
