@@ -852,6 +852,53 @@ this specific 8-karaka-vs-7-karaka scheme choice was found in
 
 ---
 
+### 10c. JHora v8 — Yogas (Strengths tab) — MIGRATED FROM `tests/fixtures/jhora_sulabh.md` (S132)
+
+Transcribed VERBATIM from the retiring `tests/fixtures/jhora_sulabh.md` §7,
+which was the ONLY yoga oracle in the repo for any chart. Copied here so the
+old fixture can be removed without losing it. Mode/capture provenance is that
+file's, unrestated — treat the mode as UNCONFIRMED for this table until it is
+re-captured in matched mode (see §0).
+
+WHAT THIS IS THE ORACLE FOR. Scope (which yogas JHora reports at all) and
+per-yoga fired/not-fired for this chart. JHora prints ONLY fired yogas — an
+absent name means "not reported by JHora", which is weaker than "ruled out".
+
+THREE THINGS TO READ BEFORE USING IT:
+  1. **Harsha — oracle and code DISAGREE.** JHora fires Harsha on "the 6th
+     lord in the 6th house". `agent/calculations/yogas/` rules Harsha OUT for
+     this chart, applying the narrow reading (6th lord must be in the 8th or
+     12th, not its own house). A definition conflict, not an arithmetic one.
+     UNRESOLVED — Sulabh's call (S131 lock).
+  2. **Pancha Mahapurusha.** None of Ruchaka / Bhadra / Hamsa / Malavya /
+     Sasa appears below. That absence is the evidence
+     `test_pancha_mahapurusha.py`'s real-chart test rests on
+     (SESSION_LOG.md:139), and that citation points at the retiring filename
+     — re-point it here.
+  3. **Neecha Bhanga is absent entirely.** JHora does not report it, so this
+     table corroborates nothing either way for the Moon/Mercury cancellations.
+
+| Yoga | Varga | Yoga givers | Results ascribed to yoga | Brief definition of yoga |
+|---|---|---|---|---|
+| Vesi | D-1 | Ju | Balanced, truthful and happy | Planets other than Moon in 2nd from Sun |
+| Nipuna (Budha-Aditya) | D-1 | Su, Me | Skillful, expert, well-known and respected | Sun and Mercury together or in mutual 7ths |
+| Sunaphaa | D-1 | Sa | Intelligent, wealthy and famous | Planets other than Sun in 2nd from Moon |
+| Adhi yoga | D-1 | Ju, Ve | King, minister or an army chief | Benefics in 6th, 7th and 8th from Moon |
+| Daama/Daamini | D-1 | Naabhasa yoga - throughout life | Rich, famous, helpful, many children | Seven planets in 6 rasis |
+| Kalpadruma/Parijata | D-1 | Ju, Ma, Sa, Sa | King, principled, warrior, prosperous, strong, kind | Lagna lord, his disposior, latter's rasi & navamsa dispositors are all in own/exaltation sign or kendra/kona |
+| Harsha | D-1 | Ve | Happy, strong, good-natured, invincible | The 6th lord in the 6th house |
+| Raja/Dharma-Karmadhipati | D-1 | Me, Su | Dutiful and high achiever | Conjunction, aspect or exchange of 9th/10th lords |
+| Raja (AK-PiK) | D-1 | Su, Me | Power and favors from authorities | Atma karaka and pitru karaka together or in 1st/5th |
+| Yogada (GL) | D-1 | Su | Power and authority | Associated with lagna and GL (by aspect, conjunction or ownership) |
+| Yogada (GL) | D-1 | Me | Power and authority | Associated with lagna and GL (by aspect, conjunction or ownership) |
+| Yogada (GL) | D-1 | Ju | Power and authority | Associated with lagna and GL (by aspect, conjunction or ownership) |
+| Yogada (GL) | D-1 | Sa | Power and authority | Associated with lagna and GL (by aspect, conjunction or ownership) |
+| Viparita Raja Yoga | D-1 | Mo | Success after pressures or someone else's losses | 8th lord in 6th or 12th |
+| Viparita Raja Yoga | D-1 | Ve, Mo | Success after pressures or someone else's losses | The 6th and 8th lords in conjunction or samasaptaka |
+| Raja Sambandha | D-1 | Ju | A famous minister | Amatya karaka in a kona |
+
+---
+
 ## Categories explicitly NOT FOUND IN REPO for Sulabh
 
 - Per-planet sign-based dignity table (Exalted/Own/Friendly/Neutral/
@@ -871,7 +918,10 @@ this specific 8-karaka-vs-7-karaka scheme choice was found in
   fixture hand-derived, not read off an AstroSage-labeled column).
 - Any Ashtottari, D2-D60 varga chart reference values, or Mangal Dosha /
   Kalsarpa Yoga oracle-confirmed determination for Sulabh specifically
-  (beyond the Ashtakoot pair fixture noted at §10a).
+  (beyond the Ashtakoot pair fixture noted at §10a). **PARTIALLY ADDRESSED
+  S132:** a JHora Yogas-tab capture now sits at §10c — it does NOT print
+  Mangal Dosha or Kalsarpa, so those two stay unoracled; the named yogas it
+  does print are now available.
 
 
 
