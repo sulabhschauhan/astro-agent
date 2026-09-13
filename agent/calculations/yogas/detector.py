@@ -29,14 +29,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable
 
-from agent.calculations.yogas.catalog import raja_yogas, special
+from agent.calculations.yogas import rules
 
 DETECTOR_VERSION = "yoga-detector-1.0"
 
 # Catalogue modules, in report order. A module is just `detect(facts) -> list[dict]`.
 _CATALOG: tuple[tuple[str, Callable], ...] = (
-    ("raja_yogas", raja_yogas.detect),
-    ("special", special.detect),
+    ("rules", rules.detect),
 )
 
 
