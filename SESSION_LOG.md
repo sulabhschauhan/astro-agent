@@ -828,3 +828,172 @@ UNCAUGHT_LORDSHIP / DEFINITIONAL and now has a branch for "fired but never disag
 - Delivered source files as chat file-cards instead of just writing them to the repo.
 
 **NEXT:** see `claude_handover_S130.md`.
+
+
+## S131 — Stage 5b composer (answer shape becomes an LLM decision); yoga detector built, ruling-out becomes a calculation (2026-09-13)
+
+**BRANCH:** `wip/interpretive-pilot`, on top of **`b6bcc54`** — the S130 commit.
+Written to disk UNCOMMITTED. Suite **4123 passed, 7 skipped, 5 deselected**,
+unchanged before and after every edit this session.
+
+**CORRECTION TO THE RECORD, FOUND FIRST THING.** Sulabh opened the session saying
+S130 was uncommitted; `CLAUDE.md:8` and SESSION_LOG §S130 say the same. Both are
+stale by ~70 seconds: `.git/logs/HEAD` records
+`c0d6c70 -> b6bcc5447728339ec3e96323a604893cc8798662` at 1789289494, message
+"S130: reasoning_effort never reached the API…". S130 IS committed. The two
+documents were written just before the commit and never updated.
+
+### 1. THE SCORER WAS DESIGNED, THEN REJECTED — RECORDED SO IT IS NOT REBUILT
+S131 first proposed answer shape as: an extended claim schema carrying
+fact-reference `mechanism` / `degraders` / `unresolved`, a deterministic
+reliability+ceiling scorer, and verdict templates selected by the topology of the
+scored set. **Sulabh rejected it:** "scoring logic will change as per scenarios and
+same for topology… we will get into mesh of all these setting and thresholds".
+He was right — it is precisely the threshold proliferation Working Style #4 exists
+to stop, and it would need a new lattice branch per question shape. REPLACED by an
+LLM composer. **Do not re-propose the scorer.**
+
+### 2. STAGE 5b — THE COMPOSER (`agent/astro/composer.py`, NEW)
+A second, tiny gpt-5 call whose ONLY input is the gated claim set: question, the
+kept claims with each claim's ENFORCED gate verdict, dropped claims, `silent_on`.
+It decides salience and order and writes plain English.
+
+**Why a separate stage and not the interpreter prompt.** Every `_SYSTEM_HEAD` edit
+is a live-run trigger against a 185k-token payload. The composer takes shape work
+off it entirely and **the interpreter prompt was not touched this session.**
+
+**Cost, measured not assumed** (`diagnostics/qa_capture/20260913T065603Z.md`):
+composer input 553 and 312 tokens against the SAME turn's **185,297** interpreter
+prompt tokens — ~0.8%. Live: `prompt_tokens` 1176 / 766, `completion_tokens`
+537 / 313, `reasoning_effort_path=extra_body`.
+
+**THE S129b NO-REWRITE RULE IS REPLACED BY MECHANISM, NOT RELAXED.** S129b barred
+`answer_view` from rewriting AND re-ordering because rewriting is where a
+gate-verified claim silently becomes unverified. The composer does both, so
+`composer._verify` substitutes:
+- **ENFORCING — no new chart facts.** A rewrite may not contain a chart token
+  (house ordinal / graha / sign / dignity) absent from the claim it rests on.
+  Closed vocabulary, set containment, NO prose parsing — deliberately not the
+  clause-reading whose negation guard proved clause-blind (S130 §6). A failing
+  block DEGRADES to the original claim text; it is never dropped.
+- **ADVISORY — conditions survive.** Recorded in `condition_advisory`, NOT
+  enforced. A keyword test cannot distinguish a genuinely unhedged rewrite from
+  one carrying the condition in other words ("a strong 6th lord brings…"), and
+  enforcing it would push most answers back to the jargon original — defeating the
+  stage. Promotion is gated on the measured rate, exactly as the planet reader was
+  (S129b (4)). **Do not promote on intuition.**
+- **COVERAGE.** Every input claim is rendered or explicitly demoted with a reason;
+  anything unaccounted for is auto-restored (`unaccounted_restored`).
+
+**OFF BY DEFAULT.** `compose=False` (or `ASTRO_COMPOSER_ENABLED` unset) means the
+branch does not run and the result is byte-identical to pre-S131. The composer
+never raises and never replaces `answer`.
+
+**VERIFIED BEFORE BUILDING (no assumptions):** `GateResult.verdicts` carries a
+per-claim `ClaimVerdict`, built in claim order — but `answer_question`'s return
+dict does NOT carry it (repo-wide grep: only `silence_gate.py:108` and `:580`
+touch `.verdicts`). It is reachable in-process at the gate call, which is where
+Stage 5b sits. Claims carry NO id anywhere, so `composer._claim_rows` assigns
+positional ids by re-deriving the kept partition from `gate.verdicts` — no change
+to `GateResult` was needed.
+
+**LIVE RESULT (real gpt-5, both turns, via `replay_capture --compose`).** Stage 4
+replayed from the stored raw response, so only the composer call was live.
+**0 invented facts across two independent calls.** Both answers opened with a
+verdict ("Yes—you do have clear angle–trine combinations…" / "the picture is
+cautious because both key points are unverified"), both flagged verified vs
+unverified per claim, both closed with what was not assessed. Turn 1's ordering
+roughly tracked `checked` status. Full before/after text in
+`diagnostics/latest_run.md`, archived under `diagnostics/runs/`.
+gpt-5 at `reasoning_effort=minimal` is NOT deterministic call to call — the two
+calls differed in wording and in whether the advisory fired. Expected, not a defect
+(the S123 run-to-run-variance law applies to text composition too).
+
+### 3. THE YOGA DETECTOR (`agent/calculations/yogas/`)
+Four Phase-0 stubs FILLED: `detector.py`, `catalog/raja_yogas.py`,
+`catalog/special.py`. Pure arithmetic over the already-computed fact block — no
+ephemeris, no `chart_calculator` import, no chart fact computed (S124 + S20 hold
+by construction). Catalogue modules are plain `detect(facts) -> list[dict]`, so
+nothing in `catalog/` imports `detector`; there is no cycle. NEVER RAISES.
+
+**EVERY RULE RETURNS A NOT-FIRED REASON.** That is the deliverable, not a nicety:
+"you do not have Gajakesari, because your Moon and Jupiter are six houses apart"
+is the half of an answer this pipeline has never been able to produce.
+
+**PRE-FLIGHT DONE (P-024), before writing anything:** `pancha_mahapurusha.py` was
+already BUILT (3,322 bytes, uses `calculations.core.dignity.get_dignity_status`)
+and wired to nothing; `detector` / `raja_yogas` / `neecha_bhanga` / `dhana_yogas`
+/ `special` were docstring-only stubs; `chart_calculator._calc_yogas` returns ONLY
+`mangal_dosha` and `kalsarpa_yoga` — there was no raja-yoga logic to restate.
+
+**VALIDATED 6/6 against `Output.txt`** (the Claude-desktop benchmark for this same
+chart; identity confirmed from the capture's own `chart_facts` — Sagittarius
+lagna, Moon debilitated in Scorpio 12th, Mars exalted in Capricorn, Mercury
+debilitated in Pisces 4th, Venus own sign 6th). `scripts/probe_yoga_detector_S131.py`
+-> RESULT: PASS.
+
+| rule | expected | got |
+|---|---|---|
+| Dharma-Karmadhipati | FIRED | FIRED |
+| Sarala (VRY) | FIRED | FIRED |
+| kendra_trikona_4_5 (Mars aspects Jupiter) | FIRED | FIRED |
+| Harsha (VRY) | RULED OUT | RULED OUT |
+| Vimala (VRY) | RULED OUT | RULED OUT |
+| Gajakesari | RULED OUT | RULED OUT |
+
+**CONTESTED, DELIBERATELY UNRESOLVED.** Vipareeta rules carry `contested=True` +
+`contested_note`: Uttara Kalamrita requires the dusthana lord in one of the OTHER
+two dusthanas; later compilations also count its own. The module takes the UK
+reading — the same one the benchmark used to rule out Harsha. Do NOT widen the
+condition; that is the Tiebreaker-principle call and it is Sulabh's.
+
+**DUPLICATE-LOOKING HITS: RULED, NO ACTION.** 7 fired rows include
+`kendra_trikona_7_9` and `kendra_trikona_10_9`, both resting on the same physical
+Sun+Mercury conjunction; both are genuinely distinct lordship links. Sulabh:
+"Our composer will automatically merge them we need not to do anything."
+
+### 4. MY PREMISE WAS FALSE AND SULABH CAUGHT IT
+S131 asserted the ruled-out set could not be produced because the desktop
+benchmark ruled out Gajakesari and Harsha using training knowledge, which S124
+bars. Sulabh asked where that knowledge came from. VERIFIED in
+`data/chapter_index_bphs.json`: **Gajakesari is in `bphs1_ch36` ("Many Other
+Yogas"), the Vipareeta trio in `bphs2_ch48`, Neecha in `bphs1_ch24`.** Worse —
+all four chapters were ALREADY SELECTED and shipped in the 065603Z turn (46 units
+selected). The doctrine was in front of gpt-5 and went unused, and `ch48_s001`
+sits in that turn's `ghost_citations`: the model reached for the Vipareeta chapter
+and the addressing bug threw the citation away. Ruling-out was never an
+outside-knowledge problem. This is rule 33/34 again — I asserted a limit without
+searching the primary source I could already read.
+
+### 5. OPEN, FOUND THIS SESSION, NOT FIXED
+- **Jargon survives the rewrite.** "angle–trine" appeared unglossed in 5 of 6
+  claim blocks plus the lead. A prompt blocklist was **rejected by Sulabh as
+  hardcoding** ("we cant harcode block for each of these kinds of issues"). Two
+  general routes, neither chosen: reframe the rule from a banned-word list to a
+  principle plus self-check, or DERIVE a jargon lexicon from the corpus (frequent
+  in BPHS, rare in ordinary English) — the same SSOT reasoning as
+  `feature_needles.py` and `ontology_registry.json`.
+- **One condition drop observed.** Turn 1 claim 0: source "especially WHEN that
+  1st lord also rules the 4th…" → rewrite stated it settled. Logged by the
+  advisory check, not blocked. Sulabh: "lets keep this in mind, no action as of
+  now."
+- **`ungated_pct` measured 66.7% and 100%** on the two turns. On the Saturn turn
+  the composer has NO verification signal to rank by, because every claim is
+  UNDETERMINED. The clause-blind negation guard therefore now blocks composer
+  quality and has risen in priority.
+- **The fact block is NOT yet widened with yogas.** Whoever does it MUST add the
+  key to `capability_gate.FACT_BLOCK_PROVIDES` in the SAME change.
+- **`interpreter.py`'s module docstring is still stale** — "PATH B / LAB TRACK —
+  NOT WIRED TO THE PRODUCT (S128 lock)", false since S129.
+
+### 6. MY OWN ERRORS THIS SESSION
+- Asserted the ruled-out set needed outside knowledge without grepping the chapter
+  index I could already read (§4). Rules 33/34.
+- Proposed a scorer + topology templates that would have become a threshold mesh;
+  Sulabh's rejection was correct on the merits, not a preference.
+- Overstated composer iteration as "free". Stage 4 replays free; the composer call
+  is live at ~1.5k tokens. Corrected in-session.
+- Delivered source as chat file-cards once, against a standing instruction.
+  `device_commit_files` takes a staged path directly; no card is needed.
+
+**NEXT:** see `claude_handover_S131.md`. First task is Neecha Bhanga.

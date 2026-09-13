@@ -25,10 +25,28 @@ handover — when a primary source is available.** This document is a map, not a
 (Planner -> Calculator -> Retriever -> Interpreter -> Verifier). Path A
 (`agent/infra/orchestrator`) is retained, tested, intact, and wired to nothing.
 
-**Everything from S130 is UNCOMMITTED** on `wip/interpretive-pilot`, written on top of
-`c0d6c70`. Suite 217 -> **228 passed** (`tests/astro/`, excluding `test_chart_facts.py`
-which needs swisseph). Sulabh commits; never commit without the literal line
-`RATIFIED: commit authorized`.
+**S130 IS COMMITTED** on `wip/interpretive-pilot`, on top of `c0d6c70`. Suite
+217 -> **228 passed** in `tests/astro/`. Read the SHA from `git log` — this document
+names none, because none existed when it was written (CODE-READ PROVENANCE).
+Sulabh commits; never commit without the literal line `RATIFIED: commit authorized`.
+
+**VERIFY BEFORE THE SUITE, ALWAYS:** `python -m pytest -q -m "not integration"`.
+A bare `pytest` spends API credit — `pytest.ini` declares an `integration` marker for
+real GPT calls and sets no `addopts`.
+
+**THE S130 COMMIT CARRIES FOUR FILES THAT ARE NOT S130 WORK.** Sulabh folded in his own
+in-flight changes at commit time: `scripts/astrosage_kundli_fetcher.py` (NEW — fetches the
+AstroSage PDF directly from the web, removing the manual-upload step), plus `.gitignore`,
+`requirements.txt` (adds `playwright`, which that fetcher needs) and
+`diagnostics/gate_rule_citations_report.md`. The S130 commit message does not mention them.
+If you are reading that commit to understand S130, those four are noise; if you are
+wondering where the fetcher came from, it is Sulabh's, not S130's.
+
+**Consequence worth knowing:** the AstroSage panel is still the covering surface that
+retires only when the fact block covers its sections (S125 V1 ORDER) — the fetcher changes
+how the PDF ARRIVES, not that plan. But it puts a live network fetch and a Playwright
+dependency into the app's path, which is new, and it is not covered by any test in
+`tests/astro/`.
 
 **The fact block now carries:** `ascendant_sign`, `lord_house_map`, `planet_positions`,
 `house_lords`, `aspects`, `dignity` (head only), `navamsa`. All seven are declared in
