@@ -210,6 +210,29 @@ def _fact_block(chart_facts: dict) -> str:
             mark = f" -- {standing.lower()} there" if standing else ""
             lines.append(f"  {planet} is in {row['sign']} "
                          f"(D9 house {row['house']}){mark}")
+
+    # YOGAS (S133). Computed deterministically from the facts above by
+    # agent/calculations/yogas (composed onto chart_facts by the caller, like
+    # the D9 block). A fired yoga is a CHART FACT, and so is a not-fired ruling
+    # (S131) -- the "what I am ruling out" half the pipeline could not state
+    # before. The reason strings carry the placements behind each verdict; the
+    # interpreter grounds their MEANING in the retrieved chapters, it does not
+    # invent it. GROWTH CONTRACT: "yogas" is in capability_gate.FACT_BLOCK_PROVIDES.
+    yogas = chart_facts.get("yogas") or {}
+    fired = yogas.get("fired") or []
+    ruled_out = yogas.get("ruled_out") or []
+    if fired:
+        lines.append("")
+        lines.append("Yogas PRESENT in the chart (computed from the facts above):")
+        for y in fired:
+            name = y.get("name") or y.get("id")
+            reason = y.get("reason")
+            lines.append(f"  {name}" + (f" -- {reason}" if reason else ""))
+    if ruled_out:
+        lines.append("")
+        lines.append("Yogas CHECKED and NOT present in the chart:")
+        lines.append("  " + "; ".join(
+            (y.get("name") or y.get("id")) for y in ruled_out))
     return "\n".join(lines)
 
 

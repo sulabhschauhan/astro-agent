@@ -50,7 +50,25 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
     )
     assert CG.FACT_BLOCK_PROVIDES == frozenset(
         {"ascendant_sign", "lord_house_map", "planet_positions", "house_lords",
-         "aspects", "dignity", "navamsa"})
+         "aspects", "dignity", "navamsa", "yogas"})
+
+
+def test_yogas_capability_is_rendered_when_the_facts_carry_it():
+    """The S133 yoga fact class: rendered when chart_facts carries it, absent
+    otherwise, and declared in FACT_BLOCK_PROVIDES (the growth-contract pin)."""
+    from agent.astro import pipeline
+    facts = {"lord_house_map": {h: 1 for h in range(1, 13)},
+             "ascendant_sign": "Leo"}
+    assert "Yogas PRESENT" not in pipeline._fact_block(facts)
+    with_yogas = pipeline._fact_block(dict(facts, yogas={
+        "fired": [{"id": "harsha_yoga", "name": "Harsha Yoga",
+                   "reason": "the 6th lord is in the 6th"}],
+        "ruled_out": [{"id": "gajakesari_yoga", "name": "Gajakesari Yoga",
+                       "reason": "not in a mutual kendra"}]}))
+    assert "Yogas PRESENT in the chart" in with_yogas
+    assert "Harsha Yoga" in with_yogas
+    assert "Yogas CHECKED and NOT present" in with_yogas
+    assert "yogas" in CG.FACT_BLOCK_PROVIDES
 
 
 def test_navamsa_is_restated_and_rendered_when_the_caller_supplies_it():

@@ -85,6 +85,9 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
     "aspects",             # conjunctions, aspects_by_planet, aspected_by (S130)
     "dignity",             # exalted/debilitated/own-sign ONLY, + dispositor (S130)
     "navamsa",             # D9 signs/houses, restated from vargas/navamsa (S130)
+    "yogas",               # fired + ruled-out yoga verdicts computed by the
+                           # yoga detector over the facts above (S133). Additive
+                           # fact class; no REQUIREMENT references it.
 })
 
 

@@ -21,6 +21,7 @@ import streamlit as st
 from agent.chart_calculator import calculate_chart, format_kundali_context, geocode_place_candidates
 from agent.chart_calculator import _dignity as _sign_dignity  # SSOT: S21 PVR Table 6, never re-tabled here
 from agent.calculations.vargas.navamsa import compute_navamsa
+from agent.astro.yoga_facts import build_yoga_facts
 from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf, _PRIORITY_ORDER
 from PIL import Image
@@ -1643,6 +1644,19 @@ if prompt:
                                    type(_d9_err).__name__, _d9_err)
 
                 chart_facts = build_chart_facts(_chart)
+
+                # YOGA FACTS (S133). Computed by the detector over the fact
+                # block + karakas/special-lagnas/degrees (composed inside
+                # build_yoga_facts, which never enters the interpreter payload).
+                # Same fail-soft posture as the D9 block: losing the yogas
+                # costs the ruling-in/ruling-out half, never the answer.
+                # "yogas" is declared in capability_gate.FACT_BLOCK_PROVIDES.
+                try:
+                    chart_facts["yogas"] = build_yoga_facts(_chart, chart_facts)
+                except Exception as _yerr:  # noqa: BLE001 -- optional fact class
+                    logger.warning("yogas unavailable, answering without them: "
+                                   "%s: %s", type(_yerr).__name__, _yerr)
+
                 result = answer_question(prompt, chart_facts)
                 # Two surfaces, one result: the user reads render_user_answer's
                 # plain-language view; the full trace (verse text, ids,

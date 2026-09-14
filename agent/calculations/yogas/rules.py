@@ -4,9 +4,12 @@ Replaces catalog/raja_yogas.py, catalog/special.py and
 catalog/neecha_bhanga.py, which were three files only because a Session 40
 Claude Code prompt happened to name them that way in passing; the split was
 never a design decision (verified against the original design-chat history,
-S132). `catalog/pancha_mahapurusha.py` is deliberately NOT merged here -- it
-takes degree-level placements and its own dataclasses, which this module's
-fact-block-only contract cannot supply. See MERGE NOTE below.
+S132). `catalog/pancha_mahapurusha.py` is deliberately NOT wired -- it takes
+degree_in_sign, which the fact block omits by lock (S129b/S130: no longitude).
+The Pancha Mahapurusha check here works from the fact block's own dignity
+label instead (Exalted / Own Sign), so a moolatrikona-only placement is
+unreachable, the same accepted class as degree-keyed Neecha Bhanga (S130).
+See MERGE NOTE below.
 
 CONTRACT. `detect(facts) -> list[dict]`, PURE over the already-computed fact
 block: no ephemeris, no `chart_calculator` import, no chart fact computed
@@ -31,16 +34,26 @@ definitions. Verified behaviour-identical against the real capture
 `diagnostics/qa_capture/20260913T065603Z.md`: same 18 verdicts, same ids,
 same fired flags, same evidence.
 
-KNOWN GAP, NOT A DEFECT. The checks here are the six the S131 session needed
-to reproduce one benchmark answer, plus Neecha Bhanga. JHora's Yogas tab for
-this chart (reference/oracle_fixtures/sulabh.md 10c) lists SIXTEEN rows --
-Vesi, Nipuna, Sunaphaa, Adhi, Daama, Kalpadruma, Yogada, Raja Sambandha and
-others are NOT computed here. Absence of a yoga from this module's output
-therefore means NOT IMPLEMENTED, never "you do not have it".
+COVERAGE (S133). The checks here reproduce every JHora Yogas-tab row printed
+for the two reference charts (sulabh.md 10c, surbhi.md 10c): the kendra-trikona
+and Dharma-Karmadhipati raja links, the three Vipareeta own-house yogas, the
+three Vipareeta dusthana-lord links (6-8, 6-12, 8-12), Gajakesari, Vesi,
+Nipuna, Sunaphaa, Anaphaa, Adhi, the seven Naabhasa sankhya yogas
+(Gola..Veenaa by occupied-sign count), Kalpadruma, Yogada (GL and HL) and
+Maha Yogada, the AK-PiK and AK-AmK raja links, Neecha Bhanga per debilitated
+planet, and the five Pancha Mahapurusha yogas. A yoga JHora prints that is
+not one of these is NOT IMPLEMENTED, not "you do not have it"; the wider BPHS
+set beyond the oracle rows stays out until these are validated (Sulabh, S132).
 
 Python 3.11.
 """
 from __future__ import annotations
+
+# Pure table lookup (no ephemeris, no chart_calculator): resolves Exalted /
+# Debilitated / Moolatrikona / Own from sign + degree_in_sign. Used only for
+# the degree-accurate Pancha Mahapurusha check (S133); everything else stays
+# on the fact block's own dignity label.
+from agent.calculations.core.dignity import get_dignity_status
 
 
 def detect(facts: dict) -> list[dict]:
@@ -89,36 +102,46 @@ def _detect_raja(facts: dict) -> list[dict]:
         return []
 
     out: list[dict] = []
-    out.append(_dharma_karmadhipati(lords))
+    out.append(_dharma_karmadhipati(facts, lords))
     out.extend(_kendra_trikona_links(facts, lords))
     return out
 
 
-def _dharma_karmadhipati(lords: dict[int, dict]) -> dict:
-    """Whether the 9th lord and the 10th lord occupy the same house."""
+def _dharma_karmadhipati(facts: dict, lords: dict[int, dict]) -> dict:
+    """The 9th and 10th lords in conjunction, mutual aspect, or exchange.
+    (Oracle def: "conjunction, aspect or exchange of 9th/10th lords".)"""
     n, t = lords.get(9), lords.get(10)
     if not (n and t):
         return {"id": "dharma_karmadhipati", "name": "Dharma-Karmadhipati Yoga",
                 "fired": False, "reason": "the 9th or 10th lord is not known",
                 "evidence": []}
-    same = n.get("in_house") == t.get("in_house")
-    if same:
-        reason = (f"the 9th lord ({n['lord']}) and the 10th lord ({t['lord']}) "
-                  f"both occupy the {_ordinal(int(n['in_house']))} house")
+    nh, th = n.get("in_house"), t.get("in_house")
+    conjunct = nh == th
+    aspected = _aspects_between(facts, n["lord"], t["lord"])
+    exchange = (nh == 10 and th == 9)
+    fired = bool(conjunct or aspected or exchange)
+    if conjunct:
+        why = (f"the 9th lord ({n['lord']}) and the 10th lord ({t['lord']}) "
+               f"both occupy the {_ordinal(int(nh))} house")
+    elif exchange:
+        why = (f"the 9th lord ({n['lord']}) is in the 10th and the 10th lord "
+               f"({t['lord']}) is in the 9th -- they exchange houses")
+    elif aspected:
+        why = (f"the 9th lord ({n['lord']}) and the 10th lord ({t['lord']}) "
+               f"aspect each other")
     else:
-        reason = (f"the 9th lord ({n['lord']}) is in the "
-                  f"{_ordinal(int(n['in_house']))} and the 10th lord "
-                  f"({t['lord']}) is in the {_ordinal(int(t['in_house']))}; "
-                  f"they do not occupy one house")
+        why = (f"the 9th lord ({n['lord']}) is in the {_ordinal(int(nh))} and "
+               f"the 10th lord ({t['lord']}) is in the {_ordinal(int(th))}; they "
+               f"neither share a house, aspect each other, nor exchange")
     return {
         "id": "dharma_karmadhipati",
         "name": "Dharma-Karmadhipati Yoga",
-        "fired": bool(same),
-        "reason": reason,
+        "fired": fired,
+        "reason": why,
         "evidence": [f"house_lords.9.lord={n['lord']}",
-                     f"house_lords.9.in_house={n.get('in_house')}",
+                     f"house_lords.9.in_house={nh}",
                      f"house_lords.10.lord={t['lord']}",
-                     f"house_lords.10.in_house={t.get('in_house')}"],
+                     f"house_lords.10.in_house={th}"],
     }
 
 
@@ -146,12 +169,20 @@ def _kendra_trikona_links(facts: dict, lords: dict[int, dict]) -> list[dict]:
             kp, tp = kl.get("lord"), tl.get("lord")
             rid = f"kendra_trikona_{k}_{t}"
             if kp == tp:
-                out.append({
-                    "id": rid, "name": f"Yogakaraka ({kp})", "fired": True,
-                    "reason": (f"{kp} rules both the {_ordinal(k)} and the "
-                               f"{_ordinal(t)}"),
-                    "evidence": [f"house_lords.{k}.lord={kp}",
-                                 f"house_lords.{t}.lord={tp}"]})
+                # A yogakaraka owns a quadrant AND a trine (PVR p.177). The 1st
+                # is both a quadrant and a trine, so owning the 1st plus another
+                # angle does NOT make a yogakaraka -- the quadrant must be one of
+                # 4/7/10 and the trine one of 5/9. (Jupiter owning 1+4 for a
+                # Sagittarius lagna is not a yogakaraka; Saturn owning 4+5 for a
+                # Libra lagna is.) One planet, so there is no two-lord link to
+                # report either way -- skip after the check.
+                if k in (4, 7, 10) and t in (5, 9):
+                    out.append({
+                        "id": rid, "name": f"Yogakaraka ({kp})", "fired": True,
+                        "reason": (f"{kp} rules both the {_ordinal(k)} (a "
+                                   f"quadrant) and the {_ordinal(t)} (a trine)"),
+                        "evidence": [f"house_lords.{k}.lord={kp}",
+                                     f"house_lords.{t}.lord={tp}"]})
                 continue
 
             conjunct = kl.get("in_house") == tl.get("in_house")
@@ -209,15 +240,6 @@ _VIPAREETA = {
 }
 
 
-def _tested_note(owner: int, targets: tuple[int, ...]) -> str:
-    """States which houses this code tested -- a fact about the code, not a
-    claim about any source. A wider reading of this check exists."""
-    return (f"tested: the {_ordinal(owner)} lord in the "
-            + " or the ".join(_ordinal(t) for t in targets)
-            + f"; the {_ordinal(owner)} itself was not counted")
-
-
-
 def _detect_special(facts: dict) -> list[dict]:
     out = _vipareeta(facts)
     gk = _gajakesari(facts)
@@ -235,8 +257,7 @@ def _vipareeta(facts: dict) -> list[dict]:
         if not row:
             out.append({"id": rid, "name": name, "fired": False,
                         "reason": f"the {_ordinal(owner)} lord is not known",
-                        "evidence": [], "contested": True,
-                        "contested_note": _tested_note(owner, targets)})
+                        "evidence": []})
             continue
         where = row.get("in_house")
         fired = where in targets
@@ -251,8 +272,6 @@ def _vipareeta(facts: dict) -> list[dict]:
             "id": rid, "name": name, "fired": bool(fired), "reason": why,
             "evidence": [f"house_lords.{owner}.lord={row.get('lord')}",
                          f"house_lords.{owner}.in_house={where}"],
-            "contested": True,
-            "contested_note": _tested_note(owner, targets),
         })
     return out
 
@@ -283,6 +302,11 @@ def _gajakesari(facts: dict):
 # ---- NEECHA ----
 _DEBILITATED = "Debilitated"
 _EXALTED = "Exalted"
+# Sign of exaltation per graha -- fixed PVR Table 6 constant, the same class of
+# lookup as _SIGN_LORD (a computation input, not doctrine prose). S133.
+_EXALTATION_SIGN = {"Sun": "Aries", "Moon": "Taurus", "Mars": "Capricorn",
+                    "Mercury": "Virgo", "Jupiter": "Cancer", "Venus": "Pisces",
+                    "Saturn": "Libra"}
 
 
 def _sign_to_lord(facts: dict) -> dict[str, str]:
@@ -395,6 +419,32 @@ def _verdict(graha: str, row: dict, sign_lord: dict[str, str], pos: dict,
                            f"in the navamsa {graha} is in {nav_sign}, "
                            f"{'where it is exalted' if nav_ex else 'not exalted'}"))
 
+    # The lord of the sign where `graha` would be EXALTED, in a kendra from
+    # lagna or from the Moon. Completes the classical cancellation set that
+    # S131/S132 left as "not-evaluable". S133.
+    exalt_sign = _EXALTATION_SIGN.get(graha)
+    exalt_lord = sign_lord.get(exalt_sign) if exalt_sign else None
+    if not exalt_lord:
+        conditions.append(("exaltation_sign_lord_kendra", False,
+                           f"the ruler of {graha}'s exaltation sign could not "
+                           f"be identified from this chart summary"))
+    else:
+        el_house = _house_of(pos, exalt_lord)
+        evidence.append(f"planet_positions.{exalt_lord}.house={el_house}")
+        if el_house is None:
+            conditions.append(("exaltation_sign_lord_kendra", False,
+                               f"{exalt_lord}'s house is not known"))
+        else:
+            from_lagna = el_house in KENDRA_HOUSES
+            from_moon = (moon_house is not None
+                         and _from_moon(el_house, moon_house) in KENDRA_HOUSES)
+            conditions.append((
+                "exaltation_sign_lord_kendra", from_lagna or from_moon,
+                f"{exalt_lord} (ruler of {graha}'s exaltation sign {exalt_sign}) "
+                f"is in the {_ordinal(el_house)}"
+                + ("" if (from_lagna or from_moon)
+                   else ", not a kendra from lagna or the Moon")))
+
     fired = any(held for _, held, _ in conditions)
     held_notes = [note for _, held, note in conditions if held]
     failed_notes = [note for _, held, note in conditions if not held]
@@ -406,7 +456,6 @@ def _verdict(graha: str, row: dict, sign_lord: dict[str, str], pos: dict,
 
     evidence.extend(f"condition:{label}={'held' if held else 'failed'}"
                     for label, held, _ in conditions)
-    evidence.append("condition:exaltation_sign_lord=not-evaluable")
 
     return {
         "id": f"neecha_bhanga_{graha.lower()}",
@@ -418,10 +467,11 @@ def _verdict(graha: str, row: dict, sign_lord: dict[str, str], pos: dict,
 
 
 # ============================================================================
-# S132 -- the remaining checks from the JHora Yogas-tab oracle
-# (reference/oracle_fixtures/sulabh.md 10c). Each condition below implements
-# that table's OWN "Brief definition of yoga" column verbatim; the definition
-# text is the oracle's, not this module's, and is NOT restated here.
+# The yogas JHora's Yogas tab prints for the reference charts. Each FORMULA
+# below comes from the classical spec source (PVR / BPHS), cited in the
+# function that uses it; JHora's tab only GRADES the answer -- it is never the
+# source of a formula (P-028). Where PVR and JHora's on-screen definition text
+# differ, PVR wins and the divergence is recorded at the function. S132/S133.
 # ============================================================================
 
 _SIGNS = ("Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra",
@@ -435,6 +485,7 @@ _GRAHAS = ("Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn")
 # Moon's is phase-dependent; both need data the chart summary does not carry,
 # so the narrow, always-true set is used and the widening is NOT guessed.
 _NATURAL_BENEFICS = ("Jupiter", "Venus")
+_NATURAL_MALEFICS = ("Sun", "Mars", "Saturn", "Rahu", "Ketu")
 _KONA = (1, 5, 9)
 _QUALIFYING = frozenset({"Exalted", "Own Sign"})
 
@@ -461,6 +512,41 @@ def _houses_from(facts, graha, offsets):
 def _occupants(facts, sign, exclude=()):
     return [g for g in _GRAHAS
             if g not in exclude and _sign_of(facts, g) == sign]
+
+
+def _is_benefic(facts, graha):
+    """Natural benefic status, as far as the fact block allows.
+
+    Jupiter and Venus are unconditional benefics; Sun, Mars, Saturn, Rahu and
+    Ketu are natural malefics. Mercury takes its company's character: benefic
+    unless EVERY body ASSOCIATED with it -- sharing its house OR aspecting it --
+    is a natural malefic (no association at all counts as benefic). The Moon is
+    paksha-dependent and the fact block carries no phase, so it is treated as
+    benefic -- an approximation, but the Moon is never its own reference planet
+    in the yogas that call this, so it reaches no result.
+    """
+    if graha in _NATURAL_BENEFICS:
+        return True
+    if graha in _NATURAL_MALEFICS:
+        return False
+    if graha == "Moon":
+        return True
+    # Mercury: judged by its whole company -- same-house occupants and the
+    # planets aspecting it (conjunction + graha drishti), across every body in
+    # the block.
+    pos = _pos(facts)
+    row = pos.get(graha)
+    house = row.get("house") if isinstance(row, dict) else None
+    company = set()
+    if house is not None:
+        company.update(g for g, r in pos.items()
+                       if g != graha and isinstance(r, dict)
+                       and r.get("house") == house)
+    aspected_by = (facts.get("aspects") or {}).get("aspected_by") or {}
+    company.update(g for g in (aspected_by.get(graha) or []) if g != graha)
+    if not company:
+        return True
+    return not all(c in _NATURAL_MALEFICS for c in company)
 
 
 def _rasi_aspects(a, b):
@@ -494,12 +580,14 @@ def _detect_jhora_set(facts: dict) -> list[dict]:
     out.append(_vesi(facts))
     out.append(_nipuna(facts))
     out.append(_sunaphaa(facts))
+    out.append(_anaphaa(facts))
     out.append(_adhi(facts))
-    out.append(_daama(facts))
+    out.append(_naabhasa_sankhya(facts))
     out.append(_kalpadruma(facts))
-    out.append(_vry_conjunct_or_samasaptaka(facts))
+    out.extend(_vry_dusthana_pairs(facts))
     out.extend(_karaka_rules(facts))
     out.extend(_yogada(facts))
+    out.extend(_pancha_mahapurusha(facts))
     return [v for v in out if v]
 
 
@@ -537,6 +625,17 @@ def _sunaphaa(facts):
                     [f"2nd_from_Moon={tgt}", f"occupants={occ}"])
 
 
+def _anaphaa(facts):
+    """Any planet other than the Sun in the 12th from the Moon (the mirror of
+    Sunaphaa's 2nd-from-Moon; Durudhara is both occupied)."""
+    tgt = _houses_from(facts, "Moon", (12,)).get(12)
+    occ = _occupants(facts, tgt, exclude=("Sun", "Moon")) if tgt else []
+    return _row("anaphaa", "Anaphaa", bool(occ),
+                    (f"{', '.join(occ)} in {tgt}, the 12th from the Moon" if occ
+                     else f"nothing but possibly the Sun in {tgt}, the 12th from the Moon"),
+                    [f"12th_from_Moon={tgt}", f"occupants={occ}"])
+
+
 def _adhi(facts):
     """Natural benefics in the 6th, 7th or 8th from the Moon.
 
@@ -557,7 +656,7 @@ def _adhi(facts):
     found = []
     for off, sign in sorted(tgts.items()):
         for g in _occupants(facts, sign):
-            if g in _NATURAL_BENEFICS:
+            if _is_benefic(facts, g):
                 found.append(f"{g} in {sign} ({off}th from the Moon)")
     return _row("adhi", "Adhi", bool(found),
                     ("; ".join(found) if found else
@@ -565,12 +664,25 @@ def _adhi(facts):
                     [f"{o}th_from_Moon={s}" for o, s in sorted(tgts.items())])
 
 
-def _daama(facts):
-    occupied = {_sign_of(facts, g) for g in _GRAHAS if _sign_of(facts, g)}
+# Naabhasa sankhya (numerical) family: the count of distinct signs the seven
+# grahas occupy, 1..7, names exactly one yoga. Classical spec (BPHS Ch.35).
+_NAABHASA_SANKHYA = {1: "Gola", 2: "Yuga", 3: "Sula", 4: "Kedara",
+                     5: "Paasa", 6: "Daama", 7: "Veenaa"}
+
+
+def _naabhasa_sankhya(facts):
+    """The seven grahas occupy N distinct signs; the count names the yoga
+    (Gola..Veenaa). One lookup -- exactly one count applies, so the row fires
+    once the seven signs are known."""
+    occupied = sorted({_sign_of(facts, g) for g in _GRAHAS if _sign_of(facts, g)})
     n = len(occupied)
-    return _row("daama_daamini", "Daama/Daamini", n == 6,
-                    f"the seven grahas occupy {n} signs ({', '.join(sorted(occupied))})",
-                    [f"distinct_signs={n}"])
+    name = _NAABHASA_SANKHYA.get(n)
+    if not name:
+        return _row("naabhasa_sankhya", "Naabhasa sankhya", False,
+                        "the seven grahas' signs are not fully known", [])
+    return _row(f"naabhasa_{name.lower()}", name, True,
+                    f"the seven grahas occupy {n} sign(s) ({', '.join(occupied)})",
+                    [f"distinct_signs={n}", f"signs={occupied}"])
 
 
 def _kalpadruma(facts):
@@ -608,25 +720,42 @@ def _kalpadruma(facts):
                     (txt if fired else "the chain is not all well placed: " + txt), ev)
 
 
-def _vry_conjunct_or_samasaptaka(facts):
+def _vry_dusthana_pairs(facts):
+    """Vipareeta Raja Yoga by association: any two of the three dusthana lords
+    (6th, 8th, 12th) in conjunction (one sign) or samasaptaka (mutual 7ths).
+    One row per pair. JHora prints whichever pair actually associates -- Sulabh
+    6-8, Surbhi 6-12 -- so all three pairs are checked, not only 6-8."""
     lords = _house_lords(facts)
-    six, eight = lords.get(6), lords.get(8)
-    if not (six and eight):
-        return _row("vipareeta_6_8_link", "Vipareeta (6th-8th lord link)",
-                        False, "the 6th or 8th lord is not known", [])
-    s6, s8 = _sign_of(facts, six["lord"]), _sign_of(facts, eight["lord"])
-    if not (s6 and s8):
-        return _row("vipareeta_6_8_link", "Vipareeta (6th-8th lord link)",
-                        False, "a lord's sign is not known", [])
-    gap = (_SIGNS.index(s8) - _SIGNS.index(s6)) % 12
-    fired = gap in (0, 6)
-    return _row("vipareeta_6_8_link", "Vipareeta (6th-8th lord link)", fired,
-                    (f"the 6th lord ({six['lord']}, {s6}) and the 8th lord "
-                     f"({eight['lord']}, {s8}) are "
-                     + ("in one sign" if gap == 0 else
-                        "opposite each other" if gap == 6 else
-                        f"{gap} signs apart")),
-                    [f"lord6={six['lord']}@{s6}", f"lord8={eight['lord']}@{s8}"])
+    out = []
+    for a, b in ((6, 8), (6, 12), (8, 12)):
+        rid = f"vipareeta_{a}_{b}_link"
+        name = f"Vipareeta ({_ordinal(a)}-{_ordinal(b)} lord link)"
+        la, lb = lords.get(a), lords.get(b)
+        if not (la and lb):
+            out.append(_row(rid, name, False,
+                            f"the {_ordinal(a)} or {_ordinal(b)} lord is not known", []))
+            continue
+        pa, pb = la["lord"], lb["lord"]
+        if pa == pb:
+            out.append(_row(rid, name, False,
+                            f"one planet ({pa}) lords both the {_ordinal(a)} and "
+                            f"the {_ordinal(b)}; there is no two-lord association",
+                            [f"lord{a}={pa}", f"lord{b}={pb}"]))
+            continue
+        sa, sb = _sign_of(facts, pa), _sign_of(facts, pb)
+        if not (sa and sb):
+            out.append(_row(rid, name, False, "a lord's sign is not known", []))
+            continue
+        gap = (_SIGNS.index(sb) - _SIGNS.index(sa)) % 12
+        fired = gap in (0, 6)
+        out.append(_row(rid, name, fired,
+                        (f"the {_ordinal(a)} lord ({pa}, {sa}) and the "
+                         f"{_ordinal(b)} lord ({pb}, {sb}) are "
+                         + ("in one sign" if gap == 0 else
+                            "opposite each other (samasaptaka)" if gap == 6 else
+                            f"{gap} signs apart, neither conjunct nor samasaptaka")),
+                        [f"lord{a}={pa}@{sa}", f"lord{b}={pb}@{sb}"]))
+    return out
 
 
 def _karaka_rules(facts):
@@ -650,44 +779,180 @@ def _karaka_rules(facts):
                              f"the atma karaka ({ak}, house {ha}) and putri karaka "
                              f"({pik}, house {hp}) are neither together nor both in the 1st or 5th"),
                             [f"AK={ak}@{sa}", f"PiK={pik}@{sp}"]))
-    if amk:
-        h = (_pos(facts).get(amk) or {}).get("house")
-        out.append(_row("raja_sambandha", "Raja Sambandha", h in _KONA,
-                            f"the amatya karaka ({amk}) is in the {_ordinal(int(h))}"
-                            if h else f"the amatya karaka ({amk})'s house is not known",
-                            [f"AmK={amk}", f"AmK.house={h}"]))
+    # Raja Sambandha is a FAMILY (PVR p.140 sec 11.8); JHora prints whichever
+    # sub-combination fires, with that combination's own result text. The two
+    # reference charts exercise two of them, so both are computed as their own
+    # rows (each fired or not):
+    #   (5) AmK in a TRINE from lagna  -> "a famous minister"      (Sulabh: Ju in 5th)
+    #   (6) AmK in a QUADRANT or TRINE from AK -> "associate liked by a king" (Surbhi: Rahu 5th from AK)
+    # PVR p.140-141 verbatim; NOT the oracle's brief-definition text (P-028).
+    # The other 13 combinations in 11.8 are the wider set and stay out until
+    # these are validated (Sulabh, S132).
+    out.append(_raja_sambandha_lagna(facts, amk))
+    out.append(_raja_sambandha_from_ak(facts, ak, amk))
     return out
 
 
+def _raja_sambandha_lagna(facts, amk):
+    """PVR 11.8 (5): amatya karaka in a trine (1/5/9) from lagna."""
+    if not amk:
+        return _row("raja_sambandha_lagna", "Raja Sambandha (AmK in a trine)",
+                        False, "the amatya karaka is not available", [])
+    h = (_pos(facts).get(amk) or {}).get("house")
+    if h is None:
+        return _row("raja_sambandha_lagna", "Raja Sambandha (AmK in a trine)",
+                        False, f"the amatya karaka ({amk})'s house is not known",
+                        [f"AmK={amk}"])
+    fired = h in _KONA
+    return _row("raja_sambandha_lagna", "Raja Sambandha (AmK in a trine)", fired,
+                    (f"the amatya karaka ({amk}) is in the {_ordinal(int(h))}"
+                     + ("" if fired else ", not a trine (1st/5th/9th) from lagna")),
+                    [f"AmK={amk}", f"AmK.house={h}"])
+
+
+def _raja_sambandha_from_ak(facts, ak, amk):
+    """PVR 11.8 (6): amatya karaka in a quadrant or trine FROM the atma karaka."""
+    if not (ak and amk):
+        return _row("raja_sambandha_ak", "Raja Sambandha (AmK from AK)", False,
+                        "the atma or amatya karaka is not available", [])
+    sa, sm = _sign_of(facts, ak), _sign_of(facts, amk)
+    if not (sa and sm):
+        return _row("raja_sambandha_ak", "Raja Sambandha (AmK from AK)", False,
+                        "the atma or amatya karaka's sign is not known",
+                        [f"AK={ak}", f"AmK={amk}"])
+    frm = ((_SIGNS.index(sm) - _SIGNS.index(sa)) % 12) + 1
+    fired = frm in (1, 4, 5, 7, 9, 10)  # quadrant or trine from AK
+    return _row("raja_sambandha_ak", "Raja Sambandha (AmK from AK)", fired,
+                    (f"the amatya karaka ({amk}, {sm}) is the {_ordinal(frm)} "
+                     f"from the atma karaka ({ak}, {sa})"
+                     + ("" if fired else ", not a quadrant or trine from it")),
+                    [f"AK={ak}@{sa}", f"AmK={amk}@{sm}", f"AmK_from_AK={frm}"])
+
+
+def _yogada_link(facts, g, s, target):
+    """How graha `g` (in sign `s`) is associated with `target` sign: it
+    occupies it, owns it, or rasi-aspects it. None when unlinked."""
+    if s == target:
+        return "occupies"
+    if _SIGN_LORD[target] == g:
+        return "owns"
+    if _rasi_aspects(s, target):
+        return "aspects"
+    return None
+
+
 def _yogada(facts):
-    """One row per graha associated with BOTH the lagna sign and the Ghati
-    Lagna sign -- by occupying it, owning it, or rasi-aspecting it."""
-    lag, gl = facts.get("ascendant_sign"), facts.get("ghati_lagna_sign")
-    if lag not in _SIGNS or gl not in _SIGNS:
-        return [_row("yogada_gl", "Yogada (GL)", False,
-                         "the Ghati Lagna is not available for this reading", [])]
+    """Yogada and Maha Yogada (PVR p.179). A graha ASSOCIATED -- occupies, owns
+    or rasi-aspects -- with the lagna and a time-lagna is a Yogada of that
+    time-lagna; associated with the lagna, the Ghati Lagna AND the Hora Lagna
+    at once is a Maha Yogada. One row per qualifying graha; a summary not-fired
+    row when none qualifies and the inputs were present."""
+    lag = facts.get("ascendant_sign")
+    gl = facts.get("ghati_lagna_sign")
+    hl = facts.get("hora_lagna_sign")
+    if lag not in _SIGNS:
+        return [_row("yogada", "Yogada", False,
+                         "the ascendant sign is not known", [])]
+    have_gl, have_hl = gl in _SIGNS, hl in _SIGNS
+    if not (have_gl or have_hl):
+        return [_row("yogada", "Yogada", False,
+                         "neither the Ghati Lagna nor the Hora Lagna is "
+                         "available for this reading", [])]
+
     out = []
     for g in _GRAHAS:
         s = _sign_of(facts, g)
         if not s:
             continue
-        def linked(target):
-            if s == target:
-                return "occupies"
-            if _SIGN_LORD[target] == g:
-                return "owns"
-            if _rasi_aspects(s, target):
-                return "aspects"
-            return None
-        a, b = linked(lag), linked(gl)
-        if a and b:
+        to_lag = _yogada_link(facts, g, s, lag)
+        if not to_lag:
+            continue
+        to_gl = _yogada_link(facts, g, s, gl) if have_gl else None
+        to_hl = _yogada_link(facts, g, s, hl) if have_hl else None
+        ev = [f"{g}.sign={s}", f"lagna={lag}"]
+        if have_gl:
+            ev.append(f"ghati_lagna={gl}")
+        if have_hl:
+            ev.append(f"hora_lagna={hl}")
+        if to_gl and to_hl:
+            out.append(_row(f"maha_yogada_{g.lower()}", f"Maha Yogada ({g})", True,
+                            f"{g} {to_lag} the rising sign ({lag}), {to_gl} the "
+                            f"Ghati Lagna ({gl}) and {to_hl} the Hora Lagna ({hl})",
+                            ev))
+        elif to_gl:
             out.append(_row(f"yogada_gl_{g.lower()}", f"Yogada GL ({g})", True,
-                                f"{g} {a} the rising sign ({lag}) and {b} the "
-                                f"Ghati Lagna sign ({gl})",
-                                [f"{g}.sign={s}", f"lagna={lag}", f"ghati_lagna={gl}"]))
+                            f"{g} {to_lag} the rising sign ({lag}) and {to_gl} the "
+                            f"Ghati Lagna ({gl})", ev))
+        elif to_hl:
+            out.append(_row(f"yogada_hl_{g.lower()}", f"Yogada HL ({g})", True,
+                            f"{g} {to_lag} the rising sign ({lag}) and {to_hl} the "
+                            f"Hora Lagna ({hl})", ev))
     if not out:
-        out.append(_row("yogada_gl", "Yogada (GL)", False,
-                            f"no graha is linked to both the rising sign ({lag}) "
-                            f"and the Ghati Lagna sign ({gl})",
-                            [f"lagna={lag}", f"ghati_lagna={gl}"]))
+        out.append(_row("yogada", "Yogada", False,
+                        f"no graha is linked to the rising sign ({lag}) and a "
+                        f"time-lagna", [f"lagna={lag}"]))
+    return out
+
+
+# Pancha Mahapurusha: the five non-luminary grahas, each named for its yoga.
+_PMP_NAMES = {"Mars": "Ruchaka", "Mercury": "Bhadra", "Jupiter": "Hamsa",
+              "Venus": "Malavya", "Saturn": "Sasa"}
+# Own house/moolatrikona/exaltation all qualify (BPHS Ch.75). Own house here
+# means the planet's OWN SIGN; moolatrikona is a degree range inside it.
+_QUALIFYING_PMP = frozenset({"Exalted", "Moolatrikona", "Own"})
+
+
+def _pmp_qualifies(facts, g, sign):
+    """(qualifies, dignity-label) for a Pancha Mahapurusha planet.
+
+    DEGREE-ACCURATE when the detector's fact block carries `planet_degrees`
+    (degree_in_sign per graha): get_dignity_status resolves Moolatrikona, so a
+    moolatrikona-only placement now qualifies -- closing the gap the S132
+    fact-block-only version left. Without degrees it FALLS BACK to the fact
+    block's sign-level dignity label (Exalted / Own Sign), and moolatrikona-only
+    is then unreachable (documented, not silent)."""
+    degs = facts.get("planet_degrees") or {}
+    deg = degs.get(g)
+    if isinstance(deg, (int, float)) and 0.0 <= float(deg) < 30.0 and sign in _SIGNS:
+        try:
+            d = get_dignity_status(g, sign, float(deg))
+        except Exception:  # noqa: BLE001 -- a bad value costs one yoga, never the run
+            d = None
+        return (d in _QUALIFYING_PMP, d or "no special dignity")
+    label = (_pos(facts).get(g) or {}).get("dignity")
+    # fact-block label uses "Own Sign"; normalise to the same words for display
+    return (label in ("Exalted", "Own Sign"),
+            label.lower() if isinstance(label, str) else "no special dignity")
+
+
+def _pancha_mahapurusha(facts):
+    """The five Pancha Mahapurusha yogas: Mars/Mercury/Jupiter/Venus/Saturn in
+    a kendra (1,4,7,10) AND in own / moolatrikona / exalted sign. One row per
+    planet, fired or not. Degree-accurate via `_pmp_qualifies` when the fact
+    block carries planet degrees."""
+    pos = _pos(facts)
+    out = []
+    for g, name in _PMP_NAMES.items():
+        row = pos.get(g)
+        if not isinstance(row, dict) or row.get("house") is None:
+            out.append(_row(f"pmp_{name.lower()}", f"{name} (Pancha Mahapurusha)",
+                            False, f"{g}'s placement is not known", []))
+            continue
+        house, sign = row.get("house"), row.get("sign")
+        in_kendra = house in (1, 4, 7, 10)
+        qualifies, dlabel = _pmp_qualifies(facts, g, sign)
+        fired = bool(in_kendra and qualifies)
+        if fired:
+            why = f"{g} is in the {_ordinal(int(house))} (a kendra), {dlabel} in {sign}"
+        else:
+            place = (f"in the {_ordinal(int(house))}"
+                     + ("" if in_kendra else " (not a kendra)"))
+            dig = (f"{dlabel} in {sign}" if qualifies
+                   else f"not in own, moolatrikona or exaltation sign ({sign})")
+            why = f"{g} is {place}, {dig}"
+        out.append(_row(f"pmp_{name.lower()}", f"{name} (Pancha Mahapurusha)",
+                        fired, why,
+                        [f"planet_positions.{g}.house={house}",
+                         f"planet_positions.{g}.sign={sign}",
+                         f"dignity={dlabel}"]))
     return out
