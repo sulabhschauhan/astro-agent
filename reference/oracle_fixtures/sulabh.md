@@ -1051,3 +1051,94 @@ V12                     22 Ar 40' 59.06" Bhar      3    Ar   Le
 Kunda                    7 Ta 19' 44.19" Krit      4    Ta   Pi
 Yoga Sphuta             28 Cp 04' 52.81" Dhan      2    Cp   Vi
 Avayoga Sphuta           4 Le 44' 52.81" Magh      2    Le   Ta
+
+
+
+
+
+
+
+
+
+
+Yoga                     Varga Yoga givers                     Results ascribed to yoga                            Brief definition of yoga
+
+Vesi                     D-1   Ju                              Balanced, truthful and happy                        Planets other than Moon in 2nd from Sun
+Nipuna (Budha-Aditya)    D-1   Su, Me                          Skillful, expert, well-known and respected          Sun and Mercury together or in mutual 7ths
+Sunaphaa                 D-1   Sa                              Intelligent, wealthy and famous                     Planets other than Sun in 2nd from Moon
+Adhi yoga                D-1   Ju, Ve                          King, minister or an army chief                     Benefics in 6th, 7th and 8th from Moon
+Daama/Daamini            D-1   Naabhasa yoga - throughout life Rich, famous, helpful, many children                Seven planets in 6 rasis
+Kalpadruma/Parijata      D-1   Ju, Ma, Sa, Sa                  King, principled, warrior, prosperous, strong, kind Lagna lord, his disposior, latter's rasi & navamsa dispositors are all in own/exaltation sign or kendra/kona
+Harsha                   D-1   Ve                              Happy, strong, good-natured, invincible             The 6th lord in the 6th house
+Raja/Dharma-Karmadhipati D-1   Me, Su                          Dutiful and high achiever                           Conjunction, aspect or exchange of 9th/10th lords
+Raja (AK-PiK)            D-1   Su, Me                          Power and favors from authorities                   Atma karaka and pitru karaka together or in 1st/5th
+Yogada (GL)              D-1   Su                              Power and authority                                 Associated with lagna and GL (by aspect, conjunction or ownership)
+Yogada (GL)              D-1   Me                              Power and authority                                 Associated with lagna and GL (by aspect, conjunction or ownership)
+Yogada (GL)              D-1   Ju                              Power and authority                                 Associated with lagna and GL (by aspect, conjunction or ownership)
+Yogada (GL)              D-1   Sa                              Power and authority                                 Associated with lagna and GL (by aspect, conjunction or ownership)
+Viparita Raja Yoga       D-1   Mo                              Success after pressures or someone else's losses    8th lord in 6th or 12th
+Viparita Raja Yoga       D-1   Ve, Mo                          Success after pressures or someone else's losses    The 6th and 8th lords in conjunction or samasaptaka
+Raja Sambandha           D-1   Ju                              A famous minister                                   Amatya karaka in a kona
+
+
+
+
+
+
+
+Vimsopaka Dasa Varga (10) Shodasa Varga (16) Sapta Varga (7) Shad Varga (6)
+
+Sun       11.65  (58.25%) 12.05  (60.25%)    13.63  (68.13%) 13.05  (65.25%)
+Moon      13.95  (69.75%) 14.10  (70.50%)    13.13  (65.63%) 15.55  (77.75%)
+Mars      11.05  (55.25%) 11.55  (57.75%)    12.13  (60.63%) 12.50  (62.50%)
+Mercury   17.00  (85.00%) 16.68  (83.38%)    16.20  (81.00%) 15.40  (77.00%)
+Jupiter   11.53  (57.63%) 11.75  (58.75%)    13.95  (69.75%) 14.50  (72.50%)
+Venus     13.20  (66.00%) 14.10  (70.50%)    11.85  (59.25%) 13.25  (66.25%)
+Saturn    11.58  (57.88%) 11.68  (58.38%)    10.13  (50.63%) 10.20  (51.00%)
+Rahu      14.03  (70.13%) 13.78  (68.88%)    14.98  (74.88%) 14.85  (74.25%)
+Ketu      8.22  (41.13%)  8.10  (40.50%)     8.05  (40.25%)  7.65  (38.25%)
+
+
+
+
+Planet  Shadbala In rupas % Strength IshtaPhala KashtaPhala
+
+Sun     343.38   5.72     114.46     43.65      12.03
+Moon    465.90   7.77     129.42     3.46       28.12
+Mars    466.69   7.78     155.56     39.92      14.89
+Mercury 377.54   6.29     89.89      2.75       57.22
+Jupiter 401.51   6.69     102.95     15.93      37.87
+Venus   485.93   8.10     147.25     31.04      23.22
+Saturn  493.99   8.23     164.66     39.30      20.04
+
+
+
+
+
+
+Planet  Shadbala Rupas Sthana Bala Kala Bala DigBala Cheshta Bala DrigBala Naisargika Bala
+
+Sun     5.72           211.67      88.87     0.06    35.17        -17.22   60.00
+Moon    7.77           157.76      237.70    13.18   46.76        5.84     51.43
+Mars    7.78           240.02      137.09    25.71   30.34        16.39    17.14
+Mercury 6.29           219.88      103.68    34.94   3.19         -9.84    25.70
+Jupiter 6.69           197.52      153.77    23.37   7.80         -15.24   34.28
+Venus   8.10           213.10      162.89    44.79   20.85        1.46     42.85
+Saturn  8.23           234.97      193.05    4.62    35.33        17.46    8.57
+
+
+
+
+Planet  Sthana Bala In rupas Uchcha Saptavargaja Oja Yugma Kendra Drekkana
+
+Sun     211.67      3.53     54.17  97.50        0.00      60.00  0.00
+Moon    157.76      2.63     0.26   112.50       30.00     15.00  0.00
+Mars    240.02      4.00     52.52  127.50       15.00     30.00  15.00
+Mercury 219.88      3.66     2.38   157.50       0.00      60.00  0.00
+Jupiter 197.52      3.29     32.52  120.00       15.00     30.00  0.00
+Venus   213.10      3.55     46.22  121.88       30.00     15.00  0.00
+Saturn  234.97      3.92     43.72  101.25       30.00     60.00  0.00
+
+
+
+

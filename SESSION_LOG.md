@@ -1131,3 +1131,42 @@ fired yoga does not pull its doctrine chapter in); `pancha_mahapurusha.py`
 unwired; restating `_calc_yogas` into Path B; deleting the three `catalog/`
 stubs; BPHS cross-check; second chart for the ruled-out direction. The wider
 BPHS yoga set stays OUT until the 16 are done — Sulabh's explicit instruction.
+
+
+## S133 — yoga layer completed and validated on two charts; yoga facts wired into the answer path (Phase 1) (2026-09-13)
+
+**UNCOMMITTED on `wip/interpretive-pilot` atop `85a0707`** (S132's third commit). New yoga tests pass (44 rules + wiring tests); full suite not run this session (design-chat + sandbox only, no live API in sandbox).
+
+### 1. Yoga calculations completed (`agent/calculations/yogas/rules.py`)
+Started from S132's 15-of-16 fired on Sulabh only. Added/fixed and validated against BOTH `sulabh.md` §10c AND `surbhi.md` §10c, computed from birth details and compared AFTER (P-027):
+- ADDED: Anaphaa (12th from Moon); the full Naabhasa sankhya family Gola..Veenaa (distinct occupied-sign count 1..7, one lookup); Yogada by Hora Lagna; Maha Yogada (associated with lagna + GL + HL); Pancha Mahapurusha (all five), degree-accurate.
+- FIXED, each surfaced by the SECOND chart (Surbhi): Vipareeta dusthana-lord link now checks all three pairs 6-8/6-12/8-12 (Sulabh fires 6-8, Surbhi 6-12; the 6-8-only version missed Surbhi); Adhi widened to count Mercury when it keeps benefic company by conjunction OR aspect (Surbhi givers Me,Ju,Ve); Yogakaraka no longer false-fires on a lagna lord owning a kendra — PVR p.177 needs a quadrant (4/7/10) AND a trine (5/9), the 1st is both so it cannot supply the trine (JHora prints no yogakaraka for Sulabh); Dharma-Karmadhipati now fires on conjunction/aspect/exchange (was conjunction only); Neecha Bhanga's exaltation-sign-lord cancellation condition completed (was a stubbed not-evaluable).
+- Raja Sambandha RE-SOURCED FROM PVR §11.8 (P-028): it is a FAMILY; JHora prints whichever sub-combination fires with that combination's own result text. Two computed — (5) AmK in a trine from lagna -> "a famous minister" (Sulabh, Jupiter AmK in the 5th); (6) AmK in a quadrant/trine FROM AK -> "an associate liked by a king" (Surbhi, Rahu AmK 5th from AK Jupiter). NEITHER transcription reproduced BOTH charts alone; the S132/early-S133 from-AK-only reading was wrong for Sulabh.
+- Pancha Mahapurusha is DEGREE-ACCURATE via `core.dignity.get_dignity_status` (resolves Moolatrikona). Degrees reach the detector from a detector-only `planet_degrees` key. `catalog/pancha_mahapurusha.py` stays UNWIRED and is now redundant (retire when convenient). `rules.py` imports `get_dignity_status` — a pure table lookup, not ephemeris and not `chart_calculator`.
+
+### 2. Validation — both charts, computed-then-compared (`scripts/probe_yoga_charts.py`)
+Sulabh: special lagnas 12"/4"/22" (Moshier in the sandbox; his own ephemeris gives ~21"), Chara Karakas 8/8, all 16 §10c rows reproduced (15 fired + the one deliberate PVR-Sarala divergence, JHora's "8th lord in 6th/12th" which PVR calls a different yoga — recorded, not fired). Surbhi: Karakas 8/8, all 16 §10c rows reproduced (Sasa, Anaphaa, Paasa, Maha Yogada, the 6-12 Vipareeta, Adhi Me/Ju/Ve). Every not-fired verdict is now proven in BOTH directions by the second chart. 44 logic tests in `tests/calculations/yogas/test_rules.py`.
+
+### 3. Yoga facts wired to the answer path — PHASE 1
+- NEW `agent/astro/yoga_facts.py`: `build_yoga_facts(chart, chart_facts)` runs the detector over an augmented block (karakas + special-lagna SIGNS + degrees, all detector-local) and returns `{fired, ruled_out, inputs}`; fail-soft (never raises). The augmented inputs NEVER enter the interpreter payload.
+- `pipeline._fact_block` renders "Yogas PRESENT in the chart" (fired + reasons) and "Yogas CHECKED and NOT present" (ruled-out names).
+- `capability_gate.FACT_BLOCK_PROVIDES` += "yogas" (growth contract; `tests/astro/test_capability_gate.py` updated — the exact-set pin now includes it).
+- `frontend/app.py` composes `chart_facts["yogas"]` right after the D9 block, fail-soft.
+- The `inputs` audit block (karakas / GL & HL signs / per-planet degrees) rides inside `chart_facts["yogas"]` so `qa_capture` records it (it dumps `chart_facts` whole) but `_fact_block` never renders it — it reads only `fired`/`ruled_out`.
+
+### 4. Live dogfood (Sulabh's machine, gpt-5) — Phase 1 VALIDATED
+`diagnostics/qa_capture/20260913T161031Z.md`, six questions. Yoga facts computed correctly live (21 fired, GL Pisces, HL Libra, `errors: []`) and the interpreter USED them: Q2 named Harsha/Nipuna/Sunaphaa/Adhi grounded in ch36/ch37; Q4 explained Mercury's Neecha Bhanga via the D9-exaltation route correctly; Q1 used the 9th+10th-lord raja combination; Q3 did careful ruling-out; Q5 timing DECLINED by the capability gate (and Q1 too — both were time_scope=future). A clear, measurable improvement over the S130 state (the doctrine chapters were selected then but the facts were absent, so gpt-5 ignored them). NOTE: that run's `chart_facts.yogas.inputs` is null because the running Streamlit had the pre-`inputs` `yoga_facts` cached in `sys.modules`; a full app restart captures it. Not a bug.
+
+### 5. PHASE 2 CONFIRMED NEEDED (fact->chapter), with concrete targets
+Q2 and Q4 produced GHOST citations to `ch38` (the raja/solar-yoga chapter) and `ch35` (Naabhasa) — the interpreter, now holding the yoga facts, reached for yoga-DOCTRINE chapters the question-driven selection did not pull, and ghosted (the guard caught them -> dropped, nothing false shipped, but that doctrine was lost). Fact-driven chapter augmentation is the fix. Map targets observed: raja/solar -> `bphs1_ch38`, Naabhasa -> `bphs1_ch35` (Harsha/Adhi -> ch36 and lunar -> ch37 were pulled and worked; Neecha -> ch24, Vipareeta -> ch48 per the S131 lock, PMP -> ch75). MECHANISM (designed, not built): in `build_from_plan`, union each fired yoga's chapter(s) onto `select_units`' unit_ids, build the payload over the enlarged set, and EXEMPT those units from `filter_segments_by_domain` (via the payload's existing `segment_ids_by_unit`) so they are not pulled-then-dropped; the context ceiling stays the guard. Needs a RATIFIED yoga->chapter index — a doctrine-sourcing decision (BPHS titles diverge from content), Sulabh's call.
+
+### 6. Two pre-existing issues the dogfood surfaced (NOT yoga-related)
+- Q6 (remedy) 400'd: 299,852 real tokens > this gpt-5 tier's 272,000 input cap. Root cause: `build_from_plan` refuses on APPROX tokens vs a 400k window (`HARD_CONTEXT_CEILING=225k`), but the real cap is 272k, so a payload legal by the approx guard (~176k approx ≈ 300k real) was sent. FIX: refuse on `estimated_real_tokens` vs the real 272k cap. Separately, a remedy question should refuse up front (remedies out of V1 scope) and did not on Path B.
+- The yoga fact block adds ~1-2k tokens to every interpreter prompt (small; recorded).
+
+### 7. Process / cleanup
+- The three S131/S132 landmine files were DELETED this session (`tests/fixtures/sulabh_oracle_chart.py`, `scripts/probe_yoga_oracle_S132.py`, `scripts/probe_yoga_detector_S131.py`) after a guard confirmed no code imports them (only narrative mentions in `SESSION_LOG.md`/handover remained, left intact).
+- Sulabh appended a raw JHora Traditional-Lahiri block to `sulabh.md`; its special lagnas differ from §3f by 1-5 arcmin (signs identical, so no yoga impact). §3f stays the special-lagna oracle (production matches it 12"/4"/22"); the new block is a second capture — cross-software divergence, recorded, not reconciled.
+
+### 8. Carry-forward
+Phase 2 (fact->chapter, map above); the 272k real-token ceiling fix; remedy refusal on Path B; restate `chart_calculator._calc_yogas` (mangal_dosha, kalsarpa) into Path B by restatement (S20); retire `catalog/pancha_mahapurusha.py`; the wider BPHS yoga set beyond JHora's rows is now UNBLOCKED (the JHora-16 are done and validated on two charts) — open it only on Sulabh's explicit go.
