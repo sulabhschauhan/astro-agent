@@ -52,3 +52,25 @@ def test_build_yoga_facts_is_failsoft_and_returns_shape():
     assert isinstance(out, dict)
     assert "fired" in out and "ruled_out" in out
     assert isinstance(out["fired"], list) and isinstance(out["ruled_out"], list)
+
+
+def test_build_yoga_facts_restates_mangal_and_kalsarpa():
+    # S135: chart_calculator._calc_yogas bools are RESTATED as yoga rows (not recomputed),
+    # one fired + one ruled_out, in the detector's {id, name, reason} shape.
+    chart = {"yogas_doshas": {"mangal_dosha": True, "kalsarpa_yoga": False},
+             "planetary_positions": {"Mars": {"house": 7}}}
+    out = build_yoga_facts(chart, _min_facts())
+    fired_ids = {y["id"] for y in out["fired"]}
+    ruled_ids = {y["id"] for y in out["ruled_out"]}
+    assert "mangal_dosha" in fired_ids
+    assert "kalsarpa_yoga" in ruled_ids
+    # restated, not recomputed: the reason carries the OBSERVED house
+    mangal = next(y for y in out["fired"] if y["id"] == "mangal_dosha")
+    assert "7" in mangal["reason"]
+
+
+def test_build_yoga_facts_omits_calc_yogas_when_absent():
+    # No yogas_doshas on the chart -> no mangal/kalsarpa rows (no-op restatement).
+    out = build_yoga_facts({"planetary_positions": {}}, _min_facts())
+    ids = {y["id"] for y in out["fired"]} | {y["id"] for y in out["ruled_out"]}
+    assert "mangal_dosha" not in ids and "kalsarpa_yoga" not in ids

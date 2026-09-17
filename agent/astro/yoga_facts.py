@@ -57,10 +57,58 @@ def build_yoga_facts(chart: dict, chart_facts: dict) -> dict:
                                  for g, r in pp.items()
                                  if isinstance(r, dict) and "longitude" in r}
 
-        return detect_yogas(det).to_dict()
+        report = detect_yogas(det).to_dict()
+        # DIAGNOSTICS-ONLY audit trail. pipeline._fact_block reads only fired/ruled_out, so
+        # inputs is captured by qa_capture (dumps chart_facts whole) but never reaches the
+        # interpreter. This is what lets one live dogfood explain every verdict.
+        report["inputs"] = {
+            "chara_karakas": det.get("chara_karakas"),
+            "ghati_lagna_sign": det.get("ghati_lagna_sign"),
+            "hora_lagna_sign": det.get("hora_lagna_sign"),
+            "planet_degrees": {g: round(d, 4) for g, d in (det.get("planet_degrees") or {}).items()},
+        }
+        # RESTATE (S135, S20): mangal_dosha + kalsarpa_yoga are already computed by
+        # chart_calculator._calc_yogas and returned under chart["yogas_doshas"]; Path B
+        # discarded them until now. Fold them into the yoga report by RESTATEMENT -- read
+        # the already-computed bools, never recompute; chart_calculator is untouched. They
+        # are not in the detector's JHora-16 set, so this is purely additive.
+        _restate_calc_yogas(chart, pp, report)
+        return report
     except Exception as e:  # noqa: BLE001 -- a bad fact block costs yogas, not the answer
         return {"fired": [], "ruled_out": [], "errors": [f"{type(e).__name__}: {e}"],
                 "detector_version": "unavailable"}
+
+
+def _restate_calc_yogas(chart: dict, planetary_positions: dict, report: dict) -> None:
+    """Fold chart_calculator._calc_yogas (mangal_dosha, kalsarpa_yoga) into the yoga
+    report by RESTATEMENT (S20): read the already-computed bools off
+    `chart["yogas_doshas"]`, never recompute; the calculator is not imported here.
+    Each becomes one fired/ruled_out row in the detector's own {id, name, reason}
+    shape. Mutates `report` in place; a no-op if the calculator supplied neither.
+    The reason states the OBSERVED placement (a chart fact), never the doctrine (P-029)."""
+    yd = chart.get("yogas_doshas") or {}
+    if "mangal_dosha" in yd:
+        mars = planetary_positions.get("Mars") or {}
+        house = mars.get("house")
+        where = f"house {house}" if house is not None else "its house"
+        fired = bool(yd["mangal_dosha"])
+        reason = (f"Mars occupies {where}, a Mangal Dosha house (1, 4, 7, 8, 12)"
+                  if fired else
+                  f"Mars occupies {where}, not a Mangal Dosha house (1, 4, 7, 8, 12)")
+        _append_yoga_row(report, fired, "mangal_dosha", "Mangal Dosha", reason)
+    if "kalsarpa_yoga" in yd:
+        fired = bool(yd["kalsarpa_yoga"])
+        reason = ("all seven grahas fall on one side of the Rahu-Ketu axis"
+                  if fired else
+                  "the seven grahas are not all hemmed between Rahu and Ketu")
+        _append_yoga_row(report, fired, "kalsarpa_yoga", "Kalsarpa Yoga", reason)
+
+
+def _append_yoga_row(report: dict, fired: bool, rid: str, name: str, reason: str) -> None:
+    """Append one verdict row, in the detector's {id, name, reason} shape, to the
+    fired or ruled_out list (created if absent). pipeline._fact_block reads name/reason."""
+    key = "fired" if fired else "ruled_out"
+    report.setdefault(key, []).append({"id": rid, "name": name, "reason": reason})
 
 
 def _chara_karakas(planetary_positions: dict) -> dict:

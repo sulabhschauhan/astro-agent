@@ -345,3 +345,10 @@ def test_under_ceiling_does_not_refuse():
 
 def test_ceiling_is_below_the_model_window():
     assert P.HARD_CONTEXT_CEILING * P.APPROX_TO_REAL_RATIO < P.INTERPRETER_CONTEXT_WINDOW
+
+
+def test_ceiling_est_real_is_below_the_real_input_cap():
+    # S135: the biting bound is the model's real INPUT cap (a remedy question 400'd at
+    # 299,852 real), not the 400k total window. The ceiling's worst-case est-real must
+    # sit under REAL_INPUT_CAP with headroom for the fixed prompt overhead.
+    assert P.HARD_CONTEXT_CEILING * P.APPROX_TO_REAL_RATIO < P.REAL_INPUT_CAP

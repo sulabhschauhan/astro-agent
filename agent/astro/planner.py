@@ -100,9 +100,25 @@ DEFAULT_TOKEN_BUDGET = 60_000
 #   tiktoken count on a machine that has the encoding cached, and again
 #   whenever the interpreter model changes.
 # S126: interpreter locked to GPT-5 (validated 2026-09-10, 0 ghost citations, honest
-# refusal, real recall at 105k tokens). Window 128k->400k; ceiling raised to
-# (400k real - ~15k output/reasoning reserve) / 1.70 approx-ratio = ~225k approx.
-HARD_CONTEXT_CEILING = 225_000
+# refusal, real recall at 105k tokens). Window 128k->400k.
+# S135 (2026-09-17): the BITING bound is the model's real INPUT cap, not the 400k
+#   total window the S126 ceiling assumed. A remedy question 400'd at 299,852 real
+#   prompt tokens, so the input cap is ~272k. The old 225k approx ceiling allowed
+#   225k*1.70 = 382,500 est-real -- ABOVE the cap -- so an oversized payload passed
+#   the gate and 400'd at the API instead of refusing up front (pipeline already
+#   refuses up front on `refused`, so correcting the ceiling IS the up-front fix).
+#   JUSTIFICATION -- worst case: payload est-real (approx * APPROX_TO_REAL_RATIO)
+#   + ~12k fixed overhead (system prompt, fact block, question, schema; NOT counted
+#   by payload_tokens) must stay under REAL_INPUT_CAP. (272,000 - 12,000) / 1.70 =
+#   152,941, rounded DOWN to 150,000 approx => 255,000 est-real + ~12k = ~267k
+#   worst case, ~5k under the cap and ~33k under the observed 299,852 failure.
+#   SCOPE GUARD -- unchanged: applies ONLY to the interpreter call; over the ceiling
+#   the pipeline REFUSES up front and says why, and NEVER truncates the payload.
+#   TUNING NOTE -- re-derive from REAL_INPUT_CAP and the next observed real
+#   prompt_tokens; never from the 400k total window (that is not the input limit),
+#   and never from chars/4 or approx_tokens.
+REAL_INPUT_CAP = 272_000
+HARD_CONTEXT_CEILING = 150_000
 INTERPRETER_CONTEXT_WINDOW = 400_000
 
 # RECALIBRATED S125 against REAL OpenAI `prompt_tokens`, superseding the
@@ -676,9 +692,10 @@ def build_from_plan(
         ) if est_real > INTERPRETER_TPM_LIMIT else None,
         "refused": exceeds,
         "refusal_reason": (
-            f"payload {tokens:,} approx-tokens (~{est_real:,} "
-            f"real) exceeds the {HARD_CONTEXT_CEILING:,} ceiling for a "
-            f"{INTERPRETER_CONTEXT_WINDOW:,}-token model. NOT truncated -- "
+            f"payload {tokens:,} approx-tokens (~{est_real:,} real) exceeds the "
+            f"{HARD_CONTEXT_CEILING:,} approx ceiling "
+            f"(~{int(HARD_CONTEXT_CEILING * APPROX_TO_REAL_RATIO):,} real), set below "
+            f"the {REAL_INPUT_CAP:,}-token real input cap. NOT truncated -- "
             f"narrow the question or raise the ceiling deliberately."
         ) if exceeds else None,
     }
