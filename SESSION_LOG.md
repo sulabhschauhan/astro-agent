@@ -1170,3 +1170,26 @@ Q2 and Q4 produced GHOST citations to `ch38` (the raja/solar-yoga chapter) and `
 
 ### 8. Carry-forward
 Phase 2 (fact->chapter, map above); the 272k real-token ceiling fix; remedy refusal on Path B; restate `chart_calculator._calc_yogas` (mangal_dosha, kalsarpa) into Path B by restatement (S20); retire `catalog/pancha_mahapurusha.py`; the wider BPHS yoga set beyond JHora's rows is now UNBLOCKED (the JHora-16 are done and validated on two charts) — open it only on Sulabh's explicit go.
+
+
+## S134
+- Attached the yoga-facts `inputs` audit block in `agent/astro/yoga_facts.build_yoga_facts` (chara_karakas, ghati/hora lagna signs, planet_degrees rounded to 4dp) — closes the gap the S133 §4 correction flagged. Diagnostics-only: `pipeline._fact_block` (agent/astro/pipeline.py) reads only `fired`/`ruled_out`, so `inputs` is captured by `qa_capture` (dumps chart_facts whole) but never reaches the interpreter payload. Degree-accurate PMP was already live in S133; this only captures the RECORD of the karakas / special-lagna signs / degrees fed to the detector.
+- Fixed the stale PMP module docstring in `agent/calculations/yogas/rules.py` (~lines 7-12): it claimed the check works off the fact block's own dignity label with a moolatrikona-only placement "unreachable". Corrected to state the S133 degree-accurate check via `core.dignity.get_dignity_status` over a detector-only `planet_degrees` key — moolatrikona IS reachable, and `catalog/pancha_mahapurusha.py` stays unwired because this check subsumes it. Now consistent with the import comment (~lines 52-56) and `_pmp_qualifies`.
+- NOT run from the session that made these edits (file bridge only, no shell on the machine): the full test suite, the live `build_yoga_facts` chart verification (Sulabh: real ephemeris + geocoder), and the two git commits. Edits were written to the working tree UNSTAGED for Sulabh to test and commit.
+
+
+## S135
+Same working session as S134 (2026-09-17); logged separately so each lock stays atomic.
+
+### 1. Token ceiling corrected to the real input cap (agent/astro/planner.py)
+- `HARD_CONTEXT_CEILING` 225_000 -> 150_000 approx; added `REAL_INPUT_CAP = 272_000`; `INTERPRETER_CONTEXT_WINDOW` stays 400_000 (total window, NOT the input limit).
+- ROOT CAUSE: the S126 ceiling derived from a 400k real WINDOW, but the model's real INPUT cap is ~272k -- a remedy question 400'd at 299,852 real prompt tokens. The 225k approx ceiling allowed 225k*1.70 = 382,500 est-real (above the cap), so an oversized payload passed the gate and 400'd at the API. `pipeline.answer_question` already refuses up front on `build_from_plan`'s `refused=True` (refused_at="payload_ceiling"), so correcting the ceiling IS the "remedy refusal up front on Path B" fix -- no separate remedy code path existed.
+- WORST-CASE JUSTIFICATION: payload est-real (approx*1.70) + ~12k fixed overhead (system prompt, fact block, question, schema; not counted by payload_tokens) must stay under 272k. (272,000-12,000)/1.70 = 152,941, rounded DOWN to 150,000 => 255,000 est-real + ~12k = ~267k worst case, ~5k under the cap, ~33k under the observed 299,852 failure.
+- refusal_reason message reworded to cite REAL_INPUT_CAP. New test `test_ceiling_est_real_is_below_the_real_input_cap` pins 150k*1.70 < 272k; existing `test_ceiling_is_below_the_model_window` (150k*1.70 < 400k) and the under/over-ceiling tests stay green (monkeypatch / small fixtures).
+
+### 2. _calc_yogas restated into Path B (agent/astro/yoga_facts.py)
+- mangal_dosha + kalsarpa_yoga are computed by chart_calculator._calc_yogas and returned under chart["yogas_doshas"], but Path B discarded them. `build_yoga_facts` now folds them into the yoga report by RESTATEMENT (S20) via `_restate_calc_yogas` -- reads the already-computed bools, never recomputes; chart_calculator untouched. Each becomes one fired/ruled_out row in the detector's {id, name, reason} shape; reason states the observed placement (Mars's house; Rahu-Ketu hemming), no doctrine (P-029). Not in the detector's JHora-16 set, so purely additive; reuses the existing "yogas" gate key and `_fact_block` render (no growth-contract change). Two tests added.
+- KNOWN: both restated yogas inherit the same Phase-2 fact->chapter grounding gap as every yoga (interpreter can speak to them but their doctrine chapter is not reliably retrieved until Phase 2). kalsarpa's strict-inequality edge (a graha exactly on the axis reads not-kalsarpa) is restated as-is; fixing it means touching chart_calculator (S20 forbids).
+
+### Not run from the editing session (file bridge only, no shell)
+- Full suite, live chart verification, and the two git commits were NOT executed here; edits written to the working tree UNSTAGED for Sulabh to test + commit + push. STILL OPEN after S135: Phase 2 (fact->chapter, next session); wider BPHS yoga set (session after); retire catalog/pancha_mahapurusha.py.
