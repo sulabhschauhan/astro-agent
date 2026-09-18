@@ -57,15 +57,44 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 DOMAIN_TAGS_PATH = os.path.join(REPO_ROOT, "data", "domain_tags_bphs.json")
 CHAPTER_INDEX_PATH = os.path.join(REPO_ROOT, "data", "chapter_index_bphs.json")
 DECISION_LOG_PATH = os.path.join(REPO_ROOT, "diagnostics", "planner_decisions.jsonl")
+YOGA_TAGS_PATH = os.path.join(REPO_ROOT, "data", "yoga_tags_bphs.json")
+# Fact-driven yoga grounding (Phase 2, S136), UNIFIED with domain selection:
+# yogas are a second TAG NAMESPACE on the same segments (data/yoga_tags_bphs.json,
+# segment->yogas, the SAME shape as domain_tags), and a segment is kept if it
+# matches the question's domains OR the chart's FIRED yogas -- one selector, one
+# filter, no separate map or bypass. OFF by default so the suite and every
+# existing answer stay byte-identical. See _fired_yoga_keys / _yoga_tag_targets.
+YOGA_AUGMENT_ENABLED = os.environ.get("ASTRO_YOGA_AUGMENT_ENABLED", "0") == "1"
 
 PLANNER_VERSION = "planner-1.0"
 
-# --- closed vocabularies (LOCKED, S124) --------------------------------------
+# --- closed vocabularies (LOCKED, S124; technique_method REMOVED S136) ------
+# S136: `technique_method` is NO LONGER a selectable domain. It named the
+# corpus's PROCEDURAL chapters (how a varga is cast, how shadbala is summed,
+# dasha arithmetic, argala, karaka assignment) and was the widest tag in the
+# taxonomy -- 45 of 100 units, 148,846 of 242,571 approx-tokens (61.4% of
+# corpus), i.e. 99.2% of HARD_CONTEXT_CEILING on a SINGLE selection (measured
+# from data/domain_tags_bphs.json; KNOWN_PATTERNS P-030).
+#
+# TWO REASONS, and the second is the binding one:
+#   (1) COST/FALSE SILENCE -- one undefined label could exhaust the ceiling and
+#       turn an answerable question into a refusal.
+#   (2) DISCLOSURE BOUNDARY (Sulabh, S136) -- no end user asks how the system
+#       computes anything; only the system needs a formula, and formulas live in
+#       Python with the PVR/BPHS page cited in code (P-028/P-029), never in the
+#       interpreter payload. Shipping procedural doctrine to the interpreter
+#       exposes how this project is configured. So a methodology question is
+#       REFUSED as out of scope (SYSTEM_PROMPT section 5), not answered.
+#
+# The `technique_method` TAG stays in data/domain_tags_bphs.json -- the
+# procedural chapters still exist and are still tagged. It is only unreachable
+# as a PLAN domain, which `_validate_and_normalise` now enforces for free:
+# an LLM that emits it is rejected as outside the closed vocabulary.
 DOMAINS: tuple[str, ...] = (
     "career", "marriage", "wealth", "children", "health", "education",
     "longevity", "travel", "property", "parents", "siblings",
     "spirituality", "enemies_conflict", "timing_dasha",
-    "technique_method", "planetary_nature",
+    "planetary_nature",
 )
 WHOSE_CHART = ("self", "other")
 TIME_SCOPES = ("none", "past", "present", "future", "specific_period")
@@ -200,7 +229,21 @@ Your ONLY job is to read the user's question and state what the system must fetc
 Reason about the question the way a Parashari astrologer would when deciding what to look at:
 
 1. DOMAINS -- which subject areas of the classical text bear on this question. Choose from this closed list, and ONLY this list:
-career, marriage, wealth, children, health, education, longevity, travel, property, parents, siblings, spirituality, enemies_conflict, timing_dasha, technique_method, planetary_nature
+career -> profession, job, business, promotion, working life.
+marriage -> spouse, marrying, partnership, marital life.
+wealth -> money, finance, income, gain, prosperity.
+children -> progeny, sons and daughters, having or raising children.
+health -> illness, disease, bodily vitality.
+education -> schooling, study, exams, degrees, learning.
+longevity -> lifespan and length of life, death.
+travel -> journeys, foreign residence, relocation, migration.
+property -> house, home, land, vehicles, real estate.
+parents -> father, mother, relationship with parents.
+siblings -> brothers and sisters.
+spirituality -> moksha, guru, religion, dharma, temple life.
+enemies_conflict -> enemies, litigation, court cases, disputes.
+timing_dasha -> WHEN something happens: dasha and antardasha periods, the timing of an event.
+planetary_nature -> ONLY when the question is about a graha's intrinsic nature or significations AS SUCH (what Saturn or Jupiter signifies in general), not about a life area it happens to rule.
 If a question could plausibly touch several, LIST THEM ALL. Widening is correct; narrowing is a failure. A question that asks "when" always includes timing_dasha.
 
 2. HOUSES -- which houses of the NATIVE'S OWN chart must be examined, as integers 1-12. Reason them out; do not use a fixed subject-to-house table. When the question is about another person, resolve it onto the native's own chart using bhavat-bhavam (house-from-house): e.g. a child's career is the 10th from the 5th, which is the 2nd house of the native's chart. Include the base house as well as the derived one when both are relevant.
@@ -211,6 +254,7 @@ WIDEN HERE TOO. Naming only the single most obvious house is a failure, not prec
 4. TIME_SCOPE -- one of: "none" (no time element), "past", "present", "future", "specific_period" (a named year, dasha, or window).
 
 5. IN_SCOPE -- true if Brihat Parashara Hora Shastra volumes 1-2 could address this question at all. false ONLY if the question is genuinely outside classical natal astrology as those books treat it -- for example a request for medical diagnosis or treatment, legal advice, or a factual question with no chart component. Judge the QUESTION'S INTENT, never a word in it: a question naming the sign Cancer, or the 6th house, or a disease-related yoga, is IN SCOPE as astrology. Only a request for actual medical judgement is out of scope.
+ALSO OUT OF SCOPE, ALWAYS: a question about HOW this system or classical astrology COMPUTES or DERIVES anything -- a formula, a method, a procedure, which technique or varga or strength measure is used, or how a result was arrived at. Those are questions about methodology, not about the native's life, and they are never answered: return "in_scope": false with empty "domains". A question about what a placement, yoga, dasha or period MEANS for the person is a reading and stays IN SCOPE -- the test is whether the answer would describe the person's life or describe the machinery.
 
 6. REASONING -- two or three sentences saying why, naming the house derivations explicitly.
 
@@ -268,9 +312,18 @@ def validate_plan_object(obj: object) -> tuple[Optional[dict], list[str]]:
         return None, [f"top level is {type(obj).__name__}, expected object"]
 
     # domains
+    # S136: an EMPTY domains list is legal when in_scope is false, and only
+    # then. SYSTEM_PROMPT section 5 now instructs the planner to answer a
+    # methodology question with {"in_scope": false, "domains": []}; before this
+    # change that shape failed validation and fell through to fallback_plan,
+    # which would keyword-match the question and plan domains for a question
+    # the planner had just correctly declared out of scope. The paired check
+    # runs below, once in_scope has been read.
     domains = obj.get("domains")
-    if not isinstance(domains, list) or not domains:
-        errors.append("domains must be a non-empty list")
+    if not isinstance(domains, list):
+        errors.append("domains must be a list")
+        domains = []
+    elif not domains:
         domains = []
     else:
         bad = [d for d in domains if not isinstance(d, str) or d not in DOMAINS]
@@ -303,6 +356,9 @@ def validate_plan_object(obj: object) -> tuple[Optional[dict], list[str]]:
     in_scope = obj.get("in_scope")
     if not isinstance(in_scope, bool):
         errors.append(f"in_scope={in_scope!r} must be a boolean")
+    elif in_scope and not domains:
+        # In scope but nothing to fetch is a contradiction, not a refusal.
+        errors.append("domains must be a non-empty list when in_scope is true")
 
     reasoning = obj.get("reasoning")
     if not isinstance(reasoning, str) or not reasoning.strip():
@@ -358,7 +414,11 @@ _FALLBACK_GLOSS: dict[str, tuple[str, ...]] = {
     "spirituality": ("spiritual", "moksha", "guru", "religion", "dharma", "temple"),
     "enemies_conflict": ("enemy", "enemies", "litigation", "court", "dispute", "conflict"),
     "timing_dasha": ("when", "dasha", "period", "timing", "year", "antardasha", "time"),
-    "technique_method": ("how", "calculate", "method", "varga", "shadbala", "ashtakavarga"),
+    # technique_method REMOVED S136 with the domain itself. NOTE its keyword
+    # tuple led with "how", which matches ordinary readings ("how will my
+    # career go", "how is my marriage") -- so the deterministic fallback was
+    # pulling 61.4% of the corpus on the commonest word in the language.
+    # Do not reintroduce "how" as a keyword for ANY domain.
     "planetary_nature": ("planet", "graha", "saturn", "jupiter", "mars", "venus",
                          "mercury", "sun", "moon", "rahu", "ketu"),
 }
@@ -551,11 +611,17 @@ def filter_segments_by_domain(
     plan: Plan,
     *,
     tags_path: str = DOMAIN_TAGS_PATH,
+    keep_segment_ids: frozenset = frozenset(),
 ) -> dict:
     """Return a NEW payload with `kept` narrowed to the planned domains.
 
     Never mutates the input. Adds `domain_filter` stats and a per-segment
     `domain_drop_reason` so every drop is auditable.
+
+    `keep_segment_ids` is the UNIFIED yoga criterion (S136): a segment carrying a
+    FIRED yoga tag is kept here, in the same pass, exactly as a domain match is --
+    yogas are a second tag namespace, not a separate bypass. Empty (the default)
+    makes this a no-op, so the flag-off path is byte-identical.
     """
     if not plan.domains:
         return payload
@@ -582,6 +648,13 @@ def filter_segments_by_domain(
             new_segments.append(s)
             continue
         tokens_before += s.get("tokens", 0)
+        if s["segment_id"] in keep_segment_ids:
+            counts["kept_yoga_tag"] = counts.get("kept_yoga_tag", 0) + 1
+            s["domain_filter"] = "kept_yoga_tag"
+            s["yoga_tag"] = True
+            tokens_after += s.get("tokens", 0)
+            new_segments.append(s)
+            continue
         entry = seg_domains.get(s["segment_id"])
         if entry is None:
             counts["kept_failsafe_unknown_id"] += 1
@@ -646,6 +719,91 @@ def plan_and_build(
     return build_from_plan(plan, chart_facts, token_budget=token_budget)
 
 
+_YOGA_TAGS_CACHE: Optional[dict] = None
+
+
+def _load_yoga_tags(path: str = YOGA_TAGS_PATH) -> dict:
+    """Load and cache data/yoga_tags_bphs.json into {seg_map, keys}. seg_map is
+    segment_id -> (unit_id, frozenset(yoga_keys)); keys is every yoga key the file
+    uses. Empty structures on any failure so grounding degrades to a no-op, never
+    raises. SAME segment->tags shape as domain_tags -- a yoga is a second tag
+    namespace, not a separate mechanism."""
+    global _YOGA_TAGS_CACHE
+    if _YOGA_TAGS_CACHE is not None:
+        return _YOGA_TAGS_CACHE
+    seg_map: dict = {}
+    keys: set = set()
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        for s in (data.get("segments") or []):
+            sid = s.get("segment_id")
+            if not sid:
+                continue
+            ks = frozenset(s.get("yogas") or [])
+            seg_map[sid] = (s.get("unit_id"), ks)
+            keys |= ks
+    except Exception:  # noqa: BLE001 -- a missing/bad tag file costs grounding, never the answer
+        seg_map, keys = {}, set()
+    _YOGA_TAGS_CACHE = {"seg_map": seg_map, "keys": keys}
+    return _YOGA_TAGS_CACHE
+
+
+def _match_yoga_key(fired_id: str, keys) -> Optional[str]:
+    """Resolve a fired detector id to the yoga TAG KEY that grounds it. Exact key
+    first, then the family conventions the tag vocabulary uses: a key ending '_*'
+    is a prefix, and 'kendra_trikona_family' covers every 'kendra_trikona_*' id.
+    None for a parked / unmapped yoga."""
+    if fired_id in keys:
+        return fired_id
+    for k in keys:
+        if k.endswith("_*") and fired_id.startswith(k[:-1]):
+            return k
+    if fired_id.startswith("kendra_trikona_") and "kendra_trikona_family" in keys:
+        return "kendra_trikona_family"
+    return None
+
+
+def _fired_yoga_keys(chart_facts: dict) -> set:
+    """The yoga TAG KEYS the chart's FIRED yogas resolve to, read from
+    chart_facts['yogas']['fired']. Parked/unmapped yogas resolve to nothing.
+    Empty set on any shape problem -- a bad fact block must cost grounding, never
+    selection."""
+    try:
+        keys = _load_yoga_tags()["keys"]
+        if not keys:
+            return set()
+        fired = ((chart_facts.get("yogas") or {}).get("fired")) or []
+        out: set = set()
+        for row in fired:
+            fid = row.get("id") if isinstance(row, dict) else None
+            if not fid:
+                continue
+            k = _match_yoga_key(str(fid), keys)
+            if k:
+                out.add(k)
+        return out
+    except Exception:  # noqa: BLE001 -- grounding must never break selection
+        return set()
+
+
+def _yoga_tag_targets(fired_keys: set) -> tuple[set, set]:
+    """(unit_ids, segment_ids) carrying any of the fired yoga tags -- the units to
+    add to selection and the segments the domain filter must keep. Two empty sets
+    when nothing fired."""
+    if not fired_keys:
+        return set(), set()
+    seg_map = _load_yoga_tags()["seg_map"]
+    units: set = set()
+    segs: set = set()
+    for sid, (uid, ks) in seg_map.items():
+        if ks & fired_keys:
+            segs.add(sid)
+            if uid:
+                units.add(uid)
+    return units, segs
+
+
 def build_from_plan(
     plan: Plan,
     chart_facts: dict,
@@ -670,9 +828,24 @@ def build_from_plan(
                                    else "no domains planned")}
 
     selection = select_units(plan, token_budget=token_budget)
-    payload = payload_builder.build_payload(chart_facts,
-                                            unit_ids=selection.unit_ids)
-    payload = filter_segments_by_domain(payload, plan)
+
+    # Fact-driven yoga grounding (Phase 2, S136), UNIFIED with domain selection.
+    # OFF (default): fired_keys is empty, nothing is added, the payload is
+    # byte-identical to pre-S136. ON: the chart's FIRED yogas resolve to tag keys,
+    # their units join selection, and their segments are kept by the SAME domain
+    # filter (keep_segment_ids) -- one selector, one filter, no bypass. If this
+    # pushes over the ceiling the existing `refused` path fires (fail-safe).
+    fired_keys = _fired_yoga_keys(chart_facts) if YOGA_AUGMENT_ENABLED else set()
+    yoga_unit_ids, yoga_seg_ids = _yoga_tag_targets(fired_keys)
+
+    unit_ids = list(selection.unit_ids)
+    for uid in sorted(yoga_unit_ids):
+        if uid not in unit_ids:
+            unit_ids.append(uid)
+
+    payload = payload_builder.build_payload(chart_facts, unit_ids=unit_ids)
+    payload = filter_segments_by_domain(payload, plan,
+                                        keep_segment_ids=frozenset(yoga_seg_ids))
     tokens = payload_tokens(payload)
     exceeds = tokens > HARD_CONTEXT_CEILING
     est_real = int(tokens * APPROX_TO_REAL_RATIO)
@@ -680,6 +853,12 @@ def build_from_plan(
         "plan": plan,
         "selection": selection,
         "payload": payload,
+        "yoga_augment": {
+            "enabled": YOGA_AUGMENT_ENABLED,
+            "fired_keys": sorted(fired_keys),
+            "units_added": sorted(yoga_unit_ids),
+            "segments_kept": sorted(yoga_seg_ids),
+        },
         "tokens": tokens,
         "estimated_real_tokens": est_real,
         "over_budget": tokens > token_budget,

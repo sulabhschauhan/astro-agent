@@ -128,9 +128,13 @@ class Requirement:
 # ONE entry today. That is not an oversight: every other planner domain
 # (career, marriage, wealth, children, health, education, longevity, travel,
 # property, parents, siblings, spirituality, enemies_conflict,
-# technique_method, planetary_nature) is answerable from house-lord placements
+# planetary_nature) is answerable from house-lord placements
 # alone, which is exactly what BPHS's house chapters are keyed on. Only timing
 # needs a fact class the block does not carry.
+#
+# (S136: technique_method was REMOVED from planner.DOMAINS entirely -- a
+# methodology question is now refused as out of scope, so no requirement
+# could ever fire for it. See planner.DOMAINS and KNOWN_PATTERNS P-030.)
 #
 # Do NOT add a requirement speculatively. Add one when a real question is
 # observed being answered from facts that are not in the block.
