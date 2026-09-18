@@ -522,11 +522,27 @@ selection was measured and buys **1–2%** with the fail-safe on — so this is 
 the cost lever it looked like. It may still be the right relevance signal for the
 silence gate. Gated on 8.1 and 8.3.
 
-### 8.6 Roster count
+### 8.6 Roster count — CLOSED S136
 
-`CLAUDE.md` Working Style #7 says the agent roster is 9; 8 are documented
-(architect, business, critic, qa, ui_ux, debate, Ephemeris Auditor, Validation
-Source). **Name the 9th or drop the count.** Do not cite "9 agents" as settled.
+RESOLVED, and neither by naming a ninth nor by dropping the count: the "9" was an
+ADDITION SLIP. S8/S9 locked a 6-agent framework; S19 added Ephemeris Auditor and
+Validation Source and recorded the result as "9-agent framework"
+(`SESSION_LOG_ARCHIVE_S19-S66.md:13`). 6 + 2 = 8. Every later "9 agents" traces
+to that one line, and no ninth agent was ever named, chartered or invoked — so
+nothing was lost, and nothing was reduced.
+
+The real defect was not the number. Ephemeris Auditor and Validation Source had
+been ratified for ~115 sessions with NO charter file, so they could not actually
+be invoked; and the roster was restated in five separate files which then drifted
+(`.cursorrules` still described the S8 six). Both fixed S136: charters written
+from their already-ratified laws, and **the roster now lives in exactly one
+file, `docs/AGENT_ROSTER.md`** — every other site points there and states no count.
+Same defect class as `diagnostics/KNOWN_PATTERNS.md` P-030: a fact restated in
+many places drifts, and no single statement is wrong enough to notice.
+
+A ninth — Disclosure Auditor, derived from the S136 `technique_method` miss that
+the full roster did not catch — is PROPOSED in AGENT_ROSTER.md and is NOT active,
+pending Sulabh's explicit approval per `.cursorrules`.
 
 ---
 

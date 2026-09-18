@@ -84,17 +84,16 @@ query_engine + chart_calculator → astrologer → session_manager
 
 ## Multi-Agent Review Process
 
-Invoke all 6 agents automatically before any design decision or code change.
+Invoke the FULL ROSTER automatically before any design decision or code change.
 Do not wait to be asked. Surface only the final recommendation or conflict.
 
-| Agent | File | Trigger |
-|---|---|---|
-| Architect | .claude/architect.md | new file, schema, pipeline change |
-| Business | .claude/business.md | new file, user-facing change |
-| Critic | .claude/critic.md | new file, any code change |
-| QA | .claude/qa.md | new file, any code change |
-| UI/UX | .claude/ui_ux.md | any frontend or UX change |
-| Debate | .claude/debate.md | agents conflict — resolves to one winner only |
+THE ROSTER LIVES IN ONE FILE: `docs/AGENT_ROSTER.md`. It is the single source of
+truth for who is on it, what each agent owns, and each trigger. This file
+deliberately states NO count and NO table — both drifted for ~115 sessions
+because the roster was restated in five places (see AGENT_ROSTER.md, and
+diagnostics/KNOWN_PATTERNS.md P-030 for the same defect in the planner).
+Adding or retiring an agent is a one-file edit there. Do not copy the list back
+into this file.
 
 Rules:
 - Never write code before agent review is complete
