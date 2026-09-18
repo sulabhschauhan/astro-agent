@@ -182,3 +182,53 @@ def test_claims_with_blank_statements_are_skipped_not_rendered_empty():
     out = AV.render_user_answer(r)
     assert out.count("- ") == 1
     assert "You gain." in out
+
+
+# ── S136: verb agreement + out-of-scope refusal copy ───────────────────────
+
+def test_the_native_becomes_does_not_produce_you_becomes():
+    """LIVE DEFECT, qa_capture/20260918T183853Z.md: the bare 'the native' ->
+    'you' rule shipped 'you becomes like a king' to a user."""
+    r = _result(kept_claims=[{"statement": "The native becomes like a king.",
+                              "segment_ids": ["ch24_s036"]}])
+    out = AV.render_user_answer(r)
+    assert "you becomes" not in out.lower()
+    assert "you become like a king" in out.lower()
+
+
+def test_the_native_does_is_handled():
+    r = _result(kept_claims=[{"statement": "The native does well in service.",
+                              "segment_ids": ["ch24_s036"]}])
+    out = AV.render_user_answer(r).lower()
+    assert "you does" not in out
+    assert "you do well" in out
+
+
+def test_residual_detector_is_silent_on_covered_forms():
+    for covered in ("The native is wealthy.", "The native will travel.",
+                    "The native becomes like a king.", "The native does well.",
+                    "The native has wealth.", "The native's wealth grows."):
+        assert AV.residual_third_person_verbs(covered) == [], covered
+
+
+def test_residual_detector_flags_an_uncovered_verb():
+    """This is how the next _PRONOUN_SWAPS entry gets earned: from a capture,
+    not from guesswork."""
+    assert AV.residual_third_person_verbs("The native gains wealth.") == ["gains"]
+
+
+def test_out_of_scope_refusal_does_not_blame_the_corpus():
+    """A methodology question is refused BY POLICY. Telling the user the book
+    is silent invites the retry the rule exists to refuse (P-030)."""
+    r = _result(kept_claims=[])
+    r["reason"] = "out of scope"
+    out = AV.render_user_answer(r)
+    assert "Nothing in the verses" not in out
+    assert "isn't something I can read from your chart" in out
+
+
+def test_ordinary_empty_answer_keeps_the_corpus_wording():
+    r = _result(kept_claims=[])
+    r["reason"] = "no claims survived the gate"
+    out = AV.render_user_answer(r)
+    assert out.startswith("I can't answer this from your chart")

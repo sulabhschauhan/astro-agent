@@ -58,16 +58,51 @@ _BOOK_LABEL = "Brihat Parashara Hora Shastra"
 # genuine generic in a verse paraphrase, and it never rewrites a noun that
 # might name a third party the question was about (a child, a spouse) -- those
 # read correctly in the third person and swapping them would be wrong.
+#
+# VERB AGREEMENT (S136, live defect). The bare ("the native", "you") rule at the
+# end of this table produces "you becomes like a king" -- observed shipping to a
+# user in diagnostics/qa_capture/20260918T183853Z.md. "the native" is a THIRD
+# PERSON SINGULAR subject, so any verb agreeing with it disagrees with "you".
+#
+# WHY THIS IS A LIST AND NOT A GENERAL RULE. De-inflecting an English third
+# person singular verb is genuinely ambiguous from the surface form alone:
+# "rises" -> "rise" but "passes" -> "pass", and both end "-ses"; "goes" -> "go"
+# but "rises" -> "rise", and both end "-es". Separating them needs a lexicon,
+# which this module has no business carrying. So the entries below are the
+# forms actually OBSERVED in a capture, never guessed -- per the project's
+# evidence-first rule (Working Style #19: never set tuning from hand-picked
+# samples). `residual_third_person_verbs()` records what the bare rule swallowed
+# so the next entry is added from a real capture, not from imagination.
 _PRONOUN_SWAPS: tuple[tuple[str, str], ...] = (
     ("the native's", "your"),
     ("the native is", "you are"),
     ("the native will be", "you will be"),
     ("the native will", "you will"),
     ("the native has", "you have"),
+    ("the native does", "you do"),
+    ("the native becomes", "you become"),   # observed live, S136
     ("the native", "you"),
     ("the subject's", "your"),
     ("the subject", "you"),
 )
+
+# Anything the BARE rule had to handle, i.e. "the native" followed by a word we
+# have no explicit mapping for. A verb here is a latent agreement bug; a noun or
+# preposition is fine. DIAGNOSTIC ONLY -- never gates or alters output.
+_RESIDUAL_BARE_NATIVE_RE = re.compile(r"\bthe native\s+(\w+)", re.IGNORECASE)
+
+
+def residual_third_person_verbs(text: str) -> list[str]:
+    """Words the bare "the native" -> "you" rule will swap in front of.
+
+    Read this off a real capture to decide which entry `_PRONOUN_SWAPS` needs
+    next. Returns [] once every occurrence is covered by an explicit mapping.
+    """
+    covered = {src.split()[-1].lower()
+               for src, _ in _PRONOUN_SWAPS
+               if src.lower().startswith("the native ")}
+    return [w for w in _RESIDUAL_BARE_NATIVE_RE.findall(text or "")
+            if w.lower() not in covered]
 
 _CITATION_RE = re.compile(r"\s*\[[A-Za-z0-9_.\-]+\]")
 
@@ -223,9 +258,29 @@ def render_user_answer(result: dict) -> str:
         if not kept:
             # Nothing survived. Say so once, plainly, then the specific
             # capability limits. The per-verse reasons stay in the log.
-            head = ("I can't answer this from your chart and the classical "
-                    "text I have. Nothing in the verses that apply to your "
-                    "placements addresses it directly.")
+            #
+            # TWO DIFFERENT SILENCES, TWO DIFFERENT SENTENCES (S136). The
+            # default wording blames the CORPUS ("nothing in the verses
+            # addresses it"), which is right when the claims were dropped or
+            # the doctrine does not reach this chart -- and WRONG for a
+            # question the planner declined as out of scope, where the honest
+            # reason is that it is not a question about the person's life at
+            # all (a methodology question, a medical one). Telling a user the
+            # book is silent invites them to rephrase and try again, which is
+            # both a bad experience and, for methodology questions, exactly the
+            # retry the out-of-scope rule exists to refuse (KNOWN_PATTERNS
+            # P-030). Keyed off the pipeline's own refusal reason, never on
+            # words in the question.
+            if str(result.get("reason") or "").strip().lower() == "out of scope":
+                head = ("That isn't something I can read from your chart. I "
+                        "answer questions about your life and what the "
+                        "classical texts say about your placements -- not how "
+                        "the readings themselves are worked out, and not "
+                        "medical, legal or financial advice.")
+            else:
+                head = ("I can't answer this from your chart and the classical "
+                        "text I have. Nothing in the verses that apply to your "
+                        "placements addresses it directly.")
             return "\n\n".join([head] + declines) if declines else head
 
         cited: list[str] = []

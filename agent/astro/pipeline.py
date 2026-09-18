@@ -331,14 +331,25 @@ def answer_question(
     gate = silence_gate.apply_silence_gate(interp, built["payload"], chart_facts)
     _lap("silence_gate")
 
-    # Stage 5b -- THE COMPOSER. OFF by default: with `compose` false this
-    # branch does not run and the result is byte-identical to pre-S131, so
-    # every existing caller and test is untouched. Enable per-call, or set
-    # ASTRO_COMPOSER_ENABLED=1. It NEVER raises and never replaces the
-    # pipeline's own `answer`; a failed composition simply leaves
-    # `composed["composed"]` false and the old rendering path stands.
+    # Stage 5b -- THE COMPOSER. **ON by default since S136** (was off since
+    # S131). It NEVER raises and never replaces the interpreter's claims: on
+    # any failure `composed["composed"]` is false and the old bullet rendering
+    # stands, so the worst case is the previous behaviour, not an error.
+    #
+    # WHY IT WAS OFF, AND WHY THAT REASON IS GONE. S131 shipped it dark because
+    # the answers it would compose were not yet trustworthy -- ghost citations,
+    # unused facts, and a payload riding the context ceiling. S136 closed all
+    # three (live: 84,152 prompt tokens, 0 ghost citations, the silence gate
+    # dropping a genuine false-precondition claim). The remaining gap was that
+    # a correct answer still read as 16 undifferentiated classical conditionals
+    # with no lead, no ranking and heavy repetition -- which is precisely what
+    # this stage was built to fix (SESSION_LOG S136 section 12, items 1/4/5).
+    #
+    # KILL SWITCH: ASTRO_COMPOSER_ENABLED=0 restores the pre-S136 path exactly.
+    # An explicit compose=True/False argument still wins over the environment,
+    # so every existing test that pins either path is unaffected.
     if compose is None:
-        compose = os.environ.get("ASTRO_COMPOSER_ENABLED", "0") == "1"
+        compose = os.environ.get("ASTRO_COMPOSER_ENABLED", "1") != "0"
     composed: Optional[dict] = None
     if compose:
         composed = _composer.compose(question, gate, llm=composer_llm)
