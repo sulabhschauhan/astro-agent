@@ -1294,3 +1294,317 @@ The pipeline is correct and the answer is NOT what a layman wants. Recorded beca
 7. **THE SOURCE LINE IS HONEST BUT OPAQUE.** "ch. 21 — Effects of The Tenth House; ch. 39; ch. 24 ..." — ch. 39 carries no title at all (OCR gap, consistent with the S136 finding that `title_raw` is unreliable). Accurate, meaningless to a layman.
 8. **THE REFUSAL WORDING IS NOW SLIGHTLY WRONG FOR THIS NEW PATH.** The methodology question returned "I can't answer this from your chart and the classical text I have. Nothing in the verses that apply to your placements addresses it directly." That reason is MISLEADING here — it implies a corpus gap, when the truth is that methodology questions are declined by policy. A user may rephrase and retry. `answer_view`'s refusal copy predates the out-of-scope-methodology path and should distinguish "the text does not cover this for you" from "this is not a question about your life".
 9. **LATENCY.** 26.54s total (interpreter 21.75s), no streaming. `.claude/ui_ux.md` treats >3s as slow. Known, unaddressed, streaming is a V1.1-era item.
+
+
+### 13. THE COMPOSER FLIP (recorded S137 -- this section was MISSING from the S136 close)
+The S136 handover's read-order pointed at a section 13 that did not exist; the flip's rationale lived only in
+CLAUDE.md and in commit B's code comments. Recorded here so the log is complete.
+- `pipeline.py` default flipped: `ASTRO_COMPOSER_ENABLED=0` restores the pre-S136 path exactly; an explicit
+  `compose=True/False` argument still wins over the environment.
+- WHY THEN: S131 shipped Stage 5b dark because composed answers were not yet trustworthy -- ghost citations,
+  unused facts, a payload riding the ceiling. S136 closed all three, leaving presentation as the only gap,
+  which is this stage's entire job.
+- Commits: A `8e925de` (planner vocabulary), B `433d30f` (answer presentation), C `33bce09` (docs), all on
+  `wip/interpretive-pilot`, NOT pushed.
+
+## S137 -- verification inverted: typed preconditions replace prose matching; all 8 fact classes verifiable (2026-09-19)
+
+### 1. WHAT THE COMPOSER FLIP EXPOSED (row P-031)
+`capability_gate.FACT_BLOCK_PROVIDES` declares EIGHT fact classes. `silence_gate` could judge ONE:
+`_CONDITION_RE` matches `<Nth> lord ... in the <Mth>`, i.e. `lord_house_map`; `_PLANET_CONDITION_RE` is advisory
+with no drop authority. house_lords, aspects, dignity, navamsa, yogas and ascendant_sign -- every widening since
+S130 -- had NO verifier, and nothing recorded the gap.
+It was harmless while UNDETERMINED failed OPEN. The S136 flip made unjudgeability consequential: the first live
+composed run (`20260918T193426Z`) demoted 8 of 12 claims as "unverified", FIVE naming yogas the detector had
+already computed as FIRED. **The composer was not defective** -- it honoured its contract; the signal conflated
+"contradicted by the chart" with "no rule for this claim's grammar".
+
+### 2. THE DIAGNOSIS, AND WHY A PATCH WAS REJECTED
+Passing the fired-yoga set to the composer would have fixed 1 of 6 holes. Sulabh pushed for the uber-level read
+and it is this: **the system verifies claims by pattern-matching their English prose while already computing the
+entire chart deterministically.** The palm side solved this at S95 with typed `Antecedent` matching
+(`palm_select.match`); the astro side used regex. Bringing the mature half across is the whole design.
+
+### 3. THE ARCHITECTURE (docs/ANSWER_VERIFICATION_ARCHITECTURE.md, design of record)
+- `agent/astro/predicates.py`: 15 predicate types over the 8 fact classes, each with a gloss + scope guard
+  (Working Style #35), every one bound to its `FACT_BLOCK_PROVIDES` key by `PREDICATE_FACT_CLASS` and pinned by
+  test. **The three registers -- compute / answer-from / verify -- become one.**
+- THREE-VALUED: SATISFIED -> APPLICABLE, CONTRADICTED -> NOT_APPLICABLE, UNEVALUABLE -> UNDETERMINED.
+  **Only CONTRADICTED may drop.** S124's fail-safe doctrine, applied at the presentation layer for the first time.
+- NOTHING IS AUTHORED OFFLINE. No claim-text -> predicate mapper exists or may be built. The verse states its
+  condition; the interpreter transcribes it. The vocabulary grows with the FACT BLOCK, never with the corpus.
+- NO degree-level predicate (Ephemeris Auditor; S130 rounding gap). Enforced by test.
+
+### 4. PHASE 0 -- feasibility, $0
+`scripts/predicate_coverage_probe.py` over the 12 claims of `20260918T193426Z`: **typed coverage 95.7%** against
+an 80% gate; 5 of the 8 wrongly-demoted claims recovered as SATISFIED; 2 correctly dropped; 1 hedged. It also
+caught a confident-wrong the old gate could not see -- "Mercury aspects the ascendant" when Mercury aspects
+house 10. 52 tests.
+CAVEAT, on the record: that probe's precondition table was HAND-WRITTEN, standing in for the interpreter. It
+proved the VOCABULARY sufficient, never that the interpreter would type correctly. Superseded by section 5.
+
+### 5. PHASE 1 -- the interpreter emits, the gate evaluates
+`interpreter.py` claims gain `preconditions` (shape-validated against the closed vocabulary; an illegal one is
+dropped and recorded, NEVER costing the claim -- the ghost guard remains the only discarder). `silence_gate`
+evaluates them ahead of the prose reader, records `decided_by` and `predicate_detail`, and reports
+`typed_decided / prose_decided / typed_share_pct / predicate_coverage`.
+**NO FALLBACK from a typed UNEVALUABLE to the regex** -- it could OVERTURN a typed verdict and reinstate the
+S125 wrong-drop classes.
+Two existing `test_interpreter.py` assertions were de-brittled (they pinned the WHOLE claim dict while being
+about the ghost guard -- P-021's lesson), flagged rather than quietly patched.
+
+### 6. FIRST LIVE PHASE-1 RUN (`20260919T072700Z`) -- contract adopted, prompt wrong
+typed_share **100%** (14/14), precondition_rejects 0, prose_decided 0, 3 claims correctly dropped as
+CONTRADICTED (11th/4th/1st lord placements, all genuinely false, all previously shipped unverified).
+BUT typed_coverage 0.40 and `yoga_fired` used **ZERO times on a yoga question**. Two prompt defects, both
+P-030 in new clothes:
+- **The yoga catalogue was referenced but never ENUMERATED.** `yoga_id` is a closed value space the model cannot
+  guess. This arc committed the exact defect it had just documented.
+- **`unfittable` took 9 of 15 slots.** Its own notes read "not provided in chart facts" -- the model was checking
+  the FACT BLOCK instead of stating the VERSE's condition. Most were expressible: "Saturn, Mars and 10th lord all
+  in the 7th" is three `planet_in_house` predicates and would have been CONTRADICTED.
+
+### 7. THE FIX, AND THE RESULT (`20260919T080136Z`)
+`vocabulary_prompt(facts)` now enumerates the chart's yoga ids (`yoga_catalogue` = fired + ruled_out, exhaustive
+by construction); `interpret()` takes `chart_facts=`; `pipeline` passes it; with no catalogue the prompt FORBIDS
+yoga predicates rather than inviting invented ids. Three new prompt rules: a compound condition is SEVERAL
+predicates ANDed (worked example); judge expressibility against the VOCABULARY, never the facts; `unfittable` is
+only for concepts with no predicate type. Plus two instrumentation bugs of mine: `coverage()` was fed
+`{"verdict": ""}` (claim_verdicts read 0/0/0), and `precondition_rejects` never reached the capture.
+
+| metric | S136 flip | Phase 1 | after fix |
+|---|---|---|---|
+| typed_share_pct | n/a | 100 | 100 |
+| typed_coverage | n/a | 0.40 | **1.00** |
+| `unfittable` predicates | n/a | 9 of 15 | **0** |
+| claims shipped | 4 of 12 | 2 of 11 | **8 of 8** |
+| composer demotions | 8 | 9 | **0** |
+| latency | 44.85s | 36.62s | **23.94s** |
+
+All four fact classes exercised live: planet_positions 7, house_lords 6, yogas 4, aspects 1; 18/18 predicates
+SATISFIED; composer 0 violations, 0 advisory, lead present.
+
+### 8. OPEN, AND ONE CAUTION
+- **RECALL.** `claims_returned` fell 14 -> 8 on the fixed run with 0 contradicted and 0 unevaluable. The
+  interpreter may now be pre-filtering to claims it knows will verify: precision up, but the failure mode flips
+  from confident-wrong to SILENT-MISS, which is invisible. Read `silent_on` on a future run before calling this
+  settled. Not chased this session.
+- JARGON still partly open (S136 s12 item 2): "10th lord", "9th lord", "ascendant lord" reach the user. Better
+  than Karakamsa/kendra, not closed. A prompt blocklist stays REJECTED (S131).
+- Phase 2 (composer closed demotion vocabulary + two-tier answer) -- lower priority now demotions are 0.
+- Phase 3 (retire `_CONDITION_RE` and the advisory planet reader; `prose_decided` was 0 on both typed runs).
+  The S129b "promote the advisory planet reader on a measured rate" carry-forward DISSOLVES.
+- `scripts/predicate_coverage_probe.py` is Phase-0 scaffolding, SUPERSEDED by live typed output. Kept, not
+  deleted, because Working Style #16 requires a script whose numbers are cited in a decision to remain auditable.
+
+### 9. PROCESS
+Suite 4233 -> 4285 (Phase 0, +52) -> 4304 (Phase 1, +19) -> **4312 (fix pass, +8), 7 skipped, 0 failed.**
+`tests/astro/test_pipeline.py` verified 2/2 on the real tree at every step -- the only end-to-end exercise of
+the typed gate, and unrunnable in the design-chat sandbox.
+Full roster pass run against the charters before the architecture was settled; two conflicts resolved
+(UI/UX vs Critic -- split by surface, the 150-word limit binds the LEAD only; Business vs Architect -- Architect
+wins, Business's "defer until after ship" OVERRULED and named).
+NO COMMIT this session: no `RATIFIED: commit authorized` token was issued and none was assumed. All files
+unstaged on `wip/interpretive-pilot`.
+NEAR-MISS WORTH KEEPING: a staged upload of `qa_capture.py` went stale after I had already written a newer
+version to the tree; committing it would have silently reverted the S137 composer-capture block. Caught before
+commit, and the patch script now asserts the base file contains what it should. **A staged upload goes stale the
+moment you commit to that path.**
+
+
+### 10. AMENDMENT, same day -- THE 8-OF-8 RUN WAS NOT CLEAN
+Section 7's table stands AS MEASURED; its interpretation was wrong, and the error is mine. `typed_coverage 1.00`
+and `18/18 SATISFIED` measure predicate EVALUABILITY, not claim truth.
+A controlled diff of `20260919T072700Z` vs `20260919T080136Z` -- same question, same `unit_ids`, same chart --
+found **4 of the 8 shipped claims asserting something the fact block refutes**, each shielded by a precondition
+that is TRUE and does not test the assertion (row P-032).
+- **THE SHARPEST CASE.** *"With the 11th lord in the 10th ... honoured by authority"* declared only
+  `house_lord_is(11, Venus)`. True; the 11th lord is in the SIXTH. Run A typed the same segment as
+  `lord_in_house(11,10)`, got CONTRADICTED and **correctly dropped it**; Run B re-typed it weaker and shipped it
+  with a verified badge. Its statement even hedges -- "(interpreted via your 11th lord Venus strongly placed)" --
+  so the model KNEW the literal condition failed and reached for a passing predicate instead.
+- **CAUSE: THE S137 PROMPT FIX ITSELF.** "Judge expressibility against the VOCABULARY, never the facts" removed
+  `unfittable`, and with it the honest UNEVALUABLE signal, without supplying anything that checks the
+  precondition covers the claim. Net on one question: Run A shipped 3 false and dropped 3; Run B shipped 4 and
+  dropped 0.
+- **`silent_on` IS NOT A RECALL INSTRUMENT.** Run A lists `ch24_s008`, `ch24_s033` and `ch24_s106` in
+  `silent_on` WHILE EMITTING ALL THREE AS CLAIMS. Section 8's "read `silent_on` on a future run" is SUPERSEDED:
+  measure recall by DIFFING captures on a fixed question.
+- **THE RECALL DROP IS REAL BUT SECONDARY.** `ch24_s103` (11th lord in the 6th, SATISFIED, verifiably true) was
+  kept in Run A, is absent from Run B, and is in no `silent_on`. It was the ONLY non-flattering claim either run
+  produced -- S136 §12 item 6's missing counterweight, in hand and dropped silently.
+- **FIXED THIS PASS.** Prompt counter-rule ("do not assert in the sentence what you have not declared");
+  `predicates.statement_coverage`, an ADVISORY counter with NO drop authority, recorded per claim as
+  `uncovered_tokens` and aggregated as `claims_with_uncovered_tokens`; `predicates.chart_tokens` made the SINGLE
+  OWNER with `composer.chart_tokens` an alias. Replayed over the real Run B claims it flags 5 of 8 (one soft --
+  a yoga predicate whose detector reason does cover the named grahas -- expected over-flagging in an advisory).
+  Sandbox suite 195 -> **203 passed**.
+- **PHASE 3 IS BLOCKED.** Retiring `_CONDITION_RE` and the advisory planet reader removes the only remaining
+  machinery that reads a claim's own prose, which is exactly what goes unchecked. **Under-coverage is invisible
+  to a predicate evaluator by construction.**
+- **NEW, NEEDS VERIFICATION.** The detector's `yogada_gl_mercury` reason says "Mercury aspects the rising sign
+  (Sagittarius)" while `aspects_by_planet.Mercury = [10]`. Two parts of this system disagree on whether Mercury
+  aspects the ascendant. Resolve against PVR (Validation Source + Ephemeris Auditor) before any claim resting on
+  it is called true or false.
+- **PROCESS, twice this session.** A staged upload went stale after the same path had been committed, and would
+  have reverted earlier work both times. Caught by an assert on the base file's content. **Re-stage before
+  patching anything already written this session, and guard the patch on a string only the current version has.**
+
+---
+
+## S138 -- 64 Tier-2/3 yoga rows shipped, then put under an admission contract: the detector covers the predicate vocabulary's blind spots, not the corpus (2026-09-19)
+
+OUTCOME: the detector grew 64 -> 128 rows and then had its PURPOSE settled by full-roster
+review. Nothing was deleted. Suite **4480 passed / 7 skipped / 0 failed** (Sulabh's run).
+All work UNSTAGED on `wip/interpretive-pilot`; no `RATIFIED: commit authorized` token issued.
+
+PROVENANCE NOTE: this session had file-bridge access but NO shell on Sulabh's machine, so no
+branch/commit SHA can be named for anything below. Claims are scoped to file paths and to the
+capture `diagnostics/qa_capture/20260919T122618Z.md`.
+
+### 1. BUILT -- Tier 2 + Tier 3 yogas (64 rows, 101 tests)
+
+| Section | Source | Rows | Topic |
+|---|---|---|---|
+| `_ayush_rules` | ch19 | 14 | longevity, both arms |
+| `_sukha_rules` | ch15 | 9 | residence, property, conveyances |
+| `_ch24_rules` | ch24 | 11 | education (8), foreign residence (3) |
+| `_aasraya`/`_dala`/`_aakriti` | ch35 vv.7-15, v17 | 22 | Naabhasa shapes + sankhya suppression |
+| `_lunar_solar_rules` | ch37 vv.6-11, ch38 v1 | 5 | Durudhara, Kemadruma, Chandra-dhana, Vosi, Ubhayachari |
+
+Every row cites a sloka as `evidence[0]`, test-enforced. Zero-regression diff over **400
+randomised charts**: no pre-existing row lost or changed in `fired`/`reason`/`evidence`.
+`ch24` citations are DERIVED, not tabulated -- `_ch24_verse(lord, house) = 1 + (lord-1)*12 +
+(house-1)`, pinned against the chapter's own section headings (v37/v49/v109/v133).
+
+NOT IMPLEMENTED, each read and rejected: ch19 vv.8/15 and v9's third arm (need "bereft of
+strength"; no Shadbala exists and a dignity label is NOT a strength proxy -- that is P-032);
+ch19 v11 (needs the 8th lord debilitated IN THE ASCENDANT, which Santhanam's own note to v12
+shows is unreachable by whole signs -- a rule that can never fire is a FALSE CLEAN NEGATIVE);
+Chandra-Mangal (Jataka Parijata / Phaladeepika, NOT BPHS -- the corpus is BPHS-only so a claim
+resting on it could cite no verse).
+
+### 2. THE LIVE RUN -- 4 questions, 1 chart (`20260919T122618Z`)
+
+No defect from the batch. Typed share 85.7% / 100% / 100% / 100%. Four claims CONTRADICTED and
+dropped; every one verified correct BY HAND against the chart.
+
+**Only 2 of the 64 new rows fired** (`ch24_l11_h6`, `chandra_dhana_upachaya`). All 14 ch19 and
+all 9 ch15 rows correctly ruled out -- and the interpreter, reading ch19's verses independently
+(the domain route DID deliver ch19 to the payload), also claimed nothing from it and did not
+even list it in `silent_on`. **Two independent paths agreeing that this chart contains none of
+ch19's combinations.** That is the detector working, not failing.
+
+### 3. THE DESIGN ERROR, AND SULABH'S REJECTION OF THE FIX
+
+`_CH24_SELECTED` was indexed BY TOPIC -- 11 cells whose text discusses education / foreign
+residence. **Which cell applies is a property of the CHART, not of the question.** The chart's
+true cells (one per lord) intersected the topic-picked set exactly ONCE. Meanwhile the
+interpreter found 8+ correct ch24 cells UNAIDED from the corpus and the predicates verified
+them.
+
+The proposed fix -- re-index to the 12 true cells -- was put to Sulabh, who rejected it:
+*"is this fix considering overall architecture outside in ... and will this lead to multiple
+such separate taggings hierarchy going forward?"* He was right. Full roster invoked.
+
+### 4. ROSTER OUTCOME (7 reviewers + Debate; roster count corrected to 8, not 9)
+
+Design A REJECTED as a pattern. Design B adopted as PRINCIPLE, **reordered behind provenance**,
+**executed as retirement rather than deletion**. Conflicts and their resolutions:
+
+| Conflict | Winner | Overruled |
+|---|---|---|
+| A as a general mechanism | Architect (code structure) | Critic -- recall-fragility preserved as a golden-chart CI assertion |
+| Delete 19 rows vs deprecate | **QA** (blocks HIGH untested failure paths) | Architect/Business -- token saving delivered by prompt-exclusion |
+| Admission test prose vs executable | Architect | Critic -- residual risk answered by QA test 1 |
+| Redundancy gate vs provenance gate first | **Validation Source** | Architect -- ordering changed, mechanism kept |
+| Detector work vs token budget first | Business | Architect -- ships as its own change |
+| `user_text` as a third clause | **UI/UX** (user-facing output) | Architect -- widens the row schema |
+| Binary vs three-valued `fired` | Ephemeris Auditor | none -- unopposed HIGH |
+
+### 5. THE FINDING THAT REORDERED THE DESIGN
+
+**47 of 144 rows cite NO sloka** -- measured, not estimated; Validation Source predicted ~5.
+They include every kendra-trikona raja link, all five Pancha Mahapurusha, all seven Neecha
+Bhanga, all three Vipareeta links, Gajakesari, Adhi, Vesi, Nipuna, Kalpadruma, Yogada and the
+sankhya Naabhasa set. A predicate-redundancy admission test filters on DECIDABILITY, not
+PROVENANCE, so it would have **retained all 47 unsourced rows while retiring 19 correctly-cited
+ones.** Gate order is therefore source-named FIRST.
+
+### 6. THE DETECTOR WAS AN UNDOCUMENTED DIVERGENCE REGISTRY
+
+Every sloka id, translation divergence, commentary expansion and editorial reading lived in
+exactly ONE place -- an evidence string on a row. Retiring rows would have deleted the
+disagreements while the disagreements persisted. Extracted to `data/sloka_registry.json`
+(75 slokas, 5 rulings, 7 unapplied verse-arms, 4 not-implemented decisions, 2 HIGH debts).
+**NOT WIRED -- nothing reads it.**
+
+Live proof, ch15 v3: the English reads "the 5th lord", the Sanskrit reads
+*sukha-sthaana-adhipa* = the 4th. The detector resolved to the Sanskrit. In capture turn 2 the
+interpreter read the retrieved ENGLISH and wrote "not met here" -- while the 5th lord, Mars, is
+**Exalted**, so under its own reading the condition WAS met. Detector and corpus disagree in
+production, the interpreter follows the corpus, and the mis-evaluation landed in `silent_on`
+where nothing checks it.
+
+### 7. NEW PATTERNS
+
+- **P-033** -- the gate types what is ASSERTED and never what is WITHHELD. Turn 2 kept 2 claims
+  and withheld 12; the audited set was one sixth of the withheld set. P-031's mirror. OPEN,
+  ranked #1 uncontested by the roster.
+- **P-034** -- the detector row count tracking the CORPUS instead of the verification gap, with
+  a third tagging hierarchy as the consequence. RULED.
+
+### 8. ONE ROSTER RECOMMENDATION DELIBERATELY NOT FOLLOWED
+
+Business ranked "drop ruled-out rows from the prompt" (~620 tokens, zero appearances in four
+answers) as uncontested. **Not shipped.** n=4, and S131 put those rows there deliberately as
+"the what-I-am-ruling-out half of an answer the pipeline could not produce before" -- dropping
+them wholesale removes the ability to say "you do not have Gajakesari". Business's own
+refinement (admit a ruled-out row only when the question's domain tags touch it) is the right
+shape and needs a yoga<->domain mapping that does not exist.
+
+### 9. MEASURED, FOR THE CEILING ARGUMENT
+
+Detector cost per turn: fact block "Yogas PRESENT" ~378 -> ~446 tok; "CHECKED and NOT present"
+(names only) ~537 -> ~1,157 tok; interpreter `yoga_catalogue()` ~351 -> ~713 tok. **Total
++1,050.** The full verdict JSON doubles (18.7k -> 37.4k chars) but `ruled_out` renders as NAMES
+ONLY, so that number never reaches a prompt.
+
+**Turn 1 blew the budget: 124,925 prompt tokens, `over_budget: true`, 49 whole chapters carried,
+39.2s.** That is a ROUTING failure -- the detector is 0.8% of that turn. `cached_tokens` was 0
+on turn 1 and 3,200 on turns 2-4: the corpus-first cache prefix is only the fixed system head,
+because the verse block changes per question.
+
+### 10. OTHER FINDINGS RAISED
+
+- `_naabhasa_sankhya` contradicts ch35 v17 (the sankhya yogas are inoperable when another
+  Naabhasa yoga is derivable; the row fires unconditionally). NOT rewritten -- its verdict is
+  oracle-asserted; a separate `naabhasa_sankhya_suppressed` row names the blockers. Validation
+  Source argues the SOURCE should be fixed rather than fenced. **Needs Sulabh's ruling.**
+- ch35 v8 reading (three DISTINCT angles vs exactly three with the fourth vacant). **Open.**
+- ch35 v11 Vajra/Yava: the English reads as an OR, which taken literally fires on any chart with
+  Jupiter and Venus angular. Implemented as BOTH ARMS + all seven grahas in the angles, with an
+  explicit negative test for the literal reading. Flagged as an EDITORIAL reading -- it names no
+  source.
+- The five pre-existing PVR-sourced rows still carry no sloka id; retrofitting is
+  behaviour-visible (`test_rules.py` asserts their evidence lists) and was NOT bundled.
+- `_dharma_karmadhipati` still raises `TypeError` on `int(None)` -- latent, carried from S137.
+
+### 11. RANKED NEXT (from the Debate resolver)
+
+1. Type and check silences (P-033). 2. Resolution contract -- three-valued `fired`,
+`ayanamsa_name`, `birth_time_precision`, per-planet `boundary_flag`. 3. Instrument p50/p95
+tokens and latency over ~20 questions; cap prompt ~30k/turn. 4. Re-derive or demote `_adhi`.
+5. `subsumed_by` + `user_text` on the row schema, CI-enforced; run the admission test over all
+144 rows and publish. 6. Retire redundant rows behind `retired=True`. 7. Surface contract on
+`answer_view`. 8. Golden-chart recall assertion for ch24.
+
+**Deletion is a GATE, not a task** -- it does not proceed until QA's five tests and Critic's
+stratified 20-30 chart sample pass.
+
+### 12. OPEN, NEEDS SULABH
+
+- ch35 v8 reading; ch35 v17 (two rows or fix the source).
+- **Architect's question, which settles the detector's boundary:** when the interpreter cites a
+  corpus verse with NO detector row behind it -- which is how the 8 correct ch24 cells arrived --
+  is that claim FIRST-CLASS or SECOND-CLASS? Both designs are provisional until this is answered.
