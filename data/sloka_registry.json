@@ -1,0 +1,780 @@
+{
+ "version": "sloka-registry-1.0",
+ "generated": "S138 / capture 20260919T122618Z",
+ "status": "EXTRACTED, NOT YET WIRED. Nothing reads this file. It records rulings that currently live only as evidence strings on detector rows, so that retiring a row cannot destroy them.",
+ "why_this_exists": "Validation Source, S138: the detector was acting as an undocumented divergence registry. Every sloka id, translation divergence, commentary expansion and editorial reading lived in exactly one place -- an evidence string on a row. Retiring rows would have deleted the disagreements while the disagreements persisted.",
+ "binding_rule_PROPOSED_NOT_ACTIVE": "Where this registry records a ruling, the ruling binds over the retrieved translation. NOT IMPLEMENTED: nothing carries a ruling into the interpreter prompt. Until it does, the interpreter follows the English, as capture 20260919T122618Z turn 2 shows.",
+ "oracle_discipline": "JHora and AstroSage are GRADED-AGAINST, never DERIVED-FROM (P-027/P-028). One live breach is recorded under debts.oracle_supplied_condition.",
+ "counts": {
+  "slokas_cited": 75,
+  "rows_with_a_sloka": 97,
+  "rows_without_a_sloka": 47,
+  "rows_total": 144
+ },
+ "by_sloka": {
+  "ch15_v10": {
+   "sloka": "ch15_v10",
+   "rules": [
+    "sukha_v10_conveyance_early"
+   ],
+   "unapplied_arm": {
+    "flag": "fall_arm_not_applied=flagged_corrupt_by_translator",
+    "why": "Santhanam flags the 'in fall' arm as probably corrupt text in his own note; only the 11th arm is implemented."
+   }
+  },
+  "ch15_v11": {
+   "sloka": "ch15_v11",
+   "rules": [
+    "sukha_v11_conveyance_mid"
+   ]
+  },
+  "ch15_v12": {
+   "sloka": "ch15_v12",
+   "rules": [
+    "sukha_v12_conveyance_late"
+   ]
+  },
+  "ch15_v13": {
+   "sloka": "ch15_v13",
+   "rules": [
+    "sukha_v13_conveyance_exchange"
+   ]
+  },
+  "ch15_v2": {
+   "sloka": "ch15_v2",
+   "rules": [
+    "sukha_v2_residential_comforts"
+   ]
+  },
+  "ch15_v3": {
+   "sloka": "ch15_v3",
+   "rules": [
+    "sukha_v3_lands_and_conveyances"
+   ],
+   "ruling": {
+    "kind": "translation_divergence",
+    "status": "RULED",
+    "english": "R. Santhanam renders the subject as 'the 5th lord'.",
+    "sanskrit": "The sloka reads sukha-sthaana-adhipa -- the lord of the 4th (sukha bhava).",
+    "ruling": "SANSKRIT BINDS. v2 and v4 either side are both 4th-house rules; a 5th-lord rule between them is a non-sequitur.",
+    "basis": "primary text over translation",
+    "live_conflict": "CONFIRMED IN PRODUCTION, capture 20260919T122618Z turn 2: the interpreter read the retrieved ENGLISH ('5th lord') and wrote 'not met here' into silent_on -- while the 5th lord (Mars) is Exalted, so under its own reading the condition WAS met. Detector and corpus disagree, and the interpreter followed the corpus.",
+    "unresolved": "Nothing makes this ruling reach the interpreter at generation time. Wiring the registry into the payload is a separate, unbuilt change."
+   }
+  },
+  "ch15_v4": {
+   "sloka": "ch15_v4",
+   "rules": [
+    "sukha_v4_mansions"
+   ]
+  },
+  "ch15_v6": {
+   "sloka": "ch15_v6",
+   "rules": [
+    "sukha_v6_long_living_mother"
+   ],
+   "unapplied_arm": {
+    "flag": "karaka_strength_arm_not_applied",
+    "why": "Same missing strength fact."
+   }
+  },
+  "ch15_v8": {
+   "sloka": "ch15_v8",
+   "rules": [
+    "sukha_v8_quadrupeds"
+   ]
+  },
+  "ch16_v1": {
+   "sloka": "ch16_v1",
+   "rules": [
+    "santana_v1_lords_well_placed",
+    "santana_v1b_5th_lord_in_dusthana"
+   ]
+  },
+  "ch16_v10": {
+   "sloka": "ch16_v10",
+   "rules": [
+    "santana_v10_luminaries_same_rasi_and_navamsa"
+   ]
+  },
+  "ch16_v13": {
+   "sloka": "ch16_v13",
+   "rules": [
+    "santana_v13_daughters"
+   ],
+   "unapplied_arm": {
+    "flag": "decanate_arm_not_applied",
+    "why": "Needs degrees; the fact block carries none for this rule."
+   }
+  },
+  "ch16_v4": {
+   "sloka": "ch16_v4",
+   "rules": [
+    "santana_v4_5th_lord_6th_lagna_lord_mars"
+   ]
+  },
+  "ch16_v5": {
+   "sloka": "ch16_v5",
+   "rules": [
+    "santana_v5_one_child_mercury_ketu"
+   ]
+  },
+  "ch16_v6": {
+   "sloka": "ch16_v6",
+   "rules": [
+    "santana_v6_one_child_saturn_mercury"
+   ]
+  },
+  "ch16_v7": {
+   "sloka": "ch16_v7",
+   "rules": [
+    "santana_v7_progeny_after_difficulty"
+   ]
+  },
+  "ch16_v8": {
+   "sloka": "ch16_v8",
+   "rules": [
+    "santana_v8_issues_with_difficulty"
+   ],
+   "unapplied_arm": {
+    "flag": "inimical_sign_arm_not_applied",
+    "why": "Friendship tiers, as ch19_v5."
+   }
+  },
+  "ch18_v1": {
+   "sloka": "ch18_v1",
+   "rules": [
+    "kalatra_v1_7th_lord_strong_placed"
+   ]
+  },
+  "ch18_v2": {
+   "sloka": "ch18_v2",
+   "rules": [
+    "kalatra_v2_7th_lord_in_dusthana"
+   ]
+  },
+  "ch18_v6": {
+   "sloka": "ch18_v6",
+   "rules": [
+    "kalatra_v6_plurality"
+   ]
+  },
+  "ch19_v1": {
+   "sloka": "ch19_v1",
+   "rules": [
+    "ayush_v1_8th_lord_in_kendra"
+   ]
+  },
+  "ch19_v10": {
+   "sloka": "ch19_v10",
+   "rules": [
+    "ayush_v10_malefics_on_8th_house_lord_and_12th"
+   ]
+  },
+  "ch19_v12": {
+   "sloka": "ch19_v12",
+   "rules": [
+    "ayush_v12_malefics_on_5th_8th_and_8th_lord"
+   ]
+  },
+  "ch19_v13": {
+   "sloka": "ch19_v13",
+   "rules": [
+    "ayush_v13_8th_lord_in_8th_moon_besieged"
+   ]
+  },
+  "ch19_v14": {
+   "sloka": "ch19_v14",
+   "rules": [
+    "ayush_v14_lagna_lord_exalted_moon_11th_jupiter_8th"
+   ]
+  },
+  "ch19_v2": {
+   "sloka": "ch19_v2",
+   "rules": [
+    "ayush_v2_short_life_8th_lord_in_8th"
+   ]
+  },
+  "ch19_v3": {
+   "sloka": "ch19_v3",
+   "rules": [
+    "ayush_v3_saturn_in_8th_afflicted",
+    "ayush_v3b_10th_lord_in_8th_afflicted"
+   ],
+   "ruling": {
+    "kind": "commentary_expansion",
+    "status": "RULED",
+    "primary": "The sloka states only an analogy: 'similarly consider Saturn and the 10th lord'. It names no placement.",
+    "expansion": "The concrete placements (Saturn or the 10th lord in the 8th, with a malefic or the ascendant lord) come from R. Santhanam's note to the verse.",
+    "ruling": "ADMITTED AS COMMENTARY, flagged in evidence. A reader may discount it.",
+    "basis": "translator's note is not Parasara; it is the only operationalisation offered"
+   }
+  },
+  "ch19_v4": {
+   "sloka": "ch19_v4",
+   "rules": [
+    "ayush_v4_6th_lord_in_12th",
+    "ayush_v4b_6th_and_12th_lords_in_own_houses",
+    "ayush_v4c_6th_lord_in_lagna_12th_lord_in_8th"
+   ]
+  },
+  "ch19_v5": {
+   "sloka": "ch19_v5",
+   "rules": [
+    "ayush_v5_lords_1_5_8_in_own_rasi_or_navamsa"
+   ],
+   "unapplied_arm": {
+    "flag": "friendly_sign_arm_not_applied",
+    "why": "Friendship tiers are deliberately out of the fact block as contested (S130). The rule UNDER-fires: a NOT-FIRED here does not mean the verse's condition failed."
+   }
+  },
+  "ch19_v6": {
+   "sloka": "ch19_v6",
+   "rules": [
+    "ayush_v6_lords_1_8_10_and_saturn_well_disposed"
+   ]
+  },
+  "ch19_v9": {
+   "sloka": "ch19_v9",
+   "rules": [
+    "ayush_v9_8th_lord_fallen_with_malefic_in_8th"
+   ],
+   "unapplied_arm": {
+    "flag": "lagna_lord_strength_arm_not_applied",
+    "why": "No strength measure exists (Shadbala is not computed) and a dignity label was rejected as a proxy. The rule OVER-fires relative to the verse."
+   }
+  },
+  "ch24_v113": {
+   "sloka": "ch24_v113",
+   "rules": [
+    "ch24_l10_h5"
+   ]
+  },
+  "ch24_v126": {
+   "sloka": "ch24_v126",
+   "rules": [
+    "ch24_l11_h6"
+   ]
+  },
+  "ch24_v132": {
+   "sloka": "ch24_v132",
+   "rules": [
+    "ch24_l11_h12"
+   ]
+  },
+  "ch24_v133": {
+   "sloka": "ch24_v133",
+   "rules": [
+    "ch24_l12_h1"
+   ]
+  },
+  "ch24_v137": {
+   "sloka": "ch24_v137",
+   "rules": [
+    "ch24_l12_h5"
+   ]
+  },
+  "ch24_v139": {
+   "sloka": "ch24_v139",
+   "rules": [
+    "ch24_l12_h7"
+   ]
+  },
+  "ch24_v37": {
+   "sloka": "ch24_v37",
+   "rules": [
+    "ch24_l4_h1"
+   ]
+  },
+  "ch24_v40": {
+   "sloka": "ch24_v40",
+   "rules": [
+    "ch24_l4_h4"
+   ]
+  },
+  "ch24_v43": {
+   "sloka": "ch24_v43",
+   "rules": [
+    "ch24_l4_h7"
+   ]
+  },
+  "ch24_v49": {
+   "sloka": "ch24_v49",
+   "rules": [
+    "ch24_l5_h1"
+   ]
+  },
+  "ch24_v70": {
+   "sloka": "ch24_v70",
+   "rules": [
+    "ch24_l6_h10"
+   ]
+  },
+  "ch35_v10": {
+   "sloka": "ch35_v10",
+   "rules": [
+    "naabhasa_sakata",
+    "naabhasa_sringataka",
+    "naabhasa_vihaga"
+   ]
+  },
+  "ch35_v11": {
+   "sloka": "ch35_v11",
+   "rules": [
+    "naabhasa_hala",
+    "naabhasa_vajra",
+    "naabhasa_yava"
+   ],
+   "ruling": {
+    "kind": "editorial_reading",
+    "status": "RULED",
+    "english": "Renders Vajra as 'all benefics in the ascendant and the 7th OR all malefics in the 4th and 10th'.",
+    "ruling": "BOTH ARMS REQUIRED, and all seven grahas confined to the angles.",
+    "basis": "Read literally the OR fires on any chart with Jupiter and Venus angular, whatever the other five grahas do. No aakriti ('shape') yoga can mean that; every neighbouring verse in the family says 'all the planets'.",
+    "source_named": "NONE -- this is an editorial reading, not a sourced one. Flagged per Validation Source."
+   }
+  },
+  "ch35_v12": {
+   "sloka": "ch35_v12",
+   "rules": [
+    "naabhasa_kamala",
+    "naabhasa_vaapi"
+   ]
+  },
+  "ch35_v13": {
+   "sloka": "ch35_v13",
+   "rules": [
+    "naabhasa_danda",
+    "naabhasa_sakthi",
+    "naabhasa_sara",
+    "naabhasa_yupa"
+   ]
+  },
+  "ch35_v14": {
+   "sloka": "ch35_v14",
+   "rules": [
+    "naabhasa_chapa",
+    "naabhasa_chatra",
+    "naabhasa_koota",
+    "naabhasa_nauka"
+   ]
+  },
+  "ch35_v15": {
+   "sloka": "ch35_v15",
+   "rules": [
+    "naabhasa_chakra",
+    "naabhasa_samudra"
+   ]
+  },
+  "ch35_v17": {
+   "sloka": "ch35_v17",
+   "rules": [
+    "naabhasa_sankhya_suppressed"
+   ],
+   "ruling": {
+    "kind": "unapplied_suppression",
+    "status": "OPEN",
+    "text": "'None of these seven [sankhya] yogas will be operable, if another Nabhasa yoga explained earlier is derivable.'",
+    "conflict": "The pre-existing _naabhasa_sankhya row fires unconditionally, contradicting its own chapter. Its verdict is asserted against the JHora oracle, so it was fenced rather than changed: a separate row naabhasa_sankhya_suppressed names the blockers.",
+    "needs": "Sulabh's ruling -- two rows, or suppress the sankhya verdict directly. Validation Source notes the sankhya verdict is ungraded spec and the SOURCE should be fixed rather than fenced."
+   }
+  },
+  "ch35_v7": {
+   "sloka": "ch35_v7",
+   "rules": [
+    "naabhasa_musala",
+    "naabhasa_nala",
+    "naabhasa_rajju"
+   ]
+  },
+  "ch35_v8": {
+   "sloka": "ch35_v8",
+   "rules": [
+    "naabhasa_maala",
+    "naabhasa_sarpa"
+   ],
+   "ruling": {
+    "kind": "editorial_reading",
+    "status": "OPEN",
+    "text": "'3 angles occupied by benefics' (Maala) / by malefics (Sarpa).",
+    "taken": "Three DISTINCT angles each holding at least one such graha; the fourth angle is not required to be vacant.",
+    "alternative": "Exactly three, fourth vacant -- defensible and would change the verdict on real charts.",
+    "needs": "Sulabh's ruling."
+   }
+  },
+  "ch35_v9": {
+   "sloka": "ch35_v9",
+   "rules": [
+    "naabhasa_gada"
+   ]
+  },
+  "ch37_v11": {
+   "sloka": "ch37_v11",
+   "rules": [
+    "kemadruma"
+   ]
+  },
+  "ch37_v6": {
+   "sloka": "ch37_v6",
+   "rules": [
+    "chandra_dhana_upachaya"
+   ]
+  },
+  "ch37_v7": {
+   "sloka": "ch37_v7",
+   "rules": [
+    "durudhara"
+   ]
+  },
+  "ch38_v1": {
+   "sloka": "ch38_v1",
+   "rules": [
+    "ubhayachari",
+    "vosi"
+   ]
+  },
+  "ch41_v10": {
+   "sloka": "ch41_v10",
+   "rules": [
+    "dhana_lagna_moon"
+   ]
+  },
+  "ch41_v11": {
+   "sloka": "ch41_v11",
+   "rules": [
+    "dhana_lagna_mars"
+   ]
+  },
+  "ch41_v12": {
+   "sloka": "ch41_v12",
+   "rules": [
+    "dhana_lagna_mercury"
+   ]
+  },
+  "ch41_v13": {
+   "sloka": "ch41_v13",
+   "rules": [
+    "dhana_lagna_jupiter"
+   ]
+  },
+  "ch41_v14": {
+   "sloka": "ch41_v14",
+   "rules": [
+    "dhana_lagna_venus"
+   ]
+  },
+  "ch41_v15": {
+   "sloka": "ch41_v15",
+   "rules": [
+    "dhana_lagna_saturn"
+   ]
+  },
+  "ch41_v2": {
+   "sloka": "ch41_v2",
+   "rules": [
+    "dhana_v2_venus_5_mars_11"
+   ]
+  },
+  "ch41_v3": {
+   "sloka": "ch41_v3",
+   "rules": [
+    "dhana_v3_mercury_5"
+   ]
+  },
+  "ch41_v4": {
+   "sloka": "ch41_v4",
+   "rules": [
+    "dhana_v4_sun_5"
+   ]
+  },
+  "ch41_v5": {
+   "sloka": "ch41_v5",
+   "rules": [
+    "dhana_v5_saturn_5_luminaries_11"
+   ]
+  },
+  "ch41_v6": {
+   "sloka": "ch41_v6",
+   "rules": [
+    "dhana_v6_jupiter_5_mercury_11"
+   ]
+  },
+  "ch41_v7": {
+   "sloka": "ch41_v7",
+   "rules": [
+    "dhana_v7_mars_5_venus_11"
+   ]
+  },
+  "ch41_v8": {
+   "sloka": "ch41_v8",
+   "rules": [
+    "dhana_maha_5_11",
+    "dhana_v8_moon_5_saturn_11"
+   ]
+  },
+  "ch41_v9": {
+   "sloka": "ch41_v9",
+   "rules": [
+    "dhana_lagna_sun"
+   ]
+  },
+  "ch42_v17": {
+   "sloka": "ch42_v17",
+   "rules": [
+    "daridra_v17_sun_2nd_saturn_aspect",
+    "dhana_v17_sun_2nd_unaspected"
+   ]
+  },
+  "ch42_v18": {
+   "sloka": "ch42_v18",
+   "rules": [
+    "daridra_v18_saturn_2nd_sun_aspect"
+   ]
+  },
+  "ch42_v4": {
+   "sloka": "ch42_v4",
+   "rules": [
+    "daridra_v4_ketu_lagna_lord_8th"
+   ]
+  },
+  "ch42_v6": {
+   "sloka": "ch42_v6",
+   "rules": [
+    "daridra_v6_lagna_lord_with_evil_lord"
+   ]
+  },
+  "ch42_v7": {
+   "sloka": "ch42_v7",
+   "rules": [
+    "daridra_v7_5th_in_6th_9th_in_12th"
+   ],
+   "unapplied_arm": {
+    "flag": "maraka_condition_not_applied",
+    "why": "The maraka definition is not sourced from BPHS itself (P-028)."
+   }
+  }
+ },
+ "not_implemented": [
+  {
+   "sloka": "ch19_v8",
+   "reason": "Needs the ascendant lord 'bereft of strength'. No strength fact exists; a dignity label is not a strength proxy (P-032)."
+  },
+  {
+   "sloka": "ch19_v15",
+   "reason": "Needs the ascendant lord 'exceedingly strong'. Same missing fact."
+  },
+  {
+   "sloka": "ch19_v11",
+   "reason": "Needs the 8th lord DEBILITATED IN THE ASCENDANT. Santhanam's own note to v12 shows this is unreachable by whole signs -- it needs a bhava cusp in an adjacent sign. A rule that can never fire is a false clean negative."
+  },
+  {
+   "sloka": "(not in BPHS)",
+   "reason": "Chandra-Mangal yoga is Jataka Parijata / Phaladeepika, not BPHS. The corpus is BPHS-only, so a claim resting on it could cite no verse and the ghost guard would drop it. Out of corpus, not out of scope."
+  }
+ ],
+ "debts": {
+  "unsourced_rows": {
+   "severity": "HIGH",
+   "finding": "47 of 144 detector rows cite NO sloka. They were written from PVR's spec text or validated against the JHora oracle, and include the highest-value families in the system: every kendra-trikona raja link, all five Pancha Mahapurusha, all seven Neecha Bhanga, all three Vipareeta links, Gajakesari, Adhi, Vesi, Nipuna, Kalpadruma, Yogada and the sankhya Naabhasa set.",
+   "consequence": "A predicate-redundancy admission test filters on decidability, not provenance -- so it would RETAIN all 47 unsourced rows while retiring 19 correctly-cited ones. The gate order is therefore source-named FIRST, predicate-redundancy SECOND.",
+   "rows": [
+    {
+     "rule_id": "adhi",
+     "name": "Adhi"
+    },
+    {
+     "rule_id": "anaphaa",
+     "name": "Anaphaa"
+    },
+    {
+     "rule_id": "daridra_v16_mars_saturn_2nd",
+     "name": "Wealth destroyed (Mars and Saturn together in the 2nd)"
+    },
+    {
+     "rule_id": "dhana_v17_mars_saturn_2nd_mercury_aspect",
+     "name": "Great wealth (Mercury aspecting Mars and Saturn in the 2nd)"
+    },
+    {
+     "rule_id": "dharma_karmadhipati",
+     "name": "Dharma-Karmadhipati Yoga"
+    },
+    {
+     "rule_id": "gajakesari_yoga",
+     "name": "Gajakesari Yoga"
+    },
+    {
+     "rule_id": "harsha_yoga",
+     "name": "Harsha Yoga"
+    },
+    {
+     "rule_id": "kalpadruma",
+     "name": "Kalpadruma/Parijata"
+    },
+    {
+     "rule_id": "kendra_trikona_10_1",
+     "name": "Raja Yoga (10th-1st lord link)"
+    },
+    {
+     "rule_id": "kendra_trikona_10_5",
+     "name": "Raja Yoga (10th-5th lord link)"
+    },
+    {
+     "rule_id": "kendra_trikona_10_9",
+     "name": "Raja Yoga (10th-9th lord link)"
+    },
+    {
+     "rule_id": "kendra_trikona_1_5",
+     "name": "Raja Yoga (1st-5th lord link)"
+    },
+    {
+     "rule_id": "kendra_trikona_1_9",
+     "name": "Raja Yoga (1st-9th lord link)"
+    },
+    {
+     "rule_id": "kendra_trikona_4_1",
+     "name": "Raja Yoga (4th-1st lord link)"
+    },
+    {
+     "rule_id": "kendra_trikona_4_5",
+     "name": "Raja Yoga (4th-5th lord link)"
+    },
+    {
+     "rule_id": "kendra_trikona_4_9",
+     "name": "Raja Yoga (4th-9th lord link)"
+    },
+    {
+     "rule_id": "kendra_trikona_7_1",
+     "name": "Raja Yoga (7th-1st lord link)"
+    },
+    {
+     "rule_id": "kendra_trikona_7_5",
+     "name": "Raja Yoga (7th-5th lord link)"
+    },
+    {
+     "rule_id": "kendra_trikona_7_9",
+     "name": "Raja Yoga (7th-9th lord link)"
+    },
+    {
+     "rule_id": "naabhasa_daama",
+     "name": "Daama"
+    },
+    {
+     "rule_id": "naabhasa_kedara",
+     "name": "Kedara"
+    },
+    {
+     "rule_id": "naabhasa_paasa",
+     "name": "Paasa"
+    },
+    {
+     "rule_id": "naabhasa_sula",
+     "name": "Sula"
+    },
+    {
+     "rule_id": "naabhasa_veenaa",
+     "name": "Veenaa"
+    },
+    {
+     "rule_id": "neecha_bhanga_jupiter",
+     "name": "Neecha Bhanga (Jupiter)"
+    },
+    {
+     "rule_id": "neecha_bhanga_mars",
+     "name": "Neecha Bhanga (Mars)"
+    },
+    {
+     "rule_id": "neecha_bhanga_mercury",
+     "name": "Neecha Bhanga (Mercury)"
+    },
+    {
+     "rule_id": "neecha_bhanga_moon",
+     "name": "Neecha Bhanga (Moon)"
+    },
+    {
+     "rule_id": "neecha_bhanga_saturn",
+     "name": "Neecha Bhanga (Saturn)"
+    },
+    {
+     "rule_id": "neecha_bhanga_sun",
+     "name": "Neecha Bhanga (Sun)"
+    },
+    {
+     "rule_id": "neecha_bhanga_venus",
+     "name": "Neecha Bhanga (Venus)"
+    },
+    {
+     "rule_id": "nipuna",
+     "name": "Nipuna (Budha-Aditya)"
+    },
+    {
+     "rule_id": "pmp_bhadra",
+     "name": "Bhadra (Pancha Mahapurusha)"
+    },
+    {
+     "rule_id": "pmp_hamsa",
+     "name": "Hamsa (Pancha Mahapurusha)"
+    },
+    {
+     "rule_id": "pmp_malavya",
+     "name": "Malavya (Pancha Mahapurusha)"
+    },
+    {
+     "rule_id": "pmp_ruchaka",
+     "name": "Ruchaka (Pancha Mahapurusha)"
+    },
+    {
+     "rule_id": "pmp_sasa",
+     "name": "Sasa (Pancha Mahapurusha)"
+    },
+    {
+     "rule_id": "raja_ak_pik",
+     "name": "Raja (AK-PiK)"
+    },
+    {
+     "rule_id": "raja_sambandha",
+     "name": "Raja Sambandha"
+    },
+    {
+     "rule_id": "sarala_yoga",
+     "name": "Sarala Yoga"
+    },
+    {
+     "rule_id": "sunaphaa",
+     "name": "Sunaphaa"
+    },
+    {
+     "rule_id": "vesi",
+     "name": "Vesi"
+    },
+    {
+     "rule_id": "vimala_yoga",
+     "name": "Vimala Yoga"
+    },
+    {
+     "rule_id": "vipareeta_6_12_link",
+     "name": "Vipareeta (6th-12th lord link)"
+    },
+    {
+     "rule_id": "vipareeta_6_8_link",
+     "name": "Vipareeta (6th-8th lord link)"
+    },
+    {
+     "rule_id": "vipareeta_8_12_link",
+     "name": "Vipareeta (8th-12th lord link)"
+    },
+    {
+     "rule_id": "yogada",
+     "name": "Yogada"
+    }
+   ]
+  },
+  "oracle_supplied_condition": {
+   "severity": "HIGH",
+   "rule_id": "adhi",
+   "law": "P-027",
+   "finding": "An ambiguity in the PVR spec ('benefics occupy 6th, 7th AND 8th from the Moon' -- all three, or any?) was resolved by reading JHora's output for a reference chart. That is an ORACLE supplying a CONDITION.",
+   "note": "Recording it made it auditable; it did not cure it.",
+   "required": "Re-derive the reading from a spec source (BPHS ch37 v5 is in the corpus and states the same yoga), or demote the row to unsourced."
+  }
+ }
+}
