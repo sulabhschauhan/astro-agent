@@ -57,6 +57,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field, asdict
+
+from agent.astro import predicates as PRED
+
+# Gate verdict -> predicate verdict, the inverse of the mapping judge_claim
+# applies. Kept next to the import so the two never drift apart.
+_PRED_VERDICT = {"applicable": PRED.SATISFIED,
+                 "not_applicable": PRED.CONTRADICTED,
+                 "undetermined": PRED.UNEVALUABLE}
 from typing import Optional
 
 from agent.astro import payload_builder as PB
@@ -91,6 +99,16 @@ class ClaimVerdict:
     verdict: str
     sources: list[SourceVerdict] = field(default_factory=list)
     reason: str = ""
+    # S137. "typed" = decided by evaluating the claim's own preconditions
+    # against the fact block; "prose" = decided by the legacy regex reader.
+    # The ratio is what justifies retiring the reader (Phase 3); until then
+    # both paths live side by side and neither is guessed at.
+    decided_by: str = "prose"
+    predicate_detail: list[dict] = field(default_factory=list)
+    # S137 amendment. ADVISORY ONLY -- chart tokens the STATEMENT asserts that
+    # its preconditions never test. Recorded, never acted on; see
+    # predicates.statement_coverage for why this is a counter, not a judge.
+    uncovered_tokens: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -431,7 +449,8 @@ def judge_planet_claim(statement: str, planet_house: dict[str, int]) -> tuple[st
 # words removed every such false pass and changed no correct verdict. Cited
 # sources are recorded as audit context only; they never decide.
 def judge_claim(claim: dict, source_texts: dict[str, str],
-                lord_house: dict[int, int]) -> ClaimVerdict:
+                lord_house: dict[int, int],
+                chart_facts: Optional[dict] = None) -> ClaimVerdict:
     statement = str(claim.get("statement", ""))
     ids = claim.get("segment_ids") or []
     if not isinstance(ids, list):
@@ -439,6 +458,39 @@ def judge_claim(claim: dict, source_texts: dict[str, str],
     ids = [str(i) for i in ids]
     sources = [judge_source(i, source_texts.get(i), lord_house) for i in ids]
 
+    # ---- TYPED PATH (S137) -------------------------------------------------
+    # When the interpreter stated the verse's condition in the closed predicate
+    # vocabulary, EVALUATE it against the computed chart instead of reading the
+    # claim's English. This covers all eight fact classes in
+    # capability_gate.FACT_BLOCK_PROVIDES; the prose reader below covers one.
+    #
+    # The mapping keeps the gate's existing contract exactly:
+    #   SATISFIED    -> APPLICABLE      (confirmed, lead with it)
+    #   CONTRADICTED -> NOT_APPLICABLE  (the only thing that may drop a claim)
+    #   UNEVALUABLE  -> UNDETERMINED    (kept, hedged -- never a drop)
+    # so nothing downstream needs to know which verifier ran.
+    #
+    # NO FALLBACK ON UNEVALUABLE, DELIBERATELY. Re-running the prose reader
+    # after a typed UNEVALUABLE would let the regex OVERTURN a verdict the
+    # typed layer already reached, reintroducing the prose reader's own error
+    # modes (S125: a permissive matcher used as a precision judge produced six
+    # classes of wrong drop). A stated precondition is the authority; silence
+    # about one is what sends a claim to the prose reader.
+    preconds = claim.get("preconditions")
+    if isinstance(preconds, list) and preconds:
+        res = PRED.evaluate_claim(preconds, chart_facts or {})
+        mapped = {PRED.SATISFIED: APPLICABLE,
+                  PRED.CONTRADICTED: NOT_APPLICABLE,
+                  PRED.UNEVALUABLE: UNDETERMINED}[res["verdict"]]
+        why = "; ".join(f"{r['type']}: {r['reason']}" for r in res["predicates"]) \
+            or "no predicate detail"
+        cov = PRED.statement_coverage(statement, preconds)
+        return ClaimVerdict(statement, ids, mapped, sources, reason=why,
+                            decided_by="typed",
+                            predicate_detail=res["predicates"],
+                            uncovered_tokens=cov["uncovered"])
+
+    # ---- PROSE PATH (legacy, retires at Phase 3) ---------------------------
     try:
         relation, why = read_condition(statement)
     except Exception as e:
@@ -494,7 +546,7 @@ def apply_silence_gate(interpreter_output: dict, payload: dict,
             raise SilenceGateError("interpreter_output['claims'] is not a list")
         source_texts = _collect_source_texts(payload)
 
-        verdicts = [judge_claim(c, source_texts, lord_house)
+        verdicts = [judge_claim(c, source_texts, lord_house, chart_facts)
                     for c in claims if isinstance(c, dict)]
 
         kept, dropped = [], []
@@ -534,11 +586,41 @@ def apply_silence_gate(interpreter_output: dict, payload: dict,
         counts = {k: sum(1 for v in verdicts if v.verdict == k)
                   for k in (APPLICABLE, NOT_APPLICABLE, UNDETERMINED)}
         total = len(verdicts) or 1
+
+        # S137 MIGRATION METRICS. `typed_decided / claims_in` is the number that
+        # says when the prose reader can retire (Phase 3), and the per-fact-class
+        # split says WHERE the typed layer is actually being used -- so a future
+        # fact-block widening's verifying power is visible, not assumed. Both are
+        # measurements, never thresholds: nothing branches on them.
+        typed_n = sum(1 for v in verdicts if v.decided_by == "typed")
+        # THE NUMBER THAT GATES PROMOTION. `claims_with_uncovered_tokens` over
+        # `typed_decided` is the measured rate; a human reads the detail and
+        # says whether each one was a real under-coverage. Nothing branches on
+        # it -- it has no drop authority and must not acquire one without that
+        # measurement (S129b planet-reader disposition).
+        uncovered = [{"statement": v.statement[:160], "verdict": v.verdict,
+                      "uncovered_tokens": v.uncovered_tokens}
+                     for v in verdicts if v.decided_by == "typed" and v.uncovered_tokens]
+        typed_stats = {
+            "claims_with_uncovered_tokens": len(uncovered),
+            "statement_coverage_advisory": uncovered,
+            "typed_decided": typed_n,
+            "prose_decided": len(verdicts) - typed_n,
+            "typed_share_pct": round(100.0 * typed_n / total, 1),
+            # The real verdict, not a placeholder: passing "" made
+            # `claim_verdicts` read 0/0/0 on the first live run.
+            "predicate_coverage": PRED.coverage(
+                [{"verdict": _PRED_VERDICT.get(v.verdict, PRED.UNEVALUABLE),
+                  "predicates": v.predicate_detail}
+                 for v in verdicts if v.decided_by == "typed"]),
+        }
+
         stats = {
             "claims_in": len(verdicts),
             "claims_kept": len(kept),
             "claims_dropped": len(dropped),
             **counts,
+            **typed_stats,
             **adv_counts,
             "planet_reader_mode": "advisory",
             "advisory_detail": advisory,

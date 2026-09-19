@@ -59,6 +59,7 @@ import os
 import re
 from typing import Callable, Optional
 
+from agent.astro import predicates as PRED
 from agent.astro import silence_gate as SG
 
 COMPOSER_VERSION = "composer-1.0"
@@ -95,15 +96,15 @@ class ComposerError(Exception):
     composition the checks rejected -- that degrades, it does not fail."""
 
 
-def chart_tokens(text: str) -> set[str]:
-    """Chart facts named in `text`, normalised. Houses as 'h<N>'."""
-    if not text:
-        return set()
-    out = {f"h{int(m.group(1))}" for m in _ORDINAL_RE.finditer(text)}
-    out |= {m.group(1).title() for m in _WORD_RE.finditer(text)}
-    if _OWN_SIGN_RE.search(text):
-        out.add("Own Sign")
-    return out
+# S137 amendment: `predicates` is the SINGLE OWNER of chart-token extraction.
+# This alias keeps every call site here unchanged while removing the second
+# copy of a closed vocabulary (P-030). The ENFORCING no-new-chart-facts check
+# below and the advisory statement-coverage counter in `silence_gate` MUST
+# agree on what a chart token is, or their measured rates cannot be compared.
+# NOTE: the shared extractor also maps "ascendant"/"lagna"/"rising sign" -> h1,
+# which this check did not do before -- strictly MORE conservative here (it can
+# only make the composer catch an invented ascendant reference it used to miss).
+chart_tokens = PRED.chart_tokens
 
 
 def _is_conditional(text: str) -> bool:

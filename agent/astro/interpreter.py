@@ -12,9 +12,10 @@ Read docs/ANSWER_PATHS.md before editing or proposing work here.
 Astro Agent -- STAGE 4: THE INTERPRETER (locked to GPT-5).
 
 Reads the deterministic FACT BLOCK + the selected verses and emits STRUCTURED
-claims -- each claim is a statement plus the verse ids it rests on -- so
-Stage 5a (the silence gate) can judge every claim's precondition against the
-chart. Contracts this stage honours:
+claims -- each claim is a statement, the verse ids it rests on, and (S137) the
+verse's own chart condition written as TYPED PRECONDITIONS -- so Stage 5a can
+judge every claim against the computed chart by evaluation rather than by
+pattern-matching the claim's English. See docs/ANSWER_VERIFICATION_ARCHITECTURE.md. Contracts this stage honours:
 
   - NEVER computes a chart fact (S124 lock). It reasons over supplied facts.
   - Cites LOCATION ids only, never quotes verse text (S124 lock).
@@ -38,6 +39,8 @@ import os
 import re
 from typing import Callable, Optional
 
+from agent.astro import predicates as PRED
+
 INTERPRETER_VERSION = "interpreter-1.0"
 INTERPRETER_MODEL = "gpt-5"          # locked S126; override per-call for A/B only
 REASONING_EFFORT = "minimal"
@@ -50,11 +53,15 @@ _SYSTEM_HEAD = (
     "- Cite the verse id(s) each claim rests on. Never quote verse text.\n"
     "- If the verses cannot answer the question, refuse plainly. Honest silence beats a guess.\n\n"
     "Return STRICT JSON only, no prose outside it, exactly this shape:\n"
-    '{"claims": [{"statement": "<one plain-language claim>", "segment_ids": ["<id>", ...]}], '
+    '{"claims": [{"statement": "<one plain-language claim>", "segment_ids": ["<id>", ...], "preconditions": [<see PRECONDITIONS below>]}], '
     '"silent_on": ["<what you could not address and why>"], "refused": false}\n'
     "Each claim.statement must be self-contained and name the placement it relies on so it can be "
     "checked (e.g. \"With the 10th lord in the 4th, ...\"). Put NOTHING in a statement that is not "
-    "supported by a cited verse.\n\n"
+    "supported by a cited verse.\n"
+    "- Also give each claim its `preconditions`: the verse's own chart condition, written in the "
+    "closed vocabulary set out under PRECONDITIONS below. The statement stays plain English for "
+    "the reader; the preconditions are the same condition in a form the chart can be checked "
+    "against.\n\n"
     "VOICE -- the reader has never studied astrology and is reading about their own life:\n"
     "- Address them directly: \"you\", \"your\". NEVER write \"the native\", \"the subject\", "
     "\"one will\". The classical texts use the third person; you must not.\n"
@@ -191,6 +198,7 @@ def interpret(
     *,
     llm: Optional[Callable[..., tuple]] = None,
     model: str = INTERPRETER_MODEL,
+    chart_facts: Optional[dict] = None,
 ) -> dict:
     """Produce structured, ghost-free claims for one question.
 
@@ -205,7 +213,12 @@ def interpret(
                 "interpreter_version": INTERPRETER_VERSION, "raw": ""}
 
     manifest = _id_manifest(payload)
+    # The vocabulary is GENERATED from predicates.PREDICATES, never restated
+    # here: one closed vocabulary, one owner (P-030). It sits in the
+    # user-independent prefix so prompt caching still discounts it; it changes
+    # only when the registry does, which invalidates the cache once.
     system = (_SYSTEM_HEAD
+              + "\n" + PRED.vocabulary_prompt(chart_facts) + "\n"
               + ("\n" + manifest + "\n" if manifest else "")
               + "\nVERSES:\n" + verses)          # corpus-first (cacheable prefix)
     user = (fact_block + f"\n\nQUESTION: {question}\n"
@@ -221,6 +234,7 @@ def interpret(
 
     ids = _payload_ids(payload)
     ghost: list[str] = []
+    precondition_rejects: list[dict] = []
     clean_claims: list[dict] = []
     for c in (obj.get("claims") or []):
         if not isinstance(c, dict):
@@ -229,14 +243,37 @@ def interpret(
         raw_ids = [str(x) for x in (c.get("segment_ids") or [])]
         real = [i for i in raw_ids if i in ids]
         ghost += [i for i in raw_ids if i not in ids]
+
+        # PRECONDITIONS are ADDITIVE and FAIL-SAFE. An illegal one is dropped
+        # and recorded; it NEVER costs the claim. A claim that arrives with
+        # none is kept and simply cannot be confirmed downstream -- it reaches
+        # the reader hedged, which is the S124 posture (a filter that cannot
+        # judge must keep). The ghost guard above is the ONLY thing here with
+        # authority to discard a claim.
+        preconds: list[dict] = []
+        for raw_p in (c.get("preconditions") or []):
+            ok, why = PRED.validate_precondition(raw_p)
+            if ok:
+                preconds.append(raw_p)
+            else:
+                precondition_rejects.append({"statement": stmt[:120], "why": why,
+                                             "precondition": raw_p})
+
         if stmt and real:                       # drop a claim with no surviving real id
-            clean_claims.append({"statement": stmt, "segment_ids": real})
+            clean_claims.append({"statement": stmt, "segment_ids": real,
+                                 "preconditions": preconds})
 
     return {
         "claims": clean_claims,
         "silent_on": list(obj.get("silent_on") or []),
         "refused": bool(obj.get("refused")) or not clean_claims,
         "ghost_citations": sorted(set(ghost)),
+        # Shape failures, not content failures. A climbing rate means the
+        # vocabulary or its prompt is wrong -- it is the health metric for the
+        # emission contract, the sibling of `unfittable`'s rate for the
+        # vocabulary itself.
+        "precondition_rejects": precondition_rejects,
+        "claims_with_preconditions": sum(1 for c in clean_claims if c["preconditions"]),
         "usage": usage,
         "model": model,
         "interpreter_version": INTERPRETER_VERSION,

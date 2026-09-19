@@ -196,3 +196,102 @@ def test_capture_error_records_a_failed_turn():
     assert "FAILED" in body
     assert "what about my career?" in body
     assert "interpreter did not return valid JSON" in body
+
+
+# ── Stage 5b, the composer (S137) ──────────────────────────────────────────
+# The composer never raises and its enforcing check degrades rather than drops,
+# so all three of its failure shapes are SILENT in the answer text. These tests
+# pin that each one is nonetheless VISIBLE in the capture -- which is what makes
+# the first live composed run a judgement rather than a guess.
+
+def _composed(**kw):
+    base = {
+        "composed": True,
+        "blocks": [
+            {"type": "lead", "text": "Your working life looks well supported."},
+            {"type": "claim", "claim_id": 0, "text": "You gain through people in authority.",
+             "segment_ids": ["ch34_s011"], "checked": True},
+        ],
+        "demoted": [{"claim_id": 1, "reason": "repeats claim 0"}],
+        "violations": [], "condition_advisory": [], "unaccounted_restored": [],
+        "claims_in": 2, "claims_rendered": 1,
+        "usage": {"model": "gpt-5", "prompt_tokens": 553, "completion_tokens": 312,
+                  "reasoning_effort_path": "extra_body"},
+        "composer_version": "composer-1.0",
+    }
+    base.update(kw)
+    return base
+
+
+def test_composer_absent_is_reported_as_did_not_run_not_as_a_success():
+    """Cause (a): flag off. Must not read as a composed answer."""
+    body = QC.capture_turn("q", _result(), {}).read_text(encoding="utf-8")
+    assert "### composer (Stage 5b)" in body
+    assert "composer did not run" in body
+    assert '"composed": true' not in body
+
+
+def test_composer_refusal_records_its_reason():
+    """Cause (b): the model or the parse failed. A refusal is a result."""
+    r = _result(composed={"composed": False, "reason": "JSONDecodeError: Expecting value",
+                          "blocks": [], "violations": [], "condition_advisory": [],
+                          "demoted": [], "composer_version": "composer-1.0"})
+    body = QC.capture_turn("q", r, {}).read_text(encoding="utf-8")
+    assert '"composed": false' in body
+    assert "JSONDecodeError" in body
+
+
+def test_healthy_composition_records_the_lead_and_the_token_cost():
+    body = QC.capture_turn("q", _result(composed=_composed()), {}).read_text(encoding="utf-8")
+    assert '"has_lead": true' in body, "S136 s12 item 1 is the reason this stage was flipped on"
+    assert '"block_sequence"' in body and '"lead"' in body
+    assert '"prompt_tokens": 553' in body, "the composer's own cost must be separable from Stage 4's"
+    assert "repeats claim 0" in body, "a demotion must carry its stated reason"
+
+
+def test_degraded_claims_are_named_outright_not_left_to_be_inferred():
+    """Cause (c): the enforcing check rejected the rewrite, so the ORIGINAL
+    jargon text shipped. This is the one most easily misread as 'the composer
+    made no difference'."""
+    r = _result(composed=_composed(
+        violations=[{"claim_id": 0, "text": "bad rewrite",
+                     "why": "invented chart facts: h10"}]))
+    body = QC.capture_turn("q", r, {}).read_text(encoding="utf-8")
+    assert '"enforcing_violations": 1' in body
+    assert '"claims_degraded_to_original"' in body
+    assert "invented chart facts: h10" in body, "the violation itself must be recorded in full"
+
+
+def test_condition_advisory_is_counted_and_shown_but_not_treated_as_a_failure():
+    r = _result(composed=_composed(
+        condition_advisory=[{"claim_id": 0, "text": "y", "why": "no condition keyword"}]))
+    body = QC.capture_turn("q", r, {}).read_text(encoding="utf-8")
+    assert '"condition_advisory_count": 1' in body
+    assert "RECORDED, not enforced" in body
+    assert '"enforcing_violations": 0' in body
+
+
+def test_unaccounted_claims_restored_by_the_coverage_check_are_recorded():
+    r = _result(composed=_composed(unaccounted_restored=[3, 5]))
+    body = QC.capture_turn("q", r, {}).read_text(encoding="utf-8")
+    assert '"unaccounted_restored"' in body and "3" in body and "5" in body
+
+
+def test_a_non_dict_composed_payload_does_not_break_the_capture():
+    body = QC.capture_turn("q", _result(composed="nonsense"), {}).read_text(encoding="utf-8")
+    assert "unexpected composed payload" in body
+    assert "## TURN" in body
+
+
+def test_qa_capture_imports_nothing_from_agent_astro():
+    """STRUCTURAL, deliberate. `_composer_block` does NOT compute the advisory
+    RATE, because the denominator needs `composer._CONDITION_RE` and a second
+    copy of a closed vocabulary drifts from its owner (KNOWN_PATTERNS P-030 in
+    another medium; the S119 needle-table transplant is the precedent). If this
+    test ever fails, the rate was computed here -- derive it offline from the
+    capture's own kept_claims instead."""
+    import inspect
+    src = inspect.getsource(QC)
+    for line in src.splitlines():
+        s = line.strip()
+        assert not s.startswith(("from agent.astro import", "import agent.astro")), s

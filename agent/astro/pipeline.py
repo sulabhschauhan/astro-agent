@@ -326,7 +326,11 @@ def answer_question(
                 "pipeline_version": PIPELINE_VERSION}
 
     fact_block = _fact_block(chart_facts)
-    interp = _interp.interpret(question, fact_block, built["payload"], llm=interpreter_llm)
+    # chart_facts supplies the YOGA CATALOGUE for the precondition vocabulary
+    # (S137). Without it the interpreter cannot name a yoga id and falls back to
+    # `unfittable` -- measured on 20260919T072700Z, 9 of 15 predicates.
+    interp = _interp.interpret(question, fact_block, built["payload"],
+                               llm=interpreter_llm, chart_facts=chart_facts)
     _lap("interpreter")
     gate = silence_gate.apply_silence_gate(interp, built["payload"], chart_facts)
     _lap("silence_gate")
@@ -394,6 +398,9 @@ def answer_question(
         "dropped_claims": gate.dropped_claims,       # precondition-false, removed by the gate
         "silent_on": gate.silent_on,
         "ghost_citations": interp["ghost_citations"],  # must be []
+        # S137 emission-contract health, passed through for the capture.
+        "claims_with_preconditions": interp.get("claims_with_preconditions"),
+        "precondition_rejects": interp.get("precondition_rejects"),
         "gate_stats": gate.stats,
         # Stage 5b output, or None when the composer did not run. `answer_view`
         # prefers it when present; `answer` above is always the Stage-5a render.

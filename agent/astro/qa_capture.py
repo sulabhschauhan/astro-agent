@@ -49,7 +49,9 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["QA_CAPTURE_VERSION", "capture_enabled", "session_path", "capture_turn"]
 
-QA_CAPTURE_VERSION = "qa-capture-1.0"
+# 1.1 (S137): Stage 5b composer section added ahead of the first live composed
+# run. See `_composer_block` for why a silent stage needs its own record.
+QA_CAPTURE_VERSION = "qa-capture-1.2"
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _CAPTURE_DIR = _REPO_ROOT / "diagnostics" / "qa_capture"
@@ -147,6 +149,93 @@ def _cited_segment_texts(payload: dict, cited_ids: list[str]) -> str:
     return "\n\n".join(out)
 
 
+def _composer_block(composed: Any) -> str:
+    """Stage 5b's own record. Added S137, BEFORE the first live composed run.
+
+    WHY THIS EXISTS. `composer.compose()` never raises: on a transport, parse
+    or check failure it returns `composed=False` and the caller falls back to
+    the bullet rendering. And its ENFORCING no-new-chart-facts check DEGRADES a
+    failing block back to the original claim text rather than dropping it. Both
+    postures are right, and both are SILENT -- so "the composed answer reads
+    much like the bullets did" has three different causes that cannot be told
+    apart from the answer text alone:
+
+        (a) the composer never ran (flag off, or no claims to compose),
+        (b) it ran and returned composed=False (model or parse failure),
+        (c) it ran and `_verify` degraded most blocks back to their originals.
+
+    The first live composed run is a QUALITY JUDGEMENT and it costs a real API
+    call on Sulabh's machine (S129b: the sandbox is firewalled from OpenAI), so
+    an uninterpretable capture means paying for it twice. Everything below is
+    read straight off the composer's return value; nothing is recomputed.
+
+    NOT COMPUTED HERE, DELIBERATELY. The advisory condition-survival RATE needs
+    a denominator (how many source claims were conditional), which means
+    `composer._CONDITION_RE`. This module imports nothing from `agent.astro`
+    and stays that way: a second copy of a closed vocabulary drifting from its
+    owner is KNOWN_PATTERNS P-030 in a different medium, and the same defect as
+    the S119 needle-table transplant. Derive the rate offline from the
+    `### silence gate` section's `kept_claims`, which this same capture already
+    records in full, using the composer's own regex.
+    """
+    if composed is None:
+        return ("_composer did not run -- `result['composed']` is absent or None. "
+                "Either `compose=False` / `ASTRO_COMPOSER_ENABLED=0`, or the "
+                "pipeline returned before Stage 5b._")
+    if not isinstance(composed, dict):
+        return _fence(f"<unexpected composed payload: {type(composed).__name__}>")
+
+    if not composed.get("composed"):
+        # A refusal is a result, not an absence. Record it as loudly as a success.
+        return _json_block({
+            "composed": False,
+            "reason": composed.get("reason"),
+            "composer_version": composed.get("composer_version"),
+        })
+
+    blocks = composed.get("blocks") or []
+    violations = composed.get("violations") or []
+    advisory = composed.get("condition_advisory") or []
+    restored = composed.get("unaccounted_restored") or []
+
+    # A claim whose rewrite was rejected still SHIPS -- as its original jargon
+    # text. That is the failure most likely to be misread as "the composer made
+    # no difference", so name the ids outright rather than leaving them to be
+    # inferred from the violations list.
+    degraded = sorted({int(v["claim_id"]) for v in violations
+                       if isinstance(v, dict) and str(v.get("claim_id", "")).isdigit()})
+
+    summary = {
+        "composed": True,
+        "composer_version": composed.get("composer_version"),
+        "usage": composed.get("usage"),
+        "claims_in": composed.get("claims_in"),
+        "claims_rendered": composed.get("claims_rendered"),
+        "demoted_count": len(composed.get("demoted") or []),
+        # Did it actually produce a LEAD? SESSION_LOG S136 section 12 item 1 --
+        # "no answer, just evidence" -- is the single thing this stage was
+        # flipped on to fix, and the block sequence answers it at a glance.
+        "block_sequence": [str(b.get("type")) for b in blocks],
+        "has_lead": any(str(b.get("type")) == "lead" for b in blocks),
+        "enforcing_violations": len(violations),
+        "claims_degraded_to_original": degraded,
+        "condition_advisory_count": len(advisory),
+        "unaccounted_restored": restored,
+    }
+
+    # The evidence itself, untruncated, on the same doctrine as the cited source
+    # text above: a trimmed record is how a review reaches a wrong verdict.
+    return "\n\n".join([
+        _json_block(summary),
+        "#### enforcing violations (rewrite rejected, claim degraded to original)\n"
+        + (_json_block(violations) if violations else "_none_"),
+        "#### condition-survival advisory (RECORDED, not enforced)\n"
+        + (_json_block(advisory) if advisory else "_none_"),
+        "#### demoted by the composer (with its stated reason)\n"
+        + (_json_block(composed.get("demoted")) if composed.get("demoted") else "_none_"),
+    ])
+
+
 def _timings_table(timings: dict) -> str:
     if not timings:
         return "_not recorded_"
@@ -242,14 +331,28 @@ def capture_turn(question: str, result: dict, chart_facts: dict | None = None,
                 "claims_returned": len(kept) + len(dropped),
                 "ghost_citations": result.get("ghost_citations"),
                 "interpreter_refused": trace.get("interpreter_refused"),
+                # S137 emission contract. `precondition_rejects` is the SHAPE
+                # failure rate for the typed-precondition contract -- a climbing
+                # one means the vocabulary prompt is wrong. Both were invisible
+                # on the first live Phase-1 run (20260919T072700Z).
+                "claims_with_preconditions": result.get("claims_with_preconditions"),
+                "precondition_rejects": result.get("precondition_rejects"),
             }),
             "### silence gate (Stage 5a)\n" + _json_block({
                 "kept_claims": kept,
                 "dropped_claims": dropped,
                 "silent_on": result.get("silent_on"),
                 "stats": result.get("gate_stats"),
+                # S137 amendment: chart tokens a STATEMENT asserted that its
+                # preconditions never tested. ADVISORY -- nothing was dropped
+                # for it. A non-empty list is the under-coverage rate a human
+                # reads before this is ever promoted to enforcing.
                 "error": trace.get("gate_error"),
             }),
+            # Stage 5b sits between the gate and what the reader sees, so it is
+            # recorded between them. It is the ONLY record of whether the answer
+            # below was composed, fell back, or was quietly degraded.
+            "### composer (Stage 5b)\n" + _composer_block((result or {}).get("composed")),
             "### CITED SOURCE TEXT (full, untruncated)\n"
             + _cited_segment_texts(payload, cited),
             f"### timings\n{_timings_table(trace.get('timings') or {})}",

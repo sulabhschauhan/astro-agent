@@ -18,7 +18,8 @@ def test_strips_ghost_ids_keeps_real():
                   "silent_on": [], "refused": False})
     out = I.interpret("q", "facts", PAYLOAD, llm=stub)
     assert out["ghost_citations"] == ["ch99_s999"]
-    assert out["claims"] == [{"statement": "A.", "segment_ids": ["ch24_s082"]}]
+    assert [(c["statement"], c["segment_ids"]) for c in out["claims"]] == \
+        [("A.", ["ch24_s082"])]
     assert out["refused"] is False
 
 def test_claim_with_only_ghost_id_is_dropped():
@@ -35,7 +36,8 @@ def test_dropped_segment_id_is_not_a_valid_citation():
 def test_whole_chapter_unit_id_is_a_valid_citation():
     stub = _stub({"claims": [{"statement": "A.", "segment_ids": ["bphs1_ch11"]}], "refused": False})
     out = I.interpret("q", "facts", PAYLOAD, llm=stub)
-    assert out["claims"] == [{"statement": "A.", "segment_ids": ["bphs1_ch11"]}]
+    assert [(c["statement"], c["segment_ids"]) for c in out["claims"]] == \
+        [("A.", ["bphs1_ch11"])]
 
 def test_empty_payload_refuses_without_calling_llm():
     called = []
