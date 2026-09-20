@@ -1629,3 +1629,73 @@ Branch `wip/interpretive-pilot`. Suite 4480 → **4503 passed / 7 skipped / 0 fa
 **Files:** `predicates.py`, `silence_gate.py`, `interpreter.py` (source); `tests/astro/test_any_of.py` (new), `test_silence_judge.py` (new), `test_predicates.py` (exemption); `planner.py` (banner, docs); `CLAUDE.md`, `KNOWN_PATTERNS.md`, `SESSION_LOG.md` (docs).
 
 **Next (S140), big wins first:** (1) routing / chart-conditioned segment selection — the 60%-corpus/125k-token cost and the dasha-scaling lever; (2) instrument the uncheckable/unfittable rate as the standing early-warning that the typed-checklist approach is holding; (3) promote P-033 recording → enforcing once the mistyping rate is measured across more questions; (4) resolution contract (three-valued `fired` + `boundary_flag`). Blocked-on-Sulabh rulings still open: ch35 v8, ch35 v17, first-class/second-class boundary.
+
+
+## S140 (2026-09-20) — FIRST/SECOND-CLASS RULING + STANDING VERIFIABILITY LEDGER; houses-into-selection killed
+
+Design/validation session run in Cowork (file-bridge to the repo working tree, NO shell on device; offline
+reproduction of the deterministic selection path in a cloud clone). All work on `wip/interpretive-pilot`,
+working-tree only — NO `RATIFIED: commit authorized` token issued this session.
+
+### 1. Tier 1.1 (chart-conditioned `plan.houses` selection) — MEASURED AND REJECTED
+Reproduced the S139 selection path (`select_units` -> `build_payload` -> `filter_segments_by_domain`) offline over
+35 captured turns; offline `kept_segments` matches the live capture exactly (career 303 == 303). Candidate filter
+(the only shape that adds no new tagging hierarchy): drop a kept segment iff its extracted relation pairs name houses
+and none intersect `plan.houses`; fail-safe keeps a segment with no extractable relation. Two disqualifying findings:
+(a) NEGLIGIBLE — aggregate cut 1.34%, 0.1–0.2% on the 84k–150k life-subject turns; the payload is 75.3% relation-less
+fail-safe segments + 16.7% whole chapters = ~92% untouchable, and those tokens sit in the wide life-subject domains
+the S137 standing warning forbids narrowing. (b) DROPS CITED VERSES — 10 cited drops across the sample, concentrated on
+the small-domain turns where it cuts most; root cause is doctrinal: a verse is indexed by its `lord of A in B` placement,
+a different coordinate system from the question's houses. Verified: travel (houses 9,12) cited `ch24_s103` "11th lord in
+the 6th ... living in foreign places" (relation {6,11}) — the single most on-topic verse, dropped. `run_filter` (chart
+placements) already does the only sound chart-conditioning. Evidence: `diagnostics/runs/20260920T055639Z.md`.
+
+### 2. RULING (Sulabh) — first-class vs second-class citation (hybrid by verifiability)
+Reopened the topic-relevance signal (P-034-ruled-out); full roster surfaced. Debate resolver: a topic-relevance signal
+is a GROUNDING/verification signal, not a selection filter (Business's cut-for-dasha overruled — the lever is elsewhere).
+The gating doctrine (S138 §12, parked for Sulabh) is ruled: **an interpreter's corpus citation is FIRST-CLASS when a
+typed predicate can decide its precondition, SECOND-CLASS when it rests on a compound/cross-chapter condition the
+vocabulary cannot yet check.** Consequences (Locked Decisions): first-class needs no row/tag/grounding; do NOT build a
+topic-tag SELECTION layer (P-034 stands with an explicit boundary); second-class citations are the detector/registry's
+chartered blind-spot coverage; "topic-relevance" is coverage-growth or `sloka_registry` grounding, never a selection cut.
+
+### 3. BUILT — standing verifiability ledger (uncommitted)
+`agent/astro/verifiability.py` (leaf module, `LEDGER_VERSION=1`, `summarize(stats)` + `rollup(ledgers)`; fail-safe — a
+pre-S137 capture without `predicate_coverage` yields `second_class=None` (unknown), never a silent 0). 
+`scripts/verifiability_rollup.py` (standing roll-up over `qa_capture/*.md`, reads `GateResult.stats`). 
+`tests/astro/test_verifiability.py` (7 pass offline). MEASUREMENT ONLY — no drop authority; `caught_miss_rate` is the
+P-033 promotion gate a human reads. Standing numbers (15 S139-era turns of 51): 92.4% claims first-class, typed_share
+96.9%, P-033 gate caught_miss 2/47 typed silences (4.3%), second-class backlog 6 unevaluable claims + 23 uncheckable
+silences (uncheckable_rate 19.0%). Row P-036.
+
+### 4. NEXT
+Wire `verifiability.summarize(GateResult.stats)` into the dogfood capture writer (`frontend/app.py`) so future turns
+emit one canonical versioned `verifiability` block (needs a live dogfood run + RATIFIED to commit). Audit the 2
+caught-misses (true false-silences?) + the 32 justified silences (any mistyped false-justify?) before flipping P-033
+enforcing. Blocked-on-Sulabh rulings still open from S138/S139: ch35 v8, ch35 v17.
+
+
+### 5. WIRING LANDED — with an architecture correction (post-user-pytest)
+The user's full `tests/astro/` run (440 pass, 1 fail) caught it: the first wiring imported `verifiability` INTO
+`qa_capture.capture_turn` and computed the ledger there, tripping `test_qa_capture_imports_nothing_from_agent_astro`.
+That guard is CORRECT (its docstring: the capture layer must not compute a derived rate — a second vocabulary copy
+drifts, P-030). Fix respected the guard rather than narrowing it: the ledger is now computed ONCE in
+`pipeline.answer_question` (`result["verifiability"] = verifiability.summarize(gate.stats)`) and `qa_capture` renders
+`result.get("verifiability")` as pure data — the same shape it renders `gate_stats`. No import, no computation in the
+capture layer; the structural test passes unchanged; the ledger is now a first-class, reusable field of the pipeline
+result. `scripts/verifiability_rollup.py` prefers the rendered canonical block, falls back to gate-stats for old
+captures. Round-trip + 7 ledger tests + the structural test all green offline; the full suite + a live dogfood are the
+user's confirmation. Files touched: `pipeline.py`, `qa_capture.py` (source, uncommitted, no RATIFIED token).
+
+
+### 6. P-033 PROMOTION AUDIT — DEFERRED; P-035 is only half-closed (new row P-037)
+Hand-read of the caught_miss + justified silences (AI-reviewing-AI; the flip stays Sulabh's checkpoint). caught_miss
+= 2/2 TRUE POSITIVES (both ch15_s003, 5th lord Mars exalted in Capricorn, stable D1 arm, fragile=False) — the
+enforcing PATH is clean, 0 false-positive catches. BUT the audit found a FALSE-JUSTIFY of the SAME doctrine in a
+second run: ch15_s003 emitted as a FLAT predicate list (no `any_of`) is ANDed, the Own-Sign arm (false) buries the
+Exalted arm (true), and the gate justifies a silence whose condition actually holds. Root cause = P-035 resurfacing:
+the `any_of` combinator works but the interpreter's ADOPTION of it is inconsistent (2 any_of / 1 flat on the same
+verse/chart, same day). Same AND-collapse puts disjunctive CLAIMS at confident-loss. VERDICT: do NOT promote P-033 to
+enforcing until `any_of` adoption is stabilized (deterministic normalization in `predicates.validate_precondition`
+preferred — removes the LLM's discretion). Row P-037. Evidence: `diagnostics/runs/20260920T174749Z.md`.
+
