@@ -1,12 +1,13 @@
 """
 
 ================================================================
-PATH B / LAB TRACK -- NOT WIRED TO THE PRODUCT (S128 lock).
+PATH B IS THE PRODUCT (S129 cutover). THIS MODULE IS LIVE.
 
-This module has NO non-test caller. The live answer path is
-agent/infra/orchestrator.answer_question, imported by
-frontend/app.py:31. Changing this file ships NOTHING to users.
-Read docs/ANSWER_PATHS.md before editing or proposing work here.
+agent/astro/pipeline.answer_question (frontend/app.py:40) calls
+plan_question() and build_from_plan() here. A change SHIPS TO USERS.
+Path A (agent/infra/orchestrator) is the retained revert target,
+wired to no UI. SUPERSEDES the S128 "not wired" banner, false
+since S129. Read docs/ANSWER_PATHS.md before editing.
 ================================================================
 
 Astro Agent -- STAGE 1: THE PLANNER (a.k.a. the router).

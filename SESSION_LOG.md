@@ -1608,3 +1608,24 @@ stratified 20-30 chart sample pass.
 - **Architect's question, which settles the detector's boundary:** when the interpreter cites a
   corpus verse with NO detector row behind it -- which is how the 8 correct ch24 cells arrived --
   is that claim FIRST-CLASS or SECOND-CLASS? Both designs are provisional until this is answered.
+
+
+## S139 (2026-09-19) — DISJUNCTION ROOT CAUSE + P-033 SILENCES TYPED
+
+Branch `wip/interpretive-pilot`. Suite 4480 → **4503 passed / 7 skipped / 0 failed** (+23: `test_any_of.py` 10, `test_silence_judge.py` 13). No regression; existing predicates byte-unchanged.
+
+**P-033 (silences typed & checked) — SHIPPED, recording-mode.** `interpreter.py` now emits `silent_on` as structured `{topic, segment_ids, withheld_because, note}` (a parallel typed field; the plain `silent_on` string list is DERIVED from it so `_render`/`composer` are byte-unchanged — Architect's call, since both consume it as strings). `silence_gate.py` gained `SilenceVerdict` + `judge_silence`, reusing `predicates.evaluate_claim` with the **INVERTED** mapping: a silence asserts the condition FAILS, so predicate-SATISFIED ⇒ CAUGHT_MISS (the stated reason is chart-refuted), CONTRADICTED ⇒ JUSTIFIED, UNEVALUABLE ⇒ UNCHECKABLE. New `gate_stats`: `silences_in/typed/caught_miss/justified/uncheckable/fragile_downgraded` + `silence_detail`. Recording only — changes no claim, no answer, no drop authority. Resolution guard: a CAUGHT_MISS may rest ONLY on resolution-stable predicates; a *satisfying* navamsa arm downgrades to UNCHECKABLE (`downgraded_fragile`) until the resolution contract (`boundary_flag`) lands.
+
+**Root cause found mid-validation — the typed vocabulary had AND but no OR (see P-035).** The first live P-033 run returned `caught_miss=0` on the ch15_s003 defect, verdict `justified`. Traced to the interpreter emitting the verse's OR condition ("5th lord in own sign OR own navamsa OR exalted") as THREE separate predicates, which `evaluate_claim` ANDs — the Own-Sign arm is false ⇒ whole condition CONTRADICTED ⇒ silence labelled `justified`. Reproduced against the real `predicates.py` (3-ANDed = contradicted; `any_of` = satisfied). This is NOT a P-033 bug: it is a gap in the S137 verification contract, and it was silently DROPPING true disjunctive CLAIMS in production too (confident-loss, the worse failure mode). The LLM reads OR fine; the AND came from the LLM→Python handoff — the checklist's only combine rule was AND.
+
+**Fix: `any_of` combinator (additive) in `predicates.py`.** SATISFIED if any arm holds, CONTRADICTED iff every arm refuted, else UNEVALUABLE; recurses via `evaluate()`; `validate_precondition` + `predicate_tokens` + `vocabulary_prompt` updated; `fact_class=""` (non-fact-reading, like `unfittable`) with the `test_predicates` exemption widened to cover the combinator. `interpreter.py` needs no further change — the OR teaching flows through the shared `vocabulary_prompt`.
+
+**Validation (pre/post).** Cloud sandbox against the real `predicates.py`: `test_predicates.py` 52 → 52 (no regression) + 10 `any_of` + 13 silence + 2 `any_of`↔silence interaction = **77 green**. Full suite on device: **4503/7/0**. Live re-run `20260919T163828Z`: gpt-5 **emits `any_of`**; ch15_s003 false silence now **CAUGHT** (twice, reproducibly), `decided_by: typed`, `downgraded_fragile: false` (rests on the stable D1 Exalted arm); high adoption (7/7, 5/5, 6/7, 9/9 typed); zero false alarms elsewhere.
+
+**Emission quirk (not a bug, fail-safe):** one turn wrote `"graha": "lord_of_12th"` inside an `any_of` — a description where a graha name belongs (the model can't resolve "the Nth lord" to a planet). Lands UNEVALUABLE. Future emission-tuning: teach lord-resolution via `house_lords`, or add a `lord_of(house)` indirection to the vocabulary.
+
+**Docs-drift fixed:** `interpreter.py` + `planner.py` stale "NOT WIRED (S128)" banners corrected — both are live via the pipeline since the S129 cutover. `CLAUDE.md` focus/count updated (128 → 144, 4503). P-035 added and P-033 status updated in `KNOWN_PATTERNS.md`.
+
+**Files:** `predicates.py`, `silence_gate.py`, `interpreter.py` (source); `tests/astro/test_any_of.py` (new), `test_silence_judge.py` (new), `test_predicates.py` (exemption); `planner.py` (banner, docs); `CLAUDE.md`, `KNOWN_PATTERNS.md`, `SESSION_LOG.md` (docs).
+
+**Next (S140), big wins first:** (1) routing / chart-conditioned segment selection — the 60%-corpus/125k-token cost and the dasha-scaling lever; (2) instrument the uncheckable/unfittable rate as the standing early-warning that the typed-checklist approach is holding; (3) promote P-033 recording → enforcing once the mistyping rate is measured across more questions; (4) resolution contract (three-valued `fired` + `boundary_flag`). Blocked-on-Sulabh rulings still open: ch35 v8, ch35 v17, first-class/second-class boundary.
