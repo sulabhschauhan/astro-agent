@@ -1,12 +1,13 @@
 """
 
 ================================================================
-PATH B / LAB TRACK -- NOT WIRED TO THE PRODUCT (S128 lock).
+PATH B IS THE PRODUCT (S129 cutover). THIS MODULE IS LIVE.
 
-This module has NO non-test caller. The live answer path is
-agent/infra/orchestrator.answer_question, imported by
-frontend/app.py:31. Changing this file ships NOTHING to users.
-Read docs/ANSWER_PATHS.md before editing or proposing work here.
+agent/astro/pipeline.answer_question (frontend/app.py:40) calls
+interpret() at pipeline.py:332. A change here SHIPS TO USERS.
+Path A (agent/infra/orchestrator) is the retained revert target,
+wired to no UI. SUPERSEDES the S128 "not wired" banner, false
+since S129. Read docs/ANSWER_PATHS.md before editing.
 ================================================================
 
 Astro Agent -- STAGE 4: THE INTERPRETER (locked to GPT-5).
@@ -54,7 +55,7 @@ _SYSTEM_HEAD = (
     "- If the verses cannot answer the question, refuse plainly. Honest silence beats a guess.\n\n"
     "Return STRICT JSON only, no prose outside it, exactly this shape:\n"
     '{"claims": [{"statement": "<one plain-language claim>", "segment_ids": ["<id>", ...], "preconditions": [<see PRECONDITIONS below>]}], '
-    '"silent_on": ["<what you could not address and why>"], "refused": false}\n'
+    '"silent_on": [{"topic": "<what you did not state>", "segment_ids": ["<id>", ...], "withheld_because": [<preconditions, see below>], "note": "<terse: verse id + missing precondition>"}], "refused": false}\n'
     "Each claim.statement must be self-contained and name the placement it relies on so it can be "
     "checked (e.g. \"With the 10th lord in the 4th, ...\"). Put NOTHING in a statement that is not "
     "supported by a cited verse.\n"
@@ -74,8 +75,16 @@ _SYSTEM_HEAD = (
     "- Where a verse is unfavourable, report it plainly and without drama, as what the text says, "
     "not as a prediction about their life. No fatalism, no alarm, no reassurance either.\n"
     "- One or two sentences per claim. No preamble, no summary claim restating the others.\n\n"
-    "`silent_on` is INTERNAL DIAGNOSTICS and is never shown to the user, so be terse and "
-    "technical there: name the verse ids and the missing precondition, nothing more.\n"
+    "`silent_on` records each verse or point you did NOT turn into a claim because its "
+    "chart condition looks unmet. For each, give `withheld_because`: the SAME closed-"
+    "vocabulary preconditions you would have declared had you made the claim -- the exact "
+    "condition whose failure is your reason for staying silent. These are checked against "
+    "the computed chart; if a condition you call unmet actually HOLDS, that is a silent "
+    "miss. State the real condition at full strength, and NEVER withhold a verse whose "
+    "condition you have not checked against the facts. A condition not expressible in the "
+    "vocabulary -> one `unfittable` with a note. Silent for a NON-chart reason (the verses "
+    "do not address the question, or need a fact we do not compute) -> give `note` only, "
+    "no `withheld_because`. Be terse; this is internal diagnostics.\n"
 )
 
 
@@ -209,8 +218,8 @@ def interpret(
     verses = _verse_block(payload)
     if not verses.strip():
         return {"claims": [], "silent_on": ["No verses were selected for this question."],
-                "refused": True, "ghost_citations": [], "usage": {}, "model": model,
-                "interpreter_version": INTERPRETER_VERSION, "raw": ""}
+                "silences": [], "refused": True, "ghost_citations": [], "usage": {},
+                "model": model, "interpreter_version": INTERPRETER_VERSION, "raw": ""}
 
     manifest = _id_manifest(payload)
     # The vocabulary is GENERATED from predicates.PREDICATES, never restated
@@ -263,9 +272,42 @@ def interpret(
             clean_claims.append({"statement": stmt, "segment_ids": real,
                                  "preconditions": preconds})
 
+    # PARALLEL TYPED SILENCES (P-033). Same fail-safe posture as claims: an
+    # illegal withheld_because predicate is dropped and recorded, never fatal.
+    # `silent_on` stays list[str] for _render/composer; `silences` carries the
+    # structured, checkable form for the silence gate.
+    clean_silences: list[dict] = []
+    silent_on_strings: list[str] = []
+    for rs in (obj.get("silent_on") or []):
+        if isinstance(rs, str):                       # legacy / degraded shape
+            clean_silences.append({"topic": rs, "segment_ids": [],
+                                   "withheld_because": [], "note": rs})
+            silent_on_strings.append(rs)
+            continue
+        if not isinstance(rs, dict):
+            continue
+        topic = str(rs.get("topic") or "").strip()
+        note = str(rs.get("note") or "").strip()
+        seg = [i for i in (str(x) for x in (rs.get("segment_ids") or [])) if i in ids]
+        wb: list[dict] = []
+        for raw_p in (rs.get("withheld_because") or []):
+            ok, why = PRED.validate_precondition(raw_p)
+            if ok:
+                wb.append(raw_p)
+            else:
+                precondition_rejects.append({"where": "silence", "topic": topic[:120],
+                                             "why": why, "precondition": raw_p})
+        clean_silences.append({"topic": topic, "segment_ids": seg,
+                               "withheld_because": wb, "note": note})
+        s = f"{topic}: {note}" if note and note != topic else (note or topic)
+        if s:
+            silent_on_strings.append(s)
+
     return {
         "claims": clean_claims,
-        "silent_on": list(obj.get("silent_on") or []),
+        "silent_on": silent_on_strings,
+        "silences": clean_silences,
+        "silences_with_preconditions": sum(1 for s in clean_silences if s["withheld_because"]),
         "refused": bool(obj.get("refused")) or not clean_claims,
         "ghost_citations": sorted(set(ghost)),
         # Shape failures, not content failures. A climbing rate means the

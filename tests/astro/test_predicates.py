@@ -74,8 +74,10 @@ def test_every_predicate_reads_a_declared_fact_class():
     the FACT_BLOCK_PROVIDES key it reads, or be the escape hatch."""
     from agent.astro.capability_gate import FACT_BLOCK_PROVIDES
     for name, cls in P.PREDICATE_FACT_CLASS.items():
-        if name == "unfittable":
-            assert cls == ""
+        if cls == "":
+            # Non-fact-reading types: the escape hatch (unfittable) and the
+            # any_of combinator (its ARMS carry the fact classes, not it).
+            assert name in ("unfittable", "any_of")
             continue
         assert cls in FACT_BLOCK_PROVIDES, f"{name} reads undeclared class {cls!r}"
 

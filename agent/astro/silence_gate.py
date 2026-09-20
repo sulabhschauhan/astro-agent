@@ -77,6 +77,17 @@ NOT_APPLICABLE = "not_applicable"
 UNDETERMINED = "undetermined"
 UNKNOWN_SOURCE = "unknown_source"
 
+# P-033 silence verdicts. A silence is a NEGATIVE claim ("withheld because C
+# does not hold"), so the PRED verdict maps OPPOSITE to judge_claim:
+# PRED.SATISFIED (C holds) is the ALARM; PRED.CONTRADICTED (C fails) is JUSTIFIED.
+JUSTIFIED = "justified"
+CAUGHT_MISS = "caught_miss"
+UNCHECKABLE = "uncheckable"
+# A CAUGHT_MISS may rest ONLY on resolution-stable predicates. navamsa_* is a
+# 3deg20' cell that flips on a ~1deg ayanamsa/time error, so a SATISFIED silence
+# resting on one is held to UNCHECKABLE until item 2's boundary_flag exists.
+_FRAGILE_PRED_TYPES = frozenset({"navamsa_sign", "navamsa_dignity"})
+
 
 class SilenceGateError(Exception):
     """Raised only for a caller error (malformed arguments), never for a
@@ -112,18 +123,90 @@ class ClaimVerdict:
 
 
 @dataclass
+class SilenceVerdict:
+    topic: str
+    segment_ids: list
+    verdict: str
+    note: str = ""
+    decided_by: str = "prose"          # "typed" once withheld_because was evaluated
+    predicate_detail: list = field(default_factory=list)
+    uncovered_tokens: list = field(default_factory=list)  # advisory, silence-side P-032
+    downgraded_fragile: bool = False   # SATISFIED held back on a fragile predicate
+
+
+def _normalize_silence(s):
+    """Accept a legacy bare string OR the new structured entry. Never raises."""
+    if isinstance(s, str):
+        return s, [], None, s
+    if isinstance(s, dict):
+        topic = str(s.get("topic") or s.get("note") or "")
+        seg = [str(i) for i in (s.get("segment_ids") or [])]
+        wb = s.get("withheld_because")
+        note = str(s.get("note") or "")
+        return topic, seg, (wb if isinstance(wb, list) else None), note
+    return str(s), [], None, ""
+
+
+def _satisfied_leaf_types(preds, facts) -> set:
+    """Types of the LEAF predicates that INDIVIDUALLY evaluate SATISFIED against
+    the chart, recursing into any_of arms. The fragility guard reads this so a
+    CAUGHT_MISS is held back ONLY when every arm that actually holds is a
+    resolution-fragile (navamsa) one -- a catch resting on a stable D1 arm is
+    kept even if a fragile arm sits beside it in the OR."""
+    out: set = set()
+    for p in (preds or []):
+        if not isinstance(p, dict):
+            continue
+        t = p.get("type")
+        if t == "any_of":
+            out |= _satisfied_leaf_types(p.get("any_of") or [], facts)
+        elif PRED.evaluate(p, facts or {})[0] == PRED.SATISFIED:
+            out.add(t)
+    return out
+
+
+def judge_silence(silence, chart_facts=None) -> "SilenceVerdict":
+    """Evaluate ONE withheld item against the chart. Never raises. Reuses
+    PRED.evaluate_claim, then maps its verdict THROUGH THE INVERSION:
+    CONTRADICTED -> JUSTIFIED, SATISFIED -> CAUGHT_MISS, UNEVALUABLE -> UNCHECKABLE.
+    Python does arithmetic only; the condition is declared, never parsed here."""
+    topic, seg, wb, note = _normalize_silence(silence)
+    if not wb:                          # legacy string or no declared condition
+        return SilenceVerdict(topic, seg, UNCHECKABLE, note=note, decided_by="prose")
+    res = PRED.evaluate_claim(wb, chart_facts or {})
+    pred_rows = res.get("predicates", [])
+    cov = PRED.statement_coverage(note, wb)
+    v = res["verdict"]
+    if v == PRED.CONTRADICTED:
+        verdict, fragile = JUSTIFIED, False
+    elif v == PRED.SATISFIED:
+        sat_types = _satisfied_leaf_types(wb, chart_facts or {})
+        if sat_types and sat_types <= _FRAGILE_PRED_TYPES:
+            verdict, fragile = UNCHECKABLE, True   # only fragile arms actually hold
+        else:
+            verdict, fragile = CAUGHT_MISS, False
+    else:
+        verdict, fragile = UNCHECKABLE, False
+    return SilenceVerdict(topic, seg, verdict, note=note, decided_by="typed",
+                          predicate_detail=pred_rows, uncovered_tokens=cov["uncovered"],
+                          downgraded_fragile=fragile)
+
+
+@dataclass
 class GateResult:
     kept_claims: list[dict]
     dropped_claims: list[dict]
     verdicts: list[ClaimVerdict]
     silent_on: list[str]
     stats: dict
+    silence_verdicts: list = field(default_factory=list)
     gate_version: str = GATE_VERSION
     error: Optional[str] = None
 
     def to_dict(self) -> dict:
         d = asdict(self)
         d["verdicts"] = [asdict(v) for v in self.verdicts]
+        d["silence_verdicts"] = [asdict(s) for s in self.silence_verdicts]
         return d
 
 
@@ -630,7 +713,28 @@ def apply_silence_gate(interpreter_output: dict, payload: dict,
             # human should know it, per Working Style #5.
             "ungated_pct": round(100 * counts[UNDETERMINED] / total, 1),
         }
-        return GateResult(kept, dropped, verdicts, silent, stats)
+        # P-033: silence judging (recording only -- changes no claim, no answer).
+        # Prefer the interpreter's structured `silences`; fall back to the
+        # silent_on strings (each -> UNCHECKABLE).
+        raw_silences = interpreter_output.get("silences")
+        if not isinstance(raw_silences, list) or not raw_silences:
+            raw_silences = list(interpreter_output.get("silent_on") or [])
+        silence_verdicts = [judge_silence(s, chart_facts) for s in raw_silences]
+        stats.update({
+            "silences_in": len(silence_verdicts),
+            "silences_typed": sum(1 for s in silence_verdicts if s.decided_by == "typed"),
+            "silences_caught_miss": sum(1 for s in silence_verdicts if s.verdict == CAUGHT_MISS),
+            "silences_justified": sum(1 for s in silence_verdicts if s.verdict == JUSTIFIED),
+            "silences_uncheckable": sum(1 for s in silence_verdicts if s.verdict == UNCHECKABLE),
+            "silences_fragile_downgraded": sum(1 for s in silence_verdicts if s.downgraded_fragile),
+            "silence_detail": [{"topic": s.topic[:160], "verdict": s.verdict,
+                                "decided_by": s.decided_by, "segment_ids": s.segment_ids,
+                                "uncovered_tokens": s.uncovered_tokens,
+                                "downgraded_fragile": s.downgraded_fragile}
+                               for s in silence_verdicts],
+        })
+        return GateResult(kept, dropped, verdicts, silent, stats,
+                          silence_verdicts=silence_verdicts)
 
     except Exception as e:
         # FAIL OPEN. The unmodified answer ships, the failure is on record.

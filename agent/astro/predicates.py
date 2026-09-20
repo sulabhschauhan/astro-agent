@@ -348,6 +348,31 @@ def _ev_unfittable(p: dict, f: dict) -> tuple[str, str]:
     return UNEVALUABLE, f"precondition not expressible in the vocabulary: {note}"
 
 
+def _ev_any_of(p: dict, f: dict) -> tuple[str, str]:
+    """DISJUNCTION (S139). The verse joins its arms with OR: the condition holds
+    when ANY ONE arm holds. Each arm is itself a predicate, evaluated by the same
+    `evaluate`, so nesting and every leaf type work unchanged.
+
+        SATISFIED    at least one arm SATISFIED
+        CONTRADICTED every arm CONTRADICTED (the disjunction is genuinely refuted)
+        UNEVALUABLE  no arm holds and not all are refuted (some arm unevaluable)
+
+    This is what a plain list of predicates -- which `evaluate_claim` ANDs --
+    cannot express: an OR condition emitted as several ANDed predicates is
+    wrongly CONTRADICTED the moment one arm fails, dropping a claim (or
+    mislabelling a silence) whose verse is actually satisfied by another arm.
+    """
+    subs = p.get("any_of")
+    if not isinstance(subs, list) or not subs:
+        return UNEVALUABLE, "any_of: needs a non-empty list of sub-conditions"
+    verdicts = [evaluate(s, f)[0] for s in subs]
+    if SATISFIED in verdicts:
+        return SATISFIED, "any_of: at least one arm holds"
+    if all(v == CONTRADICTED for v in verdicts):
+        return CONTRADICTED, "any_of: every arm is refuted"
+    return UNEVALUABLE, "any_of: no arm holds and not all arms are refuted"
+
+
 # ------------------------------------------------------------- the registry
 # type -> (evaluator, fact class it reads, gloss, scope guard)
 # GLOSS + SCOPE GUARD ARE MANDATORY per Working Style #35. A bare token list is
@@ -419,6 +444,12 @@ PREDICATES: dict[str, tuple[Callable[[dict, dict], tuple[str, str]], str, str, s
         "the precondition cannot be expressed in this vocabulary",
         "ESCAPE HATCH. Always UNEVALUABLE. Its RATE is the health metric for "
         "the vocabulary; it is never a way to pass an awkward claim."),
+    "any_of": (
+        _ev_any_of, "",
+        "the condition holds when ANY ONE of these sub-conditions holds (OR)",
+        "DISJUNCTION. Use ONLY where the verse literally says 'or'. Arms are "
+        "themselves predicates; SATISFIED if any arm holds, CONTRADICTED only "
+        "when every arm is refuted. Never a way to widen an AND condition."),
 }
 
 PREDICATE_FACT_CLASS: dict[str, str] = {k: v[1] for k, v in PREDICATES.items()}
@@ -535,6 +566,7 @@ PREDICATE_ARGS: dict[str, tuple[str, ...]] = {
     "yoga_fired": ("yoga_id",),
     "yoga_ruled_out": ("yoga_id",),
     "unfittable": ("note",),
+    "any_of": ("any_of",),
 }
 
 
@@ -563,6 +595,14 @@ def validate_precondition(p: Any) -> tuple[bool, str]:
         # Closed contract: an invented argument usually means an invented
         # reading of the verse, so it is refused rather than ignored.
         return False, f"{ptype} carries unknown argument(s) {', '.join(sorted(extra))}"
+    if ptype == "any_of":
+        subs = p.get("any_of")
+        if not isinstance(subs, list) or not subs:
+            return False, "any_of needs a non-empty list of sub-conditions"
+        for sub in subs:
+            ok, why = validate_precondition(sub)
+            if not ok:
+                return False, f"any_of arm invalid: {why}"
     return True, "ok"
 
 
@@ -617,6 +657,15 @@ def vocabulary_prompt(facts: dict | None = None) -> str:
         "three: planet_in_house Saturn 7, planet_in_house Mars 7, planet_dignity on "
         "the 10th lord's graha. Do not collapse a multi-part condition into "
         "`unfittable` because it has several parts.",
+        "",
+        "A CONDITION THE VERSE JOINS WITH \"OR\" IS ONE any_of, NOT several "
+        "predicates. \"the 5th lord in its own sign OR exalted\" is a single "
+        "{\"type\": \"any_of\", \"any_of\": [{\"type\": \"planet_dignity\", ..., "
+        "\"dignity\": \"Own Sign\"}, {\"type\": \"planet_dignity\", ..., "
+        "\"dignity\": \"Exalted\"}]}. Separate plain predicates are ANDed and "
+        "WRONGLY fail when only one arm is missing, so an OR verse written as "
+        "separate predicates loses a true reading. Use any_of only where the "
+        "verse actually says or.",
         "",
         "DO NOT ASSERT IN THE SENTENCE WHAT YOU HAVE NOT DECLARED. Every house, "
         "graha, sign or dignity your statement names must be covered by one of your "
@@ -748,6 +797,9 @@ def predicate_tokens(preconditions: Any) -> set[str]:
             continue
         t = p.get("type")
         if t not in PREDICATES:
+            continue
+        if t == "any_of":
+            out |= predicate_tokens(p.get("any_of") or [])
             continue
         for arg in PREDICATE_ARGS.get(t, ()):
             v = p.get(arg)
