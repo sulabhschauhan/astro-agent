@@ -41,6 +41,7 @@ from agent.astro import planner
 from agent.astro import capability_gate
 from agent.astro import interpreter as _interp
 from agent.astro import silence_gate
+from agent.astro import verifiability
 from agent.astro import composer as _composer
 from agent.astro import payload_builder
 
@@ -402,6 +403,11 @@ def answer_question(
         "claims_with_preconditions": interp.get("claims_with_preconditions"),
         "precondition_rejects": interp.get("precondition_rejects"),
         "gate_stats": gate.stats,
+        # S140: canonical first/second-class verifiability ledger, computed here
+        # (the domain layer that owns the gate) so the capture layer renders it
+        # as data and never computes a derived rate itself (test_qa_capture
+        # imports-nothing guard; P-030 one-home discipline).
+        "verifiability": verifiability.summarize(gate.stats),
         # Stage 5b output, or None when the composer did not run. `answer_view`
         # prefers it when present; `answer` above is always the Stage-5a render.
         "composed": composed,

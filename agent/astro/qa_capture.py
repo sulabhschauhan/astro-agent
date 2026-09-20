@@ -349,6 +349,12 @@ def capture_turn(question: str, result: dict, chart_facts: dict | None = None,
                 # reads before this is ever promoted to enforcing.
                 "error": trace.get("gate_error"),
             }),
+            # S140: the canonical first/second-class ledger, COMPUTED UPSTREAM in
+            # pipeline.answer_question and rendered here as pure data (no import,
+            # no derived-rate computation in the capture layer -- test_qa_capture
+            # imports-nothing guard). Future roll-ups read THIS block.
+            # MEASUREMENT ONLY; `caught_miss_rate_pct` is the P-033 promotion gate.
+            "### verifiability (S140)\n" + _json_block(result.get("verifiability")),
             # Stage 5b sits between the gate and what the reader sees, so it is
             # recorded between them. It is the ONLY record of whether the answer
             # below was composed, fell back, or was quietly degraded.
