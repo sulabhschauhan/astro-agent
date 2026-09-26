@@ -88,6 +88,11 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
     "yogas",               # fired + ruled-out yoga verdicts computed by the
                            # yoga detector over the facts above (S133). Additive
                            # fact class; no REQUIREMENT references it.
+    "dasha_periods",       # Vimshottari mahadasha + antardasha, restated from
+                           # calculate_chart()['dasha'] by chart_facts._read_dasha
+                           # (S141; pratyantar suppressed). Landing this key made the
+                           # dasha_timing requirement inert, so it was RETIRED -- see
+                           # REQUIREMENTS below.
 })
 
 
@@ -125,39 +130,28 @@ class Requirement:
 # ---------------------------------------------------------------------------
 # The requirement register.
 #
-# ONE entry today. That is not an oversight: every other planner domain
-# (career, marriage, wealth, children, health, education, longevity, travel,
-# property, parents, siblings, spirituality, enemies_conflict,
-# planetary_nature) is answerable from house-lord placements
-# alone, which is exactly what BPHS's house chapters are keyed on. Only timing
-# needs a fact class the block does not carry.
+# EMPTY as of S141. It held ONE entry -- `dasha_timing` -- and that was the last
+# fact class any planner domain needed and the block did not carry. Every other
+# domain (career, marriage, wealth, children, health, education, longevity,
+# travel, property, parents, siblings, spirituality, enemies_conflict,
+# planetary_nature) answers from house-lord placements, which is what BPHS's
+# house chapters are keyed on. S141 restated the Vimshottari timeline into
+# `dasha_periods` (chart_facts._read_dasha -> FACT_BLOCK_PROVIDES above), so
+# `dasha_timing`'s `needs` is now provided: the requirement could never fire
+# again, and `test_every_requirement_names_a_capability_the_block_does_not_yet_have`
+# forbids a satisfied requirement lingering. It was RETIRED. Timing questions are
+# now answerable, so the gate declines nothing.
 #
 # (S136: technique_method was REMOVED from planner.DOMAINS entirely -- a
-# methodology question is now refused as out of scope, so no requirement
-# could ever fire for it. See planner.DOMAINS and KNOWN_PATTERNS P-030.)
+# methodology question is refused as out of scope before the gate, so no
+# requirement could ever fire for it. See planner.DOMAINS and KNOWN_PATTERNS P-030.)
 #
 # Do NOT add a requirement speculatively. Add one when a real question is
-# observed being answered from facts that are not in the block.
+# observed being answered from facts that are NOT in the block -- the register
+# is intentionally empty until then. The dataclass and assess() below are kept
+# whole for that day.
 # ---------------------------------------------------------------------------
-REQUIREMENTS: tuple[Requirement, ...] = (
-    Requirement(
-        id="dasha_timing",
-        needs="dasha_periods",
-        domains=frozenset({"timing_dasha"}),
-        time_scopes=frozenset({"future", "specific_period"}),
-        user_message=(
-            "I can't tell you when. The dasha period calculation isn't wired "
-            "into the chart facts I can read yet, so any date or timeframe I "
-            "gave you would be invented rather than calculated."
-        ),
-        # Timing is the whole question in "when will I marry?", but it is a
-        # rider in "what does my chart say about marriage, and when?". Dropping
-        # the domain and answering the rest is the honest middle, so this is
-        # False -- assess() escalates to a full refusal only when NOTHING is
-        # left to answer from.
-        blocks_whole_answer=False,
-    ),
-)
+REQUIREMENTS: tuple[Requirement, ...] = ()
 
 
 @dataclass

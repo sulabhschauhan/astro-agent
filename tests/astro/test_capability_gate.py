@@ -41,16 +41,48 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
         "Sun": {"house": 4, "sign": "Pisces"}, "Ketu": {"house": 9, "sign": "Leo"}}))
     assert "Sun is in house 4 (Pisces)." in with_planets
     assert "Ketu is in house 9 (Leo)." in with_planets
-    # Nothing else is in the block. If a future edit adds dasha lines here,
-    # this assertion fires and the author must add the capability key too.
+    # These facts carry no dasha_periods, so the guarded dasha section must not
+    # render (S141): the block mentions dasha ONLY when the facts carry it, exactly
+    # like yogas/navamsa. A dasha render for a dasha-less dict would break the
+    # legacy-dict byte-identity pin below.
     assert "dasha" not in block.lower(), (
-        "the fact block now mentions dasha -- add the matching key to "
-        "FACT_BLOCK_PROVIDES in the same change, or the gate will keep "
-        "declining questions it could now answer"
-    )
+        "dasha rendered for a facts dict that carries no dasha_periods -- the "
+        "dasha section must be guarded on presence")
     assert CG.FACT_BLOCK_PROVIDES == frozenset(
         {"ascendant_sign", "lord_house_map", "planet_positions", "house_lords",
-         "aspects", "dignity", "navamsa", "yogas"})
+         "aspects", "dignity", "navamsa", "yogas", "dasha_periods"})
+
+
+def test_dasha_capability_is_rendered_when_the_facts_carry_it():
+    """The S141 dasha fact class: rendered when chart_facts carries it, absent
+    otherwise, and declared in FACT_BLOCK_PROVIDES (the growth-contract pin).
+    Pratyantar is NOT a key here -- it is suppressed in chart_facts._read_dasha,
+    so the block can never surface it."""
+    from agent.astro import pipeline
+    facts = {"lord_house_map": {h: 1 for h in range(1, 13)},
+             "ascendant_sign": "Leo"}
+    assert "Vimshottari dasha timeline" not in pipeline._fact_block(facts)
+    with_dasha = pipeline._fact_block(dict(facts, dasha_periods={
+        "mahadasha": {"lord": "Ketu", "start": "1 Aug 2025", "end": "1 Aug 2032"},
+        "antardasha": {"lord": "Venus", "start": "29 Dec 2025", "end": "28 Feb 2027"},
+        "mahadasha_tree": [
+            {"mahadasha": {"lord": "Mercury", "start": "1 Aug 2008", "end": "1 Aug 2025"},
+             "antardashas": [{"lord": "Sun", "start": "28 Oct 2014", "end": "4 Sep 2015"}],
+             "phase": "past"},
+            {"mahadasha": {"lord": "Ketu", "start": "1 Aug 2025", "end": "1 Aug 2032"},
+             "antardashas": [{"lord": "Venus", "start": "29 Dec 2025", "end": "28 Feb 2027"}],
+             "phase": "current"}],
+        "drift_note": "approximate; +/-37 days"}))
+    # the COMPLETE tree (gap #2): past MD + its sub-periods, the current MD tagged,
+    # and the running sub-period marked -- every date the model needs, so it never
+    # computes one.
+    assert "Mercury major period (1 Aug 2008 to 1 Aug 2025) [past]" in with_dasha
+    assert "Sun sub-period (28 Oct 2014 to 4 Sep 2015)" in with_dasha   # the once-fabricated AD
+    assert "Ketu major period (1 Aug 2025 to 1 Aug 2032) [CURRENT]" in with_dasha
+    assert "Venus sub-period (29 Dec 2025 to 28 Feb 2027)   <- the sub-period running now" in with_dasha
+    assert "do not compute or estimate any period yourself" in with_dasha
+    assert "+/-37 days" in with_dasha                                  # drift hedge stated
+    assert "dasha_periods" in CG.FACT_BLOCK_PROVIDES
 
 
 def test_yogas_capability_is_rendered_when_the_facts_carry_it():
@@ -247,49 +279,52 @@ def test_non_timing_questions_pass_through_untouched(domains):
     assert v.plan is plan, "an unaffected plan must be passed through, not copied"
 
 
-# ── the hard cases: mixed answerable / unanswerable ────────────────────────
+# ── the cases that FLIPPED at S141: timing is now answerable ───────────────
+# Before S141 these were DECLINED because the fact block carried no dates. Now
+# dasha_periods is in the block and REQUIREMENTS is empty, so the gate declines
+# nothing -- every timing case passes through. Rewritten from the pre-dasha
+# contract; the pre-dasha assertions are what this change deliberately inverts.
 
-def test_marriage_plus_timing_answers_marriage_and_declines_the_timing():
-    """'What does my chart say about marriage, and when?' -- the honest middle."""
+def test_marriage_plus_timing_now_answers_both():
+    """'What does my chart say about marriage, and when?' -- both halves answer
+    now that the dasha timeline is in the fact block (S141). Was: timing dropped,
+    marriage kept, one decline message."""
     plan = _plan(["marriage", "timing_dasha"], time_scope="future")
     v = CG.assess(plan)
 
     assert v.refuse_outright is False
-    assert v.dropped_domains == ["timing_dasha"]
-    assert v.plan.domains == ["marriage"]
-    assert len(v.messages) == 1
-    assert "when" in v.messages[0].lower()
-    # the original plan is untouched -- the decision log must stay truthful
-    assert plan.domains == ["marriage", "timing_dasha"]
+    assert v.declined == []
+    assert v.dropped_domains == []
+    assert v.plan is plan, "an answerable plan passes through untouched, not copied"
+    assert v.plan.domains == ["marriage", "timing_dasha"]
 
 
-def test_timing_only_question_refuses_outright():
-    """'When will I marry?' planned as timing alone -- nothing left to answer."""
+def test_timing_only_question_now_answers():
+    """'When will I marry?' planned as timing alone -- answerable now, not refused."""
     plan = _plan(["timing_dasha"], time_scope="future")
     v = CG.assess(plan)
 
-    assert v.refuse_outright is True
-    assert v.dropped_domains == ["timing_dasha"]
-    assert v.plan.domains == []
-    assert len(v.messages) == 1
+    assert v.refuse_outright is False
+    assert v.declined == []
+    assert v.dropped_domains == []
+    assert v.plan.domains == ["timing_dasha"]
 
 
-def test_future_time_scope_alone_triggers_even_without_the_timing_domain():
-    """'How will my career go next year?' may plan only `career` -- but it is
-    still asking for a date, and we have no dates."""
+def test_future_time_scope_no_longer_triggers_a_decline():
+    """'How will my career go next year?' -- a future scope no longer draws a
+    'we have no dates' decline (S141): dates ARE available now."""
     plan = _plan(["career"], time_scope="future")
     v = CG.assess(plan)
 
-    assert v.declined, "a future-scoped question must be told we cannot date it"
-    # career itself survives -- the doctrine is still answerable
+    assert v.declined == []
     assert v.refuse_outright is False
     assert v.plan.domains == ["career"]
     assert v.dropped_domains == []
 
 
-def test_specific_period_time_scope_also_triggers():
+def test_specific_period_time_scope_no_longer_triggers():
     v = CG.assess(_plan(["wealth"], time_scope="specific_period"))
-    assert v.declined
+    assert v.declined == []
     assert v.refuse_outright is False
 
 
@@ -302,9 +337,10 @@ def test_non_forward_time_scopes_do_not_trigger(scope):
 
 # ── growth path: a widened fact block silences the gate automatically ──────
 
-def test_widened_fact_block_makes_the_timing_requirement_inert():
-    """When vimshottari lands and the block carries dasha_periods, the same
-    question must sail through with NO code change beyond the capability key."""
+def test_a_provided_capability_is_never_declined():
+    """The growth-path property, now the live one (S141): a fact class the block
+    provides is never declined. dasha_periods landed for real, so this holds with
+    the default provides too, not just a simulated-widened set."""
     widened = CG.FACT_BLOCK_PROVIDES | {"dasha_periods"}
     plan = _plan(["marriage", "timing_dasha"], time_scope="future")
 
@@ -318,9 +354,14 @@ def test_widened_fact_block_makes_the_timing_requirement_inert():
 
 # ── structural guards ──────────────────────────────────────────────────────
 
-def test_empty_domains_with_forward_scope_refuses_rather_than_proceeding():
+def test_empty_domains_with_forward_scope_passes_the_gate_now():
+    """S141: with REQUIREMENTS empty the gate declines nothing, so it no longer
+    refuses an empty-domains plan -- that refusal now belongs to build_from_plan
+    ('no domains planned'), which still fires downstream. The gate's job is only
+    to narrow to what the block supports, and an empty plan needs no narrowing."""
     v = CG.assess(_plan([], time_scope="future"))
-    assert v.refuse_outright is True
+    assert v.refuse_outright is False
+    assert v.declined == []
 
 
 def test_non_plan_input_raises_loudly():

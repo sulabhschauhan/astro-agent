@@ -234,6 +234,52 @@ def _fact_block(chart_facts: dict) -> str:
         lines.append("Yogas CHECKED and NOT present in the chart:")
         lines.append("  " + "; ".join(
             (y.get("name") or y.get("id")) for y in ruled_out))
+
+    # DASHA / TIMING (S141). Restated from calculate_chart()['dasha'] by
+    # chart_facts._read_dasha -- Vimshottari mahadasha + antardasha. Pratyantar is
+    # suppressed there (wrong lord at that granularity under the drift). The dates
+    # carry the accepted +/-37-day antardasha drift (KNOWN_DIVERGENCES Gap D1),
+    # stated inline so the interpreter presents month/quarter windows rather than
+    # false-precise days. Appended last and guarded on presence, so a dasha-less
+    # chart_facts dict renders byte-identically to before (the legacy-dict pin).
+    # GROWTH CONTRACT: "dasha_periods" is in capability_gate.FACT_BLOCK_PROVIDES.
+    dasha = chart_facts.get("dasha_periods") or {}
+    md = dasha.get("mahadasha")
+    if md:
+        lines.append("")
+        lines.append("Vimshottari dasha timeline -- the planetary periods "
+                     "(mahadasha) and their sub-periods (antardasha) that sequence "
+                     "WHEN the chart's promises ripen. Read the period whose lord "
+                     "governs the matter asked about; every date you need is here, "
+                     "so do not compute or estimate any period yourself.")
+        cur_ad = dasha.get("antardasha") or {}
+        cur_ad_key = (cur_ad.get("lord"), cur_ad.get("start"))
+        tree = dasha.get("mahadasha_tree") or []
+        if tree:
+            # COMPLETE tree (S141 gap #2): past + current + next few mahadashas,
+            # each with its nine antardashas and their date windows.
+            for node in tree:
+                nmd = node["mahadasha"]
+                tag = {"past": " [past]", "current": " [CURRENT]",
+                       "future": " [upcoming]"}.get(node.get("phase"), "")
+                lines.append(f"  {nmd['lord']} major period "
+                             f"({nmd['start']} to {nmd['end']}){tag}")
+                for a in node.get("antardashas") or []:
+                    star = ("   <- the sub-period running now"
+                            if (a["lord"], a["start"]) == cur_ad_key else "")
+                    lines.append(f"      {a['lord']} sub-period "
+                                 f"({a['start']} to {a['end']}){star}")
+        else:
+            # Legacy chart_facts with no tree (e.g. a pre-gap#2 replay dict):
+            # fall back to the current major/sub period only.
+            lines.append(f"  Current major period (mahadasha): {md['lord']} "
+                         f"({md['start']} to {md['end']})")
+            if cur_ad:
+                lines.append(f"  Current sub-period (antardasha): {cur_ad['lord']} "
+                             f"({cur_ad['start']} to {cur_ad['end']})")
+        note = dasha.get("drift_note")
+        if note:
+            lines.append(f"  Note on precision: {note}")
     return "\n".join(lines)
 
 
@@ -273,6 +319,7 @@ def answer_question(
     interpreter_llm: Optional[Callable] = None,
     composer_llm: Optional[Callable] = None,
     compose: Optional[bool] = None,
+    expert: Optional[bool] = None,
     token_budget: int = planner.DEFAULT_TOKEN_BUDGET,
 ) -> dict:
     """End-to-end. Never raises for a model/gate problem -- refuses or fails
@@ -327,6 +374,41 @@ def answer_question(
                 "pipeline_version": PIPELINE_VERSION}
 
     fact_block = _fact_block(chart_facts)
+
+    # EXPERT MODE (S141, the realignment). OFF by default -- the cited-claim path
+    # below is unchanged. When on, the interpreter answers like an expert over the
+    # COMPLETE fact block (facts hard-grounded, interpretation freed), and the
+    # silence gate / composer / citation stripping are skipped entirely: there are
+    # no verse-cited claims to verify or reorder. `expert=` wins over the env var,
+    # exactly like `compose`. See interpreter.interpret_expert.
+    if expert is None:
+        expert = os.environ.get("ASTRO_EXPERT_MODE", "0") == "1"
+    if expert:
+        ex = _interp.interpret_expert(question, fact_block, built["payload"],
+                                      llm=interpreter_llm)
+        _lap("interpreter_expert")
+        return {
+            "answer": ex["answer"],
+            "expert_mode": True,
+            "refused": not ex["answer"].strip(),
+            "plan": built["plan"],
+            "declined": verdict.declined,
+            "dropped_domains": verdict.dropped_domains,
+            "capability_gate_version": verdict.gate_version,
+            # No claim machinery ran; empty by construction so consumers (capture,
+            # answer_view) see a familiar shape and never index a missing key.
+            "kept_claims": [], "dropped_claims": [], "silent_on": [],
+            "ghost_citations": [], "gate_stats": {}, "composed": None,
+            "verifiability": None,
+            "usage": ex["usage"], "tokens": built["tokens"], "model": ex["model"],
+            "trace": {"timings": timings, "payload": built["payload"],
+                      "fact_block": fact_block, "expert_mode": True,
+                      "plan_before_gate": {"domains": list(plan.domains or []),
+                                           "houses": list(plan.houses or []),
+                                           "time_scope": plan.time_scope}},
+            "pipeline_version": PIPELINE_VERSION,
+        }
+
     # chart_facts supplies the YOGA CATALOGUE for the precondition vocabulary
     # (S137). Without it the interpreter cannot name a yoga id and falls back to
     # `unfittable` -- measured on 20260919T072700Z, 9 of 15 predicates.

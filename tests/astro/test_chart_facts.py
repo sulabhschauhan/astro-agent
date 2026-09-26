@@ -293,3 +293,138 @@ def test_module_imports_no_calculation_dependency():
                 f"chart_facts.py imports {name!r} -- it must restate, not compute. "
                 "A change needing a calculation belongs in the calculator."
             )
+
+
+# ── dasha restatement (S141) ───────────────────────────────────────────────
+
+def _dasha_chart(dasha):
+    """A synthetic calculate_chart()-shaped dict carrying a given `dasha` block."""
+    chart = _synthetic_chart()
+    if dasha is not None:
+        chart["dasha"] = dasha
+    return chart
+
+
+_FULL_DASHA = {
+    "current_mahadasha": {"lord": "Mercury", "start": "1 Aug 2008", "end": "1 Aug 2025",
+                          "start_jd": 2454679.0, "end_jd": 2460889.0},
+    "current_antardasha": {"lord": "Mercury", "start": "1 Aug 2008", "end": "29 Dec 2010"},
+    "next_5_antardashas": [{"lord": "Ketu", "start": "29 Dec 2010", "end": "26 Dec 2011"},
+                           {"lord": "Venus", "start": "26 Dec 2011", "end": "27 Oct 2014"}],
+    "next_3_mahadashas": [{"lord": "Ketu", "start": "1 Aug 2025", "end": "1 Aug 2032"},
+                          {"lord": "Venus", "start": "1 Aug 2032", "end": "1 Aug 2052"}],
+    "past_mahadashas": [{"lord": "Jupiter", "start": "6 Apr 1988", "end": "1 Aug 1989"},
+                        {"lord": "Rahu", "start": "1 Aug 1989", "end": "1 Aug 2008"}],
+    # COMPLETE tree (S141 gap #2): full mahadashas each with their antardashas.
+    "mahadasha_tree": [
+        {"mahadasha": {"lord": "Mercury", "start": "1 Aug 2008", "end": "1 Aug 2025"},
+         "antardashas": [{"lord": "Mercury", "start": "1 Aug 2008", "end": "29 Dec 2010"},
+                         {"lord": "Sun", "start": "28 Oct 2014", "end": "4 Sep 2015"}],
+         "phase": "past"},
+        {"mahadasha": {"lord": "Ketu", "start": "1 Aug 2025", "end": "1 Aug 2032"},
+         "antardashas": [{"lord": "Ketu", "start": "1 Aug 2025", "end": "29 Dec 2025"}],
+         "phase": "current"}],
+    # Both suppressed on Path B. Sentinel start/end so the suppression proof can
+    # test for their absence even though Saturn/Moon are legitimate tree lords.
+    "current_pratyantar": {"lord": "Saturn", "start": "PT_SENTINEL", "end": "PT_SENTINEL"},
+    "next_5_pratyantars": [{"lord": "Moon", "start": "PT_SENTINEL", "end": "PT_SENTINEL"}],
+}
+
+
+def test_dasha_is_restated_md_and_ad_with_pratyantar_suppressed():
+    facts = CF.build_chart_facts(_dasha_chart(_FULL_DASHA))
+    d = facts["dasha_periods"]
+    assert d["mahadasha"] == {"lord": "Mercury", "start": "1 Aug 2008", "end": "1 Aug 2025"}
+    assert d["antardasha"]["lord"] == "Mercury"
+    assert [p["lord"] for p in d["past_mahadashas"]] == ["Jupiter", "Rahu"]   # S141
+    assert [p["lord"] for p in d["upcoming_mahadashas"]] == ["Ketu", "Venus"]
+    assert [p["lord"] for p in d["upcoming_antardashas"]] == ["Ketu", "Venus"]
+    # COMPLETE tree (gap #2): the past Mercury MD carries its own sub-periods --
+    # incl. Mercury->Sun (2014-15), the marriage-relevant one the pilot had to
+    # invent because it was absent. Now it is a fact to READ.
+    tree = d["mahadasha_tree"]
+    assert [n["mahadasha"]["lord"] for n in tree] == ["Mercury", "Ketu"]
+    assert tree[0]["phase"] == "past" and tree[1]["phase"] == "current"
+    merc_ads = [a["lord"] for a in tree[0]["antardashas"]]
+    assert merc_ads == ["Mercury", "Sun"]
+    assert any(a["lord"] == "Sun" and a["start"] == "28 Oct 2014"
+               for a in tree[0]["antardashas"])
+    assert "drift" in d["drift_note"].lower() or "+/-37" in d["drift_note"]
+    # PRATYANTAR SUPPRESSION (S129 lock) + no JD floats leak into the block.
+    blob = repr(d)
+    assert "pratyantar" not in blob.lower(), "pratyantar leaked into the fact class"
+    assert "PT_SENTINEL" not in blob, "suppressed pratyantar data leaked into the block"
+    assert "start_jd" not in blob and "_jd" not in blob, "raw JD floats leaked past the drift note"
+    assert set(d["mahadasha"]) == {"lord", "start", "end"}
+
+
+def test_dasha_is_fail_soft_on_missing_or_error_or_partial():
+    assert "dasha_periods" not in CF.build_chart_facts(_dasha_chart(None))          # no dasha key
+    assert "dasha_periods" not in CF.build_chart_facts(_dasha_chart({}))            # empty
+    assert "dasha_periods" not in CF.build_chart_facts(
+        _dasha_chart({"error": "Current mahadasha not found; verify birth data"}))  # error chart
+    assert "dasha_periods" not in CF.build_chart_facts(
+        _dasha_chart({"current_mahadasha": {"lord": "", "start": "x", "end": "y"}}))  # blank lord
+
+
+def test_dasha_md_only_chart_omits_the_antardasha_key():
+    facts = CF.build_chart_facts(_dasha_chart({
+        "current_mahadasha": {"lord": "Sun", "start": "s", "end": "e"},
+        "current_antardasha": None, "next_5_antardashas": [], "next_3_mahadashas": []}))
+    d = facts["dasha_periods"]
+    assert "antardasha" not in d          # absent, not a None-valued key
+    assert d["upcoming_mahadashas"] == [] and d["upcoming_antardashas"] == []
+    assert d["past_mahadashas"] == []     # absent past key -> empty, not missing
+    assert d["mahadasha_tree"] == []      # absent tree -> empty, not missing
+
+
+def test_real_sulabh_chart_surfaces_the_current_and_past_dasha():
+    """End-to-end against the real engine: calculate_chart() -> build_chart_facts.
+    Anchored to the oracle MD table (sulabh.md section 5e): Mercury MD ends
+    1 Aug 2025, Ketu MD runs to 1 Aug 2032, so the current major period is Ketu.
+    The 7th lord Mercury's OWN period (2008-2025) is now in past_mahadashas --
+    that is the marriage-relevant dasha a retrospective question needs (S141).
+    VALID until Aug 2032; revisit the expected lord after that."""
+    facts = CF.build_chart_facts(calculate_chart(*_SULABH))
+    d = facts["dasha_periods"]
+    assert d["mahadasha"]["lord"] == "Ketu"
+    assert "antardasha" in d              # a real chart always has a current sub-period
+    assert d["drift_note"]
+    # the retrospective fix: Mercury's elapsed period is present and dated
+    past_lords = [p["lord"] for p in d["past_mahadashas"]]
+    assert "Mercury" in past_lords, f"7th-lord Mercury's past MD missing: {past_lords}"
+    assert any(p["lord"] == "Mercury" and "2025" in p["end"] for p in d["past_mahadashas"])
+    # gap #2: the tree carries Mercury's OWN antardashas, incl. a Sun sub-period
+    # in the mid-2010s -- the exact thing the pilot fabricated because it was
+    # absent. It is now a fact the interpreter reads, not computes.
+    merc = next((n for n in d["mahadasha_tree"] if n["mahadasha"]["lord"] == "Mercury"), None)
+    assert merc is not None and merc["phase"] == "past"
+    merc_ad_lords = [a["lord"] for a in merc["antardashas"]]
+    assert merc_ad_lords == ["Mercury", "Ketu", "Venus", "Sun", "Moon",
+                             "Mars", "Rahu", "Jupiter", "Saturn"], merc_ad_lords
+    assert any(a["lord"] == "Sun" and "2014" in a["start"] for a in merc["antardashas"])
+    # the suppression holds on the real block too
+    assert "pratyantar" not in repr(d).lower()
+
+
+def test_real_dasha_output_now_carries_past_and_tree():
+    """S127 characterization on _calc_dasha's own output: it STILL returns every
+    pre-S141 key AND the additive past_mahadashas + mahadasha_tree, chronological.
+    Guards the chart_calculator contract the fact class rests on."""
+    da = calculate_chart(*_SULABH)["dasha"]
+    for k in ("current_mahadasha", "current_antardasha", "next_5_antardashas",
+              "next_3_mahadashas", "past_mahadashas", "mahadasha_tree"):
+        assert k in da, f"dasha output lost key {k!r}"
+    assert da["past_mahadashas"], "past list is empty for a mid-life chart"
+    # each past MD ends no later than the current MD begins (chronological, no overlap)
+    assert da["past_mahadashas"][-1]["end_jd"] <= da["current_mahadasha"]["start_jd"] + 1e-6
+    # tree: every full node carries nine antardashas; the birth node (index 0) is
+    # window-only; exactly one node is the current phase.
+    tree = da["mahadasha_tree"]
+    assert tree[0]["antardashas"] == [], "birth (balance) MD must not expand ADs"
+    assert all(len(n["antardashas"]) == 9 for n in tree[1:]), "full MDs need nine ADs each"
+    assert sum(1 for n in tree if n["phase"] == "current") == 1
+    # the current node's ADs match the separately-computed current_antardasha
+    cur = next(n for n in tree if n["phase"] == "current")
+    assert cur["mahadasha"]["lord"] == da["current_mahadasha"]["lord"]
+    assert da["current_antardasha"]["lord"] in [a["lord"] for a in cur["antardashas"]]

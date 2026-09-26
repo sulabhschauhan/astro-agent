@@ -229,6 +229,12 @@ def render_user_answer(result: dict) -> str:
         rendering beats showing nothing.
     """
     try:
+        # EXPERT MODE (S141): the interpreter already wrote the finished, plain,
+        # citation-free answer for the reader. Pass it through -- no claim
+        # rendering, no source line. Strip any stray [id] just in case.
+        if result.get("expert_mode"):
+            return _CITATION_RE.sub("", str(result.get("answer") or "")).strip()
+
         kept = result.get("kept_claims") or []
         declines = [m for _, m in (result.get("declined") or [])]
 

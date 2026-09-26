@@ -591,6 +591,13 @@ def _calc_dasha(moon_lon: float, birth_local: datetime) -> dict:
     maha_idx = next(i for i, m in enumerate(timeline)
                     if m["start"] == current_maha["start"])
     next_3_maha = timeline[maha_idx + 1: maha_idx + 4]
+    # S141: the mahadashas already elapsed. The full `timeline` was always
+    # computed; only the future slice was ever serialised, which is why Path B
+    # could answer a retrospective "when would I have married" only with future
+    # dates -- the correct dasha (e.g. the 7th lord's own period) is usually in
+    # the PAST. Chronological (earliest first). Antardashas of a past MD are NOT
+    # expanded here (a later, topic-lord-scoped step); this is windows only.
+    past_maha = timeline[:maha_idx]
 
     def _ser(d: dict) -> dict:
         return {
@@ -601,11 +608,44 @@ def _calc_dasha(moon_lon: float, birth_local: datetime) -> dict:
             "end_jd": _to_jd(d["end"]),
         }
 
+    def _antardashas(md: dict) -> list[dict]:
+        """The nine antardashas of a FULL mahadasha, computed exactly like the
+        current-MD loop above. NOT valid for the birth (balance-truncated) MD,
+        whose sub-periods are a partial tail -- callers skip index 0."""
+        lord = md["lord"]
+        total = DASHA_YEARS[lord]
+        idx = DASHA_ORDER.index(lord)
+        out: list[dict] = []
+        cursor = md["start"]
+        for j in range(9):
+            al = DASHA_ORDER[(idx + j) % 9]
+            ay = (total * DASHA_YEARS[al]) / 120.0
+            ae = _add_years(cursor, ay)
+            out.append({"lord": al, "start": cursor, "end": ae})
+            cursor = ae
+        return out
+
+    # S141 gap #2: the COMPLETE tree -- every full mahadasha from birth through
+    # the next three, each with its nine antardashas -- so a consumer reads ANY
+    # sub-period's dates instead of computing them (the expert-mode pilot
+    # fabricated a Mercury antardasha only because it was absent from the facts).
+    # The birth MD (index 0) is a truncated balance: its sub-periods are a
+    # partial tail, so it is a window-only node with no antardashas. Pratyantar
+    # stays out entirely (the +/-37-day wrong-lord drift).
+    mahadasha_tree: list[dict] = []
+    for i, md in enumerate(timeline[:maha_idx + 4]):
+        phase = "past" if i < maha_idx else ("current" if i == maha_idx else "future")
+        ads = [] if i == 0 else [_ser(a) for a in _antardashas(md)]
+        mahadasha_tree.append({"mahadasha": _ser(md), "antardashas": ads,
+                               "phase": phase})
+
     return {
         "current_mahadasha": _ser(current_maha),
         "current_antardasha": _ser(current_ad) if current_ad else None,
         "next_5_antardashas": [_ser(a) for a in next_5_ad],
         "next_3_mahadashas": [_ser(m) for m in next_3_maha],
+        "past_mahadashas": [_ser(m) for m in past_maha],  # S141, additive
+        "mahadasha_tree": mahadasha_tree,                 # S141 gap #2, additive
         "current_pratyantar": _ser(current_pt) if current_pt else None,
         "next_5_pratyantars": [_ser(p) for p in next_5_pt],
     }

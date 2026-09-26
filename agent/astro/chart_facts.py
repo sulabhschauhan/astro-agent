@@ -71,6 +71,7 @@ def build_chart_facts(chart: dict) -> dict:
     house_lords = _read_house_lords(chart)
     aspects = _read_aspects(chart)
     navamsa = _read_navamsa(chart)
+    dasha = _read_dasha(chart)
 
     facts = {"lord_house_map": lord_house_map,
              "ascendant_sign": ascendant_sign,
@@ -79,6 +80,8 @@ def build_chart_facts(chart: dict) -> dict:
              "aspects": aspects}
     if navamsa:
         facts["navamsa"] = navamsa
+    if dasha:
+        facts["dasha_periods"] = dasha
     return facts
 
 
@@ -476,6 +479,112 @@ def _read_navamsa(chart: dict) -> dict:
     if isinstance(lagna, str) and lagna.strip():
         result["d9_lagna_sign"] = lagna.strip()
     return result
+
+
+_DASHA_DRIFT_NOTE = (
+    "These dasha dates are approximate: antardasha boundaries carry about +/-37 "
+    "days of uncertainty against commercial ephemerides (an accepted divergence, "
+    "KNOWN_DIVERGENCES Gap D1), so read them as month/quarter windows, not exact days."
+)
+
+
+def _dasha_period(row: Any) -> dict | None:
+    """One serialized dasha period -> {lord, start, end}, or None if malformed.
+
+    Reads ONLY the human-readable fields. The `start_jd`/`end_jd` floats
+    _calc_dasha also serialises are dropped on purpose: the drift note calls
+    these dates approximate, so carrying a day-precise JD into the block would
+    imply a precision the +/-37-day envelope does not have.
+    """
+    if not isinstance(row, dict):
+        return None
+    lord = row.get("lord")
+    start = row.get("start")
+    end = row.get("end")
+    if not (isinstance(lord, str) and lord.strip() and start and end):
+        return None
+    return {"lord": lord.strip(), "start": str(start), "end": str(end)}
+
+
+def _restate_tree(raw_tree: Any) -> list[dict]:
+    """Restate _calc_dasha's mahadasha_tree (S141 gap #2): every full mahadasha
+    with its nine antardashas and a past/current/future phase. Windows only --
+    the JD floats are dropped, same as _dasha_period. A malformed node is skipped
+    rather than fatal."""
+    out: list[dict] = []
+    for node in (raw_tree or []):
+        if not isinstance(node, dict):
+            continue
+        md = _dasha_period(node.get("mahadasha"))
+        if md is None:
+            continue
+        ads = [p for p in (_dasha_period(a) for a in (node.get("antardashas") or [])) if p]
+        phase = node.get("phase")
+        entry = {"mahadasha": md, "antardashas": ads}
+        if phase in ("past", "current", "future"):
+            entry["phase"] = phase
+        out.append(entry)
+    return out
+
+
+def _read_dasha(chart: dict) -> dict:
+    """Restate the Vimshottari dasha timeline calculate_chart() already computed.
+
+    Returns {"mahadasha": {lord, start, end}, "antardasha"?: {lord, start, end},
+    "upcoming_mahadashas": [...], "upcoming_antardashas": [...],
+    "drift_note": str} or {} when the source carries no usable dasha (an error
+    chart, or a caller that stripped it). Fail-soft, exactly like _read_navamsa.
+
+    WHO COMPUTES IT, AND WHY NOT HERE. `chart_calculator._calc_dasha()` computes
+    the whole Vimshottari timeline from the Moon's sidereal nakshatra and returns
+    it under chart["dasha"]; calculate_chart() has shipped it since long before
+    Path B existed. It is MD-level validated on 4 reference charts (S74-S76;
+    docs/KNOWN_DIVERGENCES.md Gap D1 records the ~2.66d production-vs-oracle
+    residual) and uses the sidereal year (365.256363, Kapoor Ch IX) since S76.
+    This adapter only RESTATES it -- same discipline as _read_navamsa:
+    chart_calculator untouched, this module importing no calculator, the block
+    growing by restatement (P-022). The agent/calculations/dashas/vimshottari.py
+    stub stays a permanent decoy, exactly like core/chart_d1.py.
+
+    PRATYANTAR IS SUPPRESSED, DELIBERATELY. _calc_dasha also returns
+    current_pratyantar / next_5_pratyantars, but they carry the wrong lord at that
+    granularity under the +/-37-day drift (its own DASHA ACCURACY NOTE), so Path A
+    never displayed them and Path B never surfaces them -- the S129 lock: whoever
+    adds dasha to the block adds the suppression in the same change. Only the
+    mahadasha and antardasha levels cross into the fact class.
+    """
+    if not isinstance(chart, dict):
+        return {}
+    raw = chart.get("dasha")
+    if not isinstance(raw, dict) or "error" in raw:
+        return {}
+    md = _dasha_period(raw.get("current_mahadasha"))
+    if md is None:
+        return {}                       # no current major period -> nothing to state
+    out: dict = {
+        "mahadasha": md,
+        # PAST major periods (S141), earliest first -- so a retrospective question
+        # ("when would I have married") lands in the correct elapsed dasha (e.g.
+        # the 7th lord's own period), not the current one. Windows only; the
+        # antardashas of a past MD are a later, topic-lord-scoped step.
+        "past_mahadashas": [p for p in
+            (_dasha_period(r) for r in (raw.get("past_mahadashas") or [])) if p],
+        "upcoming_mahadashas": [p for p in
+            (_dasha_period(r) for r in (raw.get("next_3_mahadashas") or [])) if p],
+        "upcoming_antardashas": [p for p in
+            (_dasha_period(r) for r in (raw.get("next_5_antardashas") or [])) if p],
+        # COMPLETE tree (S141 gap #2): every full mahadasha + its antardashas,
+        # so the interpreter reads any sub-period's dates rather than computing
+        # them. Supersedes past_mahadashas/upcoming_* for rendering, which stay
+        # for backward compatibility.
+        "mahadasha_tree": _restate_tree(raw.get("mahadasha_tree")),
+        "drift_note": _DASHA_DRIFT_NOTE,
+    }
+    ad = _dasha_period(raw.get("current_antardasha"))
+    if ad:
+        out["antardasha"] = ad
+    return out
+
 
 def _read_ascendant(chart: dict) -> str:
     """Pull the ascendant sign out of chart['lagna_chart']['ascendant']."""

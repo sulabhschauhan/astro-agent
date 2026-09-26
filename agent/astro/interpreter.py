@@ -56,9 +56,10 @@ _SYSTEM_HEAD = (
     "Return STRICT JSON only, no prose outside it, exactly this shape:\n"
     '{"claims": [{"statement": "<one plain-language claim>", "segment_ids": ["<id>", ...], "preconditions": [<see PRECONDITIONS below>]}], '
     '"silent_on": [{"topic": "<what you did not state>", "segment_ids": ["<id>", ...], "withheld_because": [<preconditions, see below>], "note": "<terse: verse id + missing precondition>"}], "refused": false}\n'
-    "Each claim.statement must be self-contained and name the placement it relies on so it can be "
-    "checked (e.g. \"With the 10th lord in the 4th, ...\"). Put NOTHING in a statement that is not "
-    "supported by a cited verse.\n"
+    "Each claim.statement must be self-contained and name the chart fact it rests on so it can be "
+    "checked -- a placement (e.g. \"With the 10th lord in the 4th, ...\") or, for a timing claim, the "
+    "dasha period and its dates (e.g. \"During your Venus period, around <start> to <end>, ...\"). Put "
+    "NOTHING in a statement that is not supported by a cited verse OR by these chart facts.\n"
     "- Also give each claim its `preconditions`: the verse's own chart condition, written in the "
     "closed vocabulary set out under PRECONDITIONS below. The statement stays plain English for "
     "the reader; the preconditions are the same condition in a form the chart can be checked "
@@ -321,3 +322,114 @@ def interpret(
         "interpreter_version": INTERPRETER_VERSION,
         "raw": content,
     }
+
+
+# =====================================================================
+# EXPERT MODE (S141) -- the realignment path.
+#
+# Instead of emitting verse-cited JSON claims that a downstream gate verifies
+# one sentence at a time, the interpreter is given the COMPLETE computed fact
+# block + the retrieved passages and asked to answer like an expert astrologer.
+# FACTS stay hard-grounded (the prompt forbids stating any placement/date/yoga
+# not in the block -- and the fact block is now complete, incl. the full dasha
+# tree, so there is nothing left to invent). INTERPRETATION is freed. No verse
+# ids reach the user; the citations that remain are internal.
+#
+# This is OFF by default (pipeline.answer_question's `expert` flag / the
+# ASTRO_EXPERT_MODE env var). The cited-claim path is untouched and remains the
+# default until expert mode is measured and promoted.
+# =====================================================================
+
+EXPERT_REASONING_EFFORT: Optional[str] = None  # gpt-5 default; a tuning knob, not minimal
+
+EXPERT_SYSTEM = (
+    "You are an expert Vedic astrologer in the Parashari tradition (Brihat Parashara "
+    "Hora Shastra, Phaladeepika, Saravali), also fluent in the KP and Lal Kitab systems. "
+    "You are reading ONE person's birth chart and answering their question directly, for "
+    "THEM to read.\n\n"
+    "You are given (1) the COMPUTED CHART FACTS for this person and (2) relevant classical "
+    "passages. Work from these.\n\n"
+    "HARD RULE -- facts are not yours to invent:\n"
+    "- Every chart FACT you state -- a planet's house or sign, which house a lord occupies, "
+    "a dignity, a yoga, a dasha/antardasha period or its dates -- MUST come from the CHART "
+    "FACTS given below. Never invent, guess, or compute a placement or a date. The dasha "
+    "timeline is COMPLETE (every major period and sub-period with its dates), so read the "
+    "period you need; do not calculate one. If a fact you would need is genuinely not in "
+    "the block, say what the given facts support and name the limit rather than filling the gap.\n"
+    "- INTERPRETATION -- what a placement or period MEANS -- may draw on your expert "
+    "knowledge of the classical texts and the passages provided. Never use pop astrology or "
+    "unverified sources.\n\n"
+    "ANSWER LIKE AN EXPERT WOULD:\n"
+    "- Lead with the real answer to their question -- the bottom line first, including the "
+    "uncomfortable part if there is one. No throat-clearing.\n"
+    "- Be specific to THIS chart: name the actual placements and periods driving your "
+    "reading. For any timing, give the real date windows from the dasha facts as "
+    "month/quarter ranges (dates are approximate, +/-37 days -- say so once, not repeatedly). "
+    "A retrospective question ('when would I have...') is answered with the correct PAST "
+    "period, not a future one.\n"
+    "- Structure however the question demands -- a timing question wants ranked windows; a "
+    "'what does X mean' question wants themes, perhaps a short period-by-period read. Short "
+    "paragraphs or a few grouped points, whatever reads best. Do not pad.\n"
+    "- Say how sure you are in plain words -- very likely / likely / possible / uncertain -- "
+    "and why, tied to the facts.\n"
+    "- Plain second-person language ('you', 'your'). Translate every technical term (say "
+    "'your marriage ruler', or name it once in brackets). NO citations, NO verse ids -- "
+    "write as an astrologer speaking to a client, not a footnoted paper.\n"
+    "- Be honest and non-fatalistic. Report difficult indications plainly, without drama, "
+    "false alarm, or false reassurance."
+)
+
+
+def _default_llm_expert(system: str, user: str, *, model: str,
+                        reasoning_effort: Optional[str]) -> tuple[str, dict]:
+    """Live GPT-5 free-text call (no JSON response_format). Isolated for stubbing."""
+    try:
+        from openai import OpenAI
+    except ImportError as e:  # pragma: no cover
+        raise InterpreterError("openai package not installed; pass llm= instead") from e
+    client = OpenAI()
+    kwargs = dict(model=model, messages=[{"role": "system", "content": system},
+                                         {"role": "user", "content": user}])
+    if reasoning_effort is None:
+        resp = client.chat.completions.create(**kwargs)
+    else:
+        try:
+            resp = client.chat.completions.create(reasoning_effort=reasoning_effort, **kwargs)
+        except TypeError:
+            try:
+                resp = client.chat.completions.create(
+                    extra_body={"reasoning_effort": reasoning_effort}, **kwargs)
+            except Exception:  # noqa: BLE001
+                resp = client.chat.completions.create(**kwargs)
+    u = resp.usage
+    usage = {"prompt_tokens": getattr(u, "prompt_tokens", 0),
+             "completion_tokens": getattr(u, "completion_tokens", 0),
+             "reasoning_tokens": getattr(getattr(u, "completion_tokens_details", None),
+                                         "reasoning_tokens", 0) or 0}
+    return resp.choices[0].message.content or "", usage
+
+
+def interpret_expert(
+    question: str,
+    fact_block: str,
+    payload: dict,
+    *,
+    llm: Optional[Callable[..., tuple]] = None,
+    model: str = INTERPRETER_MODEL,
+) -> dict:
+    """Free-text expert answer over the complete fact block + retrieved passages.
+
+    Returns {answer, usage, model, interpreter_version, raw, expert_mode}. The
+    `answer` is plain markdown for the reader -- no ids, no JSON. Never raises for
+    an empty answer (that is a refusal the caller surfaces)."""
+    verses = _verse_block(payload)
+    user = (f"CHART FACTS (the only chart facts you may state):\n{fact_block}\n\n"
+            f"CLASSICAL PASSAGES (for interpretation):\n{verses}\n\n"
+            f"QUESTION: {question}\n\n"
+            "Answer the person directly, as an expert astrologer.")
+    call = llm if llm is not None else _default_llm_expert
+    content, usage = call(EXPERT_SYSTEM, user, model=model,
+                          reasoning_effort=EXPERT_REASONING_EFFORT)
+    return {"answer": (content or "").strip(), "usage": usage, "model": model,
+            "interpreter_version": INTERPRETER_VERSION, "raw": content,
+            "expert_mode": True}

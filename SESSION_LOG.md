@@ -1699,3 +1699,87 @@ verse/chart, same day). Same AND-collapse puts disjunctive CLAIMS at confident-l
 enforcing until `any_of` adoption is stabilized (deterministic normalization in `predicates.validate_precondition`
 preferred — removes the LLM's discretion). Row P-037. Evidence: `diagnostics/runs/20260920T174749Z.md`.
 
+
+
+================================================================================
+## S141 (2026-09-26) -- TIMING ON PATH B: dasha surfaced (restate) + expert-mode
+================================================================================
+
+CONTEXT. S141 was handed "build vimshottari / timing". DESIGN-INTENT-FIRST caught
+that the Vimshottari engine was never unbuilt: `chart_calculator._calc_dasha`
+computes the full timeline (MD/AD/PT), is oracle-validated (S74-S76; sidereal
+year 365.256363, Kapoor Ch IX; Gap D1 residual ratified), and was simply never
+restated into Path B's fact block. So this was a RESTATE + GATE-FLIP, the
+chart_d1/navamsa precedent -- not a calculation build. The Vedic-day-boundary
+"trap" in the handover is a special-lagna concern (S132), NOT a Vimshottari one:
+dasha balance is a pure function of the natal Moon's sidereal longitude, full
+precision, no sunrise term.
+
+WHAT SHIPPED (uncommitted, wip/interpretive-pilot).
+1. GAP #1 -- `_calc_dasha` serialises `past_mahadashas` (it discarded every MD
+   before the current one; that is why retrospective "when would I have married"
+   could only answer forward).
+2. GAP #2 -- `_calc_dasha` serialises `mahadasha_tree`: every full MD from birth
+   through next-3, each with its nine antardashas (birth/balance MD window-only,
+   its ADs are a partial tail). `chart_facts._read_dasha` restates it
+   (`_restate_tree`, `_dasha_period`); `pipeline._fact_block` renders the
+   complete tree (past/current/upcoming tags, running-sub-period marker, +/-37d
+   drift note, "do not compute any period yourself"). Pratyantar stays suppressed
+   (S129). This removes the model's NEED to compute a sub-period -- the
+   expert-pilot fabrication cause (it had invented Mercury-Sun because past ADs
+   were absent).
+3. CAPABILITY GATE -- `dasha_periods` added to `FACT_BLOCK_PROVIDES`; the
+   `dasha_timing` REQUIREMENT retired (`REQUIREMENTS = ()`); the gate declines
+   nothing; empty-domains refusal now owned by `build_from_plan`. The pre-wired
+   test `test_widened_fact_block_makes_the_timing_requirement_inert` anticipated
+   exactly this.
+4. INTERPRETER CLAUSE FIX (root-cause, not additive prompt bloat) -- `_SYSTEM_HEAD`'s
+   "put NOTHING not supported by a cited verse" blocked dates (a date is a chart
+   fact, not verse text), so the model named sub-periods and refused their dates
+   ("we don't have specific date ranges"). Broadened to "a cited verse OR the
+   chart facts (a placement, or a dasha period and its dates)". This alone made
+   the cited path emit dates.
+5. EXPERT MODE (the realignment, ratified by Sulabh) -- `interpreter.interpret_expert`
+   + `EXPERT_SYSTEM`: a free-text expert answer over the COMPLETE fact block.
+   Facts hard-grounded (prompt forbids stating any placement/date/yoga not in the
+   block; the block is complete so nothing is left to invent), interpretation
+   FREE, citations INTERNAL. Wired flag-gated in `pipeline.answer_question`
+   (`expert=` / `ASTRO_EXPERT_MODE=1`, default OFF so the 447 suite stays green);
+   `answer_view` passes the expert text through citation-free. No `app.py` change.
+   IMPORTANT: app.py has NO load_dotenv, so the flag must be set in the SHELL that
+   launches streamlit ($env:ASTRO_EXPERT_MODE="1"; streamlit run ...), not in .env.
+
+THE REALIGNMENT (ratified). Original architecture intent = precompute everything
+(replace the AstroSage PDF) and FEED the values; the LLM reasons like an expert;
+NO serve-time answer-gating; rigor lives UPSTREAM at calc-validation. The S124-S140
+verification arc drifted into building citation/verification machinery instead of
+widening the fact block; S141 is the first widening (dasha) and the pivot back.
+Fabrication is prevented by COMPLETENESS of input, not by guards.
+
+LIVE MEASUREMENT (expert on, "when would I have got married"). Every date is
+calculation-correct (Mercury-Venus 2011-14, Saturn-Venus 1996-99; verified to
++/-2 days by an independent reproduction of the antardasha arithmetic). BUT the
+model SELECTED Mercury-Venus 2011-14 -- the naive "Venus is the karaka, strong in
+D9" reading, which Output.txt explicitly calls a FALSE POSITIVE ("nothing happened
+there") -- and passed over Mercury-Rahu (30 Jan 2018 - 19 Aug 2020, containing the
+actual ~2019 marriage) even though that window WAS in the tree.
+
+ROOT CAUSE (the standing finding). Selection accuracy is gated on INPUT SYSTEMS,
+not calculation. Output.txt reached Dec 2019 by corroborating Sade Sati (Saturn
+transit over the ascendant Oct 2017-Jan 2020), KP (7th cusp sub-lord = Saturn),
+and Lal Kitab -- all Saturn/Rahu-pointing -- which OVERRODE the Venus reading.
+Path B feeds only BPHS + dasha + D9, so the strongest signal in its inputs is the
+Venus-karaka trap, with no counter-evidence available. NOT a calc bug; NOT
+fixable with a guard.
+
+NEXT (new session). Feed Sade Sati / Saturn gochara into the fact block -- built
+already (`agent/calculations/transits/sade_sati.py`, `gochara.py`), so a restate,
+same pattern as dasha, no new guard. It is the single system most responsible for
+the benchmark's 2019 pick. Then KP 7th-cusp sub-lord and Lal Kitab (both UNBUILT,
+bigger). Optionally: promote expert-mode from flag to default once selection
+accuracy is measured; delete scripts/expert_pilot.py (superseded).
+
+FILES (uncommitted): agent/chart_calculator.py; agent/astro/{chart_facts, pipeline,
+capability_gate, interpreter, answer_view}.py; tests/astro/{test_chart_facts,
+test_capability_gate, test_pipeline}.py; scripts/expert_pilot.py (throwaway).
+pytest tests/astro/ -q => 447 passed.
