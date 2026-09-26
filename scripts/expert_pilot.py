@@ -20,6 +20,7 @@ from agent.astro.chart_facts import build_chart_facts
 from agent.astro import pipeline, planner
 from agent.calculations.vargas.navamsa import compute_navamsa
 from agent.astro.yoga_facts import build_yoga_facts
+from agent.astro.transit_facts import build_transit_facts
 
 SULABH = ("Sulabh", "6 Apr 1988", "00:30", "Calcutta, India")
 
@@ -69,6 +70,10 @@ def _facts():
         cf["yogas"] = build_yoga_facts(chart, cf)
     except Exception as e:  # noqa: BLE001
         print(f"[pilot] yogas skipped: {type(e).__name__}: {e}", file=sys.stderr)
+    try:  # S142: Sade Sati / Saturn gochara per antardasha, same composition style
+        cf["transits"] = build_transit_facts(chart, cf)
+    except Exception as e:  # noqa: BLE001
+        print(f"[pilot] transits skipped: {type(e).__name__}: {e}", file=sys.stderr)
     return cf
 
 

@@ -93,6 +93,12 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # (S141; pratyantar suppressed). Landing this key made the
                            # dasha_timing requirement inert, so it was RETIRED -- see
                            # REQUIREMENTS below.
+    "transits",            # per-antardasha Saturn gochara + Sade Sati phase,
+                           # computed by agent.astro.transit_facts.build_transit_facts
+                           # over the facts above (S142). Additive fact class, same
+                           # posture as "yogas" -- no REQUIREMENT references it; it
+                           # exists to corroborate WHICH dasha window a dated event
+                           # falls in, not to gate any question on its own.
 })
 
 

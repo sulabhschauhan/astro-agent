@@ -58,6 +58,25 @@ def _ordinal(n: int) -> str:
     return str(n) + _ORDINAL_SUFFIX.get(n % 10, "th")
 
 
+def _transit_note(t: dict) -> str:
+    """One antardasha's transit_facts entry -> a compact inline clause, e.g.
+    "Sagittarius, house 1 from lagna, house 2 from Moon, Sade Sati SETTING
+    (retrograde)". `t` is one value from build_transit_facts()'s "periods" dict
+    -- see that module for the shape. Malformed keys are rendered as "?" rather
+    than raising, since a transit annotation is corroborating context, never a
+    fact worth failing the whole block over."""
+    sign = t.get("saturn_sign", "?")
+    hl = t.get("saturn_house_from_lagna", "?")
+    hm = t.get("saturn_house_from_moon", "?")
+    phase = t.get("sade_sati_phase", "NONE")
+    note = f"{sign}, house {hl} from lagna, house {hm} from Moon"
+    if phase and phase != "NONE":
+        note += f", Sade Sati {phase}"
+    if t.get("saturn_retrograde"):
+        note += " (retrograde)"
+    return note
+
+
 def _fact_block(chart_facts: dict) -> str:
     """Render the chart facts the Interpreter is allowed to reason from.
 
@@ -245,6 +264,15 @@ def _fact_block(chart_facts: dict) -> str:
     # GROWTH CONTRACT: "dasha_periods" is in capability_gate.FACT_BLOCK_PROVIDES.
     dasha = chart_facts.get("dasha_periods") or {}
     md = dasha.get("mahadasha")
+    # TRANSITS (S142). Per-antardasha Saturn gochara + Sade Sati phase, computed
+    # by agent.astro.transit_facts.build_transit_facts (composed onto chart_facts
+    # by the caller, like yogas/navamsa). Looked up here by the same "<lord>|
+    # <start>" key the composer emits, so each antardasha line below carries its
+    # own corroborating transit -- the cross-system check (Sade Sati / Saturn
+    # gochara) a benchmark answer used to tell a real dasha window from a
+    # same-math false positive (S141/S142). GROWTH CONTRACT: "transits" is in
+    # capability_gate.FACT_BLOCK_PROVIDES.
+    tperiods = (chart_facts.get("transits") or {}).get("periods") or {}
     if md:
         lines.append("")
         lines.append("Vimshottari dasha timeline -- the planetary periods "
@@ -252,6 +280,14 @@ def _fact_block(chart_facts: dict) -> str:
                      "WHEN the chart's promises ripen. Read the period whose lord "
                      "governs the matter asked about; every date you need is here, "
                      "so do not compute or estimate any period yourself.")
+        if tperiods:
+            lines.append("Each sub-period below that carries a [Saturn: ...] tag "
+                         "also states where Saturn was transiting at that "
+                         "sub-period's midpoint (sign, house from lagna, house "
+                         "from Moon, and the Sade Sati phase that implies). Use "
+                         "this to corroborate or weigh against which sub-period "
+                         "an actual event falls in -- classical practice "
+                         "cross-checks a dasha period against transit the same way.")
         cur_ad = dasha.get("antardasha") or {}
         cur_ad_key = (cur_ad.get("lord"), cur_ad.get("start"))
         tree = dasha.get("mahadasha_tree") or []
@@ -267,8 +303,10 @@ def _fact_block(chart_facts: dict) -> str:
                 for a in node.get("antardashas") or []:
                     star = ("   <- the sub-period running now"
                             if (a["lord"], a["start"]) == cur_ad_key else "")
+                    t = tperiods.get(f"{a['lord']}|{a['start']}")
+                    transit_tag = f" [Saturn: {_transit_note(t)}]" if t else ""
                     lines.append(f"      {a['lord']} sub-period "
-                                 f"({a['start']} to {a['end']}){star}")
+                                 f"({a['start']} to {a['end']}){transit_tag}{star}")
         else:
             # Legacy chart_facts with no tree (e.g. a pre-gap#2 replay dict):
             # fall back to the current major/sub period only.

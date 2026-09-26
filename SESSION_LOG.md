@@ -1783,3 +1783,116 @@ FILES (uncommitted): agent/chart_calculator.py; agent/astro/{chart_facts, pipeli
 capability_gate, interpreter, answer_view}.py; tests/astro/{test_chart_facts,
 test_capability_gate, test_pipeline}.py; scripts/expert_pilot.py (throwaway).
 pytest tests/astro/ -q => 447 passed.
+
+## S142 (2026-09-26) -- SADE SATI / GOCHARA RESTATED INTO PATH B; ORACLE-VALIDATED ON SULABH'S OWN CHART
+
+TASK (per claude_handover_S142.md / the S141 handover's own NEXT line): feed
+Sade Sati / Saturn gochara into the fact block. A RESTATE, not a build --
+`agent/calculations/transits/sade_sati.py` and `gochara.py` were already built
+and oracle-validated (S20 / P2.2.2). Do not confuse this with S143's KP task
+below, which IS a build.
+
+WHAT SHIPPED (all Path B, uncommitted on `wip/interpretive-pilot`):
+- `sade_sati.sade_sati_phase_for_signs(natal_moon_sign, saturn_sign)` -- new
+  cheap public function, restates the existing `_phase_for_diff` rule for a
+  caller that already has Saturn's sign (from gochara), so it never invokes
+  `compute_sade_sati()`'s multi-year window-scan (measured ~0.42s/call, vs
+  ~0.0002s/call for the cheap path -- unusable at 45-72 antardashas/chart).
+- `agent/astro/transit_facts.py` (new) -- `build_transit_facts(chart,
+  chart_facts)`, same composer pattern as `yoga_facts.py`/D9: for every
+  antardasha in the RAW `chart['dasha']['mahadasha_tree']`, snapshots Saturn's
+  transit at the antardasha's MIDPOINT jd via `gochara.compute_gochara()`,
+  reads Sade Sati phase off that sign. Mahadasha-level lines NOT annotated
+  (spans too coarse for one snapshot). Fail-soft (never raises).
+- Wired: `capability_gate.FACT_BLOCK_PROVIDES` += "transits" (same commit,
+  growth contract); `pipeline._fact_block` renders `[Saturn: <sign>, house H
+  from lagna, house H from Moon, Sade Sati <PHASE>]` per antardasha line, plus
+  one explanatory sentence; `interpreter.py` EXPERT_SYSTEM's fact-type list
+  extended to recognise a transit placement; composed in both
+  `scripts/expert_pilot.py` and `frontend/app.py` (the live app).
+
+VALIDATED OFFLINE (Cowork sandbox, no OpenAI access there):
+- 4 reference charts (Sulabh/David/Sheridan/Surbhi): zero exceptions, correct
+  moon-sign agreement, non-zero period counts (54/72/63/45).
+- `sade_sati_phase_for_signs` cross-checked against the oracle-locked full-scan
+  result at the existing Sheridan/Surbhi canonical anchor (exact match) + an
+  exhaustive fuzz test of all 144 (moon-sign, saturn-sign) combinations (zero
+  mismatches).
+- Fact-block char delta for Sulabh: 6661 -> 10550 chars (+3889, ~970-1550
+  tokens) -- small against the 150k ceiling.
+
+NEW THIS SESSION -- THIRD ORACLE-VALIDATED REFERENCE CHART FOR SADE SATI.
+Sulabh asked to validate against his OWN AstroSage report
+(`data/pdfs/VedicReport5-24-202610-01-26PM.pdf`, printed 2026-05-24, pages
+10-12, "Rasi: Scorpion"). Checked `compute_sade_sati(7, jd)` against all 24
+rows spanning 1987-2049 (8 Sade Sati windows + their retrograde-split table
+rows, + 8 Small Panoti rows, which correctly collapse to NONE -- the S20
+locked scope decision, not a gap). RESULT: sign+phase 24/24 match. Boundary
+dates on the two Sade-Sati-proper windows: Rising/Libra 2011-11-15->2012-05-15
+& 2012-08-04->2014-11-02 (max drift ~1.04d), Setting/Sagittarius
+2017-01-27->2017-06-20 & 2017-10-27->2020-01-23 (max drift ~1.19d) -- both
+retrograde-split into 2 segments, matching AstroSage's own two-row split
+exactly. `_DAY_TOLERANCE` widened 1.0 -> 1.5 in test_sade_sati.py with an
+explicit justification (AstroSage is India-facing, prints day-only dates,
+almost certainly IST not UTC; IST midnight = 18:30 UTC the previous day, so a
+printed date can legitimately land up to ~1 day off a UTC-midnight
+comparison -- Sheridan/Surbhi happened to fall under 1.0 by chance, Sulabh's
+did not). FOLDED IN PERMANENTLY: tests/calculations/transits/test_sade_sati.py
+gained a 24-row parametrized sign+phase sweep + 2 boundary-precision anchor
+tests (Rising and Setting), mirroring the existing Sheridan/Surbhi tests.
+Suite there: 37/37 passing (sandbox run, conftest bypassed -- see below).
+
+THE KEY S141/S142 CLAIM IS NOW CONFIRMED BY AN INDEPENDENT COMMERCIAL SOURCE,
+NOT JUST OUR OWN EPHEMERIS AGREEING WITH ITSELF: AstroSage's own table (not
+derived from our code) places the true ~2019 marriage window (Mercury-Rahu
+antardasha) inside its Sagittarius/Setting row, and the false-positive window
+(Mercury-Venus, 2011-14) inside its Libra/Rising row -- exactly the
+corroboration transit_facts.py's docstring claims Output.txt used.
+
+NOT DONE -- THE ACTUAL SUCCESS TEST. "With expert mode on, re-ask 'when would
+I have got married' and check whether the Saturn signal moves the pick" was
+NOT run: this Cowork sandbox is firewalled from api.openai.com (documented,
+unchanged). Sulabh must run `python scripts/expert_pilot.py marriage_past`
+himself (or Streamlit with `ASTRO_EXPERT_MODE=1` set in the LAUNCHING SHELL,
+not `.env` -- app.py has no load_dotenv) and report whether GPT-5's pick
+actually shifted toward Mercury-Rahu. THIS IS THE FIRST THING TO CHECK BEFORE
+BUILDING KP OR LAL KITAB -- if Saturn transit alone fixes the selection, the
+other two systems may not be needed yet.
+
+KP 7TH-CUSP SUB-LORD -- SCOPED, NOT BUILT (S143's task). Sulabh asked whether
+KP was "simple and quick" like Sade Sati was. It is NOT -- confirmed by a full
+recursive listing of agent/calculations/: no kp/ subpackage and no sub-lord
+table exist anywhere. Two findings for S143: (a) chart_calculator.py ALREADY
+calls swe.houses(jd_ut, lat, lon_geo, b"P") (Placidus) at two sites
+(calculate_chart() ~line 723, build_varshaphal_chart() ~line 1057) but
+DISCARDS the returned cusps tuple, keeping only ascmc[0] (the ascendant) --
+capturing the 12 Placidus cusps is cheap, the ephemeris call already happens;
+(b) the existing compute_porphyry_house_cusps() (used for Bhava Dig Bala) is a
+DIFFERENT house system (Porphyry/Sripati, hsys='O') and is NOT reusable for
+KP, which specifically requires Placidus. The genuinely new, not-yet-built
+part is the KP sub-lord LOOKUP TABLE (27 nakshatras x 9 Vimshottari-
+proportional sub-lord segments = 249 divisions of the zodiac) -- mechanical
+and deterministic, no cross-source fragmentation issue, but still needs
+building, unit tests, and oracle validation (an AstroSage or JHora KP report)
+before it can be locked and restated, per the Calculation Architecture's
+per-module validation protocol. Sulabh explicitly chose to defer this to a
+NEW chat session rather than build it now. See claude_handover_S143.md.
+
+Lal Kitab remedies remain explicitly deferred to "the end" per Sulabh's own
+instruction -- do not start it before KP.
+
+FILES (uncommitted): agent/calculations/transits/sade_sati.py,
+agent/astro/transit_facts.py (new), agent/astro/capability_gate.py,
+agent/astro/pipeline.py, agent/astro/interpreter.py, scripts/expert_pilot.py,
+frontend/app.py, tests/astro/test_capability_gate.py,
+tests/astro/test_transit_facts.py (new),
+tests/calculations/transits/test_sade_sati.py.
+
+TESTING NOTE: this session ran in Anthropic's Cowork sandbox, which does not
+have `agent.infra` or `openai` staged, so tests/conftest.py could not be
+imported and the full suite could not be run here (an environment limitation,
+not a code issue). Ran the three touched test files directly with conftest
+bypassed: 37 (test_sade_sati.py) + 10 (test_transit_facts.py) + 29
+(test_capability_gate.py) passed, 0 failed. Sulabh must run the full
+`pytest tests/astro/ tests/calculations/ -q` on his own machine before commit
+(expected ~447 + new tests, per the S141/S142 handovers' own baseline).

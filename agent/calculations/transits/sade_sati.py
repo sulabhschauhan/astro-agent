@@ -123,6 +123,32 @@ def _saturn_sign(jd_ut: float) -> int:
     return int(ephemeris.sidereal_longitude(jd_ut, swe.SATURN) / 30.0) % 12
 
 
+def sade_sati_phase_for_signs(
+    natal_moon_sign: int, saturn_sign: int
+) -> Literal["RISING", "PEAK", "SETTING", "NONE"]:
+    """Cheap phase classification when the caller already has Saturn's sign from
+    elsewhere (e.g. gochara.compute_gochara's snapshot) and does not need
+    compute_sade_sati()'s window-scan machinery (a multi-year daily scan with
+    bisection, ~0.4s/call) just to classify one moment.
+
+    Both args are 0=Aries..11=Pisces, same convention as compute_sade_sati()'s
+    natal_moon_sign and this module's own _saturn_sign(). RESTATES the locked
+    Session 20 phase taxonomy via _phase_for_diff -- no new rule, no new
+    ephemeris call. Added for S142 (transit facts feeding the answer pipeline),
+    where a caller (agent/astro/transit_facts.py) needs this classification at
+    many moments (one per antardasha) and already computed Saturn's sign once
+    per moment via gochara for the house-from-lagna/house-from-moon facts.
+
+    Raises:
+        ValueError: either sign is outside 0..11.
+    """
+    if not (0 <= natal_moon_sign <= 11):
+        raise ValueError(f"natal_moon_sign must be in 0..11, got {natal_moon_sign}")
+    if not (0 <= saturn_sign <= 11):
+        raise ValueError(f"saturn_sign must be in 0..11, got {saturn_sign}")
+    return _phase_for_diff((saturn_sign - natal_moon_sign) % 12)
+
+
 def _phase_for_diff(diff: int) -> Literal["RISING", "PEAK", "SETTING", "NONE"]:
     """diff = (saturn_sign - natal_moon_sign) % 12 -- the house-from-Moon
     position minus 1 (0 = 1st-from-Moon/Janma Rashi, 11 = 12th-from-Moon).

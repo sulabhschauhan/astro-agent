@@ -22,6 +22,7 @@ from agent.chart_calculator import calculate_chart, format_kundali_context, geoc
 from agent.chart_calculator import _dignity as _sign_dignity  # SSOT: S21 PVR Table 6, never re-tabled here
 from agent.calculations.vargas.navamsa import compute_navamsa
 from agent.astro.yoga_facts import build_yoga_facts
+from agent.astro.transit_facts import build_transit_facts
 from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf, _PRIORITY_ORDER
 from PIL import Image
@@ -707,6 +708,16 @@ if "palm_prep" not in st.session_state:
 
 with st.sidebar:
     st.header("Birth Details")
+
+    # S141: Expert-mode toggle. A reliable in-UI switch for the ASTRO_EXPERT_MODE
+    # path (the env var proved unreliable to set on some shells). On -> the
+    # astrologer reasons freely over the COMPLETE computed chart (incl. the full
+    # dasha timeline), citation-free; Off -> the verse-cited claim view. Read at
+    # the answer_question call below via st.session_state["astro_expert_mode"].
+    st.checkbox(
+        "Expert mode (freeform reading)", value=True, key="astro_expert_mode",
+        help="On: one expert reading over the full chart + complete dasha "
+             "timeline, no citations. Off: the older verse-cited bullet view.")
 
     # ── Step 1: place search (outside form) ──────────────────────────────────
     _place_input = st.text_input(
@@ -1657,7 +1668,23 @@ if prompt:
                     logger.warning("yogas unavailable, answering without them: "
                                    "%s: %s", type(_yerr).__name__, _yerr)
 
-                result = answer_question(prompt, chart_facts)
+                # TRANSIT FACTS (S142). Per-antardasha Saturn gochara + Sade Sati
+                # phase, computed over the dasha tree already restated into
+                # chart_facts (composed here, never inside chart_facts.py -- same
+                # posture as yogas above). This is the cross-system corroboration
+                # (Sade Sati / Saturn transit) a benchmark answer used to tell a
+                # real dasha window from a same-math false positive; losing it
+                # costs that corroboration, never the answer.
+                # "transits" is declared in capability_gate.FACT_BLOCK_PROVIDES.
+                try:
+                    chart_facts["transits"] = build_transit_facts(_chart, chart_facts)
+                except Exception as _terr:  # noqa: BLE001 -- optional fact class
+                    logger.warning("transits unavailable, answering without them: "
+                                   "%s: %s", type(_terr).__name__, _terr)
+
+                result = answer_question(
+                    prompt, chart_facts,
+                    expert=st.session_state.get("astro_expert_mode", True))
                 # Two surfaces, one result: the user reads render_user_answer's
                 # plain-language view; the full trace (verse text, ids,
                 # silent_on, timings, usage) goes to the capture file.
