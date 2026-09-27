@@ -44,6 +44,7 @@ from agent.astro import silence_gate
 from agent.astro import verifiability
 from agent.astro import composer as _composer
 from agent.astro import payload_builder
+from agent.astro import timing_ranker
 
 PIPELINE_VERSION = "pipeline-1.2"
 
@@ -273,6 +274,17 @@ def _fact_block(chart_facts: dict) -> str:
     # same-math false positive (S141/S142). GROWTH CONTRACT: "transits" is in
     # capability_gate.FACT_BLOCK_PROVIDES.
     tperiods = (chart_facts.get("transits") or {}).get("periods") or {}
+    # KP SIGNIFICATORS (S144). Per-planet houses signified, ephemeris-computed
+    # (KP Reader II fourfold + Reader IV node agency) -- see
+    # agent.astro.kp_significator_facts's docstring. Why it exists: the cuspal sub-lord
+    # fact rendered below is a single fixed value and cannot discriminate
+    # between two antardashas in the same mahadasha; this fact varies BY
+    # WHICH LORD IS RUNNING, so tagging each antardasha with its own lord's
+    # significations gives the interpreter an actual period-varying signal
+    # instead of one it has to invent. GROWTH CONTRACT:
+    # "kp_planet_significations" is in capability_gate.FACT_BLOCK_PROVIDES.
+    sigs = (chart_facts.get("kp_planet_significations") or {}).get(
+        "planet_significations") or {}
     if md:
         lines.append("")
         lines.append("Vimshottari dasha timeline -- the planetary periods "
@@ -281,13 +293,23 @@ def _fact_block(chart_facts: dict) -> str:
                      "governs the matter asked about; every date you need is here, "
                      "so do not compute or estimate any period yourself.")
         if tperiods:
-            lines.append("Each sub-period below that carries a [Saturn: ...] tag "
-                         "also states where Saturn was transiting at that "
-                         "sub-period's midpoint (sign, house from lagna, house "
-                         "from Moon, and the Sade Sati phase that implies). Use "
-                         "this to corroborate or weigh against which sub-period "
-                         "an actual event falls in -- classical practice "
-                         "cross-checks a dasha period against transit the same way.")
+            lines.append("Each sub-period below that carries a [Saturn TRANSIT: ...] "
+                         "tag also states where Saturn was PHYSICALLY TRANSITING at "
+                         "that sub-period's midpoint (sign, house from lagna, house "
+                         "from Moon, and the Sade Sati phase that implies) -- a fact "
+                         "that changes from period to period. Use this to "
+                         "corroborate or weigh against which sub-period an actual "
+                         "event falls in -- classical practice cross-checks a dasha "
+                         "period against transit the same way.")
+        if sigs:
+            lines.append("Each sub-period below that carries a "
+                         "[signifies houses: ...] tag names the KP houses its OWN "
+                         "lord signifies (a NATAL, fixed fact about that planet -- "
+                         "see the KP house-significator table further below). A "
+                         "lord that signifies the house your question is actually "
+                         "about is a real, period-specific reason to weigh that "
+                         "sub-period; a lord whose signified houses do NOT include "
+                         "it is a real, period-specific reason to weigh against it.")
         cur_ad = dasha.get("antardasha") or {}
         cur_ad_key = (cur_ad.get("lord"), cur_ad.get("start"))
         tree = dasha.get("mahadasha_tree") or []
@@ -304,9 +326,14 @@ def _fact_block(chart_facts: dict) -> str:
                     star = ("   <- the sub-period running now"
                             if (a["lord"], a["start"]) == cur_ad_key else "")
                     t = tperiods.get(f"{a['lord']}|{a['start']}")
-                    transit_tag = f" [Saturn: {_transit_note(t)}]" if t else ""
+                    transit_tag = f" [Saturn TRANSIT: {_transit_note(t)}]" if t else ""
+                    sig_houses = sigs.get(a["lord"])
+                    sig_tag = (f" [signifies houses: "
+                               f"{','.join(str(h) for h in sig_houses)}]"
+                               if sig_houses else "")
                     lines.append(f"      {a['lord']} sub-period "
-                                 f"({a['start']} to {a['end']}){transit_tag}{star}")
+                                 f"({a['start']} to {a['end']})"
+                                 f"{transit_tag}{sig_tag}{star}")
         else:
             # Legacy chart_facts with no tree (e.g. a pre-gap#2 replay dict):
             # fall back to the current major/sub period only.
@@ -318,6 +345,50 @@ def _fact_block(chart_facts: dict) -> str:
         note = dasha.get("drift_note")
         if note:
             lines.append(f"  Note on precision: {note}")
+
+    # KP (S143). The 7th house cusp's sub-lord (Krishnamurti Paddhati),
+    # restated from chart['meta']['house_cusps_kp_sidereal'] -- a DIFFERENT
+    # ayanamsha than every other fact in this block, see chart_calculator.py's
+    # S143 comment -- by agent.astro.kp_facts.build_kp_facts (composed onto
+    # chart_facts by the caller, like yogas/transits/navamsa). In KP, a
+    # house's own sub-lord decides whether that house's matter is granted;
+    # the 7th cusp's sub-lord is marriage's own significator condition, a
+    # second cross-system corroboration alongside the Sade Sati/Saturn-transit
+    # tags above -- same posture, feed it, do not gate on it (S141 lock).
+    # GROWTH CONTRACT: "kp_seventh_cusp_sub_lord" is in
+    # capability_gate.FACT_BLOCK_PROVIDES.
+    if sigs:
+        lines.append("")
+        sig_lines = "; ".join(
+            f"{p}: houses {','.join(str(h) for h in hs)}" for p, hs in sigs.items()
+        )
+        lines.append(
+            f"KP house significators (Krishnamurti Paddhati) -- NATAL, fixed for "
+            f"this chart, ephemeris-computed (KP Reader II fourfold + node agency): {sig_lines}. "
+            f"A planet that signifies a house is a candidate to deliver that "
+            f"house's matter when it is the acting dasha/antardasha lord (see the "
+            f"[signifies houses: ...] tags on the dasha timeline above). This is a "
+            f"DIFFERENT KP technique from the cuspal sub-lord fact below -- weigh "
+            f"both, neither substitutes for the other."
+        )
+
+    kp = chart_facts.get("kp") or {}
+    kp_sub_lord = kp.get("seventh_cusp_sub_lord")
+    if kp_sub_lord:
+        lines.append("")
+        lines.append(
+            f"KP (Krishnamurti Paddhati) -- NATAL fact, fixed for this chart "
+            f"(NOT a transiting position, and NOT the same quantity as any "
+            f"[Saturn TRANSIT: ...] tag above even if the planet name matches): "
+            f"the 7th house cusp's sub-lord is {kp_sub_lord}. In KP, a house's "
+            f"own sub-lord decides whether that house's matter is granted -- "
+            f"weigh this alongside the dasha window and any Sade Sati/"
+            f"Saturn-transit corroboration above, but a shared planet name "
+            f"between this natal sub-lord and a transiting planet is NOT itself "
+            f"a corroboration -- they are unrelated quantities unless the "
+            f"specific KP technique you are applying actually connects them."
+        )
+
     return "\n".join(lines)
 
 
@@ -412,6 +483,18 @@ def answer_question(
                 "pipeline_version": PIPELINE_VERSION}
 
     fact_block = _fact_block(chart_facts)
+
+    # TIMING RANKING (S144). Deterministic convergence over dasha + KP
+    # significators + Saturn transit, scored against THIS plan's target houses
+    # (verdict.plan.houses -- e.g. [7,2,11] for marriage, [10,6,2,11] for
+    # career; domain-neutral, one ranker for every life area). Appended to the
+    # fact block so the interpreter EXPLAINS the top window instead of
+    # re-ranking from its own priors -- the run-to-run variance that motivated
+    # this. Fail-soft: an empty ranking leaves the block unchanged.
+    _ranking_text = timing_ranker.render_ranking(
+        timing_ranker.build_timing_ranking(chart_facts, verdict.plan.houses))
+    if _ranking_text:
+        fact_block = fact_block + "\n" + _ranking_text
 
     # EXPERT MODE (S141, the realignment). OFF by default -- the cited-claim path
     # below is unchanged. When on, the interpreter answers like an expert over the

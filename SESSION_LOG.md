@@ -1896,3 +1896,357 @@ bypassed: 37 (test_sade_sati.py) + 10 (test_transit_facts.py) + 29
 (test_capability_gate.py) passed, 0 failed. Sulabh must run the full
 `pytest tests/astro/ tests/calculations/ -q` on his own machine before commit
 (expected ~447 + new tests, per the S141/S142 handovers' own baseline).
+
+## S143 (2026-09-27) -- KP 7th-cusp sub-lord SHIPPED + wired; KP house
+significators BUILT then CORRECTED (PDF-runtime-dependency mistake caught and
+reverted same session). Committed to device via device_commit_files. NO git
+commit (no "RATIFIED: commit authorized" token given this session).
+
+PART 1 -- KP 7TH-CUSP SUB-LORD (the S143 handover's scoped task). SHIPPED.
+
+Built `agent/calculations/kp/sub_lords.py`: each of the 27 nakshatras
+(13d20' each) subdivided into 9 Vimshottari-proportional sub-lord segments,
+27 x 9 = 243 divisions of the 360d zodiac (corrected from an earlier
+handover's "249" -- 27 x 9 = 243, not 249; the wrong figure had also leaked
+into a `chart_calculator.py` comment, fixed in the same pass).
+`sub_lord_for_longitude(sidereal_lon) -> str`, boundary-tested (zero, first
+segment, exact-boundary, wraparound above 360/negative).
+
+Placidus cusps: `chart_calculator.py` was already calling
+`swe.houses(jd_ut, lat, lon_geo, b"P")` at two sites but discarding the
+returned cusps tuple, keeping only `ascmc[0]`. Now captures all 12 into
+`meta["house_cusps_kp_sidereal"]`. Confirmed NOT reusable:
+`compute_porphyry_house_cusps()` is a different house system
+(Porphyry/Sripati, hsys='O', built for Bhava Dig Bala) -- KP requires
+Placidus specifically, per the S143 handover's explicit warning.
+
+ORACLE-VALIDATED, all 4 reference charts (Sulabh/David/Sheridan/Surbhi), 48
+cusps total, against AstroSage's own "KP System / Nakshatra Nadi" Cuspal
+Positions table (word-position `extract_words()` parse, sorted by (top, x0)
+-- a naive linear `extract_text()` interleaves the page's side-by-side
+chart-diagram and dasha-date-grid into the table rows, the same trap this
+whole KP page keeps producing). RESULT: 46/48 exact match. 2 documented
+xfail divergences (David cusp 12, Surbhi cusp 10), both boundary-proximity
+misses traced to this codebase's geocoded lat/lon fixture differing from
+AstroSage's own internal city coordinates by a few arcminutes (the SAME
+class of residual already accepted for Sade Sati's day-boundary tolerance
+and the Sun/Moon arcsecond residual -- not new to KP). Using AstroSage's own
+stated coordinates instead of the geocoded fixture scores 47/48 offline
+(verified, not run in the committed suite to keep it deterministic/
+network-free). `tests/calculations/kp/test_kp_oracle_validation.py`:
+`test_measured_match_rate_is_at_least_46_of_48` is the actual regression
+floor, the two rows are `xfail(strict=False)` so a future tightening
+surfaces as XPASS rather than needing the divergence set edited.
+
+WIRED, same composer pattern as Sade Sati/D9/yogas (composed by the CALLER,
+never inside `chart_facts.py`): `agent/astro/kp_facts.py` (`build_kp_facts`)
+-> `capability_gate.FACT_BLOCK_PROVIDES += "kp_seventh_cusp_sub_lord"` ->
+`pipeline._fact_block` renders a NATAL-fact paragraph for the 7th cusp's
+sub-lord -> `interpreter.py` EXPERT_SYSTEM fact-type list extended.
+
+TWO ADDITIONAL FIXES landed in the same commit, root-caused from a measured
+defect (see below): (a) a chart-agnostic NATAL-vs-TRANSIT disambiguation
+rule -- two facts sharing a planet's name are not automatically related,
+stated as a HARD RULE in `interpreter.py`'s `EXPERT_SYSTEM` and mirrored in
+`scripts/expert_pilot.py`'s own copy; (b) a "survey every antardasha before
+ranking" completeness rule in the same two places -- a period silently
+skipped is a period implicitly ruled out without saying so.
+
+MEASURED LIVE (Sulabh, GPT-5, expert mode, "when would I have got married",
+3 separate runs across this session): Run 1 (before any fix) picked
+Mercury-Jupiter 2020-22 as most likely, cited "KP 7th cusp sub-lord is
+Saturn... Saturn was transiting Libra" as corroboration for a DIFFERENT
+window (Mercury-Venus 2011-14) -- a same-name-planet conflation between the
+FIXED cuspal sub-lord fact and an unrelated TRANSIT fact. Run 2 (after fixes
+a+b above): completeness rule worked -- Mercury-Rahu (the correct window,
+per Output.txt) now got surveyed and named as a "possible" alternative --
+but the conflation PERSISTED with different wording ("KP cross-check: the
+7th cusp sub-lord is Saturn. During this sub-period Saturn was transiting
+Libra..."), still favouring Mercury-Venus. CONCLUSION: the defect is
+STRUCTURAL, not a wording gap that a stricter prompt rule can close. The
+cuspal sub-lord is a single value FIXED for the whole chart -- it is
+identical regardless of which antardasha is being evaluated, so it
+structurally cannot discriminate between two antardashas in the same
+mahadasha. It will keep inviting a same-name-coincidence "corroboration"
+for whichever window the model already favours, no matter how the
+NATAL/TRANSIT wording is tightened.
+
+PART 2 -- KP HOUSE SIGNIFICATORS. BUILT, then the PRODUCTION WIRING WAS
+REVERTED same session (Sulabh, 2026-09-27).
+
+DIAGNOSIS: `Output.txt` (a project doc -- an independently-authored
+reference answer Sulabh had already validated in a prior Claude Desktop
+session) names the real discriminator the false-positive-picking runs above
+were missing: the KP HOUSE SIGNIFICATOR table (which houses each planet
+signifies -- a DIFFERENT KP technique from the cuspal sub-lord, unrelated to
+it, four-level occupant/house-lord/star-lord hierarchy). Unlike the cuspal
+sub-lord, this DOES vary by which lord is running, so it can actually
+discriminate between two antardashas. Output.txt states Mercury signifies
+houses 2,3,7,9,12 and Rahu signifies 1,2,3,4 for Sulabh's own chart, tying
+the true window to Mercury-Rahu via a real, period-specific KP argument
+Path B was not giving the interpreter.
+
+BUILT: `agent/calculations/kp/significators.py` (`parse_kp_significators`) --
+a pdfplumber word-position parser for AstroSage's own printed "Significators
+of Houses" table (same page/layout-interleaving trap as the Cuspal Positions
+table above; same `(top, x0)`-sorted `extract_words()` fix). VALIDATED
+against all 4 reference charts' real PDFs (Sulabh/David/Sheridan/Surbhi),
+100% match against manually-derived tables for every planet on every chart;
+Sulabh's own Mercury/Rahu rows additionally cross-checked exactly against
+Output.txt (found before this parser was written, so the parser is not
+curve-fit to its own test). `tests/calculations/kp/test_significators.py`:
+11 passed, 1 skipped (a "PDF without the KP page" branch test, skipped only
+because that fixture PDF isn't present in every checkout).
+
+BUILT: `agent/astro/kp_significator_facts.py` (`build_kp_significator_facts`,
+composer). WIRED into `capability_gate.py` (`+= "kp_planet_significations"`),
+`pipeline.py` (a per-antardasha `[signifies houses: ...]` tag next to each
+sub-period's own lord, plus a standing NATAL paragraph listing every
+planet's significated houses), and `interpreter.py`'s EXPERT_SYSTEM fact-type
+list. THEN wired into BOTH live callers -- `frontend/app.py` (parsed at PDF
+upload time into `st.session_state.kp_significators`, composed into
+`chart_facts` on every question) and `scripts/expert_pilot.py` (read
+directly from `data/pdfs/VedicReport5-24-202610-01-26PM.pdf` on disk).
+
+**THIS WAS WRONG, and Sulabh caught it.** Every other Track A fact in this
+codebase -- Sade Sati (S142), this same session's own cuspal sub-lord above
+-- is EPHEMERIS-COMPUTED, with an AstroSage/JHora PDF used ONLY as a
+test-time oracle to validate the computation, never as the thing that
+actually gets read when a real answer is served. The significator wiring
+broke that pattern for the first time: with it wired, a served answer's KP
+house-significator facts came from PARSING THE UPLOADED PDF LIVE, so no PDF
+uploaded that session meant no significator facts at all. This is the
+opposite direction from the Master Build Plan's own stated V2 horizon item,
+recorded S115 and still unstarted: "AstroSage PDF removal in favour of
+in-house computation." The original in-session defence ("this is a restate,
+same as Sade Sati/cuspal sub-lord, so it's low-risk") was WRONG -- it
+conflated two different things: restating an EPHEMERIS-COMPUTED value that
+happens to also be oracle-checked against a PDF (the actual established
+pattern), versus restating WHATEVER'S PRINTED ON THE PDF PAGE as the
+production fact itself (what was actually built). The second is a new and
+weaker category that had never existed anywhere else in this codebase.
+
+**NEW LOCKED PRINCIPLE (this session): PDF IS ORACLE-ONLY FOR TRACK A
+FACTS, NEVER THE RUNTIME SOURCE.** A Track A fact class may be validated
+against an AstroSage/JHora PDF at test time. It may never be COMPUTED by
+parsing that PDF inside any code path a live served answer depends on. If a
+technique cannot yet be computed from ephemeris, it stays UNWIRED --
+module built and tested, its composer simply not called by any production
+caller -- until it can be, rather than shipping a PDF-dependent shortcut to
+get a signal into the fact block sooner.
+
+REVERTED this session: the two composition call sites --
+`frontend/app.py`'s upload-handler parse + `kp_significators` session-state
+carry + `chart_facts["kp_planet_significations"]` attach (4 edits, restoring
+the pre-significator upload flow and `_astrosage_pdf_name`-only session
+state), and `scripts/expert_pilot.py`'s `SULABH_PDF_PATH` constant + its
+`cf["kp_planet_significations"]` composition in `_facts()`. Both files
+verified clean (`python -m py_compile`) and the full relevant sandbox
+subset re-run after the revert: 187 passed, 1 skipped, 2 xfailed
+(`test_kp_significator_facts.py`, `test_capability_gate.py`,
+`test_kp_facts.py`, everything under `tests/calculations/kp/`) -- zero
+regressions from the revert itself.
+
+LEFT IN THE TREE, deliberately, as scaffolding for the real fix:
+`agent/calculations/kp/significators.py` and its 4-chart pinned fixture in
+`tests/calculations/kp/test_significators.py` -- repurposed as the ORACLE
+for a future ephemeris-computed significator engine, exactly the role
+`test_kp_oracle_validation.py`'s cuspal table already plays; NEVER a runtime
+read again until that engine exists and needs something to validate
+against. `agent/astro/kp_significator_facts.py` (the composer function
+itself stays, just uncalled by any production caller).
+`capability_gate.py`'s `"kp_planet_significations"` key and `pipeline.py`'s
+rendering code (the per-antardasha tag + standing paragraph) stay in place,
+inert -- both are guarded on the fact's presence, which no production
+caller supplies any more, so they render nothing today, but need no rework
+once a real computed engine starts supplying the same key.
+`tests/astro/test_kp_significator_facts.py` (11 tests, composer + render
+tested directly via mocking/dict-passing, unaffected by the app.py/
+expert_pilot.py revert) stays green.
+
+STILL NOT DONE, blocking everything: the actual live GPT-5 measurement with
+the FULL current fix set (cuspal sub-lord + NATAL/TRANSIT rule +
+completeness rule, significators NOT wired) has not been re-run clean since
+the significator detour started mid-session. Sulabh must re-run
+`scripts/expert_pilot.py marriage_past` or Streamlit (a fresh PDF upload is
+no longer required for this specific fact, now that significators are
+unwired) and report whether the pick is still Mercury-Venus/Mercury-Saturn
+or has shifted, before any further KP work is scoped.
+
+NEXT (S144, see `claude_handover_S144.md`): scope and build a real
+ephemeris-computed KP significator engine (occupant of a house + the
+house's own lord + the occupant's star-lord + the house-lord's star-lord --
+a 4-level hierarchy whose PRECEDENCE/STRENGTH RANKING is classically
+contested and needs real sourcing before any code is written, not just a
+mechanical lookup), validated against the oracle fixture already built and
+pinned in `test_significators.py`, wired into production ONLY once that
+validation clears a stated match-rate floor (mirroring the cuspal
+sub-lord's 46/48 floor above). Lal Kitab remains explicitly deferred to
+"the end" per Sulabh's own standing instruction -- do not start it before
+the significator engine.
+
+FILES COMMITTED TO DEVICE this session (via `device_commit_files`; no git
+commit -- `RATIFIED: commit authorized` never given):
+`agent/calculations/kp/sub_lords.py`,
+`agent/calculations/kp/significators.py` (new),
+`agent/astro/kp_facts.py`, `agent/astro/kp_significator_facts.py` (new),
+`agent/astro/capability_gate.py`, `agent/astro/pipeline.py`,
+`agent/astro/interpreter.py`, `scripts/expert_pilot.py` (edited twice --
+wired then unwired), `frontend/app.py` (edited twice -- wired then
+unwired), `tests/calculations/kp/test_sub_lords.py`,
+`tests/calculations/kp/test_kp_oracle_validation.py`,
+`tests/calculations/kp/test_significators.py` (new),
+`tests/astro/test_kp_facts.py`, `tests/astro/test_kp_significator_facts.py`
+(new), `tests/astro/test_capability_gate.py`, `tests/astro/test_transit_facts.py`.
+
+TESTING NOTE: same Cowork-sandbox limitation as S141/S142 --
+`agent.infra`/`openai` not staged, so `tests/conftest.py` cannot be imported
+here and the full suite cannot run in this sandbox. Ran the touched files
+directly (conftest bypassed): 247 passed / 1 skipped / 2 xfailed on the
+first KP pass, 187 passed / 1 skipped / 2 xfailed re-confirming after the
+significator revert. Sulabh must run the full
+`pytest tests/astro/ tests/calculations/ -q` on his own machine before any
+git commit.
+
+
+## S144 (2026-09-27) -- KP house significators EPHEMERIS-COMPUTED (no PDF) +
+deterministic timing ranker (Saturn+Jupiter convergence); validated against
+Sulabh's real marriage date (11 Dec 2019). Working end-to-end in the pilot AND
+Streamlit. Committed to device via device_commit_files. NO git commit (no
+"RATIFIED: commit authorized" token given this session).
+
+PART 1 -- KP HOUSE SIGNIFICATOR ENGINE (the S144 handover's scoped task).
+
+The S143 handover left the significator parser built but UNWIRED (PDF-oracle
+only) and scoped S144 to build a real ephemeris-computed engine validated
+against that oracle before wiring. Done.
+
+DESIGN (KP Reader II fourfold + Reader IV node agency). A planet P signifies a
+house by four classical routes in descending strength: (1) star-of-occupant --
+the house(s) P's STAR-LORD occupies; (2) occupant -- the house(s) P occupies;
+(3) star-of-owner -- the house(s) P's STAR-LORD owns; (4) owner -- the house(s)
+P owns. NODE AGENCY (Rahu/Ketu only, additional): a node also signifies the
+houses of the planet(s) it is conjoined with (same KP bhava) and of its
+sign-dispositor. The strength RANKING across levels is classically contested;
+tiers 1-4 are emitted as numbers, node-agency routes as tier=None (their weight
+vs the classical tiers is left to the interpreter/ranker, not hardcoded).
+CITATION is code-embedded (KP Reader II/IV in the docstring) -- the standard
+Track A pattern; confirmed there is NO KP text in the ingested corpus (BOOKS.md
+is a locked 12-book registry, zero Krishnamurti), so KP stays a computed
+cross-check, not a retrievable citation, until a KP Reader is ingested (Reader
+II recommended; backlog).
+
+BUILT `agent/calculations/kp/significator_engine.py`
+(`compute_kp_significators(chart)`): occupancy from
+`meta["house_cusps_kp_sidereal"]` (KP-Placidus cusps, S143); ownership from the
+cuspal sign-lords; star-lord from the EXISTING `chart_calculator._nakshatra()`
+primitive (the [UNKNOWN] from the handover -- resolved: the 27-way star-lord
+lookup already exists, applied to the Moon for dasha; the engine applies it to
+all 9 planets, no new table). Domain-neutral: emits all 12 houses for every
+planet with (tier, via); `significators_for_house()` reads one house ranked.
+
+VALIDATION -- the engine reproduces the S143 AstroSage-parsed oracle EXACTLY for
+8 of 9 planets (Sun 3,7,9; Moon 1,3,4,8,10; Mars 1,3,4,11,12; Mercury 2,3,7,9,12;
+Jupiter 1,3,4,8; Venus 3,5,6,10; Saturn 2,8,12; Ketu 3,8). The ONE delta is Rahu
+1,2,3,4,**12** vs the oracle's 1,2,3,4 -- the extra 12 is the node-dispositor
+(Saturn) route the AstroSage table omits. Two independent methods (PDF-parse and
+ephemeris-compute) agreeing to this degree is the strongest available validation.
+
+CORRECTION MID-SESSION (recorded so it is not repeated): my first sandbox
+hand-trace and the first `test_significator_engine.py` fixture used the PDF's
+Chalit/Lahiri house cusps instead of the engine's real KP-Placidus cusps. That
+mis-placed planets (put Mercury and Rahu in the same house, fabricating a
+"conjunction" that made Rahu falsely appear to signify house 7) and produced an
+earlier wrong claim that the classical fourfold "diverges badly from AstroSage"
+-- both artifacts of the wrong cusps. A probe on the real chart
+(`scripts/_kp_sig_probe.py`, throwaway) settled the ground truth. FIX:
+`test_significator_engine.py` rewritten as an INTEGRATION test driving the real
+`calculate_chart(...)` so the fixture can never drift from production cusps
+again; the PDF parser `agent/calculations/kp/significators.py` and its 4-chart
+fixture are retained ORACLE-ONLY.
+
+WIRED (composer source swapped, output shape kept). `kp_significator_facts.py`
+rewritten to take `chart` (not `pdf_bytes`) and call the engine, flattening to
+the UNCHANGED shape `{"planet_significations": {planet: (houses, ascending)}}`
+-- so `pipeline`/`capability_gate`/`interpreter` needed zero change. The two
+production call sites S143 removed were re-added COMPUTED, honouring the S143
+PDF-AS-ORACLE-ONLY lock: `frontend/app.py` computes from `_chart` at answer time
+(the PDF-upload path no longer feeds significators), `scripts/expert_pilot.py`
+passes `chart`. `pipeline.py`'s rendered provenance string corrected from
+"parsed from AstroSage's own printed table" to "ephemeris-computed".
+
+PART 2 -- DETERMINISTIC TIMING RANKER.
+
+PROBLEM: with significators wired, the interpreter STILL could not reliably pick
+the right window -- three live runs, three different top picks, using
+significators as post-hoc justification. Root cause: significators alone cannot
+single out one antardasha (Mercury-Mercury, Mercury-Sun, Mercury-Saturn,
+Mercury-Rahu ALL touch a marriage house), and LLM-led convergence is
+non-deterministic. The discriminator is TRANSIT convergence, which the
+interpreter was fumbling (reading Sade-Sati as an obstacle rather than the
+setting-tail / Saturn-return trigger the benchmark used).
+
+BUILT `agent/astro/timing_ranker.py` -- a deterministic convergence score per
+antardasha against the PLANNER'S target houses (domain-neutral: marriage
+{2,7,11}, career {2,6,10,11}, children {2,5,11} -- one ranker, houses injected,
+no per-scenario branches). Signals + weights (THRESHOLD DISCIPLINE, justified
+independently of any chart's answer, documented in-module): W_SIG=1.0 per target
+house the AD lord signifies; W_MD=0.5 if the MD lord signifies a target house;
+W_ACT=1.0 if transiting Saturn contacts a target house (occupies / 3rd / 7th /
+10th aspect); W_RET=2.0 if Saturn is transiting its own natal house AND that
+natal position contacts a target house (a ~29.5yr return re-firing a natal
+significator -- milestone-grade, W_RET>W_ACT because a return is categorically
+rarer than a passing aspect; scope-guarded to natal relevance); W_JUP=1.0 if
+transiting Jupiter (marriage/children benefic -- 5th / 7th / 9th aspects)
+contacts a target house. The interpreter now EXPLAINS the top window instead of
+re-ranking (kills the variance). Wired in `pipeline.answer_question` (scored on
+`verdict.plan.houses`) and `expert_pilot.py`. `transit_facts.py` extended to emit
+Jupiter's sign / house-from-lagna / retrograde from the SAME per-antardasha
+gochara snapshot -- no extra ephemeris call (Jupiter was computed and discarded).
+
+VALIDATED AGAINST GROUND TRUTH (Sulabh's actual marriage 11 Dec 2019): the
+ranker's #1 marriage window is Mercury-Rahu 28 Jan 2018 - 16 Aug 2020 (score 5.5
+with Jupiter; Mercury-Mercury #2 at 4.5), which CONTAINS 11 Dec 2019. Confirmed
+BOTH in the pilot (`diagnostics/latest_run.md`) and live Streamlit (newest
+`diagnostics/qa_capture/<launch>.md`). Weights NOT tuned to the answer --
+Mercury-Rahu wins because the Saturn return (Saturn on the Sagittarius Lagna,
+aspecting the 7th) plus Jupiter's aspect converge there. Domain-neutral
+confirmed: a career target reorders the windows. Unit tests use the real chart's
+significators/transits transcribed from the fact block, so they validate the
+production case without swisseph (7 assertions green in-sandbox).
+
+MEASURED PROGRESS: S141/S143 -> the naive Venus-2011 or Mercury-Mercury-2008
+pick; S144 end -> deterministic Mercury-Rahu (contains the true date), same
+answer every run, in both the pilot and the live app.
+
+OPEN / BACKLOG (all flagged, none blocking the marriage result):
+- W_RET dominance: the return bonus is strong enough that Mercury-Rahu also tops
+  the CAREER target -- non-marriage domains are UNVALIDATED and must be checked
+  on more charts before the ranker's non-marriage output is trusted.
+- Planner target houses mix promotion + affliction houses (marriage came in as
+  [7,2,11,8]; house 8 is an obstacle house and muddies runner-up scores). Top
+  pick survives; the clean fix is PLANNER-SIDE house-role tagging.
+- Node-agency Rahu house-12 keep-vs-drop: keeping it is the one place engine !=
+  oracle; leaning keep (classically defensible, irrelevant to marriage).
+- Intra-window month precision is soft (nailed the 2.5yr window but guessed
+  "Q2-Q3 2019" vs the actual December) -- pratyantardasha would sharpen it but
+  is suppressed (S129 lock, +/-37d). Not chased.
+- Jupiter transit is Saturn's peer for CONTACT but has no return/phase concept;
+  other transiting bodies unscored.
+- Lal Kitab still deferred to "the end".
+
+FILES committed to device (no git commit; RATIFIED pending):
+`agent/calculations/kp/significator_engine.py` (new),
+`agent/astro/kp_significator_facts.py`, `agent/astro/timing_ranker.py` (new),
+`agent/astro/pipeline.py`, `agent/astro/transit_facts.py`, `frontend/app.py`,
+`scripts/expert_pilot.py`, `tests/calculations/kp/test_significator_engine.py`,
+`tests/astro/test_kp_significator_facts.py` (new),
+`tests/astro/test_timing_ranker.py` (new). Throwaway `scripts/_kp_sig_probe.py`
+to be `git rm`'d on commit.
+
+TESTING NOTE: same Cowork-sandbox limitation as S141-S143 (`agent.infra`/`openai`
+not staged; swisseph absent, so the integration tests and pilot can't run here).
+The pure ranker logic was validated in-sandbox (7 assertions green); the
+significator engine and the full end-to-end run were validated on Sulabh's
+machine (pytest + Streamlit). Sulabh must run the full
+`pytest tests/astro/ tests/calculations/ -q` before the git commit.

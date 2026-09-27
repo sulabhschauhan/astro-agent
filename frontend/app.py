@@ -23,6 +23,8 @@ from agent.chart_calculator import _dignity as _sign_dignity  # SSOT: S21 PVR Ta
 from agent.calculations.vargas.navamsa import compute_navamsa
 from agent.astro.yoga_facts import build_yoga_facts
 from agent.astro.transit_facts import build_transit_facts
+from agent.astro.kp_facts import build_kp_facts
+from agent.astro.kp_significator_facts import build_kp_significator_facts
 from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf, _PRIORITY_ORDER
 from PIL import Image
@@ -637,6 +639,12 @@ if "pdf_context" not in st.session_state:
     st.session_state.pdf_context = None
 if "_astrosage_pdf_name" not in st.session_state:
     st.session_state["_astrosage_pdf_name"] = None
+if "kp_significators" not in st.session_state:
+    # S143-followup: KP house-significator table parsed from the SAME
+    # uploaded PDF, alongside pdf_context above -- see
+    # agent/astro/kp_significator_facts.py's docstring for why this needs
+    # the PDF's raw bytes rather than `chart`.
+    st.session_state.kp_significators = {}
 if "palm_left_str" not in st.session_state:
     st.session_state.palm_left_str = None
 if "palm_left_hash" not in st.session_state:
@@ -895,8 +903,12 @@ with st.expander(_upload_expander_title, expanded=False):
     uploaded_pdf = st.file_uploader("AstroSage PDF (optional)", type=["pdf"])
     if uploaded_pdf is not None:
         if st.session_state["_astrosage_pdf_name"] != uploaded_pdf.name:
+            _pdf_bytes = uploaded_pdf.getvalue()  # not .read() -- reused below,
+                                                    # and getvalue() doesn't
+                                                    # consume the stream like
+                                                    # read() would.
             with st.spinner("Parsing AstroSage PDF…"):
-                _pdf_parse_result = parse_astrosage_pdf(uploaded_pdf.read())
+                _pdf_parse_result = parse_astrosage_pdf(_pdf_bytes)
             if _pdf_parse_result:
                 st.session_state.pdf_context = _pdf_parse_result
                 st.session_state["_astrosage_pdf_name"] = uploaded_pdf.name
@@ -904,6 +916,10 @@ with st.expander(_upload_expander_title, expanded=False):
             else:
                 st.session_state.pdf_context = None
                 st.warning("Could not extract sections — check this is an AstroSage PDF.")
+            # S144: KP house significators are no longer parsed from the PDF --
+            # they are ephemeris-computed from the chart at answer time (see the
+            # KP SIGNIFICATORS block in the ask handler). The PDF upload no
+            # longer feeds them.
     elif st.session_state["_astrosage_pdf_name"] is not None:
         st.session_state.pdf_context = None
         st.session_state["_astrosage_pdf_name"] = None
@@ -1681,6 +1697,35 @@ if prompt:
                 except Exception as _terr:  # noqa: BLE001 -- optional fact class
                     logger.warning("transits unavailable, answering without them: "
                                    "%s: %s", type(_terr).__name__, _terr)
+
+                # KP FACTS (S143). The 7th house cusp's sub-lord (Krishnamurti
+                # Paddhati), read off chart['meta']['house_cusps_kp_sidereal']
+                # (a different ayanamsha, computed by calculate_chart() itself --
+                # see chart_calculator.py's S143 comment). Same fail-soft
+                # posture as yogas/transits above: losing it costs one
+                # corroborating signal for marriage timing, never the answer.
+                # "kp_seventh_cusp_sub_lord" is declared in
+                # capability_gate.FACT_BLOCK_PROVIDES.
+                try:
+                    chart_facts["kp"] = build_kp_facts(_chart)
+                except Exception as _kperr:  # noqa: BLE001 -- optional fact class
+                    logger.warning("KP facts unavailable, answering without them: "
+                                   "%s: %s", type(_kperr).__name__, _kperr)
+
+                # KP SIGNIFICATORS (S144). Per-planet KP house significators,
+                # now ephemeris-COMPUTED from _chart
+                # (agent.calculations.kp.significator_engine, KP Reader II
+                # fourfold + Reader IV node agency) -- no PDF dependency
+                # (PDF-AS-ORACLE-ONLY, S143). Same fail-soft posture as the
+                # kp/transits/yogas blocks above; losing it costs the
+                # period-varying marriage/career signal, never the answer.
+                # "kp_planet_significations" is declared in
+                # capability_gate.FACT_BLOCK_PROVIDES.
+                try:
+                    chart_facts["kp_planet_significations"] = build_kp_significator_facts(_chart)
+                except Exception as _kserr:  # noqa: BLE001 -- optional fact class
+                    logger.warning("KP significators unavailable, answering without "
+                                   "them: %s: %s", type(_kserr).__name__, _kserr)
 
                 result = answer_question(
                     prompt, chart_facts,

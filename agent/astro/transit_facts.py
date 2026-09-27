@@ -84,7 +84,10 @@ def build_transit_facts(chart: dict, chart_facts: dict) -> dict:
                                          "saturn_house_from_lagna": int,
                                          "saturn_house_from_moon": int,
                                          "saturn_retrograde": bool,
-                                         "sade_sati_phase": str}, ...}}
+                                         "sade_sati_phase": str,
+                                         "jupiter_sign": str | None,
+                                         "jupiter_house_from_lagna": int | None,
+                                         "jupiter_retrograde": bool | None}, ...}}
         Never raises.
     """
     try:
@@ -152,10 +155,18 @@ def _snapshot(period_row: dict, natal_asc_lon: float, natal_moon_lon: float,
 
     saturn_sign_0 = (saturn.sign - 1) % 12  # gochara is 1-based; sade_sati is 0-based
     phase = _sade_sati.sade_sati_phase_for_signs(natal_moon_sign_0, saturn_sign_0)
+    # S144: Jupiter transit too -- the natural marriage/children benefic, whose
+    # transit to/aspect on a target house is a first-order timing trigger the
+    # Saturn-only view was blind to. Same snapshot, no extra ephemeris call;
+    # fail-soft to None if Jupiter is somehow absent from the placements.
+    jupiter = next((p for p in snap.placements if p.planet_name == "Jupiter"), None)
     return {
         "saturn_sign": _SIGN_NAMES[saturn_sign_0],
         "saturn_house_from_lagna": saturn.house_from_lagna,
         "saturn_house_from_moon": saturn.house_from_moon,
         "saturn_retrograde": saturn.is_retrograde,
         "sade_sati_phase": phase,
+        "jupiter_sign": _SIGN_NAMES[(jupiter.sign - 1) % 12] if jupiter else None,
+        "jupiter_house_from_lagna": jupiter.house_from_lagna if jupiter else None,
+        "jupiter_retrograde": jupiter.is_retrograde if jupiter else None,
     }

@@ -75,11 +75,20 @@ def test_build_transit_facts_basic_shape_and_correctness():
     entry = periods[key]
     assert set(entry) == {"saturn_sign", "saturn_house_from_lagna",
                           "saturn_house_from_moon", "saturn_retrograde",
-                          "sade_sati_phase"}
+                          "sade_sati_phase",
+                          # S144: Jupiter transit added (marriage/children benefic),
+                          # from the same gochara snapshot -- fed to timing_ranker.
+                          "jupiter_sign", "jupiter_house_from_lagna",
+                          "jupiter_retrograde"}
     assert isinstance(entry["saturn_sign"], str)
     assert 1 <= entry["saturn_house_from_lagna"] <= 12
     assert 1 <= entry["saturn_house_from_moon"] <= 12
     assert entry["sade_sati_phase"] in {"RISING", "PEAK", "SETTING", "NONE"}
+    # Jupiter is fail-soft to None if somehow absent from the placements, but on
+    # a normal chart it resolves to a sign + a 1..12 house.
+    assert entry["jupiter_sign"] is None or isinstance(entry["jupiter_sign"], str)
+    assert entry["jupiter_house_from_lagna"] is None or (
+        1 <= entry["jupiter_house_from_lagna"] <= 12)
 
 
 def test_build_transit_facts_skips_malformed_antardasha_rows():
@@ -124,7 +133,7 @@ def test_fact_block_renders_saturn_annotation_on_matching_antardasha():
                      "sade_sati_phase": "SETTING"}}},
     )
     fb = pipeline._fact_block(facts)
-    assert "[Saturn: Sagittarius, house 1 from lagna, house 2 from Moon, Sade Sati SETTING]" in fb
+    assert "[Saturn TRANSIT: Sagittarius, house 1 from lagna, house 2 from Moon, Sade Sati SETTING]" in fb
     assert "cross-checks a dasha period against transit" in fb
 
 
@@ -147,7 +156,7 @@ def test_fact_block_omits_saturn_annotation_when_no_matching_period():
 
 def test_growth_contract_transits_key_is_declared():
     # Mirrors test_yoga_facts.py's local pairing guard: the fact block only
-    # ever renders a [Saturn: ...] tag when chart_facts carries "transits",
+    # ever renders a [Saturn TRANSIT: ...] tag when chart_facts carries "transits",
     # and that key must be in FACT_BLOCK_PROVIDES (test_capability_gate.py
     # pins the exhaustive set; this just guards the pair locally too).
     assert "transits" in capability_gate.FACT_BLOCK_PROVIDES

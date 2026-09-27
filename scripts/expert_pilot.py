@@ -21,6 +21,8 @@ from agent.astro import pipeline, planner
 from agent.calculations.vargas.navamsa import compute_navamsa
 from agent.astro.yoga_facts import build_yoga_facts
 from agent.astro.transit_facts import build_transit_facts
+from agent.astro.kp_facts import build_kp_facts
+from agent.astro.kp_significator_facts import build_kp_significator_facts
 
 SULABH = ("Sulabh", "6 Apr 1988", "00:30", "Calcutta, India")
 
@@ -42,12 +44,14 @@ EXPERT_SYSTEM = """You are an expert Vedic astrologer in the Parashari tradition
 You are given (1) the COMPUTED CHART FACTS for this person and (2) relevant classical passages. Work from these.
 
 HARD RULE -- facts are not yours to invent:
-- Every chart FACT you state -- a planet's house or sign, which house a lord occupies, a dignity, a yoga, a dasha/antardasha period or its dates -- MUST come from the CHART FACTS given below. Never invent, guess, or compute a placement or a date. If a fact you would need is not in the block, say what the given facts support and name the limit rather than filling the gap.
+- Every chart FACT you state -- a planet's house or sign, which house a lord occupies, a dignity, a yoga, a dasha/antardasha period or its dates, a transit placement (where a planet was transiting, and relative to what, at a given time), a KP (Krishnamurti Paddhati) house-cusp sub-lord, or a KP house significator (which houses a planet signifies) -- MUST come from the CHART FACTS given below. Never invent, guess, or compute a placement or a date. If a fact you would need is not in the block, say what the given facts support and name the limit rather than filling the gap.
+- A NATAL fact (fixed for this chart -- a placement, a dignity, a house's own sub-lord) and a TRANSIT fact (a planet's moving position at a given time) are DIFFERENT quantities. Two facts that merely name the same planet are not automatically related -- treat them as corroborating each other only when the specific technique you are applying actually connects them, never just because the name matches.
 - INTERPRETATION -- what a placement or period MEANS -- may draw on your expert knowledge of the classical texts and the passages provided. Never use pop astrology or unverified sources.
 
 ANSWER LIKE AN EXPERT WOULD:
 - Lead with the real answer to their question -- the bottom line first, including the uncomfortable part if there is one. No throat-clearing.
 - Be specific to THIS chart: name the actual placements and periods driving your reading. For any timing, give the real date windows from the dasha facts as month/quarter ranges (the dates are approximate, +/-37 days -- say so once, not repeatedly). A retrospective question ("when would I have...") is answered with the correct PAST period, not a future one.
+- For a timing/ranking question, survey EVERY dasha sub-period the fact block gives you before ranking candidates, not just the ones that first come to mind. A period you silently skip is a period you have implicitly ruled out without saying so -- if you rule one out, name it and give a one-line reason, even briefly.
 - Structure however the question demands -- a timing question wants ranked windows; a "what does X mean" question wants themes, perhaps a short period-by-period read. Short paragraphs or a few grouped points, whatever reads best. Do not pad.
 - Say how sure you are in plain words -- very likely / likely / possible / uncertain -- and why, tied to the facts.
 - Plain second-person language ("you", "your"). Translate every technical term (say "your marriage ruler", or name it once in brackets). NO citations, NO verse ids -- write as an astrologer speaking to a client, not a footnoted paper.
@@ -74,6 +78,17 @@ def _facts():
         cf["transits"] = build_transit_facts(chart, cf)
     except Exception as e:  # noqa: BLE001
         print(f"[pilot] transits skipped: {type(e).__name__}: {e}", file=sys.stderr)
+    try:  # S143: KP 7th-cusp sub-lord, same composition style
+        cf["kp"] = build_kp_facts(chart)
+    except Exception as e:  # noqa: BLE001
+        print(f"[pilot] KP skipped: {type(e).__name__}: {e}", file=sys.stderr)
+    try:  # S144: KP house significators, ephemeris-COMPUTED from `chart`
+        # (no PDF -- see agent/calculations/kp/significator_engine.py). Same
+        # composition style as the fact classes above.
+        cf["kp_planet_significations"] = build_kp_significator_facts(chart)
+    except Exception as e:  # noqa: BLE001
+        print(f"[pilot] KP significators skipped: {type(e).__name__}: {e}",
+              file=sys.stderr)
     return cf
 
 
@@ -87,6 +102,12 @@ def run(key):
     q, domains, houses, ts = QUESTIONS[key]
     cf = _facts()
     fact_block = pipeline._fact_block(cf)
+    # S144: append the deterministic timing ranking for this question's houses
+    # (same path production uses in pipeline.answer_question).
+    from agent.astro import timing_ranker
+    _rk = timing_ranker.render_ranking(timing_ranker.build_timing_ranking(cf, houses))
+    if _rk:
+        fact_block = fact_block + "\n" + _rk
     plan = planner.Plan(question=q, domains=domains, houses=houses,
                         whose_chart="self", time_scope=ts, in_scope=True,
                         reasoning="expert-mode pilot")

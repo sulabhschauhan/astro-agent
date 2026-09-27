@@ -99,6 +99,29 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # posture as "yogas" -- no REQUIREMENT references it; it
                            # exists to corroborate WHICH dasha window a dated event
                            # falls in, not to gate any question on its own.
+    "kp_seventh_cusp_sub_lord",  # KP (Krishnamurti Paddhati) 7th-cusp sub-lord,
+                           # computed by agent.astro.kp_facts.build_kp_facts over
+                           # chart['meta']['house_cusps_kp_sidereal'] (a DIFFERENT
+                           # ayanamsha than everything else in the fact block --
+                           # see chart_calculator.py's S143 comment). Additive
+                           # fact class, same posture as "transits" -- a second
+                           # cross-system corroboration for marriage-timing
+                           # selection, not a gate on its own.
+    "kp_planet_significations",  # KP house significators (Sun..Ketu -> houses
+                           # signified), parsed from AstroSage's own printed
+                           # "Significators of Houses" table by
+                           # agent.calculations.kp.significators.parse_kp_significators,
+                           # composed by agent.astro.kp_significator_facts.
+                           # build_kp_significator_facts (S143-followup, this
+                           # session). Unlike "kp_seventh_cusp_sub_lord", this
+                           # fact varies BY WHICH LORD is running (each
+                           # antardasha's own lord's significations are tagged
+                           # in the dasha timeline), so it can actually
+                           # discriminate between two antardashas -- the fixed
+                           # cuspal sub-lord fact cannot. Requires a PDF
+                           # uploaded this session; {} (absent) whenever none
+                           # was -- additive fact class, same posture as
+                           # "transits"/"kp_seventh_cusp_sub_lord".
 })
 
 

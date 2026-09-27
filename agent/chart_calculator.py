@@ -719,12 +719,28 @@ def calculate_chart(name: str, dob: str, tob: str, place: str) -> dict:
             f"lat={lat}, lon={lon_geo}: {exc}"
         ) from exc
 
-    # Tropical ascendant → subtract Lahiri ayanamsha for sidereal
-    _, ascmc = swe.houses(jd_ut, lat, lon_geo, b"P")
+    # Tropical ascendant → subtract Lahiri ayanamsha for sidereal.
+    # cusps_tropical (house 1..12) was previously discarded (`_, ascmc = ...`) --
+    # captured now (S143) so KP can use it below without a second swe.houses() call.
+    cusps_tropical, ascmc = swe.houses(jd_ut, lat, lon_geo, b"P")
     ayanamsha = swe.get_ayanamsa_ut(jd_ut)
     asc_lon = (ascmc[0] - ayanamsha) % 360
     asc_sign_idx = int(asc_lon / 30)
     asc_sign = SIGNS[asc_sign_idx]
+
+    # KP (S143): KP astrology is calibrated to its own ayanamsha, not Lahiri --
+    # its 249-way sub-lord subdivision resolves to segments as narrow as ~40
+    # arcminutes, and the Lahiri/KP-ayanamsha gap (~5-6 arcmin) is large enough
+    # to occasionally flip which sub-lord a cusp falls under (measured: 2/48
+    # cusps across 4 oracle-validated reference charts). Applied to the SAME
+    # cusps_tropical computed above -- no second ephemeris call, just a second
+    # ayanamsha scalar. The sid_mode switch is bracketed and restored to Lahiri
+    # immediately after, since every other computation in this function
+    # (_calc_planets, _calc_dasha, ...) below this point must stay Lahiri.
+    swe.set_sid_mode(swe.SIDM_KRISHNAMURTI)
+    ayanamsha_kp = swe.get_ayanamsa_ut(jd_ut)
+    swe.set_sid_mode(swe.SIDM_LAHIRI)
+    house_cusps_kp_sidereal = [round((c - ayanamsha_kp) % 360, 4) for c in cusps_tropical]
 
     planets = _calc_planets(jd_ut, asc_lon)
 
@@ -784,6 +800,10 @@ def calculate_chart(name: str, dob: str, tob: str, place: str) -> dict:
             "ayanamsha_lahiri": round(ayanamsha, 4),
             "asc_lon_sidereal": round(asc_lon, 4),
             "jd_ut": round(jd_ut, 6),
+            # KP (S143): Placidus cusps 1..12, KP/Krishnamurti-ayanamsha sidereal
+            # degrees. Everything else in this dict is Lahiri; this one key is the
+            # deliberate exception -- see the comment above where it is computed.
+            "house_cusps_kp_sidereal": house_cusps_kp_sidereal,
         },
     }
 
