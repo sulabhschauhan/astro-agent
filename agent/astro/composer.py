@@ -63,7 +63,7 @@ from agent.astro import predicates as PRED
 from agent.astro import silence_gate as SG
 
 COMPOSER_VERSION = "composer-1.0"
-COMPOSER_MODEL = os.environ.get("ASTRO_COMPOSER_MODEL", "gpt-5")
+COMPOSER_MODEL = os.environ.get("ASTRO_COMPOSER_MODEL", "gpt-5")  # S145: luna is reserved for the interpreter's large-payload branch only; composer stays gpt-5.
 REASONING_EFFORT = "minimal"
 
 # --------------------------------------------------------------------------

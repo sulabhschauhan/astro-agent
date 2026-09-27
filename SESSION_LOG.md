@@ -2250,3 +2250,134 @@ The pure ranker logic was validated in-sandbox (7 assertions green); the
 significator engine and the full end-to-end run were validated on Sulabh's
 machine (pytest + Streamlit). Sulabh must run the full
 `pytest tests/astro/ tests/calculations/ -q` before the git commit.
+
+
+## S145 (2026-09-27) -- Planner house-role weighting (Task 1); KP corpus ingested (curated 9) into the chapter_index path (Task 3); birth-time gate; KP-vs-BPHS conflict doctrine; payload-sized model routing (gpt-5 / gpt-5.6-luna)
+
+OUTCOME: Task 1 + Task 2 (S144 refinements) + Task 3 (KP corpus) all built and
+committed to device. NO git commit yet (no "RATIFIED: commit authorized" this
+session). Interpreter output-quality is handled by prompt/model settings only,
+by Sulabh's decision (no deterministic ranker cap, no hardcoding).
+
+PART 1 -- TASK 1: PLANNER HOUSE-ROLE WEIGHTING.
+Problem (S144 backlog b): the planner emits a FLAT target-house list that mixes
+roles; for marriage it emits [2,7,8,11] (the 8th = mangalya, injected by the
+planner SYSTEM_PROMPT), and the S144 ranker scored every target house equally, so
+a lord signifying the obstacle 8th earned the same marriage-timing credit as one
+signifying the 7th -- inflating runner-up windows.
+Fix, RANKER-SIDE (not a S124 table violation -- role-within-a-chosen-domain is
+fixed classical doctrine, same category as the significator method; the planner
+stays contextual and untouched):
+- NEW `agent/astro/house_roles.py`: sourced role->weight map, MARRIAGE ONLY.
+  Promotion {2,7,11}=1.0 (K-P-Reader-2 ~line 12763), negation {1,6,10}=0.0
+  (12th-from-group, ~line 2871), obstacle {8}=0.0. Every unmapped domain ->
+  all-promotion (scope guard: byte-identical to pre-S145). Zero not negative --
+  a negative weight is a tuning knob and there is one marriage ground-truth chart.
+- `timing_ranker.py`: `rank_windows`/`build_timing_ranking` now accept a set/list
+  (weight 1.0 each -- UNCHANGED S144 behaviour) OR a {house:weight} dict; scoring
+  is weight-aware; reported *_hits list positive-weight houses only. `pipeline`
+  routes plan.domains+plan.houses through `house_roles.weighted_targets` first.
+- Validated (pure, in-sandbox, 22 assertions incl. the 8 original ranker tests
+  unchanged = scope-guard proof): marriage #1 window (Mercury-Rahu) UNCHANGED
+  (it scores on 2/7, not 8); runner-ups riding on house-8 hits lose that credit;
+  monotonic (no window scores higher after zeroing 8).
+
+PART 2 -- TASK 2 (S144 refinements). 2a Rahu house-12 node_dispositor route:
+KEPT (recorded in significator_engine docstring; tier=None so it never outranks a
+real significator; irrelevant to marriage). 2b Jupiter return/phase: DEFERRED
+(W_JUP stays contact-only; recorded at the weight).
+
+PART 3 -- TASK 3: KP CORPUS AS A FIRST-CLASS INTERPRETIVE SOURCE.
+Key architecture finding: the live expert pipeline feeds the interpreter WHOLE
+BPHS chapters selected by `domain_tags_bphs.json` from `chapter_index_bphs.json`
+-- it does NOT read ChromaDB (that 14-book/7281-chunk store is the older
+query_engine path, unused by the expert pipeline). So KP must enter the
+chapter_index/domain_tags structure, NOT ChromaDB. Ingest decision: DJVU-ONLY, no
+OCR -- sampled the djvu: prose survives, TABLES collapse (grids linearise, digits
+corrupt), but the tabular doctrine is restated in adjacent prose AND the real
+lookup tables (sub-lords/significators) are already ephemeris-computed, so OCR
+buys nothing; scan garbage is left in for the LLM to read around.
+- NEW `scripts/build_kp_units.py` (idempotent on kp_ ids): reuses payload_builder's
+  OWN strip_devanagari/split_unit_segments/approx_tokens/_short_tag_map so
+  segment_ids are byte-identical to the live path; KP prose is normalised into
+  NUMBERED PARAGRAPHS so the existing VERSE_SPLIT_RE segments it (no new splitter,
+  no payload_builder change). Tagging: RECALL-FIRST deterministic first-pass
+  (over-tag fine, never miss -- matches the planner's "widen when unsure, never
+  narrow"); untagged paragraphs kept as fail-safe (unfittable). AUTO, NOT
+  human-verified beyond 2 longevity spot-checks. First-pass caught + fixed:
+  substring bug ("son" in lesson/person), compound-term misses ("Marakasthanas"),
+  death-euphemism misses -- moved to stem + word-boundary matching, recall-first.
+- CURATED 9 (confirmed by Sulabh, research-backed via KP-vs-BPHS sources): keep
+  KP's distinctive-strength books -- Reader-II, Nakshatra-Padhathi, House-Grouping,
+  2x Longevity (Hariharan + generic), Progeny-Romance, Friendship-Love-Marriage,
+  Horary-Times, Dynamics. DROPPED 12 (Astro-Secrets 1-6 general series, 2x
+  True-Astrology dupes, KP-Astrology-Basics + KP-Simple-Rules beginner, 6-KP-Readers
+  compilation, Vol-3 166k general sink) -- all built + in backup, re-addable by
+  appending to BOOKS and re-running. Merged: 100 BPHS + 9 KP = 109 units; 1129 +
+  4058 = 5187 segments; segment-id parity + concat-invariant + no-collision all
+  verified against payload_builder's segmenter.
+- Why not all 21: measured multi-domain UNIONS blew the old 150k ceiling on every
+  domain (longevity 429k, marriage 455k). Curation alone did NOT fit (even 4 books
+  over). Scope-vs-rule shedding rejected (scope only ~10% of tokens -- 90% is dense
+  rules; can't trim under ceiling without deleting rules). Resolution = raise the
+  ceiling via model (Part 5).
+
+PART 4 -- BIRTH-TIME GATE. KP's #1 weakness (sourced): the cuspal sub-lord flips
+with a 2-3 minute birth-time error. UI radio at birth entry (Approximate default /
+Exact-to-the-minute). Approximate -> KP EXCLUDED (BPHS-only, always under ceiling);
+Exact -> KP included. Wired `frontend/app.py` (radio -> session_state) ->
+`pipeline.answer_question(birth_time_confident=)` ->
+`planner.build_from_plan(include_kp=)` which drops kp_ units and records
+`birth_time_gate` in the trace. Default Approximate = KP opt-in (conservative).
+
+PART 5 -- MODEL ROUTING + OUTPUT SETTINGS.
+- Interpreter DEFAULTS to gpt-5 (stronger/cleaner narrator, 400k window); switches
+  to gpt-5.6-luna (official 1,050,000 window, $0.20/$1.20 per 1M, 2x >272k input)
+  ONLY when the MEASURED payload built["tokens"] > GPT5_SAFE_APPROX (200k approx;
+  200k*1.70=340k real < gpt-5's 400k). >HARD_CONTEXT_CEILING (500k) refuses. Size
+  is known after build_from_plan, before the interpreter call -- no guessing.
+  Ceiling constants re-derived for luna: REAL_INPUT_CAP 272k->950k,
+  HARD_CONTEXT_CEILING 150k->500k, INTERPRETER_CONTEXT_WINDOW 400k->1.05M.
+  Composer stays gpt-5; luna reserved for the interpreter's large-payload branch.
+  (Model landscape verified against official developers.openai.com model pages --
+  gpt-5 window 400k; gpt-5.6-luna 1.05M -- my training data was stale, cross-checked.)
+- Output settings on the interpreter: EXPERT_REASONING_EFFORT="low" (cut ~half the
+  latency vs default -- measured: 79-103s -> 38-55s) and EXPERT_VERBOSITY="low",
+  both passed best-effort (named kwarg -> extra_body -> dropped if the model rejects
+  them). EXPERT_SYSTEM gained: brevity cap (bottom line + <=3-4 points), FUTURE
+  questions lead with UPCOMING windows (elapsed ones only as a one-line note --
+  fixes a future question leading with a 2018 window), tie-collapse (don't
+  enumerate co-equal-score windows), and the KP-vs-BPHS conflict doctrine.
+
+PART 6 -- KP-vs-BPHS CONFLICT DOCTRINE (EXPERT_SYSTEM, from web research of
+legitimate KP sources): KP LEADS on timing / horary / yes-no / promise-vs-denial;
+CLASSICAL (BPHS/Phaladeepika) LEADS on character / yogas / meaning; on agreement
+state the convergence (highest confidence); on divergence lead with the right
+system for the question type; if no KP facts present (time not exact) answer
+classical-only and do not invent KP reasoning.
+
+LIVE OBSERVATIONS (Sulabh's Streamlit, gpt-5.6-luna): the longevity answer was
+verbose and listed 6 windows with 5 tied at 5.5, and led with a past (2018) window
+for a future question. Diagnosed: (a) the 5.5 tie is the deterministic RANKER
+(coarse integer weights), not luna; (b) 2045-48 dropped because the planner emitted
+houses [1,3,8] this run vs [1,8] before (LLM variance on question wording), not the
+KP chapters (which never touch the ranker); (c) verbosity + past-first were because
+the brevity/past-framing prompt was not committed until after that run. Sulabh's
+directive: fix via interpreter prompt + model output settings ONLY -- no
+deterministic cap, no hardcoding. Intent recorded: this whole layer is for COST +
+a lean pre-interpreter pipeline, NOT final-answer precision.
+
+FILES committed to device (no git commit; RATIFIED pending):
+`agent/astro/house_roles.py` (new), `agent/astro/timing_ranker.py`,
+`agent/astro/pipeline.py`, `agent/astro/interpreter.py`, `agent/astro/composer.py`,
+`agent/astro/planner.py`, `agent/calculations/kp/significator_engine.py`,
+`frontend/app.py`, `scripts/build_kp_units.py` (new),
+`tests/astro/test_house_roles.py` (new), `tests/astro/test_timing_ranker.py`,
+`data/chapter_index_bphs.json`, `data/domain_tags_bphs.json`.
+(`diagnostics/latest_run.md` updated but gitignored, local-only.)
+
+TESTING NOTE: pure-logic validated in-sandbox (ranker + house_roles = 22 green;
+segment-id parity + routing thresholds verified). Anything touching swisseph /
+calculate_chart / the LLM is Sulabh's machine. Sulabh should run
+`pytest tests/astro/ tests/calculations/ -q` before the git commit; a live
+Streamlit run is optional (output quality now handled by prompt/model settings).

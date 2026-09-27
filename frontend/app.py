@@ -769,6 +769,18 @@ with st.sidebar:
             year  = st.selectbox("Year",  list(range(2025, 1939, -1)), index=37)
         dob = f"{day} {month} {year}"
         tob = st.text_input("Time of Birth (IST)", value="00:30", placeholder="HH:MM", key="birth_time_input")
+        # S145 BIRTH-TIME GATE: KP's sub-lord/cusp timing flips with a 2-3 minute
+        # birth-time error, so KP is only sound when the time is minute-accurate.
+        # Default to "Approximate" (index 0) -> KP OFF unless the user affirms
+        # exactness. Read at answer time via session_state (see answer_question call).
+        st.radio(
+            "How sure are you of your birth time?",
+            ["Approximate — not sure to the minute", "Exact — sure to the minute"],
+            index=0,
+            key="birth_time_confidence_choice",
+            help="KP timing needs minute-accuracy. If approximate, we use classical "
+                 "(BPHS) sources only and skip KP to avoid a wrong sub-lord.",
+        )
         submitted = st.form_submit_button(
             "Calculate Kundali",
             disabled=st.session_state.selected_place is None,
@@ -1727,9 +1739,14 @@ if prompt:
                     logger.warning("KP significators unavailable, answering without "
                                    "them: %s: %s", type(_kserr).__name__, _kserr)
 
+                # BIRTH-TIME GATE (S145): KP included only if the user affirmed
+                # their birth time is exact to the minute; else BPHS-only.
+                _btc = st.session_state.get(
+                    "birth_time_confidence_choice", "").startswith("Exact")
                 result = answer_question(
                     prompt, chart_facts,
-                    expert=st.session_state.get("astro_expert_mode", True))
+                    expert=st.session_state.get("astro_expert_mode", True),
+                    birth_time_confident=_btc)
                 # Two surfaces, one result: the user reads render_user_answer's
                 # plain-language view; the full trace (verse text, ids,
                 # silent_on, timings, usage) goes to the capture file.

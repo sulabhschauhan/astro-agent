@@ -145,11 +145,30 @@ DEFAULT_TOKEN_BUDGET = 60_000
 #   SCOPE GUARD -- unchanged: applies ONLY to the interpreter call; over the ceiling
 #   the pipeline REFUSES up front and says why, and NEVER truncates the payload.
 #   TUNING NOTE -- re-derive from REAL_INPUT_CAP and the next observed real
-#   prompt_tokens; never from the 400k total window (that is not the input limit),
-#   and never from chars/4 or approx_tokens.
-REAL_INPUT_CAP = 272_000
-HARD_CONTEXT_CEILING = 150_000
-INTERPRETER_CONTEXT_WINDOW = 400_000
+#   prompt_tokens; never from chars/4 or approx_tokens.
+# S145 (2026-09-27): interpreter switched gpt-5 -> gpt-5.6-luna to hold the KP corpus
+#   LOSSLESSLY (no rule-dropping trim). Official gpt-5.6-luna window = 1,050,000 tokens,
+#   max output 128,000. New derivation:
+#     INTERPRETER_CONTEXT_WINDOW = 1,050,000 (official total window)
+#     REAL_INPUT_CAP = 950,000  -- window minus ~100k reserved for output + overhead;
+#        conservative, well under the 1.05M wall (above which the API 400s).
+#     HARD_CONTEXT_CEILING = 500,000 approx  -- (950,000 - ~12k overhead)/1.70 = 551,764,
+#        rounded DOWN to 500,000 for margin. Fits the heaviest curated KP domain-union
+#        (~455k approx, marriage) with headroom.
+#   COST/LATENCY NOTE: gpt-5.6-luna bills 2x input / 1.5x output above 272k input, and a
+#   ~730k-token request is slow -- the ceiling is a REFUSE bound, not a target; most
+#   questions ship far less. Watch INTERPRETER_TPM_LIMIT (below) on large requests.
+#   TUNING NOTE: re-derive if the interpreter model changes again; never from chars/4.
+REAL_INPUT_CAP = 950_000
+HARD_CONTEXT_CEILING = 500_000        # absolute REFUSE bound (gpt-5.6-luna's 1.05M window)
+INTERPRETER_CONTEXT_WINDOW = 1_050_000
+# S145 MODEL ROUTING: the interpreter defaults to gpt-5 (cleaner narrator, 400k window) and
+# switches to gpt-5.6-luna (1.05M) ONLY when the MEASURED payload exceeds what gpt-5 can hold.
+# GPT5_SAFE_APPROX = 200,000 approx-tokens: 200k * 1.70 = 340,000 est-real + ~12k overhead =
+# ~352k, comfortably under gpt-5's 400k window. Payload <= this -> gpt-5; above -> luna;
+# above HARD_CONTEXT_CEILING (500k) -> refuse. The pipeline reads built["tokens"] (known after
+# build_from_plan, before the interpreter call) and routes on it -- no pre-call guessing.
+GPT5_SAFE_APPROX = 200_000
 
 # RECALIBRATED S125 against REAL OpenAI `prompt_tokens`, superseding the
 # chars/4 estimate that set the original 1.45.
@@ -709,15 +728,18 @@ def plan_and_build(
     llm: Optional[Callable[[str], str]] = None,
     token_budget: int = DEFAULT_TOKEN_BUDGET,
     log_path: Optional[str] = DECISION_LOG_PATH,
+    include_kp: bool = True,
 ) -> dict:
     """Full Planner stage, end to end.
 
     question -> plan -> unit selection -> payload_builder -> domain filter.
     Returns {plan, selection, payload, tokens, over_budget}. Does NOT call
     the Interpreter -- that is the next stage and stays separate.
+    `include_kp=False` applies the birth-time gate (see build_from_plan).
     """
     plan = plan_question(question, llm=llm, log_path=log_path)
-    return build_from_plan(plan, chart_facts, token_budget=token_budget)
+    return build_from_plan(plan, chart_facts, token_budget=token_budget,
+                           include_kp=include_kp)
 
 
 _YOGA_TAGS_CACHE: Optional[dict] = None
@@ -810,8 +832,17 @@ def build_from_plan(
     chart_facts: dict,
     *,
     token_budget: int = DEFAULT_TOKEN_BUDGET,
+    include_kp: bool = True,
 ) -> dict:
     """Everything `plan_and_build` does AFTER the plan exists.
+
+    S145 -- BIRTH-TIME GATE: `include_kp=False` drops every KP unit (unit_id
+    prefix "kp_") from selection before the payload is built, so the interpreter
+    sees BPHS/classical only. Rationale: KP's cuspal sub-lord flips with a 2-3
+    minute birth-time error (documented KP weakness), so KP is unsafe when the
+    user is not sure of their time to the minute. The UI asks that yes/no at
+    birth-time entry and passes it here. Excluding KP also keeps the payload
+    small (BPHS-only is always under the ceiling). Default True (time confident).
 
     Split out (S129) so a caller can interpose a step between planning and
     retrieval -- specifically `capability_gate.assess`, which narrows the
@@ -844,6 +875,13 @@ def build_from_plan(
         if uid not in unit_ids:
             unit_ids.append(uid)
 
+    # BIRTH-TIME GATE (S145): drop KP units when the user is not sure of birth
+    # time to the minute. KP is sub-lord/cusp based and flips on a 2-3 min error.
+    kp_excluded: list[str] = []
+    if not include_kp:
+        kp_excluded = [u for u in unit_ids if u.startswith("kp_")]
+        unit_ids = [u for u in unit_ids if not u.startswith("kp_")]
+
     payload = payload_builder.build_payload(chart_facts, unit_ids=unit_ids)
     payload = filter_segments_by_domain(payload, plan,
                                         keep_segment_ids=frozenset(yoga_seg_ids))
@@ -854,6 +892,10 @@ def build_from_plan(
         "plan": plan,
         "selection": selection,
         "payload": payload,
+        "birth_time_gate": {
+            "include_kp": include_kp,
+            "kp_units_excluded": sorted(kp_excluded),
+        },
         "yoga_augment": {
             "enabled": YOGA_AUGMENT_ENABLED,
             "fired_keys": sorted(fired_keys),

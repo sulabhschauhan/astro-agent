@@ -45,6 +45,7 @@ from agent.astro import verifiability
 from agent.astro import composer as _composer
 from agent.astro import payload_builder
 from agent.astro import timing_ranker
+from agent.astro import house_roles
 
 PIPELINE_VERSION = "pipeline-1.2"
 
@@ -430,6 +431,7 @@ def answer_question(
     compose: Optional[bool] = None,
     expert: Optional[bool] = None,
     token_budget: int = planner.DEFAULT_TOKEN_BUDGET,
+    birth_time_confident: bool = True,
 ) -> dict:
     """End-to-end. Never raises for a model/gate problem -- refuses or fails
     open with the reason on the record.
@@ -470,7 +472,11 @@ def answer_question(
                           "refused_at": "capability_gate"},
                 "pipeline_version": PIPELINE_VERSION}
 
-    built = planner.build_from_plan(verdict.plan, chart_facts, token_budget=token_budget)
+    # BIRTH-TIME GATE (S145): birth_time_confident=False -> exclude KP (sub-lord
+    # based, unsafe on a 2-3 min time error); BPHS-only, always under ceiling.
+    built = planner.build_from_plan(verdict.plan, chart_facts,
+                                    token_budget=token_budget,
+                                    include_kp=birth_time_confident)
     _lap("select_and_build_payload")
     if built.get("refused"):
         return {"answer": f"(no answer) {built.get('refusal_reason', 'refused')}",
@@ -484,6 +490,16 @@ def answer_question(
 
     fact_block = _fact_block(chart_facts)
 
+    # MODEL ROUTING (S145): choose the interpreter model by the MEASURED payload
+    # size (known now, before the call). Small enough for gpt-5's 400k window ->
+    # gpt-5 (cleaner, stronger narrator); larger (e.g. the full curated KP corpus)
+    # -> gpt-5.6-luna's 1.05M window. No pre-call guessing. Composer/planner are
+    # unaffected -- luna is reserved for this one large-payload interpreter branch.
+    _payload_approx = built.get("tokens", 0)
+    _interp_model = (_interp.INTERPRETER_MODEL
+                     if _payload_approx <= planner.GPT5_SAFE_APPROX
+                     else _interp.LARGE_PAYLOAD_MODEL)
+
     # TIMING RANKING (S144). Deterministic convergence over dasha + KP
     # significators + Saturn transit, scored against THIS plan's target houses
     # (verdict.plan.houses -- e.g. [7,2,11] for marriage, [10,6,2,11] for
@@ -491,8 +507,24 @@ def answer_question(
     # fact block so the interpreter EXPLAINS the top window instead of
     # re-ranking from its own priors -- the run-to-run variance that motivated
     # this. Fail-soft: an empty ranking leaves the block unchanged.
+    # S145: role-weight the planner's flat target houses before ranking.
+    # MARRIAGE ONLY today; every other domain -> all-promotion weights, i.e. the
+    # ranking is byte-identical to pre-S145. Weighting zeroes the obstacle 8th
+    # (mangalya) the planner emits for marriage, so it stops inflating runner-up
+    # windows. Domain-neutrality of the ranker is preserved: it just honours the
+    # weights it is handed. See agent/astro/house_roles.py.
+    #
+    # NOT A BUG (S145 Task 2a decision): plan.houses is the FULL set of houses a
+    # Parashari would EXAMINE for a reading (marriage -> [2,7,8,11], the 8th being
+    # mangalya/spouse-longevity), whereas the ranking's target set is the TIMING
+    # subset (2,7,11). They differ by design: house_roles down-weights houses that
+    # belong to the reading but not to onset-timing. The planner is deliberately
+    # NOT narrowed -- keeping the 8th preserves reading breadth for any future
+    # consumer of plan.houses, and costs nothing here (it scores 0).
+    _target_weights = house_roles.weighted_targets(verdict.plan.domains,
+                                                   verdict.plan.houses)
     _ranking_text = timing_ranker.render_ranking(
-        timing_ranker.build_timing_ranking(chart_facts, verdict.plan.houses))
+        timing_ranker.build_timing_ranking(chart_facts, _target_weights))
     if _ranking_text:
         fact_block = fact_block + "\n" + _ranking_text
 
@@ -506,7 +538,7 @@ def answer_question(
         expert = os.environ.get("ASTRO_EXPERT_MODE", "0") == "1"
     if expert:
         ex = _interp.interpret_expert(question, fact_block, built["payload"],
-                                      llm=interpreter_llm)
+                                      llm=interpreter_llm, model=_interp_model)
         _lap("interpreter_expert")
         return {
             "answer": ex["answer"],
@@ -534,7 +566,8 @@ def answer_question(
     # (S137). Without it the interpreter cannot name a yoga id and falls back to
     # `unfittable` -- measured on 20260919T072700Z, 9 of 15 predicates.
     interp = _interp.interpret(question, fact_block, built["payload"],
-                               llm=interpreter_llm, chart_facts=chart_facts)
+                               llm=interpreter_llm, chart_facts=chart_facts,
+                               model=_interp_model)
     _lap("interpreter")
     gate = silence_gate.apply_silence_gate(interp, built["payload"], chart_facts)
     _lap("silence_gate")

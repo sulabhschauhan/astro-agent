@@ -24,6 +24,18 @@ against retrieved KP rules. Aspect-based node agency (a planet aspecting the
 node) is deliberately OUT OF SCOPE for v1 -- conjunction-only, documented, to
 keep the contested surface small; revisit if a reference chart needs it.
 
+S145 DECISION (Task 2a -- Rahu house-12 keep-vs-drop): KEPT. The node_dispositor
+route is the one place this engine adds a house the AstroSage PDF oracle does not
+(for Sulabh's chart, Rahu -> 12 via its sign-dispositor). Keeping it is:
+  - classically defensible: KP Reader IV grants a node its dispositor's agency;
+  - already de-risked: it is emitted at tier=None, so it never outranks a genuine
+    tier 1-4 significator and the interpreter weighs it as the weak signal it is;
+  - irrelevant to the validated marriage result (Rahu already signifies 2 via a
+    numeric tier; the extra 12 changes no marriage-house score).
+So there is NO code change -- keep = current behaviour. Recorded per HANDOVER S145
+("make the call and record it"). Reopen only if a reference chart shows the
+dispositor route producing a wrong high-confidence significator.
+
 DOMAIN-NEUTRAL BY CONSTRUCTION: this computes significations for ALL 12 houses
 of every planet. It has no concept of "marriage"/"career"/"children" -- the
 question's house-set (marriage->2,7,11; career->2,6,10,11; children->2,5,11)

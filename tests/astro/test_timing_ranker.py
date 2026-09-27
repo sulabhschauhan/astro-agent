@@ -123,3 +123,71 @@ def test_jupiter_transit_adds_activation():
     mj = boosted["Jupiter|16 Aug 2020"]
     assert mj["jupiter_hits"] == [7]
     assert mj["score"] == base["Jupiter|16 Aug 2020"] + tr.W_JUP
+
+
+# --- S145: role-weighted targets -----------------------------------------------
+from agent.astro import house_roles as hr
+
+
+def _key(w):
+    return f"{w['md_lord']}-{w['ad_lord']}|{w['start']}"
+
+
+def test_weighted_all_ones_equals_set_path():
+    # A weight dict of all 1.0 must score byte-identically to the set path.
+    from_set = _rank({2, 7, 11})
+    from_dict = tr.rank_windows(_tree(), _SIG, _periods(), {2: 1.0, 7: 1.0, 11: 1.0},
+                                _NATAL_SATURN_HOUSE)
+    assert [(_key(a), a["score"]) for a in from_set] == [(_key(b), b["score"]) for b in from_dict]
+
+
+def test_marriage_role_weighted_top_still_mercury_rahu_same_score():
+    # The whole point: zeroing the 8th must NOT disturb the validated #1 window.
+    flat = _rank({2, 7, 8, 11})            # planner's raw emission (8 included)
+    weights = hr.weighted_targets(["marriage"], [2, 7, 8, 11])
+    weighted = tr.rank_windows(_tree(), _SIG, _periods(), weights, _NATAL_SATURN_HOUSE)
+    top = weighted[0]
+    assert (top["md_lord"], top["ad_lord"], top["start"]) == ("Mercury", "Rahu", "28 Jan 2018")
+    assert top["is_saturn_return"] is True
+    # Mercury-Rahu scores only on promotion houses (2 sig, 7 transit) + return,
+    # so its score is unchanged whether or not the 8th is zeroed.
+    flat_top = next(w for w in flat if _key(w) == _key(top))
+    assert top["score"] == flat_top["score"]
+
+
+def test_role_weighting_strips_eighth_house_credit():
+    # Windows whose ONLY significator hit was the 8th lose that credit.
+    flat = {_key(w): w for w in _rank({2, 7, 8, 11})}
+    weights = hr.weighted_targets(["marriage"], [2, 7, 8, 11])
+    weighted = {_key(w): w for w in
+                tr.rank_windows(_tree(), _SIG, _periods(), weights, _NATAL_SATURN_HOUSE)}
+    # Mercury-Ketu (Ketu signifies 3,8): under flat the 8 counted; weighted it must not.
+    k = "Mercury-Ketu|29 Dec 2010"
+    assert 8 in [h for h in (3, 8) if h in (2, 7, 8, 11)]  # sanity: 8 is a flat target
+    assert flat[k]["sig_hits"] == [8]                      # flat rewarded the 8th
+    assert weighted[k]["sig_hits"] == []                   # weighted strips it
+    assert weighted[k]["score"] < flat[k]["score"]         # score genuinely dropped
+
+
+def test_weighting_never_raises_a_window_score():
+    # Monotonicity: no window can score HIGHER once obstacle houses are zeroed.
+    flat = {_key(w): w for w in _rank({2, 7, 8, 11})}
+    weights = hr.weighted_targets(["marriage"], [2, 7, 8, 11])
+    weighted = {_key(w): w for w in
+                tr.rank_windows(_tree(), _SIG, _periods(), weights, _NATAL_SATURN_HOUSE)}
+    for k, w in weighted.items():
+        assert w["score"] <= flat[k]["score"], k
+
+
+def test_build_timing_ranking_reports_only_positive_houses():
+    # The fact block must advertise houses 2,7,11 -- not the zeroed 8 the planner emitted.
+    facts = {
+        "dasha_periods": {"mahadasha_tree": _tree()},
+        "kp_planet_significations": {"planet_significations": {k: list(v) for k, v in _SIG.items()}},
+        "transits": {"periods": _periods()},
+        "planet_positions": {"Saturn": {"house": _NATAL_SATURN_HOUSE}},
+    }
+    weights = hr.weighted_targets(["marriage"], [2, 7, 8, 11])
+    ranking = tr.build_timing_ranking(facts, weights)
+    assert ranking["target_houses"] == [2, 7, 11]
+    assert ranking["windows"][0]["ad_lord"] == "Rahu"

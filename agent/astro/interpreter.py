@@ -43,7 +43,17 @@ from typing import Callable, Optional
 from agent.astro import predicates as PRED
 
 INTERPRETER_VERSION = "interpreter-1.0"
-INTERPRETER_MODEL = "gpt-5"          # locked S126; override per-call for A/B only
+INTERPRETER_MODEL = "gpt-5"          # DEFAULT interpreter: gpt-5 is the stronger, cleaner
+                                     # narrator and its 400k window holds any payload up to
+                                     # ~200k approx-tokens (planner.GPT5_SAFE_APPROX). Used
+                                     # for the common/smaller case.
+LARGE_PAYLOAD_MODEL = "gpt-5.6-luna" # OVERFLOW interpreter (S145): only when the built
+                                     # payload exceeds gpt-5's safe window (e.g. the full
+                                     # curated KP corpus, ~340-430k approx). gpt-5.6-luna's
+                                     # 1,050,000-token window holds it LOSSLESSLY. The
+                                     # pipeline picks between the two by the MEASURED payload
+                                     # size (known after build_from_plan, before the call),
+                                     # so there is no guessing. override per-call for A/B.
 REASONING_EFFORT = "minimal"
 
 _SYSTEM_HEAD = (
@@ -340,7 +350,26 @@ def interpret(
 # default until expert mode is measured and promoted.
 # =====================================================================
 
-EXPERT_REASONING_EFFORT: Optional[str] = None  # gpt-5 default; a tuning knob, not minimal
+# S145: was None (gpt-5 default reasoning). Measured 2026-09-27 on 4 live expert
+# questions: the interpreter call was 79-103s and ~95% of total latency, burning
+# 2.3-4.0k hidden reasoning tokens to NARRATE a ranking the deterministic ranker
+# already decided. Dropped to "low" -- keeps enough reasoning to structure the
+# free-text synthesis over the fact block, but cuts the wasted deliberation.
+# JUSTIFICATION: expert mode explains computed facts; it does not derive the
+#   timing pick (timing_ranker does). Heavy reasoning adds latency, not correctness.
+# SCOPE GUARD: expert path only. The cited-claim path keeps REASONING_EFFORT
+#   ("minimal", line 47) unchanged.
+# TUNING NOTE: NOT "minimal" -- the original author deliberately avoided minimal
+#   here (free-text synthesis can go shallow/disorganised). If "low" is still too
+#   slow AND answers stay well-structured on a measured run, try "minimal" next;
+#   if answers lose coherence, step back to None. Re-measure on a real GPT-5 run.
+EXPERT_REASONING_EFFORT: Optional[str] = "low"
+
+# S145: gpt-5.x OUTPUT-LENGTH control (separate from reasoning_effort, which is
+# thinking depth). "low" keeps the answer tight -- the direct fix for verbose
+# expert answers on gpt-5.6-luna. Passed best-effort (see _default_llm_expert):
+# a model/SDK that does not accept it falls back cleanly. None = leave default.
+EXPERT_VERBOSITY: Optional[str] = "low"
 
 EXPERT_SYSTEM = (
     "You are an expert Vedic astrologer in the Parashari tradition (Brihat Parashara "
@@ -376,20 +405,47 @@ EXPERT_SYSTEM = (
     "month/quarter ranges (dates are approximate, +/-37 days -- say so once, not repeatedly). "
     "A retrospective question ('when would I have...') is answered with the correct PAST "
     "period, not a future one.\n"
-    "- For a timing/ranking question, survey EVERY dasha sub-period the fact block gives "
-    "you before ranking candidates, not just the ones that first come to mind. A period you "
-    "silently skip is a period you have implicitly ruled out without saying so -- if you rule "
-    "one out, name it and give a one-line reason, even briefly.\n"
-    "- Structure however the question demands -- a timing question wants ranked windows; a "
-    "'what does X mean' question wants themes, perhaps a short period-by-period read. Short "
-    "paragraphs or a few grouped points, whatever reads best. Do not pad.\n"
+    "- For a timing/ranking question, CONSIDER every dasha sub-period internally, but do NOT "
+    "enumerate them all to the reader. Present only the deciding windows.\n"
+    "- TIME DIRECTION: match the question's time sense. For a FUTURE or PRESENT question (e.g. "
+    "'when will...', 'when is my next...'), LEAD WITH UPCOMING windows; mention already-elapsed "
+    "windows only as a brief one-line note ('comparable periods in <years> have already passed'), "
+    "framed as 'assuming the event has not already happened' -- never present a past date as the "
+    "headline answer to a future question. Only a retrospective question ('when would I have...') "
+    "is answered with the past period.\n"
+    "- TIES: when several windows share the SAME score, do NOT list them as separate ranked "
+    "items. Name the single strongest actionable one (prefer an upcoming window at equal score) "
+    "and summarise the rest in ONE line ('several later periods score equally: <a>, <b>, <c>'). "
+    "Equal score means the model does not distinguish them -- say that plainly rather than "
+    "manufacturing an order.\n"
+    "- BE CONCISE. Lead with the bottom line, then AT MOST 3-4 short supporting points or windows. "
+    "No section for every house, no per-period essay, no repetition of the same caveat. If a "
+    "point does not change the answer, cut it. A tight half-page beats a full page.\n"
     "- Say how sure you are in plain words -- very likely / likely / possible / uncertain -- "
     "and why, tied to the facts.\n"
     "- Plain second-person language ('you', 'your'). Translate every technical term (say "
     "'your marriage ruler', or name it once in brackets). NO citations, NO verse ids -- "
     "write as an astrologer speaking to a client, not a footnoted paper.\n"
     "- Be honest and non-fatalistic. Report difficult indications plainly, without drama, "
-    "false alarm, or false reassurance."
+    "false alarm, or false reassurance.\n\n"
+    "KP vs CLASSICAL -- which system leads (S145):\n"
+    "- The facts and passages may mix KP (Krishnamurti Paddhati -- sub-lords, house "
+    "significators, the computed timing ranking) with classical Parashari/BPHS material. "
+    "They answer different things; weigh them by WHAT is being asked, do not average them.\n"
+    "- KP LEADS on: WHEN something happens (event timing, the computed dasha windows), "
+    "yes/no and promise-vs-denial (does the event occur at all), and horary-style questions. "
+    "When the question is about timing or whether an event is promised, let the KP "
+    "significators and the computed ranking drive the answer.\n"
+    "- CLASSICAL (BPHS/Phaladeepika) LEADS on: character and temperament, yogas, overall life "
+    "themes, and the general significance/quality of a matter. When the question is about "
+    "who/why/what-it-means, let the classical reading drive.\n"
+    "- CONVERGENCE: when KP and classical point the SAME way, say so plainly -- agreement "
+    "across systems is the strongest signal and raises your confidence. When they diverge, "
+    "give the lead system for that question type and note the other as a caveat, rather than "
+    "forcing a blend.\n"
+    "- If no KP facts are present in the block (the user's birth time was not minute-accurate, "
+    "so KP was withheld), answer from the classical material only and do NOT introduce KP "
+    "sub-lord/significator reasoning from your own knowledge."
 )
 
 
@@ -403,16 +459,24 @@ def _default_llm_expert(system: str, user: str, *, model: str,
     client = OpenAI()
     kwargs = dict(model=model, messages=[{"role": "system", "content": system},
                                          {"role": "user", "content": user}])
-    if reasoning_effort is None:
+    # gpt-5.x knobs, best-effort: reasoning_effort (thinking depth) + verbosity
+    # (output length). Named-kwarg path first (the working path for reasoning_effort,
+    # S126); then extra_body; then drop the knobs entirely if the model/SDK rejects
+    # them, so the call always returns an answer.
+    knobs = {}
+    if reasoning_effort is not None:
+        knobs["reasoning_effort"] = reasoning_effort
+    if EXPERT_VERBOSITY is not None:
+        knobs["verbosity"] = EXPERT_VERBOSITY
+    if not knobs:
         resp = client.chat.completions.create(**kwargs)
     else:
         try:
-            resp = client.chat.completions.create(reasoning_effort=reasoning_effort, **kwargs)
+            resp = client.chat.completions.create(**knobs, **kwargs)
         except TypeError:
             try:
-                resp = client.chat.completions.create(
-                    extra_body={"reasoning_effort": reasoning_effort}, **kwargs)
-            except Exception:  # noqa: BLE001
+                resp = client.chat.completions.create(extra_body=knobs, **kwargs)
+            except Exception:  # noqa: BLE001 -- unsupported knob: answer without it
                 resp = client.chat.completions.create(**kwargs)
     u = resp.usage
     usage = {"prompt_tokens": getattr(u, "prompt_tokens", 0),
