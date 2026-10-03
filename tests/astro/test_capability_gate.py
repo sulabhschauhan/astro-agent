@@ -50,7 +50,7 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
         "dasha section must be guarded on presence")
     assert CG.FACT_BLOCK_PROVIDES == frozenset(
         {"ascendant_sign", "lord_house_map", "planet_positions", "house_lords",
-         "aspects", "dignity", "navamsa", "yogas", "dasha_periods", "transits",
+         "aspects", "dignity", "navamsa", "yogas", "dasha_periods", "transits", "shadbala", "ashtakavarga", "jaimini", "divisional",
          "kp_seventh_cusp_sub_lord", "kp_planet_significations"})
 
 

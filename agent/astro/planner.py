@@ -162,13 +162,22 @@ DEFAULT_TOKEN_BUDGET = 60_000
 REAL_INPUT_CAP = 950_000
 HARD_CONTEXT_CEILING = 500_000        # absolute REFUSE bound (gpt-5.6-luna's 1.05M window)
 INTERPRETER_CONTEXT_WINDOW = 1_050_000
-# S145 MODEL ROUTING: the interpreter defaults to gpt-5 (cleaner narrator, 400k window) and
-# switches to gpt-5.6-luna (1.05M) ONLY when the MEASURED payload exceeds what gpt-5 can hold.
-# GPT5_SAFE_APPROX = 200,000 approx-tokens: 200k * 1.70 = 340,000 est-real + ~12k overhead =
-# ~352k, comfortably under gpt-5's 400k window. Payload <= this -> gpt-5; above -> luna;
-# above HARD_CONTEXT_CEILING (500k) -> refuse. The pipeline reads built["tokens"] (known after
-# build_from_plan, before the interpreter call) and routes on it -- no pre-call guessing.
-GPT5_SAFE_APPROX = 200_000
+# S145 MODEL ROUTING: the interpreter defaults to gpt-5 (cleaner narrator) and
+# switches to gpt-5.6-luna (1.05M window) ONLY when the MEASURED payload exceeds
+# what gpt-5 can hold.
+# GPT5_SAFE_APPROX RECALIBRATED (S147) to gpt-5's REAL INPUT CAP of 272,000
+# tokens -- NOT a 400k window. The earlier 200,000 assumed a 400k window and so
+# allowed 200k*1.70 = 340k est-real onto gpt-5; a live question 400'd at 274,282
+# real tokens (context_length_exceeded, cap 272,000). Correct derivation:
+#   (272,000 - ~12,000 overhead for system prompt + fact block + question) / 1.70
+#   = 152,941, rounded DOWN to 150,000.
+# Payload <= this -> gpt-5 (real stays < 272k); above -> luna (950k cap, which
+# fits even the whole ~242k-approx corpus ~= ~410k real); above
+# HARD_CONTEXT_CEILING (500k approx) -> refuse. The pipeline reads
+# built["tokens"] (known after build_from_plan) and routes on it -- no pre-call
+# guessing. TUNING NOTE: re-derive from gpt-5's 272k real cap and observed
+# prompt_tokens; never from a window size, chars/4, or approx_tokens.
+GPT5_SAFE_APPROX = 150_000
 
 # RECALIBRATED S125 against REAL OpenAI `prompt_tokens`, superseding the
 # chars/4 estimate that set the original 1.45.

@@ -99,6 +99,19 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # posture as "yogas" -- no REQUIREMENT references it; it
                            # exists to corroborate WHICH dasha window a dated event
                            # falls in, not to gate any question on its own.
+    "shadbala",           # six-fold planetary strength (Shadbala totals),
+                           # composed by agent.astro.shadbala_facts. Additive
+                           # context; a declared `unfittable` concept
+                           # (predicates.py) -- no predicate, no Requirement.
+    "ashtakavarga",       # SAV bindus per house + per-planet BAV, composed by
+                           # agent.astro.ashtakavarga_facts. Additive house-strength
+                           # context; no predicate (unfittable), no Requirement.
+    "jaimini",            # Jaimini chara karakas + Arudha/Upapada Lagna, composed
+                           # by agent.astro.jaimini_facts. Jaimini concepts
+                           # (unfittable) -- no predicate, no Requirement.
+    "divisional",         # domain vargas (D10/D7/D2/D30/D12/D3/D24), composed by
+                           # agent.astro.divisional_facts. Varga placements
+                           # (unfittable) -- no predicate, no Requirement.
     "kp_seventh_cusp_sub_lord",  # KP (Krishnamurti Paddhati) 7th-cusp sub-lord,
                            # computed by agent.astro.kp_facts.build_kp_facts over
                            # chart['meta']['house_cusps_kp_sidereal'] (a DIFFERENT

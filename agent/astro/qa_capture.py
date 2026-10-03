@@ -324,7 +324,24 @@ def capture_turn(question: str, result: dict, chart_facts: dict | None = None,
                 "estimated_real_tokens": trace.get("estimated_real_tokens"),
                 "corpus_fraction": trace.get("corpus_fraction"),
                 "over_budget": trace.get("over_budget"),
+                # S146: the per-segment keep/drop breakdown from
+                # filter_segments_by_domain. THIS is the tagging-coverage signal:
+                # kept_domain_match = earned its place; kept_failsafe_untagged /
+                # kept_failsafe_unknown_id = rode the fail-safe (a high share here
+                # means UNDER-TAGGING, not legitimate breadth); dropped_domain_miss
+                # = correctly excluded. segment_cut_pct is how much the segment
+                # filter removed. Already in the payload; surfaced so "did we miss
+                # tagging / are we shipping off-domain text" is answerable per run.
+                "domain_filter": payload.get("domain_filter"),
             }),
+            # S146: the FULL deterministic timing ranking -- every antardasha that
+            # scored > 0, sorted, with its per-signal breakdown. render_ranking
+            # shows the interpreter only the top 6, so a "why is <window> absent"
+            # question (e.g. the 2026-2045 marriage gap) cannot be answered from
+            # the fact block alone. This is the whole scored list it was ranked
+            # against. Absent/None when the question had no timing target.
+            "### computed timing ranking (S146 -- FULL list, not the top-6 the model sees)\n"
+            + _json_block(trace.get("timing_ranking")),
             "### interpreter (Stage 4)\n" + _json_block({
                 "model": result.get("model"),
                 "usage": result.get("usage"),

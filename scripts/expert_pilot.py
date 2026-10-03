@@ -23,6 +23,10 @@ from agent.astro.yoga_facts import build_yoga_facts
 from agent.astro.transit_facts import build_transit_facts
 from agent.astro.kp_facts import build_kp_facts
 from agent.astro.kp_significator_facts import build_kp_significator_facts
+from agent.astro.shadbala_facts import build_shadbala_facts
+from agent.astro.ashtakavarga_facts import build_ashtakavarga_facts
+from agent.astro.jaimini_facts import build_jaimini_facts
+from agent.astro.divisional_facts import build_divisional_facts
 
 SULABH = ("Sulabh", "6 Apr 1988", "00:30", "Calcutta, India")
 
@@ -89,6 +93,22 @@ def _facts():
     except Exception as e:  # noqa: BLE001
         print(f"[pilot] KP significators skipped: {type(e).__name__}: {e}",
               file=sys.stderr)
+    try:  # point 1: Shadbala six-fold strength, same composition style
+        cf["shadbala"] = build_shadbala_facts(chart)
+    except Exception as e:  # noqa: BLE001
+        print(f"[pilot] Shadbala skipped: {type(e).__name__}: {e}", file=sys.stderr)
+    try:  # point 1: Ashtakavarga (SAV/BAV), same composition style
+        cf["ashtakavarga"] = build_ashtakavarga_facts(chart)
+    except Exception as e:  # noqa: BLE001
+        print(f"[pilot] Ashtakavarga skipped: {type(e).__name__}: {e}", file=sys.stderr)
+    try:  # point 1: Jaimini chara karakas + Arudha/Upapada Lagna
+        cf["jaimini"] = build_jaimini_facts(chart)
+    except Exception as e:  # noqa: BLE001
+        print(f"[pilot] Jaimini skipped: {type(e).__name__}: {e}", file=sys.stderr)
+    try:  # point 2: domain divisional charts (D10/D7/D2/D30/D12/D3/D24)
+        cf["divisional"] = build_divisional_facts(chart)
+    except Exception as e:  # noqa: BLE001
+        print(f"[pilot] Divisional skipped: {type(e).__name__}: {e}", file=sys.stderr)
     return cf
 
 

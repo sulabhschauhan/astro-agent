@@ -256,6 +256,109 @@ def _fact_block(chart_facts: dict) -> str:
         lines.append("  " + "; ".join(
             (y.get("name") or y.get("id")) for y in ruled_out))
 
+    # SHADBALA (point 1 wiring). Six-fold planetary strength, aggregated and
+    # oracle-validated in agent/calculations/strength (Drik Bala 28/28 vs JHora
+    # v8), composed onto chart_facts by the caller like yogas/transits. Shadbala
+    # is a declared `unfittable` concept (predicates.py): no verification
+    # predicate, no gate Requirement -- additive strength context.
+    # GROWTH CONTRACT: "shadbala" is in capability_gate.FACT_BLOCK_PROVIDES.
+    sb = chart_facts.get("shadbala") or {}
+    sb_planets = sb.get("planets") or {}
+    if sb_planets:
+        lines.append("")
+        lines.append("Planetary strength (Shadbala), in Rupas with the ratio to "
+                     "the BPHS minimum (1.0 = exactly meets the requirement):")
+        for _p, _row in sorted(sb_planets.items(), key=lambda kv: kv[1]["rank"]):
+            _meets = "meets" if _row.get("meets_minimum") else "below"
+            lines.append(f"  {_p}: {_row['rupa']} Rupas, {_row['ratio']}x the "
+                         f"minimum, rank {_row['rank']}/7 ({_meets} the BPHS minimum)")
+        _strong = sb.get("strongest"); _weak = sb.get("weakest")
+        if _strong and _weak:
+            lines.append(f"Strongest: {_strong}. Weakest: {_weak}.")
+        _cav = sb.get("caveat")
+        if _cav:
+            lines.append(_cav)
+
+    # ASHTAKAVARGA (point 1 wiring). Sarvashtakavarga (SAV) bindus per house +
+    # each planet's own Bhinnashtakavarga (BAV), aggregated and oracle-validated
+    # in agent/calculations/ashtakavarga (48/48 houses vs AstroSage, S54),
+    # composed onto chart_facts by the caller like shadbala/yogas/transits.
+    # Bindu counts carry no verification predicate (a numeric strength, like
+    # shadbala) -> unfittable; no gate Requirement. GROWTH CONTRACT:
+    # "ashtakavarga" is in capability_gate.FACT_BLOCK_PROVIDES.
+    av = chart_facts.get("ashtakavarga") or {}
+    sav_h = av.get("sav_by_house") or {}
+    if sav_h:
+        lines.append("")
+        _avg = av.get("average_per_house")
+        lines.append("Sarvashtakavarga (SAV), total bindus per house (whole-chart "
+                     f"total 337; average per house ~{_avg}; more bindus = a "
+                     "stronger house):")
+        for _h in range(1, 13):
+            if _h in sav_h:
+                lines.append(f"  House {_h}: {sav_h[_h]} bindus")
+        _sh = av.get("strongest_house"); _wh = av.get("weakest_house")
+        if _sh and _wh:
+            lines.append(f"Strongest house: {_sh} ({sav_h[_sh]} bindus). "
+                         f"Weakest house: {_wh} ({sav_h[_wh]} bindus).")
+        _pbav = av.get("planet_bav_in_sign") or {}
+        if _pbav:
+            _parts = ", ".join(f"{_p} {_pbav[_p]}" for _p in
+                               ("Sun","Moon","Mars","Mercury","Jupiter","Venus","Saturn")
+                               if _p in _pbav)
+            lines.append("Each planet's own BAV bindus in the sign it occupies "
+                         f"(0-8): {_parts}.")
+
+    # JAIMINI (point 1 wiring). Chara karakas (PVR Ch.8, 8-karaka scheme:
+    # the planet signifying each life role, AK soul .. DK spouse) + Arudha
+    # Lagna (self-image) and Upapada Lagna (marriage/spouse), computed in
+    # agent/calculations/jaimini and composed by the caller like the other
+    # fact classes. Jaimini concepts carry no verification predicate
+    # (Karakamsa/Arudha are `unfittable`); no gate Requirement. GROWTH
+    # CONTRACT: "jaimini" is in capability_gate.FACT_BLOCK_PROVIDES.
+    jai = chart_facts.get("jaimini") or {}
+    kk = jai.get("chara_karakas") or {}
+    if kk:
+        _kg = {"AK": "soul/self", "AmK": "career/mind", "BK": "siblings",
+               "MK": "mother", "PiK": "father", "PK": "children",
+               "GK": "obstacles/cousins", "DK": "spouse"}
+        lines.append("")
+        lines.append("Jaimini chara karakas (the planet signifying each role, "
+                     "assigned by degree):")
+        for _ab in ("AK", "AmK", "BK", "MK", "PiK", "PK", "GK", "DK"):
+            if _ab in kk:
+                lines.append(f"  {_ab} ({_kg[_ab]}): {kk[_ab]}")
+    _al = jai.get("arudha_lagna"); _ul = jai.get("upapada_lagna")
+    if _al:
+        lines.append(f"Arudha Lagna (AL -- how the person's life and image are "
+                     f"perceived by others): {_al}.")
+    if _ul:
+        lines.append(f"Upapada Lagna (UL -- the marriage/spouse significator): {_ul}.")
+
+    # DIVISIONAL CHARTS (point 2). Domain-relevant vargas (D10 career, D7
+    # children, D2 wealth, D30 health, D12 parents, D3 siblings, D24 education),
+    # from the oracle-validated engine (agent/calculations/vargas/divisional,
+    # 4 reference charts) and composed by the caller like navamsa/shadbala/
+    # jaimini. Varga placements are a different reference frame than the D1
+    # predicates -> unfittable; no gate Requirement. GROWTH CONTRACT:
+    # "divisional" is in capability_gate.FACT_BLOCK_PROVIDES.
+    dv = chart_facts.get("divisional") or {}
+    if dv:
+        lines.append("")
+        lines.append("Divisional charts (vargas) for the relevant life areas -- "
+                     "each planet's sign and house FROM THAT VARGA's own lagna:")
+        for _code in ("D10", "D7", "D2", "D30", "D12", "D3", "D24"):
+            _v = dv.get(_code)
+            if not _v:
+                continue
+            _pl = _v.get("placements") or {}
+            _parts = ", ".join(
+                f"{_p} {_pl[_p]['sign']}/h{_pl[_p]['house']}"
+                for _p in ("Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus",
+                           "Saturn", "Rahu", "Ketu") if _p in _pl)
+            lines.append(f"  {_v['name']} ({_code}, {_v['domain']}) -- lagna "
+                         f"{_v['lagna']}: {_parts}")
+
     # DASHA / TIMING (S141). Restated from calculate_chart()['dasha'] by
     # chart_facts._read_dasha -- Vimshottari mahadasha + antardasha. Pratyantar is
     # suppressed there (wrong lord at that granularity under the drift). The dates
@@ -523,8 +626,14 @@ def answer_question(
     # consumer of plan.houses, and costs nothing here (it scores 0).
     _target_weights = house_roles.weighted_targets(verdict.plan.domains,
                                                    verdict.plan.houses)
-    _ranking_text = timing_ranker.render_ranking(
-        timing_ranker.build_timing_ranking(chart_facts, _target_weights))
+    # S148 (DIAGNOSTIC ONLY): retain the FULL scored ranking -- every antardasha
+    # that scored > 0, not just the top-6 that render_ranking shows the model.
+    # The interpreter still receives only the rendered top-6 text below; this
+    # changes NOTHING about the answer. It exists so the capture can record what
+    # scored where (the "is the 2026-2045 marriage gap a ranking artifact or a
+    # calc bug" question could not be answered because only the winner was kept).
+    _timing_ranking = timing_ranker.build_timing_ranking(chart_facts, _target_weights)
+    _ranking_text = timing_ranker.render_ranking(_timing_ranking)
     if _ranking_text:
         fact_block = fact_block + "\n" + _ranking_text
 
@@ -556,6 +665,10 @@ def answer_question(
             "usage": ex["usage"], "tokens": built["tokens"], "model": ex["model"],
             "trace": {"timings": timings, "payload": built["payload"],
                       "fact_block": fact_block, "expert_mode": True,
+                      # S148: the full scored ranking, for the capture only. The
+                      # live path IS expert mode, so without this key here the
+                      # probe would be blind exactly where it is needed.
+                      "timing_ranking": _timing_ranking,
                       "plan_before_gate": {"domains": list(plan.domains or []),
                                            "houses": list(plan.houses or []),
                                            "time_scope": plan.time_scope}},
@@ -615,6 +728,7 @@ def answer_question(
         "unit_ids": getattr(selection, "unit_ids", None),
         "per_domain_units": getattr(selection, "per_domain_units", None),
         "corpus_fraction": getattr(selection, "corpus_fraction", None),
+        "timing_ranking": _timing_ranking,   # S148: full scored list (capture only)
         "estimated_real_tokens": built.get("estimated_real_tokens"),
         "over_budget": built.get("over_budget"),
         "tpm_note": built.get("tpm_note"),

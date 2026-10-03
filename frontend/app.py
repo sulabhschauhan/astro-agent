@@ -25,6 +25,10 @@ from agent.astro.yoga_facts import build_yoga_facts
 from agent.astro.transit_facts import build_transit_facts
 from agent.astro.kp_facts import build_kp_facts
 from agent.astro.kp_significator_facts import build_kp_significator_facts
+from agent.astro.shadbala_facts import build_shadbala_facts
+from agent.astro.ashtakavarga_facts import build_ashtakavarga_facts
+from agent.astro.jaimini_facts import build_jaimini_facts
+from agent.astro.divisional_facts import build_divisional_facts
 from agent.session_manager import SessionManager
 from agent.astrosage_parser import parse_astrosage_pdf, _PRIORITY_ORDER
 from PIL import Image
@@ -1738,6 +1742,51 @@ if prompt:
                 except Exception as _kserr:  # noqa: BLE001 -- optional fact class
                     logger.warning("KP significators unavailable, answering without "
                                    "them: %s: %s", type(_kserr).__name__, _kserr)
+
+                # SHADBALA (point 1). Six-fold planetary strength, aggregated and
+                # oracle-validated in agent/calculations/strength. Composed here
+                # like yogas/transits/KP; build_shadbala_facts is itself fail-soft
+                # (returns {} on error), the try/except mirrors the siblings.
+                # "shadbala" is declared in capability_gate.FACT_BLOCK_PROVIDES.
+                try:
+                    chart_facts["shadbala"] = build_shadbala_facts(_chart)
+                except Exception as _serr:  # noqa: BLE001 -- optional fact class
+                    logger.warning("Shadbala unavailable, answering without it: "
+                                   "%s: %s", type(_serr).__name__, _serr)
+
+                # ASHTAKAVARGA (point 1). SAV bindus per house + per-planet BAV,
+                # oracle-validated in agent/calculations/ashtakavarga. Composed
+                # here like shadbala/yogas/KP; build_ashtakavarga_facts is itself
+                # fail-soft (returns {} on error). "ashtakavarga" is declared in
+                # capability_gate.FACT_BLOCK_PROVIDES.
+                try:
+                    chart_facts["ashtakavarga"] = build_ashtakavarga_facts(_chart)
+                except Exception as _averr:  # noqa: BLE001 -- optional fact class
+                    logger.warning("Ashtakavarga unavailable, answering without it: "
+                                   "%s: %s", type(_averr).__name__, _averr)
+
+                # JAIMINI (point 1). Chara karakas + Arudha/Upapada Lagna,
+                # oracle-validated in agent/calculations/jaimini. Composed here
+                # like the other fact classes; build_jaimini_facts is itself
+                # fail-soft per part (returns {} or a subset). "jaimini" is
+                # declared in capability_gate.FACT_BLOCK_PROVIDES.
+                try:
+                    chart_facts["jaimini"] = build_jaimini_facts(_chart)
+                except Exception as _jerr:  # noqa: BLE001 -- optional fact class
+                    logger.warning("Jaimini unavailable, answering without it: "
+                                   "%s: %s", type(_jerr).__name__, _jerr)
+
+                # DIVISIONAL CHARTS (point 2). Domain vargas (D10/D7/D2/D30/
+                # D12/D3/D24), oracle-validated in agent/calculations/vargas.
+                # Composed here like navamsa/jaimini; build_divisional_facts is
+                # fail-soft per varga. "divisional" is declared in
+                # capability_gate.FACT_BLOCK_PROVIDES.
+                try:
+                    chart_facts["divisional"] = build_divisional_facts(_chart)
+                except Exception as _dverr:  # noqa: BLE001 -- optional fact class
+                    logger.warning("Divisional charts unavailable, answering "
+                                   "without them: %s: %s",
+                                   type(_dverr).__name__, _dverr)
 
                 # BIRTH-TIME GATE (S145): KP included only if the user affirmed
                 # their birth time is exact to the minute; else BPHS-only.
