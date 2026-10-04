@@ -1,0 +1,108 @@
+{
+  "version": "yoga-tags-1.0",
+  "source": "inverted from yoga_segment_map.json (S136); segment->yogas, same segment-keyed shape as domain_tags_bphs.json. One tagging methodology.",
+  "segments": [
+    {
+      "segment_id": "ch24_s106",
+      "unit_id": "bphs1_ch24",
+      "yogas": [
+        "neecha_bhanga_*"
+      ]
+    },
+    {
+      "segment_id": "ch34_s011",
+      "unit_id": "bphs1_ch34",
+      "yogas": [
+        "kendra_trikona_family",
+        "dharma_karmadhipati"
+      ]
+    },
+    {
+      "segment_id": "ch35_s001",
+      "unit_id": "bphs1_ch35",
+      "yogas": [
+        "naabhasa_*"
+      ]
+    },
+    {
+      "segment_id": "ch35_s019",
+      "unit_id": "bphs1_ch35",
+      "yogas": [
+        "naabhasa_*"
+      ]
+    },
+    {
+      "segment_id": "ch35_s020",
+      "unit_id": "bphs1_ch35",
+      "yogas": [
+        "naabhasa_*"
+      ]
+    },
+    {
+      "segment_id": "ch36_s001",
+      "unit_id": "bphs1_ch36",
+      "yogas": [
+        "gajakesari_yoga",
+        "naabhasa_*"
+      ],
+      "unit_id_alt": [
+        "bphs1_ch35"
+      ]
+    },
+    {
+      "segment_id": "ch36_s015",
+      "unit_id": "bphs1_ch36",
+      "yogas": [
+        "kalpadruma"
+      ]
+    },
+    {
+      "segment_id": "ch37_s002",
+      "unit_id": "bphs1_ch37",
+      "yogas": [
+        "adhi"
+      ]
+    },
+    {
+      "segment_id": "ch37_s003",
+      "unit_id": "bphs1_ch37",
+      "yogas": [
+        "sunaphaa",
+        "anaphaa"
+      ]
+    },
+    {
+      "segment_id": "ch75_s001",
+      "unit_id": "bphs2_ch75",
+      "yogas": [
+        "pmp_*"
+      ]
+    },
+    {
+      "segment_id": "ch80_s015",
+      "unit_id": "bphs2_ch80",
+      "yogas": [
+        "mangal_dosha"
+      ]
+    },
+    {
+      "segment_id": "gap38_s001",
+      "unit_id": "bphs1_gap38",
+      "yogas": [
+        "vesi"
+      ]
+    }
+  ],
+  "parked": {
+    "harsha_yoga": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "sarala_yoga": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "vimala_yoga": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "vipareeta_*_link": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "nipuna": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "raja_ak_pik": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "raja_sambandha_*": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "yogada_*": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "maha_yogada_*": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "kalsarpa_yoga": "no classical home (modern construct)"
+  }
+}

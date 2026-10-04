@@ -1,0 +1,78 @@
+{
+  "version": "yoga-seg-map-1.0",
+  "generated_by": "manual resolution, S136 design chat, verified via agent.astro.payload_builder's real segmentation functions (strip_devanagari + split_unit_segments + _short_tag_map) against data/chapter_index_bphs.json, cross-checked segment_id existence against data/domain_tags_bphs.json's 1129-segment index",
+  "yogas": {
+    "kendra_trikona_family": {
+      "unit_id": "bphs1_ch34",
+      "segment_ids": ["ch34_s011"],
+      "verse_anchor": "BPHS ch.34 vv.10-17 (segment also carries verse 10's Rahu/Ketu boilerplate and a verses-8-10 Natural Benefics/Malefics recap as leading content). Covers the DYNAMIC kendra_trikona_{k}_{t} id family (k in 1/4/7/10, t in 1/5/9, minus the degenerate 1-1 pair -- 11 ids), which fires under this same doctrine as EITHER a 'Raja Yoga (Xth-Yth lord link)' (vv.11-12, angular/trinal lordship) or a 'Yogakaraka (planet)' (v.13, one planet holding both an angle and a trine)."
+    },
+    "dharma_karmadhipati": {
+      "unit_id": "bphs1_ch34",
+      "segment_ids": ["ch34_s011"],
+      "verse_anchor": "BPHS ch.34 vv.11-12 (Angular-Trinal Lordships, the general rule) -- same segment as kendra_trikona_family. BPHS/Santhanam's translation never uses the term 'Dharma-Karmadhipati' anywhere in the corpus (verified: zero co-occurring hits for 'dharma'+'karmadhi'/'karmesa' in any unit); the id names a specific 9th(trine)+10th(angle) CASE of this same general verse-11-12 rule, not a separately-worded verse."
+    },
+    "vesi": {
+      "unit_id": "bphs1_gap38",
+      "segment_ids": ["gap38_s001"],
+      "verse_anchor": "BPHS ch.38 (\"Solar Yogas\") vv.1-3 (Vesi/Vosi/Ubhayachari definition + effects). Segment also carries adjacent boilerplate: vv.11-13 of ch.37 (Kemadruma Yoga) spilled in as leading content -- a chapter_index page-boundary artifact (chapter_index_bphs.json has no separate ch38 unit; this whole chapter lives inside the 'gap38' unit)."
+    },
+    "adhi": {
+      "unit_id": "bphs1_ch37",
+      "segment_ids": ["ch37_s002"],
+      "verse_anchor": "BPHS ch.37 v.5 (Adhi Yoga from the Moon). Clean single-yoga segment, no mixing."
+    },
+    "sunaphaa": {
+      "unit_id": "bphs1_ch37",
+      "segment_ids": ["ch37_s003"],
+      "verse_anchor": "BPHS ch.37 vv.7-10 (Sunapha/Anapha/Duradhara). Segment also carries adjacent boilerplate: v.6 (Dhana Yoga, an unrelated yoga) as leading content within the same segment."
+    },
+    "anaphaa": {
+      "unit_id": "bphs1_ch37",
+      "segment_ids": ["ch37_s003"],
+      "verse_anchor": "BPHS ch.37 vv.7-10 (Sunapha/Anapha/Duradhara). Segment also carries adjacent boilerplate: v.6 (Dhana Yoga, an unrelated yoga) as leading content within the same segment. Same segment as sunaphaa (both yogas share one verse block, vv.7-10)."
+    },
+    "gajakesari_yoga": {
+      "unit_id": "bphs1_ch36",
+      "segment_ids": ["ch36_s001"],
+      "verse_anchor": "BPHS ch.36 vv.3-4 (Gajakesari Yoga definition + Jataka Parijata cross-reference). FLAGGED: this is a large (7497-char) lead-absorption segment that MIXES TWO YOGA FAMILIES -- it also carries the tail-end of the ch.35 Naabhasa Sankhya results (Soola/Yuga/Gola, vv.47-49, see naabhasa_* below) as unrelated adjacent content, because no Arabic verse-marker regex match falls between the chapter's first marker and v.3-4's combined-range heading."
+    },
+    "kalpadruma": {
+      "unit_id": "bphs1_ch36",
+      "segment_ids": ["ch36_s015"],
+      "verse_anchor": "BPHS ch.36 vv.33-34 (Kalpadruma/Parijata Yoga). FLAGGED: this is a large (7773-char) segment that MIXES MULTIPLE UNRELATED YOGAS as leading content before reaching Kalpadruma -- Srinatha, Sarada, Matsya, Koorma, Khadga, Kusuma and Kalanidhi Yogas (none of which are in this project's ratified detector set) all sit in the same segment ahead of the target verse, again because no marker match falls in between."
+    },
+    "naabhasa_*": {
+      "unit_id": "bphs1_ch35",
+      "segment_ids": ["ch35_s001", "ch35_s019", "ch35_s020", "ch36_s001"],
+      "verse_anchor": "BPHS ch.35 vv.3-6 (naming: 'the seven Sankhya yogas are Vallaki, Daama, Paasa, Kedara, [Sula], Yuga and Gola' -- ch35_s001) + vv.41-45 (results: Veena/Daamini/Pasa, ch35_s019) + v.46 (results: Kedara, ch35_s020) + ch.36 vv.47-49 (results: Soola/Yuga/Gola, tail spillover into ch36_s001, per the ratified note). Covers detector ids naabhasa_gola, naabhasa_yuga, naabhasa_sula, naabhasa_kedara, naabhasa_paasa, naabhasa_daama, naabhasa_veenaa. FLAGGED, two issues: (1) ch35_s019 MIXES two Akriti-family yogas (Chakra v.41, Samudra v.42 -- shape-based, NOT in the Sankhya/count-based family this detector implements) ahead of the Sankhya results it also carries; (2) ch36_s001 is the SAME segment already used for gajakesari_yoga above -- it mixes Naabhasa-Sankhya tail content with Gajakesari Yoga. (3) NAME VARIANT, not a content defect: BPHS's own naming verse (ch35_s001) calls the 7-sign yoga 'Vallaki', but its own results verse (ch35_s019) calls the SAME yoga 'Veena' -- the detector's id (naabhasa_veenaa, matching PVR's naming) matches the results-verse spelling, not the naming-list spelling. No separate count-based DEFINITIONAL criterion verse (e.g. '1 sign = Gola, 2 signs = Yuga...') was found anywhere in ch.35/ch.36's translated text -- only the naming list and the per-yoga results verses exist in this translation."
+    },
+    "neecha_bhanga_*": {
+      "unit_id": "bphs1_ch24",
+      "segment_ids": ["ch24_s106"],
+      "verse_anchor": "BPHS ch.24 v.130, worked-example note (Sri Bhakti Vedanta Swamiji's chart, Venus debilitated-then-cancelled in the 10th). FLAGGED, two issues: (1) the word 'Neechabhanga' (or any 'neech'-stem word) appears EXACTLY ONCE in the whole of ch.24 -- there is no separate abstract definitional verse for Neecha Bhanga in this translation; this worked example is the only textual anchor available. (2) the segment MIXES TWO DOCTRINES -- v.130's own subject is '11th lord in the 10th house' (an unrelated placement rule), and Neecha Bhanga is mentioned only incidentally, inside the illustrative commentary on that verse, not as its own numbered verse."
+    },
+    "pmp_*": {
+      "unit_id": "bphs2_ch75",
+      "segment_ids": ["ch75_s001"],
+      "verse_anchor": "BPHS ch.75 (\"Characteristic Features of Panchamahapurushas\") vv.1-2, whole-chapter single segment (no Arabic verse-marker split detected, so payload_builder treats it as one whole_chapter unit). Explicitly names all five: Ruchaka, Bhadra, Hamsa, Malavya, Sasa. Covers detector ids pmp_ruchaka, pmp_bhadra, pmp_hamsa, pmp_malavya, pmp_sasa. Clean, no mixing -- the whole chapter is this one doctrine."
+    },
+    "mangal_dosha": {
+      "unit_id": "bphs2_ch80",
+      "segment_ids": ["ch80_s015"],
+      "verse_anchor": "BPHS ch.80 (\"Female Horoscopy\") v.47 (\"the woman born becomes a widow, if Mars be in the 12th, 4th, 7th or 8th from the Ascendant unaspected by or associated with any benefic\"; note explicitly names the condition 'Mangali or Mangalik'). UNRESOLVED HALF, NOT GUESSED: the ratified map also cited 'ch66 (Mars in 2/4/7/8)' as a second source. bphs2_ch66's actual title is 'Ashtakavarga' -- an unrelated technique (bindu/point counting), and no occurrence of 'mangal', 'kuja', 'widow', or any Mars-in-multiple-houses phrasing exists anywhere in that unit's text (verified by direct search). A corpus-wide scan for any '2nd/4th/7th/8th/12th'-style ordinal cluster near a Mars/Kuja/Mangal mention found exactly ONE hit in the entire 100-unit corpus: this same ch.80 v.47. Per the task's 'a range that resolves to nothing is a STOP, not a guess' instruction, the ch.66 citation is NOT mapped to any segment_id here -- it needs correction from you (wrong chapter number, or a citation from a different source than this BPHS translation) before mangal_dosha can be considered fully sourced. Note also: this verse's house list (12th/4th/7th/8th) differs from the 'ch66 (Mars in 2/4/7/8)' list's use of 2nd rather than 12th -- a second, independent reason to suspect ch66 was the wrong reference rather than a segment-resolution failure on this end."
+    }
+  },
+  "parked": {
+    "harsha_yoga": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "sarala_yoga": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "vimala_yoga": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "vipareeta_*_link": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "nipuna": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "raja_ak_pik": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "raja_sambandha_*": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "yogada_*": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "maha_yogada_*": "PVR-sourced; PVR excluded from RAG corpus by lock",
+    "kalsarpa_yoga": "no classical home (modern construct)"
+  }
+}
