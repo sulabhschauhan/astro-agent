@@ -65,3 +65,10 @@ diagnostics/planner_decisions.jsonl
 # same "ChromaDB — generated locally" class as data/chroma_db/ above, just
 # under a path that dodged that rule. Never commit; local disk only.
 data/_backup/
+
+# S147: per-chart static fact store (agent/astro/fact_store.py). One file per
+# birth combination, holding real birth-data-derived facts — same privacy
+# ruling as the kundli / qa_capture caches above. Public repo: never commit;
+# local disk only. (No-storage lock was reversed S147 for local multi-user
+# caching, NOT for committing users' charts.)
+data/fact_cache/

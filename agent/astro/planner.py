@@ -54,6 +54,8 @@ import time
 from dataclasses import dataclass, field, asdict
 from typing import Callable, Iterable, Optional
 
+from agent.astro import conversation
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOMAIN_TAGS_PATH = os.path.join(REPO_ROOT, "data", "domain_tags_bphs.json")
 CHAPTER_INDEX_PATH = os.path.join(REPO_ROOT, "data", "chapter_index_bphs.json")
@@ -222,6 +224,13 @@ class Plan:
     time_scope: str
     in_scope: bool
     reasoning: str
+    # muhurta (S147): electional-timing flag + the planner-extracted horizon.
+    # NOT a corpus domain (muhurta has no BPHS chapters) -- a separate signal the
+    # capability gate and the muhurta_facts composer key off. muhurta_horizon is
+    # {"mode":"days"|"count","value":int} when the user named a window, else None
+    # (the gate then asks for one). Defaults keep every pre-S147 Plan(...) valid.
+    muhurta: bool = False
+    muhurta_horizon: Optional[dict] = None
     # provenance -- never inferred downstream, always carried
     source: str = "llm"              # "llm" | "llm_retry" | "fallback"
     planner_fallback: bool = False
@@ -255,6 +264,8 @@ SYSTEM_PROMPT = """You are the PLANNER for a Vedic astrology answering system gr
 
 Your ONLY job is to read the user's question and state what the system must fetch to answer it. You do NOT answer the question. You do NOT state any astrological conclusion. You do NOT compute or guess any chart fact.
 
+FOLLOW-UPS: the input may begin with a RECENT CONVERSATION block followed by the CURRENT QUESTION. If the current question is a follow-up that leans on that conversation (pronouns, an omitted subject, "okay, and...", "what about after the 24th"), silently resolve it into a COMPLETE, self-contained question first and plan THAT -- carry over the life area, the person, and any constraints the earlier turns established. If the current question already stands on its own, ignore the conversation. Never carry a domain, house, or muhurta flag from a past turn unless the current question genuinely continues it.
+
 Reason about the question the way a Parashari astrologer would when deciding what to look at:
 
 1. DOMAINS -- which subject areas of the classical text bear on this question. Choose from this closed list, and ONLY this list:
@@ -285,10 +296,17 @@ WIDEN HERE TOO. Naming only the single most obvious house is a failure, not prec
 5. IN_SCOPE -- true if Brihat Parashara Hora Shastra volumes 1-2 could address this question at all. false ONLY if the question is genuinely outside classical natal astrology as those books treat it -- for example a request for medical diagnosis or treatment, legal advice, or a factual question with no chart component. Judge the QUESTION'S INTENT, never a word in it: a question naming the sign Cancer, or the 6th house, or a disease-related yoga, is IN SCOPE as astrology. Only a request for actual medical judgement is out of scope.
 ALSO OUT OF SCOPE, ALWAYS: a question about HOW this system or classical astrology COMPUTES or DERIVES anything -- a formula, a method, a procedure, which technique or varga or strength measure is used, or how a result was arrived at. Those are questions about methodology, not about the native's life, and they are never answered: return "in_scope": false with empty "domains". A question about what a placement, yoga, dasha or period MEANS for the person is a reading and stays IN SCOPE -- the test is whether the answer would describe the person's life or describe the machinery.
 
-6. REASONING -- two or three sentences saying why, naming the house derivations explicitly.
+6. MUHURTA -- true ONLY when the user asks for the best or auspicious DATE or TIME to DO or START something: to marry, to buy or move into a house, to start a business or job, to travel, to hold a ceremony. This is ELECTIONAL -- "when should I DO X". It is NOT "when will X happen to me" or "when will I get X" -- that is a prediction and uses timing_dasha with muhurta FALSE. When muhurta is true, STILL fill domains and houses for the life area as usual (a date to marry still needs the marriage houses for context). Default false.
+
+7. MUHURTA_HORIZON -- fill ONLY when muhurta is true; otherwise null. Read how far ahead the user wants to look, FROM THEIR OWN WORDS, as ONE of:
+   {"mode": "days", "value": <integer>} for a time window -- convert months/years yourself (1 month = 30 days, 1 year = 365 days): "next 6 months" -> {"mode":"days","value":180}; "this year" -> {"mode":"days","value":365}; "next year or two" -> {"mode":"days","value":730}.
+   {"mode": "count", "value": <integer>} when they ask for a NUMBER of dates: "next 2-3 good dates" -> {"mode":"count","value":3}; "the next auspicious day" -> {"mode":"count","value":1}.
+   null if they named no window at all (the system will then ask them for one).
+
+8. REASONING -- two or three sentences saying why, naming the house derivations explicitly.
 
 Output STRICT JSON only. No markdown fences, no text before or after, exactly this shape:
-{"domains": ["..."], "houses": [1], "whose_chart": "self", "time_scope": "none", "in_scope": true, "reasoning": "..."}"""
+{"domains": ["..."], "houses": [1], "whose_chart": "self", "time_scope": "none", "in_scope": true, "muhurta": false, "muhurta_horizon": null, "reasoning": "..."}"""
 
 
 def _default_llm(prompt: str, *, model: str = "gpt-4o", temperature: float = 0.0) -> str:
@@ -393,6 +411,26 @@ def validate_plan_object(obj: object) -> tuple[Optional[dict], list[str]]:
     if not isinstance(reasoning, str) or not reasoning.strip():
         errors.append("reasoning must be a non-empty string")
 
+    # muhurta flag (S147). Absent -> False (keeps pre-S147 planner output valid);
+    # present-but-not-bool is a shape error.
+    muhurta = obj.get("muhurta", False)
+    if not isinstance(muhurta, bool):
+        errors.append(f"muhurta={muhurta!r} must be a boolean")
+
+    # muhurta_horizon: null, or {"mode":"days"|"count","value":positive int}.
+    horizon = obj.get("muhurta_horizon")
+    if horizon is not None:
+        value = horizon.get("value") if isinstance(horizon, dict) else None
+        if (not isinstance(horizon, dict)
+                or horizon.get("mode") not in ("days", "count")
+                or not isinstance(value, int) or isinstance(value, bool)
+                or value <= 0):
+            errors.append(
+                "muhurta_horizon must be null or {mode:'days'|'count', value:>0 int}, "
+                f"got {horizon!r}")
+        else:
+            horizon = {"mode": horizon["mode"], "value": int(value)}
+
     if errors:
         return None, errors
 
@@ -402,6 +440,8 @@ def validate_plan_object(obj: object) -> tuple[Optional[dict], list[str]]:
         "whose_chart": whose,
         "time_scope": scope,
         "in_scope": in_scope,
+        "muhurta": muhurta,
+        "muhurta_horizon": horizon if muhurta else None,
         "reasoning": reasoning.strip(),
     }, []
 
@@ -491,6 +531,7 @@ def plan_question(
     *,
     llm: Optional[Callable[[str], str]] = None,
     log_path: Optional[str] = DECISION_LOG_PATH,
+    history: Optional[list] = None,
 ) -> Plan:
     """Plan one question. Never raises for a bad LLM answer -- it falls
     back and stamps the plan. Raises PlannerError only for a caller error
@@ -500,12 +541,18 @@ def plan_question(
         raise PlannerError("question is empty")
 
     call = llm if llm is not None else _default_llm
+    # S147 conversation context: give the planner the recent thread so a
+    # follow-up ("okay, any date after the 24th?") resolves into a self-contained
+    # intent. The LLM sees history + question; the Plan still stores the ORIGINAL
+    # question. Empty history -> byte-identical single-shot input.
+    _ctx = conversation.render_history(history)
+    _llm_input = f"{_ctx}\n\nCURRENT QUESTION:\n{question}" if _ctx else question
     raw_responses: list[str] = []
     all_errors: list[str] = []
 
     for attempt in range(1, _MAX_LLM_ATTEMPTS + 1):
         try:
-            raw = call(question)
+            raw = call(_llm_input)
         except Exception as e:
             all_errors.append(f"attempt {attempt}: LLM call raised "
                               f"{type(e).__name__}: {e}")

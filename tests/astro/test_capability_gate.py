@@ -51,6 +51,7 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
     assert CG.FACT_BLOCK_PROVIDES == frozenset(
         {"ascendant_sign", "lord_house_map", "planet_positions", "house_lords",
          "aspects", "dignity", "navamsa", "yogas", "dasha_periods", "transits", "shadbala", "ashtakavarga", "jaimini", "divisional",
+         "muhurta", "lucky_unlucky",
          "kp_seventh_cusp_sub_lord", "kp_planet_significations"})
 
 
@@ -84,6 +85,26 @@ def test_dasha_capability_is_rendered_when_the_facts_carry_it():
     assert "do not compute or estimate any period yourself" in with_dasha
     assert "+/-37 days" in with_dasha                                  # drift hedge stated
     assert "dasha_periods" in CG.FACT_BLOCK_PROVIDES
+
+
+def test_lucky_unlucky_capability_is_rendered_when_the_facts_carry_it():
+    """The S147 lucky/unlucky fact class: rendered when chart_facts carries it,
+    absent otherwise, and declared in FACT_BLOCK_PROVIDES (the growth-contract
+    pin). The verdict carries its ruling planet + houses so the interpreter can
+    GROUND the day, not assert it."""
+    from agent.astro import pipeline
+    facts = {"lord_house_map": {h: 1 for h in range(1, 13)},
+             "ascendant_sign": "Leo"}
+    assert "Lucky / unlucky weekdays" not in pipeline._fact_block(facts)
+    with_lucky = pipeline._fact_block(dict(facts, lucky_unlucky={
+        "weekdays": {
+            "Thursday": {"lord": "Jupiter", "houses_ruled": [1, 4], "verdict": "favourable"},
+            "Friday": {"lord": "Venus", "houses_ruled": [6, 11], "verdict": "avoid"}},
+        "favourable_days": ["Thursday"], "avoid_days": ["Friday"]}))
+    assert "Lucky / unlucky weekdays" in with_lucky
+    assert "Thursday (ruled by Jupiter, lord of house(s) 1, 4)" in with_lucky
+    assert "Friday (ruled by Venus, lord of house(s) 6, 11)" in with_lucky
+    assert "lucky_unlucky" in CG.FACT_BLOCK_PROVIDES
 
 
 def test_yogas_capability_is_rendered_when_the_facts_carry_it():
@@ -393,3 +414,86 @@ def test_gate_makes_no_llm_call():
             names.append(node.module or "")
     for n in names:
         assert "openai" not in n.lower(), "the capability gate must never call a model"
+
+
+# ── muhurta (S147): the horizon clarification + the fact render ─────────────
+
+def _muhurta_plan(domains, *, muhurta, horizon):
+    return Plan(
+        question="q", domains=list(domains), houses=[1], whose_chart="self",
+        time_scope="none", in_scope=bool(domains), reasoning="r",
+        muhurta=muhurta, muhurta_horizon=horizon,
+    )
+
+
+def test_muhurta_without_horizon_passes_clean_now():
+    """S147: muhurta defaults to a 2-year scan from now in the pipeline, so the
+    gate no longer asks for a horizon -- a muhurta question passes undeclined."""
+    v = CG.assess(_muhurta_plan(["marriage"], muhurta=True, horizon=None))
+    assert v.declined == [] and v.refuse_outright is False
+    assert "marriage" in v.plan.domains
+
+
+def test_muhurta_only_without_horizon_also_passes_clean():
+    v = CG.assess(_muhurta_plan([], muhurta=True, horizon=None))
+    assert v.declined == [] and v.refuse_outright is False
+
+
+def test_muhurta_flag_with_horizon_passes_the_gate():
+    v = CG.assess(_muhurta_plan(["marriage"], muhurta=True,
+                                horizon={"mode": "days", "value": 180}))
+    assert v.declined == [] and v.refuse_outright is False
+
+
+def test_plan_without_muhurta_attrs_is_unaffected():
+    """A pre-S147 plan (no muhurta attributes) reads False/None and never
+    triggers the clarification."""
+    v = CG.assess(_plan(["career"]))
+    assert all(i != "muhurta_needs_horizon" for i, _ in v.declined)
+
+
+def test_muhurta_facts_render_when_present():
+    from agent.astro import pipeline
+    rec_best = {"start": "2026-11-12 03:00 UT", "end": "2026-11-12 09:00 UT",
+                "tier": "TIER_1", "favorable_count": 2, "tithi": "Sukla Panchami",
+                "yoga": "Siddha", "karana": "Bava", "warnings": ()}
+    rec_early = {"start": "2026-10-20 06:00 UT", "end": "2026-10-20 12:00 UT",
+                 "tier": "TIER_2", "favorable_count": 1, "tithi": "Sukla Dwitiya",
+                 "yoga": "Shubha", "karana": "Taitila",
+                 "warnings": ("Janma Tara",)}
+    facts = {"lord_house_map": {h: 1 for h in range(1, 13)},
+             "ascendant_sign": "Leo",
+             "muhurta": {"searched": {"start": "2026-10-04 00:00 UT",
+                                      "end": "2027-04-02 00:00 UT",
+                                      "span_days": 180, "mode": "days",
+                                      "capped": False},
+                         "windows": [rec_best, rec_early],
+                         "best": rec_best, "earliest_good": rec_early,
+                         "none_found": False}}
+    block = pipeline._fact_block(facts)
+    assert "Muhurta (electional timing)" in block
+    assert "BEST window:" in block and "2026-11-12 03:00 UT" in block
+    assert "EARLIEST good window:" in block and "2026-10-20 06:00 UT" in block
+    assert "Janma Tara" in block            # caution limb surfaced
+
+
+def test_muhurta_none_found_renders_an_honest_message():
+    from agent.astro import pipeline
+    facts = {"lord_house_map": {h: 1 for h in range(1, 13)},
+             "ascendant_sign": "Leo",
+             "muhurta": {"searched": {"start": "2026-10-04 00:00 UT",
+                                      "end": "2026-11-03 00:00 UT",
+                                      "span_days": 30, "mode": "days",
+                                      "capped": False},
+                         "windows": [], "best": None, "earliest_good": None,
+                         "none_found": True}}
+    block = pipeline._fact_block(facts)
+    assert "No auspicious window" in block
+    assert "BEST window:" not in block
+
+
+def test_muhurta_absent_renders_nothing():
+    from agent.astro import pipeline
+    facts = {"lord_house_map": {h: 1 for h in range(1, 13)},
+             "ascendant_sign": "Leo"}
+    assert "Muhurta (electional timing)" not in pipeline._fact_block(facts)

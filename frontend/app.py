@@ -1794,6 +1794,8 @@ if prompt:
                     "birth_time_confidence_choice", "").startswith("Exact")
                 result = answer_question(
                     prompt, chart_facts,
+                    chart=_chart,  # S147: raw chart for the plan-time muhurta compose
+                    history=st.session_state.messages,  # S147: prior turns (current prompt not yet appended)
                     expert=st.session_state.get("astro_expert_mode", True),
                     birth_time_confident=_btc)
                 # Two surfaces, one result: the user reads render_user_answer's

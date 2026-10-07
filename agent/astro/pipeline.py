@@ -359,6 +359,72 @@ def _fact_block(chart_facts: dict) -> str:
             lines.append(f"  {_v['name']} ({_code}, {_v['domain']}) -- lagna "
                          f"{_v['lagna']}: {_parts}")
 
+    # LUCKY / UNLUCKY WEEKDAYS (S147). CALCULATED from the chart's own house
+    # lordships by agent.astro.lucky_facts.build_lucky_facts -- a trikona (1/5/9)
+    # lord's weekday is favourable, a dusthana-only (6/8/12) lord's weekday is to
+    # be avoided (trikona dominates). Personalised, computed, never from the PDF.
+    # Houses are carried so the interpreter can GROUND the verdict, not assert it.
+    # GROWTH CONTRACT: "lucky_unlucky" is in capability_gate.FACT_BLOCK_PROVIDES.
+    # Guarded on presence -> renders byte-identically to before when absent.
+    lk = chart_facts.get("lucky_unlucky") or {}
+    if lk and (lk.get("favourable_days") or lk.get("avoid_days")):
+        wd = lk.get("weekdays") or {}
+
+        def _lk_fmt(_day: str) -> str:
+            _e = wd.get(_day) or {}
+            _h = ", ".join(str(h) for h in _e.get("houses_ruled", []))
+            return f"{_day} (ruled by {_e.get('lord')}, lord of house(s) {_h})"
+
+        lines.append("")
+        lines.append(
+            "Lucky / unlucky weekdays -- COMPUTED from this chart's house "
+            "lordships (functional benefic/malefic by trikona vs dusthana "
+            "lordship; trikona dominates), NOT from any external source:")
+        _fav = lk.get("favourable_days") or []
+        _avd = lk.get("avoid_days") or []
+        if _fav:
+            lines.append("  Favourable: " + "; ".join(_lk_fmt(d) for d in _fav))
+        if _avd:
+            lines.append("  To avoid: " + "; ".join(_lk_fmt(d) for d in _avd))
+
+    # MUHURTA (S147). Generic electional favourability over the planner's horizon,
+    # composed in answer_question (plan- and time-dependent) and attached as
+    # chart_facts["muhurta"]. GROWTH CONTRACT: "muhurta" is in
+    # capability_gate.FACT_BLOCK_PROVIDES. Guarded on presence -> a chart_facts
+    # without it renders byte-identically to before (the legacy-dict pin).
+    mu = chart_facts.get("muhurta") or {}
+    if mu:
+        _srch = mu.get("searched") or {}
+        lines.append("")
+        lines.append(
+            "Muhurta (electional timing) -- COMPUTED, GENERIC auspiciousness only "
+            "(Chandrabala + Tarabala + Panchaka + panchanga shuddhi), NOT "
+            f"event-specific. Searched {_srch.get('start')} to {_srch.get('end')}. "
+            "EXPLAIN these computed windows; do NOT re-rank or invent dates. "
+            "TIER_1 = clearly auspicious; TIER_2 = acceptable but weaker.")
+        if mu.get("none_found"):
+            lines.append(
+                "  No auspicious window (TIER_1 or TIER_2) was found in that span. "
+                "State this plainly -- do NOT manufacture a date.")
+        else:
+            def _mu_fmt(_r: dict) -> str:
+                _w = ("; cautions: " + "; ".join(_r["warnings"])) if _r.get("warnings") else ""
+                return (f"{_r['start']} to {_r['end']} [{_r['tier']}, favourable "
+                        f"limbs {_r['favorable_count']}/2; tithi {_r['tithi']}, "
+                        f"yoga {_r['yoga']}, karana {_r['karana']}{_w}]")
+            _best = mu.get("best")
+            _earliest = mu.get("earliest_good")
+            if _best:
+                lines.append(f"  BEST window: {_mu_fmt(_best)}")
+            if _earliest and _earliest is not _best:
+                lines.append(f"  EARLIEST good window: {_mu_fmt(_earliest)}")
+            _order = "earliest first" if _srch.get("mode") == "count" else "strongest first"
+            _wins = mu.get("windows") or []
+            if _wins:
+                lines.append(f"  Favourable windows ({_order}):")
+                for _r in _wins:
+                    lines.append(f"    - {_mu_fmt(_r)}")
+
     # DASHA / TIMING (S141). Restated from calculate_chart()['dasha'] by
     # chart_facts._read_dasha -- Vimshottari mahadasha + antardasha. Pratyantar is
     # suppressed there (wrong lord at that granularity under the drift). The dates
@@ -528,6 +594,8 @@ def answer_question(
     question: str,
     chart_facts: dict,
     *,
+    chart: Optional[dict] = None,
+    history: Optional[list] = None,
     llm: Optional[Callable] = None,
     interpreter_llm: Optional[Callable] = None,
     composer_llm: Optional[Callable] = None,
@@ -555,7 +623,7 @@ def answer_question(
         timings[stage] = round(now - _t, 3)
         _t = now
 
-    plan = planner.plan_question(question, llm=llm)
+    plan = planner.plan_question(question, llm=llm, history=history)
     _lap("plan")
     verdict = capability_gate.assess(plan)
     _lap("capability_gate")
@@ -590,6 +658,37 @@ def answer_question(
                 "trace": {"timings": timings, "payload": built.get("payload") or {},
                           "refused_at": "payload_ceiling"},
                 "pipeline_version": PIPELINE_VERSION}
+
+    # MUHURTA (S147). Unlike the chart-only composers (which the caller attaches
+    # to chart_facts), electional timing is PLAN- and TIME-dependent: it needs the
+    # planner's horizon (plan.muhurta_horizon) and a scan anchored at "now", so it
+    # is composed HERE, after planning. Needs the raw chart (natal Moon sign +
+    # nakshatra); if the caller passed none, muhurta is simply absent. The gate has
+    # already asked for a horizon when muhurta was flagged without one, so a scan is
+    # reached only when a horizon is present. Fail-soft: a compose failure costs
+    # muhurta, never the answer. Lazy import keeps pipeline importable without
+    # swisseph for the non-muhurta tests.
+    if getattr(plan, "muhurta", False) and chart is not None:
+        try:
+            from agent.astro.muhurta_facts import build_muhurta_facts
+            import swisseph as _swe
+            import datetime as _dt
+            _n = _dt.datetime.now(_dt.timezone.utc)
+            _start_jd = _swe.julday(_n.year, _n.month, _n.day,
+                                    _n.hour + _n.minute / 60.0 + _n.second / 3600.0)
+            # S147 (Sulabh): when the user named no window, DEFAULT to a 2-year
+            # scan from now -- do NOT ask. Only an explicit timeframe overrides it.
+            _hz = getattr(plan, "muhurta_horizon", None) or {"mode": "days", "value": 730}
+            _mf = build_muhurta_facts(
+                chart, _start_jd,
+                horizon_days=_hz["value"] if _hz.get("mode") == "days" else None,
+                want_count=_hz["value"] if _hz.get("mode") == "count" else None,
+            )
+            if _mf:
+                chart_facts = {**chart_facts, "muhurta": _mf}
+        except Exception:  # noqa: BLE001 -- muhurta is additive; never fatal
+            pass
+    _lap("muhurta")
 
     fact_block = _fact_block(chart_facts)
 
@@ -647,12 +746,23 @@ def answer_question(
         expert = os.environ.get("ASTRO_EXPERT_MODE", "0") == "1"
     if expert:
         ex = _interp.interpret_expert(question, fact_block, built["payload"],
-                                      llm=interpreter_llm, model=_interp_model)
+                                      llm=interpreter_llm, model=_interp_model,
+                                      history=history)
         _lap("interpreter_expert")
+        # S147: fold any gate clarification (e.g. the muhurta "what window?" ask)
+        # into the SHOWN answer. The non-expert _render path already appends
+        # verdict.messages; without this the expert path (the live default) would
+        # answer a mixed muhurta-without-horizon question but drop the ask. No
+        # regression: verdict.messages is empty on every non-muhurta turn today.
+        _expert_answer = ex["answer"]
+        if verdict.messages:
+            _msgs = "\n\n".join(verdict.messages)
+            _expert_answer = (_expert_answer.rstrip() + "\n\n" + _msgs
+                              if _expert_answer.strip() else _msgs)
         return {
-            "answer": ex["answer"],
+            "answer": _expert_answer,
             "expert_mode": True,
-            "refused": not ex["answer"].strip(),
+            "refused": not _expert_answer.strip(),
             "plan": built["plan"],
             "declined": verdict.declined,
             "dropped_domains": verdict.dropped_domains,

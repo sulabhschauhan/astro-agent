@@ -112,6 +112,20 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
     "divisional",         # domain vargas (D10/D7/D2/D30/D12/D3/D24), composed by
                            # agent.astro.divisional_facts. Varga placements
                            # (unfittable) -- no predicate, no Requirement.
+    "muhurta",            # generic electional favourability over a bounded forward
+                           # scan (Chandrabala+Tarabala+Panchaka + panchanga-shuddhi
+                           # limbs), composed by agent.astro.muhurta_facts.
+                           # build_muhurta_facts (S147). Additive fact class, same
+                           # posture as "divisional": no predicate (unfittable), no
+                           # REQUIREMENT. The horizon-completeness check in assess()
+                           # is a separate INPUT-side clause, not a fact Requirement.
+    "lucky_unlucky",      # favourable / to-be-avoided WEEKDAYS, CALCULATED from the
+                           # chart's own house lordships (trikona lord -> favourable,
+                           # dusthana-only lord -> avoid; trikona dominates), composed
+                           # by agent.astro.lucky_facts.build_lucky_facts (S147).
+                           # Additive fact class, same posture as "divisional": no
+                           # predicate (unfittable), no REQUIREMENT. Personalised and
+                           # computed -- never pulled from the AstroSage PDF.
     "kp_seventh_cusp_sub_lord",  # KP (Krishnamurti Paddhati) 7th-cusp sub-lord,
                            # computed by agent.astro.kp_facts.build_kp_facts over
                            # chart['meta']['house_cusps_kp_sidereal'] (a DIFFERENT
@@ -260,6 +274,13 @@ def assess(plan, *, provides: frozenset[str] = FACT_BLOCK_PROVIDES) -> GateVerdi
         declined.append((req.id, req.user_message))
         dropped |= set(domains) & req.domains
         hard_block = hard_block or req.blocks_whole_answer
+
+    # -- muhurta needs NO gate clause (S147, Sulabh) ------------------------
+    # Earlier this asked for a horizon when muhurta was flagged without one.
+    # Superseded: muhurta now DEFAULTS to a 2-year scan from now in the pipeline
+    # ("default 2 years unless asked for more"), so the gate never declines a
+    # muhurta question for a missing horizon -- it just passes through and the
+    # windows are computed.
 
     if not declined:
         return GateVerdict(plan=plan, refuse_outright=False, declined=[],

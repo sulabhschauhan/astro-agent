@@ -41,6 +41,7 @@ import re
 from typing import Callable, Optional
 
 from agent.astro import predicates as PRED
+from agent.astro import conversation
 
 INTERPRETER_VERSION = "interpreter-1.0"
 INTERPRETER_MODEL = "gpt-5"          # DEFAULT interpreter: gpt-5 is the stronger, cleaner
@@ -383,7 +384,7 @@ EXPERT_SYSTEM = (
     "a dignity, a yoga, a dasha/antardasha period or its dates, a transit placement "
     "(where a planet was transiting, and relative to what, at a given time), a KP "
     "(Krishnamurti Paddhati) house-cusp sub-lord, or a KP house significator (which "
-    "houses a planet signifies), or a planetary strength (its Shadbala Rupas, ratio to the BPHS minimum, or rank), or an Ashtakavarga bindu count (SAV bindus for a house, or a planet's BAV), or a Jaimini fact (a chara karaka -- which planet signifies a role such as Atmakaraka or Darakaraka -- or an Arudha pada such as the Arudha or Upapada Lagna), or a divisional-chart (varga) placement -- a planet's sign or house in a varga such as the Dasamsa (D10, career) or Saptamsa (D7, children) -- MUST come "
+    "houses a planet signifies), or a planetary strength (its Shadbala Rupas, ratio to the BPHS minimum, or rank), or an Ashtakavarga bindu count (SAV bindus for a house, or a planet's BAV), or a Jaimini fact (a chara karaka -- which planet signifies a role such as Atmakaraka or Darakaraka -- or an Arudha pada such as the Arudha or Upapada Lagna), or a divisional-chart (varga) placement -- a planet's sign or house in a varga such as the Dasamsa (D10, career) or Saptamsa (D7, children) -- or a muhurta (electional timing) window -- a computed auspicious date range and its favourability tier -- MUST come "
     "from the CHART FACTS given below. Never invent, guess, or compute a placement or a "
     "date. The dasha "
     "timeline is COMPLETE (every major period and sub-period with its dates), so read the "
@@ -396,7 +397,13 @@ EXPERT_SYSTEM = (
     "actually connects them, never just because the name matches.\n"
     "- INTERPRETATION -- what a placement or period MEANS -- may draw on your expert "
     "knowledge of the classical texts and the passages provided. Never use pop astrology or "
-    "unverified sources.\n\n"
+    "unverified sources.\n"
+    "- RECENT CONVERSATION: the prompt may begin with a RECENT CONVERSATION block. Use it "
+    "ONLY for continuity -- to resolve references ('the date you mentioned', 'that period'), "
+    "to avoid repeating yourself, and to keep the thread coherent. It is NEVER a source of "
+    "chart facts: do not state or rely on any placement, period, date or window that is not in "
+    "the CHART FACTS for THIS turn, even if you stated it earlier. If something from a past "
+    "turn is not in this turn's facts, it is not available now.\n\n"
     "ANSWER LIKE AN EXPERT WOULD:\n"
     "- Lead with the real answer to their question -- the bottom line first, including the "
     "uncomfortable part if there is one. No throat-clearing.\n"
@@ -428,6 +435,19 @@ EXPERT_SYSTEM = (
     "write as an astrologer speaking to a client, not a footnoted paper.\n"
     "- Be honest and non-fatalistic. Report difficult indications plainly, without drama, "
     "false alarm, or false reassurance.\n\n"
+    "MUHURTA (electional timing): when the facts carry a 'Muhurta (electional timing)' "
+    "section, the user asked for a GOOD DATE/TIME TO ACT (marry, buy, move, start something), "
+    "not for when an event will befall them. Those windows are COMPUTED -- present the ones "
+    "given and NEVER invent or shift a date. Lead with the BEST window; then, if a different "
+    "EARLIEST good window is given, name it too (e.g. 'the best time is <x>; if you'd rather "
+    "act sooner, <y> is also strong'). State favourability plainly -- clearly auspicious "
+    "(TIER_1) vs acceptable but weaker (TIER_2) -- and mention any caution limbs in one short "
+    "phrase. This is GENERIC favourability only: do NOT claim it is tailored to the specific "
+    "event. If the facts say no auspicious window was found in the searched span, say exactly "
+    "that and name the span -- do NOT manufacture a date. An electional 'when should I DO X' "
+    "question is answered from THESE muhurta windows, NEVER from the dasha/timing ranking "
+    "(that answers 'when will it HAPPEN', a different question) -- and never tell the user a "
+    "window is 'not available' or 'not pre-computed'.\n\n"
     "END WITH A PLAIN-LANGUAGE SUMMARY. After the reading, add a final section "
     "headed 'In simple terms:' -- 2 to 4 short sentences giving ONLY the practical "
     "bottom line in everyday English, with NO astrology terms at all (no planet, "
@@ -499,14 +519,22 @@ def interpret_expert(
     *,
     llm: Optional[Callable[..., tuple]] = None,
     model: str = INTERPRETER_MODEL,
+    history: Optional[list] = None,
 ) -> dict:
     """Free-text expert answer over the complete fact block + retrieved passages.
 
     Returns {answer, usage, model, interpreter_version, raw, expert_mode}. The
     `answer` is plain markdown for the reader -- no ids, no JSON. Never raises for
-    an empty answer (that is a refusal the caller surfaces)."""
+    an empty answer (that is a refusal the caller surfaces).
+
+    `history` (S147) is the recent conversation thread, for CONTINUITY and
+    reference-resolution only. The guardrail in EXPERT_SYSTEM is absolute: every
+    chart fact must still come from `fact_block`, never from the thread."""
     verses = _verse_block(payload)
-    user = (f"CHART FACTS (the only chart facts you may state):\n{fact_block}\n\n"
+    _ctx = conversation.render_history(history)
+    _ctx_block = f"{_ctx}\n\n" if _ctx else ""
+    user = (f"{_ctx_block}"
+            f"CHART FACTS (the only chart facts you may state):\n{fact_block}\n\n"
             f"CLASSICAL PASSAGES (for interpretation):\n{verses}\n\n"
             f"QUESTION: {question}\n\n"
             "Answer the person directly, as an expert astrologer.")
