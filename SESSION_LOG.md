@@ -2437,9 +2437,68 @@ NEW: `agent/astro/shadbala_facts.py`, `agent/astro/ashtakavarga_facts.py`, `agen
 3. **Interpreter prompt (small, optional):** always surface the single top-ranked timing window even if past, before leading with upcoming — the system cannot know an event already occurred (Sulabh's marriage 11 Dec 2019 IS in the fact block via Mercury-Rahu, but S145 framing led future-only).
 
 
+## S148 (2026-10-07) -- UNIVERSAL CROSSING PRIMITIVE; GENERAL INGRESS ENGINE; MASA CALENDAR (placement facts only)
+
+OUTCOME: the two engines the S147 carry-forward asked for are built, tested and ratified against the real ephemeris -- but NOT in the order asked, and the masa engine deliberately stops short of naming the intercalary month. Branch `wip/interpretive-pilot`, on top of `5702d2f`. Nothing committed. Full suite 5002 passed / 7 skipped / 2 xfailed / 0 failed (59 new, suite +4s).
+
+### PART 0 -- STATE VERIFICATION AND A DOC DRIFT
+`.git/HEAD` -> `ref: refs/heads/wip/interpretive-pilot`; reflog tail `9a64311` -> `5702d2f` "S147: muhurta on Path B + conversation context + V1.5 fact layer". The S147 stack WAS committed; CLAUDE.md and this log still said "git commit PENDING" in four places, written pre-commit. Corrected in this pass. (No `device_bash` in the S148 session, so cleanliness of the working tree was verified by Sulabh's own `git status`, not asserted here.)
+
+### PART 1 -- THE CARRY-FORWARD PREMISE WAS WRONG (repo-search, anti-phantom)
+S147 recorded masa as "smaller lift than transit-ingress because core/panchanga.py already exists". It is not. `core/panchanga.py` exports tithi, vara, nakshatra+pada, yoga, karana, hora, choghadiya, rahu/yamaganda/gulika, abhijit, sunrise/sunset -- and NO masa, NO sankranti, NO amanta/purnimanta, NO adhika/kshaya. Zero hits for `masa|sankranti|adhika|shuddhi|kshaya|amanta|purnimanta|malamasa` across `agent/calculations/**`, `agent/astro/**`, CLAUDE.md and this log (the only matches are the unrelated Kala Bala "Abda/Masa" Virupa note). Panchanga supplies the TITHI half for free; the other half of masa is solar sign ingress -- i.e. the transit-ingress engine queued second. ORDER INVERTED: the general engine was built first, so masa composes over it instead of carrying a private sankranti scan that the ingress engine would then duplicate (the second-source-of-truth seam `combustion_scan.py` avoided by importing `core/combustion`'s orbs).
+
+### PART 2 -- THE OBVIOUS REUSE WAS UNSOUND (full roster, before any code)
+The proposed L0 -- `state_fn = floor(angle*n/360)` fed to `find_state_segments` -- was attacked independently by Architect (HIGH-1), Critic (HIGH-1), QA (HIGH-3) and Ephemeris Auditor (MED-3). `find_state_segments` compares CONSECUTIVE COARSE SAMPLES and bisects each bracket ASSUMING ONE transition. Both halves fail for quantised angles: (a) a body crossing a cusp and crossing BACK inside one step leaves both samples in the same band -> ZERO crossings, silently -- precisely the retrograde-station-near-a-cusp case; (b) a 3-state bracket (k, k-1, k) converges on an arbitrary point labelled with the two ENDPOINT states -- a crossing that never happened. `combustion_scan.py` is safe from (a) only because its episodes are days-to-weeks wide, which its own docstring states as a scope guard.
+NO FINER STEP FIXES IT -- the dither window shrinks faster than any constant rate, so `samples_per_band` was a guessed number wearing the costume of a calculation. REPLACED BY A PROOF: a crossing at tc in [a,b] requires tc-a >= d(a)/R and b-tc >= d(b)/R, hence b-a >= (d(a)+d(b))/R; contrapositive prunes. Correctness now rests on R (measured), NOT on step size; `initial_step_jd` is a performance knob only.
+FALSIFIER (in the test suite): a 0.05-deg parabolic excursion over the 30-deg cusp lasting 0.316 d inside a 3.4 d stride. Adaptive scanner returns both roots at 100 -+ sqrt(0.05/2) exactly; `find_state_segments` returns states [11, 0, 11] and misses them entirely. Both assertions live in the same test so the contrast is the test, not a comment.
+
+### PART 3 -- WHAT SHIPPED
+- `helpers/discrete_scan.py` EDITED, APPEND-ONLY -- verified byte-identical through line 175; `find_state_segments` untouched. Adds `Crossing`, `scan_quantised_crossings`, `default_initial_step`, `_division_index` (modulo load-bearing: angle 360.0 would otherwise index n), and `max_evaluations` -- a guard, not a knob, for the degenerate angle-exactly-ON-a-boundary input whose distance to a boundary is zero so the prune can never fire (found by RUNNING the tests: 51s before the guard, 0.11s after; loud RuntimeError now).
+- NEW `transits/ingress_scan.py` -- `scan_divisional_ingresses(body, ..., n_divisions=12)` and `scan_ingress_table(...)`. PER-BODY ERROR ISOLATION (one bad body must not discard six good ones; the one place that swallows an EphemerisError, and it records what it swallowed). Records `ayanamsa`/`nirayana` on every result. Unknown body REFUSES rather than defaulting a rate.
+- NEW `core/masa.py` (PURE, stdlib only) + `core/_masa_tables.py` (label table, `_panchanga_tables.py` precedent) + `transits/masa_scan.py` (driver: over-scan by one synodic month + 1 day, then trim; `resolve_local_dates`).
+- NEW `scripts/measure_ephemeris_rates.py` -- re-derives the correctness constants, exits non-zero if any stored bound is below the measured maximum.
+- CUT after roster adjudication: `scan_retrograde_segments` (not a crossing primitive, no caller); `purnimanta` scheme (presentation transform, and shipping both = two contradictory answers to defer a decision); `kshaya` naming (next occurrence ~2124, untestable branch); the claim that the primitive "subsumes" tithi/karana/yoga (`core/panchanga.py` stays the SOLE tithi source -- a second path would disagree at the ~0.09 s tolerance).
+
+### PART 4 -- THE DOCTRINE STOP (Validation Source, upheld)
+The adhika/kshaya naming rule is NOT in this project's corpus. Searched: the only BPHS masa material is ch.27's Masa LORD (Ahargana / 30 -- a mean 30-day month, no sankranti, no intercalation; it feeds Kala Bala, not a calendar). The no-sankranti rule is siddhantic doctrine from a text we do not hold. Taking it from PyJHora/DrikPanchang and then grading against DrikPanchang is the S131/S132 failure verbatim.
+RULING APPLIED: the engine reports `sankranti_count` and `contained_sankranti_rashis` as PLACEMENT FACTS and sets `masa_index`/`name_sa` to None when the count is not 1. No `adhika` flag, no `kshaya` flag, no `source` string on returned data (P-029). Naming belongs in a doctrine layer above `core/masa.py`.
+SULABH RULED "no need to cite; if values match the AstroSage PDF, proceed". RE-VERIFIED THE SOURCE RATHER THAN ARGUING: that gate CANNOT BE RUN. `astrosage_parser._PRIORITY_ORDER` = [Varshaphal, Pratyantar, Muntha, Sade Sati, Favourable Points, Transit Today, Lal Kitab]; `grep -i "masa|month|tithi|paksha|panchang"` over the parser returns NOTHING. The AstroSage natal report carries no panchanga section, so there is no masa value in it to match. Recorded OPEN; naming stays withheld until a source or a different oracle is chosen.
+
+### PART 5 -- MEASURED, THEN FROZEN
+max |d(sidereal longitude)/dt| deg/day, 2010-01-01..2040-01-01, sampled 0.25 d (Sun/Moon) / 0.5-1.0 d:
+  sun 1.0197  moon 15.3851  mercury 2.2024  venus 1.2588  mars 0.7913  jupiter 0.2420  saturn 0.1305
+  elongation(moon-sun) 14.3885  <- the COMPOSED angle masa scans; NOT the Moon's own, which the first draft would have passed.
+Stored bounds are these rounded UP. IDENTICAL TO 4 dp on the sandbox Moshier fallback and on Sulabh's real SE1 files, so the frozen test bands are backend-independent -- which is what the containment/band house style was meant to buy.
+REGRESSION CHECK: re-running `combustion_scan` in the sandbox reproduced S147's ratified windows exactly (Venus retro 10-19..10-29, Mercury retro 10-30..11-10, Mercury direct 12-06..01-23).
+
+### PART 6 -- RATIFICATION (hardest case first; real ephemeris, no skips)
+2026 was chosen as the window because it CONTAINS the hard case, not because it is convenient.
+- Sun: exactly 12 sign ingresses; Mesha sankranti 2026-04-14, Makara 2026-01-14 (day-level containment).
+- Mercury: 14 crossings including a BACKWARD cusp crossing (2026-07-07, 3->2) and the re-entry (2026-08-05, 2->3) -- the case the whole L0 redesign exists for. Saturn makes NO sign ingress in 2026 (~2.5 yr/sign); its absence is asserted, not ignored.
+- NAMING RULE CORRECTED BY MEASUREMENT: the month [2026-03-19 .. 2026-04-17] contains the Mesha ingress and IS Chaitra, so masa index = the contained rashi. The design brief said rashi+1, which would have named every month after its successor. The ephemeris caught it, not a recollection. Pinned.
+- THE INTERCALARY MONTH: [2026-05-16 20:01 .. 2026-06-15 02:54 UT] contains ZERO sankrantis. Its status is AYANAMSA-DEPENDENT BY 0.184 DEG: the Mithuna ingress falls 4.48 HOURS after the new moon that opens the next month. Lahiri vs Raman differ ~0.9 deg (~22 h of solar motion), which would move the ingress across the new moon and dissolve the intercalary month. The margin itself is pinned in a test so a frame change fails loudly instead of quietly renaming a month. THIS IS ALSO THE TEMPTATION TO REFUSE: when an oracle disagrees here, the only change that "works" is adjusting the ayanamsa until it agrees -- that is sourcing, and it is forbidden.
+- VEDIC DAY BOUNDARY (Ephemeris Auditor HIGH-1, confirmed live): the 2026-10-10 15:50 UT new moon tz-localises to Oct 10 in Dubai but the first sunrise after it is Oct 11. `resolve_local_dates` uses `panchanga.calculate_sunrise` and REQUIRES tz/lat/lon with no defaults. Dubai and Delhi legitimately disagree on some month start dates; the instants do not.
+- Cost: full 2026 masa calendar + 7-body ingress table = 0.42 s, 209 events, 0 errors. The Business agent's cost concern is closed empirically.
+
+### DECISIONS / FINDINGS
+- Roster conflicts resolved toward LESS, again: four cuts, one primitive, no new astronomy.
+- "Hardest case first" paid differently than in S147: there the value was confirming reuse; here it was DISPROVING a reuse that looked obvious and would have failed silently in production.
+- Two defects in this session were found by RUNNING, not reasoning: the naming off-by-one (ephemeris) and the boundary-degenerate hang (test suite).
+- NOT WIRED TO PATH B, deliberately (Business HIGH: masa changes no answer without a consumer). Wiring touches planner + capability_gate + pipeline + a facts composer -- four files, a separate task, and the masa half depends on the naming question above.
+
+### FILES (device; git commit PENDING, RATIFIED awaited)
+NEW: `agent/calculations/core/{masa,_masa_tables}.py`, `agent/calculations/transits/{ingress_scan,masa_scan}.py`, `scripts/measure_ephemeris_rates.py`, `tests/calculations/core/test_masa.py`, `tests/calculations/helpers/test_discrete_scan_crossings.py`, `tests/calculations/transits/{test_ingress_scan_ephemeris,test_masa_scan_ephemeris}.py`. EDITED: `agent/calculations/helpers/discrete_scan.py` (append-only), `CLAUDE.md`, `SESSION_LOG.md`.
+
+### CARRY-FORWARD / NEXT
+1. **RATIFIED git commit** of the S148 engine layer (Sulabh's choice: commit engine first, wiring separate).
+2. **THE NAMING QUESTION IS OPEN** -- AstroSage cannot grade masa (Part 4). Options: supply a Surya Siddhanta text; pre-register a 1900-2100 zero-sankranti list and grade against TWO independent panchangas; or leave naming withheld and record it alongside the 47 unsourced detector rows.
+3. **Wire to Path B** -- ingress first (no doctrine to ratify; unlocks "when does Saturn enter my 7th", which `compute_gochara` cannot answer because it is a snapshot). Masa second, once (2) resolves.
+4. **build_timeline + dispatcher** + the shared-vs-per-chart storage split (S147 carry-forward 3) -- all three engines (combustion, ingress, masa) are chart-INDEPENDENT, which argues for one shared ephemeris cache; still not pre-built.
+5. **Deferred from S146** (still open): validate the timing-ranking probe (W_KARAKA N>1 decision); interpreter "surface top-ranked window even if past".
+
 ## S147 (2026-10-07) -- MUHURTA LIVE ON PATH B; CONVERSATION CONTEXT (standing); V1.5 FACT LAYER (fact_store + timeline_store + combustion engine + calculated lucky/unlucky)
 
-OUTCOME: the dated/interpretive fact layer that Path B was missing is now built, tested, and (combustion) externally ratified. Branch `wip/interpretive-pilot`. Committed to device across the session; git commit PENDING (RATIFIED awaited at session close). Full suite at close: 4943 passed, 7 skipped, 2 xfailed, 0 failed.
+OUTCOME: the dated/interpretive fact layer that Path B was missing is now built, tested, and (combustion) externally ratified. Branch `wip/interpretive-pilot`. COMMITTED as `5702d2f` ("S147: muhurta on Path B + conversation context + V1.5 fact layer (fact_store, timeline_store, combustion)"); verified at S148 open against `.git/HEAD` + reflog. The "commit PENDING" wording below was written pre-commit and is superseded. Full suite at close: 4943 passed, 7 skipped, 2 xfailed, 0 failed.
 
 ### PART 1 -- MUHURTA INTEGRATED INTO PATH B (not a separate panel)
 S146 carried muhurta forward as an option-A standalone "Muhurta Finder" panel; Sulabh re-scoped it INTO the answer pipeline so one LLM reads intent and the same facts path serves it.
@@ -2482,11 +2541,11 @@ Anti-phantom repo search found `core/combustion.py` (natal, point-wise), `helper
 - Combustion/transit/masa are all chart-INDEPENDENT ephemeris facts; only their interpretation is chart-relative -- a shared-cache vs per-chart-copy decision deferred to timeline assembly.
 - SESSION HYGIENE: CLAUDE.md "Current Session Focus" trimmed to S147 + S146 only (S145->S130 narrative lives here in SESSION_LOG); 4 new Locked Decisions added (no-storage reversal, conversation-context standing, muhurta-as-planner-flag, dated-facts-calculated).
 
-### FILES (device; git commit PENDING, RATIFIED awaited)
+### FILES (committed in 5702d2f)
 NEW: `agent/astro/{muhurta_facts,conversation,fact_store,static_facts,timeline_store,lucky_facts}.py`, `agent/calculations/transits/combustion_scan.py`, `tests/astro/{test_muhurta_facts,test_conversation,test_fact_store,test_timeline_store,test_lucky_facts}.py`, `tests/calculations/transits/test_combustion_scan_ephemeris.py`. EDITED: `agent/astro/{planner,capability_gate,pipeline,interpreter,static_facts,fact_store}.py`, `frontend/app.py`, `tests/astro/test_capability_gate.py`, `.gitignore` (data/timeline_cache/), `CLAUDE.md`, `SESSION_LOG.md`.
 
 ### CARRY-FORWARD / NEXT (fresh session)
-1. **RATIFIED git commit** of the whole S147 stack (was deferred to session close; the commit prompt is drafted -- everything in the working tree is S147 and interdependent: pipeline.py imports muhurta_facts.py, so partial staging breaks the tree).
+1. ~~RATIFIED git commit of the S147 stack~~ -- DONE, `5702d2f`. Verified at S148 open.
 2. **Timeline engines still to build**: masa composer (on existing `core/panchanga.py`, same find_state_segments pattern) and the transit INGRESS table (widen the existing Saturn-only gochara into a general per-graha ingress/station table). Then wire `build_timeline` + the runtime dispatcher (planner emits parametrised calc-requests; muhurta becomes the first registered calc; beyond-1yr-horizon = live-compute). Combustion is the first ratified engine of this set.
 3. **Storage split decision** at timeline-assembly time: shared chart-independent ephemeris cache vs per-chart copy (combustion/transit/masa intervals are identical across charts).
 4. **Deferred from S146** (still open): validate the timing-ranking probe (W_KARAKA N>1 decision); interpreter "surface top-ranked window even if past".
