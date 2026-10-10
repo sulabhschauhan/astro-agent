@@ -72,3 +72,18 @@ data/_backup/
 # local disk only. (No-storage lock was reversed S147 for local multi-user
 # caching, NOT for committing users' charts.)
 data/fact_cache/
+
+# S149 -- PER-CHART DATED FACT CACHE (timeline_store.py). Same privacy ruling as
+# data/fact_cache/ above: keyed by chart identity and derived from real birth
+# details, so it is local disk only and never committed.
+# PROVENANCE: the S147 session log lists ".gitignore (data/timeline_cache/)" as
+# edited and its Locked Decision states both caches are gitignored -- but the
+# entry was never actually written to this file. Found S149 by grep. The store has
+# shipped since S147 with its output committable; adding it now closes that.
+data/timeline_cache/
+
+# S149 -- SHARED EPHEMERIS WINDOW CACHE (ephemeris_cache.py). Ignored because it
+# is a DERIVED BUILD ARTIFACT, not because it is sensitive: unlike the two caches
+# above it contains NO birth data at all, only sky events over a date range, which
+# is what lets one file serve every chart on a deployment. Rebuilt in 0.44s.
+data/ephemeris_cache/

@@ -2437,6 +2437,55 @@ NEW: `agent/astro/shadbala_facts.py`, `agent/astro/ashtakavarga_facts.py`, `agen
 3. **Interpreter prompt (small, optional):** always surface the single top-ranked timing window even if past, before leading with upcoming — the system cannot know an event already occurred (Sulabh's marriage 11 Dec 2019 IS in the fact block via Mercury-Rahu, but S145 framing led future-only).
 
 
+## S149 (2026-10-07) -- THE PRECOMPUTED DATED FILE: TWO-TIER TIMELINE (shared sky + per-chart projection)
+
+OUTCOME: the "one file with everything pre-calculated, time-based, for the next year" is built, measured and tested. Branch `wip/interpretive-pilot`, on top of `70b2a55` (S148). Nothing committed. 32 new tests; 91 green in the S149 sandbox tree, full suite expected 5034.
+
+### PART 0 -- A COURSE CORRECTION, RECORDED
+Sulabh corrected the S146 marriage-gap re-read: the 2026-2045 range came from the QUESTION ("when WILL I get married" -- future-facing), not from a ranker defect. The ranker is built, tested and SETTLED; do not reopen it. The S148-close proposal to refactor `transit_facts._snapshot` is WITHDRAWN -- it was scope drift away from the agreed path (engines -> precomputed timeline -> dispatcher).
+What survives is a NOTE, not a work item: `transit_facts._snapshot` takes `mid_jd = (start_jd + end_jd)/2` and reads one `compute_gochara` snapshot, so the transit term's hit rate is flat at 1/12 regardless of antardasha length (measured over 2026-2053: Jupiter 8.3% midpoint vs 39.9% true overlap on a 3.33-year window). Logged for whenever transit depth is revisited on its own merits. NOT a diagnosis of anything shipped.
+
+### PART 1 -- THE STORAGE SPLIT, RESOLVED (S147 carry-forward 3)
+S147 deferred "shared chart-independent ephemeris cache vs per-chart copy" to timeline-assembly time. Assembly is now, and the engines answered it: combustion is a Sun-planet separation, an ingress is a graha crossing a cusp, a lunar month is a new moon. NONE reads a natal chart, so all three are byte-identical for every chart ever built.
+- TIER A, NEW `agent/astro/ephemeris_cache.py` -- `shared_window_key(as_of, horizon_days, ayanamsa)` (human-readable `2026-10-07_365_LAHIRI`; nothing to obscure because nothing personal is in it), `build_shared_ephemeris`, `load_or_build_shared`. Per-ENGINE try/except so one failing scan costs its own fact class, surfaced in `errors` and never silent. `SHARED_SCHEMA_VERSION` independent of the other two stores. Atomic tmp+os.replace; a corrupt or unwritable cache falls back to building in memory and NEVER blocks an answer.
+- TIER B, NEW `agent/astro/build_timeline.py` -- `project_events` joins the blob onto one chart: every graha event gains `from/to_house_from_lagna` and `from/to_house_from_moon` (whole-sign, exactly `gochara.compute_gochara`'s S20-locked dual-reference rule). NO ephemeris call. `timeline_builder_for(chart)` returns the `builder(as_of)` callable `timeline_store.load_or_refresh` already expects, so the store stays ignorant of charts and calculators as its leaf docstring requires. `load_timeline_for_chart(key, chart)` is the app seam, keyed by the SAME identity key `fact_store` uses.
+- THE LINE: "depends on the sky" (Tier A, shared) vs "depends on your chart" (Tier B, per-chart). Every engine lands cleanly on one side. A test walks EVERY key of the Tier-A blob and fails if a chart field or a house ever leaks in.
+
+### PART 2 -- WHAT build_timeline DELIBERATELY DOES NOT DO
+- NO FILTERING. Every event is projected and none is dropped. WHICH event matters for a question is the planner's and the interpreter's business; a relevance rule here would be use-case logic inside the fact layer.
+- NO SADE SATI. `transits/sade_sati.py` owns it and is oracle-validated; Saturn's ingress events carry `house_from_moon`, which is the INPUT that module wants. Re-deriving the phase would be a second source of truth.
+- NO TITHI. `core/panchanga.py` stays sole source (S148 lock). The lunations here are month boundaries.
+- NO NAMING of the intercalary month -- the S148 doctrine stop carries through Tier B unchanged.
+- NO "now" VALUE -- intervals and events only, resolved against today at answer time (S147 lock).
+
+### PART 3 -- MEASURED
+Window 2026-10-07 .. 2027-10-07, Sagittarius lagna / Cancer Moon:
+  TIER A build 0.435 s | cached read 0.0004 s | file 24.9 KB | errors {}
+    209 ingress events, 10 combustion intervals, 14 masa months (all complete)
+  TIER B projection 0.23 ms
+A worked example the old point-sample could not express at all: Jupiter enters the 9th from lagna on 2026-10-31, RETROGRADES BACK into the 8th on 2027-01-24, and re-enters on 2027-06-25. The interval form carries the whole sequence; a midpoint snapshot carries one coin flip.
+
+### PART 4 -- A LIVE PRIVACY GAP, FOUND AND CLOSED
+`data/timeline_cache/` was NEVER in `.gitignore`. The S147 session log lists ".gitignore (data/timeline_cache/)" under EDITED and the S147 Locked Decision states "Real birth data is NEVER git-committed (`data/fact_cache/`, `data/timeline_cache/` gitignored)" -- both describe an edit that did not land. Found by grep while adding the S149 entry. The per-chart dated store has shipped since S147 with its birth-derived output committable. Added now, alongside `data/ephemeris_cache/` (ignored as a DERIVED ARTIFACT, explicitly not for privacy -- it holds no birth data, which is what makes it shareable).
+
+### PART 5 -- RULE OF THREE, MET AND NOT ACTED ON
+The ~15-line atomic-write / fail-soft-read core is now in THREE stores (`fact_store`, `timeline_store`, `ephemeris_cache`). S147 declined extraction at two, citing the rule of three; three is the same threshold that triggered the `helpers/discrete_scan.py` extraction at S26. NOT extracted here: it would mean editing two committed green modules inside a feature commit, against the surgical-edit rule, and the three differ in invalidation semantics (schema version / forward-reach re-anchor / content-addressed key). RECORDED as its own task in the module docstring and here -- not silently skipped, not bundled.
+
+### VALIDATION / TESTS
+- `tests/astro/test_build_timeline.py` (25, PURE -- hand-built Tier-A blob, injected builders, no ephemeris): projection into both frames, retrograde backward house move, nothing filtered, masa unprojected and unnamed, malformed event costs itself, all four unusable-chart shapes keep the sky and flag the failure, shared-loader failure does not raise, builder matches the store contract, store round-trip caches, empty key builds in memory, key is content-addressed, two charts share one file, a different ayanamsa never reuses, stale schema rebuilds, corrupt file and unwritable dir never block an answer.
+- `tests/astro/test_build_timeline_ephemeris.py` (7, REAL ephemeris, no skips): every fact class populated, NO birth data in the shared blob (key walk), one scan serves two charts with different houses and writes ONE file, houses in 1-12, retrograde Jupiter shows as a backward house move, horizon reach exact, cached read at least 5x faster than cold.
+
+### FILES (device; git commit PENDING, RATIFIED awaited)
+NEW: `agent/astro/{ephemeris_cache,build_timeline}.py`, `tests/astro/{test_build_timeline,test_build_timeline_ephemeris}.py`. EDITED: `.gitignore`, `CLAUDE.md`, `SESSION_LOG.md`. No existing module touched -- `timeline_store.py` is consumed through its published contract, unmodified.
+
+### CARRY-FORWARD / NEXT
+1. **RATIFIED git commit** of S149 on top of `70b2a55`.
+2. **THE RUNTIME DISPATCHER** -- the last piece of the S147 plan: planner emits parametrised calc-requests; a date inside the window resolves against these stored intervals, a date beyond it computes live. Muhurta is the first registered calc.
+3. **WIRE THE TIMELINE INTO `frontend/app.py`** alongside the existing `fact_store.load_or_build` call, and render the dated facts in `pipeline._fact_block`. Needs a live Streamlit run to validate.
+4. **Extract the shared store core** (Part 5), as its own task.
+5. **The masa naming question stays OPEN** (S148 Part 4): AstroSage carries no panchanga section, so it cannot grade masa.
+6. **Deferred from S146** (still open): timing-ranking probe validation; interpreter "surface top-ranked window even if past".
+
 ## S148 (2026-10-07) -- UNIVERSAL CROSSING PRIMITIVE; GENERAL INGRESS ENGINE; MASA CALENDAR (placement facts only)
 
 OUTCOME: the two engines the S147 carry-forward asked for are built, tested and ratified against the real ephemeris -- but NOT in the order asked, and the masa engine deliberately stops short of naming the intercalary month. Branch `wip/interpretive-pilot`, on top of `5702d2f`. Nothing committed. Full suite 5002 passed / 7 skipped / 2 xfailed / 0 failed (59 new, suite +4s).
