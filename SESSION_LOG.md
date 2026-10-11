@@ -2437,6 +2437,46 @@ NEW: `agent/astro/shadbala_facts.py`, `agent/astro/ashtakavarga_facts.py`, `agen
 3. **Interpreter prompt (small, optional):** always surface the single top-ranked timing window even if past, before leading with upcoming — the system cannot know an event already occurred (Sulabh's marriage 11 Dec 2019 IS in the fact block via Mercury-Rahu, but S145 framing led future-only).
 
 
+## S150 (2026-10-11) -- RUNTIME-DISPATCHER FOUNDATION: capability registry + computed-only answer route (lucky-days pilot)
+
+OUTCOME: the architecture that lets a question be answered from a COMPUTED fact class with no corpus domain is built, tested, and live-validated. Branch `wip/interpretive-pilot`. COMMITTED as `beaf0b1` on top of S149 `19c8c59`. Full suite 5062 passed / 7 skipped / 2 xfailed / 0 failed (28 new across 4 test files). Design-chat session (Cowork) executed against the working tree via the device bridge; every step was sandbox- or pytest-validated and one live Streamlit run gated the pilot.
+
+### THE PROBLEM THIS SOLVES
+"Which is my luckiest day" was UNANSWERABLE. Not a missing fact -- `lucky_unlucky` is computed (S147) -- but a ROUTING gap: `planner.DOMAINS` is a closed corpus-domain vocabulary with no lucky entry, and `build_from_plan` (planner.py:911) refuses any domain-less question. lucky_unlucky (like muhurta) has NO BPHS chapters, so it had no route. Sulabh's ruling: do NOT build a per-feature route (lucky colour, do's/don'ts, remedies would each need one) -- build ONE uber-level mechanism. This is the runtime dispatcher the S147/S149 carry-forwards named.
+
+### THE ARCHITECTURE (ratified via the full roster; 3 conflicts resolved by Sulabh)
+A self-describing CAPABILITY REGISTRY is the single source for computed, non-corpus answer routes, rendered into BOTH the planner and interpreter prompts so each LLM has full capability awareness (incl. follow-ups) -- the P-030 drift guard: one list, two renders.
+- NEW `agent/astro/capability_registry.py` (LEAF, stdlib only). `Capability` dataclass {id, intent_gloss, fact_key, label, dated, needs_chart, requires_input, interpreter_directive}. `REGISTRY` seeded with the pilot row `lucky_days` -> fact_key `lucky_unlucky`. `planner_manifest()` (id->gloss, closed vocab for the planner), `interpreter_manifest(available_fact_keys, inputs_present)` (what is available for THIS chart + input state), `directives_for(ids)`, `fact_keys()`. SOURCED BY CONSTRUCTION: a row points at a fact class already computed from a cited rule, so there is no unsourced capability to advertise (Sulabh dissolved the "sourcing gate" as structural, not an enforced check).
+- STEP 1 (also landed the S147 wiring that NEVER reached app.py -- a doc drift corrected here): `frontend/app.py` now composes the static block via `fact_store.load_or_build(_fact_key, lambda: build_static_facts(_chart), identity=...)`, replacing ~115 lines of inline composition. This ACTIVATES `lucky_unlucky` (the inline block silently omitted it) + per-chart caching + one source of truth. Verified against the inline block: identical composer order, + lucky.
+- STEP 2 (`planner.py`, emit-only/behaviour-neutral): `Plan` gains `capabilities: list[str]`; SYSTEM_PROMPT carries a `capabilities` schema field + the registry manifest appended; `validate_plan_object` validates capabilities against the registry and a computed-only plan (domains [], capabilities set, in_scope true) is now legal. `:911` refusal NOT touched in this step.
+- STEP 3 (`pipeline.py`, the dispatcher -- behaviour change): a computed-only plan (capabilities and NO domain) skips `build_from_plan` entirely (no retrieval, no no-domains refusal), stands in an empty payload, and is forced into EXPERT mode (no verses to cite). Corpus and mixed plans unchanged; a plan with neither domains nor capabilities still hits the honest refusal.
+- STEP 4 (`pipeline.py`+`interpreter.py`, capability awareness): the interpreter is handed the interpreter_manifest + the fired capabilities' directives; EXPERT_SYSTEM gains the standing rules -- answer on-map only, decline off-map ("I don't compute that yet", never improvise), NO upsell, at most ONE grounded clarification. The planner already refuses off-manifest as out-of-scope, so this is awareness/defence-in-depth, not the sole guard.
+
+### ROSTER RULINGS (Sulabh)
+- CONFLICT 1 (no upsell): the answering LLM must NOT offer unrequested capabilities ("would you like your lucky colour?"). Answer the question asked and stop. A clarifying question is allowed ONLY when the answer is impossible without a missing detail.
+- CONFLICT 2 (dissolved): registration is self-sourcing -- a capability exists only if it has a backing computed/cited fact class, so there is nothing unsourced to advertise. The only live rule is on the ANSWER side: answer strictly on-map; "I don't compute that yet" for anything off it. do's/don'ts + remedies appear automatically once Lal Kitab is ingested + tagged -- one registry row each, no new routing.
+
+### PILOT VALIDATED LIVE (Streamlit, expert mode, Sulabh's chart)
+- "which is my luckiest day of the week?" -> ANSWERS ("Thursday is your luckiest day"), in_scope true. (Was refused before this session.)
+- "what does my chart say about marriage" -> unchanged full corpus answer.
+- "what's my lucky colour" -> cleanly REFUSED as out of scope (in_scope false), NOT freelanced -- the honesty boundary holds at the planner.
+
+### KNOWN BUG, FOUND IN THE LIVE RUN, DEFERRED BY SULABH (tracked)
+`fact_store` caches via `json.dump`, which serialises INTEGER dict keys to STRINGS. `ashtakavarga_facts.sav_by_house` is int-keyed and `strongest_house` is an int, so on a cache HIT `_fact_block` (pipeline.py:302) does an unguarded `sav_h[_sh]` -> KeyError. The live run crashed on the first (cache-hit) turns and "worked" later only because a fresh (int-keyed) build is a cache MISS. The guarded loop above (297-299, `if _h in sav_h`) would also silently render ZERO SAV lines on a cached read. PROVEN from the cache file (`data/fact_cache/fecfe1a48656e908.json`: keys '5','6','7'...; strongest_house 2 int; sav[2] -> KeyError). SCOPE: every int-keyed dict in the fact block; `timeline_store` shares the same JSON atomic-write pattern, so the dated-engine arc inherits the same landmine. FIX (next session, before the dated engines): switch `fact_store`+`timeline_store` serialisation to key-type-preserving (pickle recommended -- cached read == fresh build byte-for-byte, zero reader changes) OR JSON-normalise digit keys on load; plus a defensive guard at `_fact_block:302`.
+
+### DOC DRIFTS CORRECTED THIS SESSION
+(1) S147 log/lock claimed `app.py` used `fact_store`/`build_static_facts`; on disk it did not until STEP 1 this session (it still composed inline and omitted lucky_unlucky). (2) S148 (`70b2a55`) and S149 (`19c8c59`) were both already COMMITTED despite focus text saying "git commit PENDING" -- superseded.
+
+### FILES (committed in beaf0b1)
+NEW: `agent/astro/capability_registry.py`, `tests/astro/{test_capability_registry,test_planner_capabilities,test_pipeline_dispatch,test_interpreter_capability_awareness}.py`. EDITED: `frontend/app.py`, `agent/astro/{planner,pipeline,interpreter}.py`.
+
+### CARRY-FORWARD / NEXT (the dated-engine arc)
+1. **Caching int-key fix** (above) -- quick, surgical, and load-bearing for everything below; do it FIRST because `timeline_store` shares the pattern.
+2. **Migrate muhurta onto the registry** as the first `dated` capability -- retire its bespoke S147 planner flag; needs the dated-compose mechanism (compose at answer time with the planner horizon). 4-file refactor; not a quick win.
+3. **Plug in the dark dated engines as capabilities**: combustion (S147), ingress / "when does Saturn enter my 7th" (S148), masa (S148), the two-tier timeline (S149). Each = one registry row + the dated-compose hook + a fact composer + a `_fact_block` render. This is the runtime-dispatcher dated path (date inside window -> stored intervals via `timeline_store`; beyond -> live compute).
+4. **Masa naming** still OPEN (no corpus source; AstroSage carries no panchanga section to grade it).
+5. Deferred from S146 (still open): timing-ranking W_KARAKA probe (N>1, never tuned on one chart); interpreter "surface the top-ranked window even if past".
+
 ## S149 (2026-10-07) -- THE PRECOMPUTED DATED FILE: TWO-TIER TIMELINE (shared sky + per-chart projection)
 
 OUTCOME: the "one file with everything pre-calculated, time-based, for the next year" is built, measured and tested. Branch `wip/interpretive-pilot`, on top of `70b2a55` (S148). Nothing committed. 32 new tests; 91 green in the S149 sandbox tree, full suite expected 5034.
