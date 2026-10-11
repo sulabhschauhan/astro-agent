@@ -55,6 +55,7 @@ from dataclasses import dataclass, field, asdict
 from typing import Callable, Iterable, Optional
 
 from agent.astro import conversation
+from agent.astro import capability_registry
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOMAIN_TAGS_PATH = os.path.join(REPO_ROOT, "data", "domain_tags_bphs.json")
@@ -231,6 +232,12 @@ class Plan:
     # (the gate then asks for one). Defaults keep every pre-S147 Plan(...) valid.
     muhurta: bool = False
     muhurta_horizon: Optional[dict] = None
+    # capabilities (S150): computed, non-corpus answer routes (lucky days, and
+    # later the dated engines) the question asks for, by id from
+    # capability_registry.CAPABILITY_IDS. A question may be both a corpus
+    # reading and a computed capability, or purely one. Defaults to [] so every
+    # pre-S150 Plan(...) stays valid and a corpus-only question is unchanged.
+    capabilities: list[str] = field(default_factory=list)
     # provenance -- never inferred downstream, always carried
     source: str = "llm"              # "llm" | "llm_retry" | "fallback"
     planner_fallback: bool = False
@@ -260,7 +267,7 @@ class UnitSelection:
 # ---------------------------------------------------------------------------
 # The one LLM call
 # ---------------------------------------------------------------------------
-SYSTEM_PROMPT = """You are the PLANNER for a Vedic astrology answering system grounded ONLY in Brihat Parashara Hora Shastra volumes 1 and 2.
+_SYSTEM_PROMPT_BODY = """You are the PLANNER for a Vedic astrology answering system grounded ONLY in Brihat Parashara Hora Shastra volumes 1 and 2.
 
 Your ONLY job is to read the user's question and state what the system must fetch to answer it. You do NOT answer the question. You do NOT state any astrological conclusion. You do NOT compute or guess any chart fact.
 
@@ -296,6 +303,8 @@ WIDEN HERE TOO. Naming only the single most obvious house is a failure, not prec
 5. IN_SCOPE -- true if Brihat Parashara Hora Shastra volumes 1-2 could address this question at all. false ONLY if the question is genuinely outside classical natal astrology as those books treat it -- for example a request for medical diagnosis or treatment, legal advice, or a factual question with no chart component. Judge the QUESTION'S INTENT, never a word in it: a question naming the sign Cancer, or the 6th house, or a disease-related yoga, is IN SCOPE as astrology. Only a request for actual medical judgement is out of scope.
 ALSO OUT OF SCOPE, ALWAYS: a question about HOW this system or classical astrology COMPUTES or DERIVES anything -- a formula, a method, a procedure, which technique or varga or strength measure is used, or how a result was arrived at. Those are questions about methodology, not about the native's life, and they are never answered: return "in_scope": false with empty "domains". A question about what a placement, yoga, dasha or period MEANS for the person is a reading and stays IN SCOPE -- the test is whether the answer would describe the person's life or describe the machinery.
 
+CAPABILITIES -- some questions are answered from CALCULATION, not from the classical text (for example "which is my luckiest day of the week"). A closed list of these COMPUTED CAPABILITIES is given at the END of these instructions, each with the kind of question it serves. When the user's question asks for one, put its id in the "capabilities" array. A question may be BOTH a corpus reading and a computed capability (fill domains AND capabilities), or purely computed: a question that asks ONLY for a computed capability and needs no classical text is still in_scope TRUE, with "domains": [] and the capability id in "capabilities". Most questions are corpus-only (capabilities empty). NEVER invent a capability id that is not in that list.
+
 6. MUHURTA -- true ONLY when the user asks for the best or auspicious DATE or TIME to DO or START something: to marry, to buy or move into a house, to start a business or job, to travel, to hold a ceremony. This is ELECTIONAL -- "when should I DO X". It is NOT "when will X happen to me" or "when will I get X" -- that is a prediction and uses timing_dasha with muhurta FALSE. When muhurta is true, STILL fill domains and houses for the life area as usual (a date to marry still needs the marriage houses for context). Default false.
 
 7. MUHURTA_HORIZON -- fill ONLY when muhurta is true; otherwise null. Read how far ahead the user wants to look, FROM THEIR OWN WORDS, as ONE of:
@@ -306,7 +315,13 @@ ALSO OUT OF SCOPE, ALWAYS: a question about HOW this system or classical astrolo
 8. REASONING -- two or three sentences saying why, naming the house derivations explicitly.
 
 Output STRICT JSON only. No markdown fences, no text before or after, exactly this shape:
-{"domains": ["..."], "houses": [1], "whose_chart": "self", "time_scope": "none", "in_scope": true, "muhurta": false, "muhurta_horizon": null, "reasoning": "..."}"""
+{"domains": ["..."], "houses": [1], "whose_chart": "self", "time_scope": "none", "in_scope": true, "capabilities": [], "muhurta": false, "muhurta_horizon": null, "reasoning": "..."}"""
+
+# The computed-capability manifest is appended from the ONE registry
+# (capability_registry), so adding a capability is a single registry row and the
+# planner's closed vocabulary never drifts from the dispatcher's (the P-030
+# guard). Behaviour-neutral until the dispatcher consumes `capabilities`.
+SYSTEM_PROMPT = _SYSTEM_PROMPT_BODY + "\n\n" + capability_registry.planner_manifest()
 
 
 def _default_llm(prompt: str, *, model: str = "gpt-4o", temperature: float = 0.0) -> str:
@@ -379,6 +394,24 @@ def validate_plan_object(obj: object) -> tuple[Optional[dict], list[str]]:
         # de-dupe, preserve canonical corpus order for stable payloads
         domains = [d for d in DOMAINS if d in set(domains)]
 
+    # capabilities (S150): computed, non-corpus answer routes. Absent -> []
+    # (keeps every pre-S150 planner output valid). Closed vocabulary from the
+    # ONE registry, same posture as domains (validated, de-duped, stable order).
+    capabilities = obj.get("capabilities", [])
+    if not isinstance(capabilities, list):
+        errors.append("capabilities must be a list")
+        capabilities = []
+    elif capabilities:
+        bad_c = [c for c in capabilities
+                 if not isinstance(c, str)
+                 or c not in capability_registry.CAPABILITY_IDS]
+        if bad_c:
+            errors.append(f"capabilities outside closed vocabulary: {bad_c}")
+        capabilities = [c.id for c in capability_registry.REGISTRY
+                        if c.id in set(capabilities)]
+    else:
+        capabilities = []
+
     # houses
     houses = obj.get("houses")
     if not isinstance(houses, list):
@@ -403,8 +436,10 @@ def validate_plan_object(obj: object) -> tuple[Optional[dict], list[str]]:
     in_scope = obj.get("in_scope")
     if not isinstance(in_scope, bool):
         errors.append(f"in_scope={in_scope!r} must be a boolean")
-    elif in_scope and not domains:
-        # In scope but nothing to fetch is a contradiction, not a refusal.
+    elif in_scope and not domains and not capabilities:
+        # In scope but nothing to fetch OR compute is a contradiction, not a
+        # refusal. A computed-only question (domains empty, capabilities set) is
+        # legal -- that is the whole point of the capability route.
         errors.append("domains must be a non-empty list when in_scope is true")
 
     reasoning = obj.get("reasoning")
@@ -440,6 +475,7 @@ def validate_plan_object(obj: object) -> tuple[Optional[dict], list[str]]:
         "whose_chart": whose,
         "time_scope": scope,
         "in_scope": in_scope,
+        "capabilities": capabilities,
         "muhurta": muhurta,
         "muhurta_horizon": horizon if muhurta else None,
         "reasoning": reasoning.strip(),

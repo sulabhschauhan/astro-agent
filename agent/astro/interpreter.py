@@ -471,7 +471,23 @@ EXPERT_SYSTEM = (
     "forcing a blend.\n"
     "- If no KP facts are present in the block (the user's birth time was not minute-accurate, "
     "so KP was withheld), answer from the classical material only and do NOT introduce KP "
-    "sub-lord/significator reasoning from your own knowledge."
+    "sub-lord/significator reasoning from your own knowledge.\n\n"
+    "WHAT YOU CAN COMPUTE -- capability awareness (S150):\n"
+    "- The prompt may include a block headed 'WHAT YOU CAN COMPUTE FOR THIS CHART' "
+    "listing the computed capabilities available for this person and which inputs are "
+    "present or missing. That block is your map of what you can answer from calculation.\n"
+    "- Answer ONLY from the chart facts shown and the capabilities listed as available "
+    "(or from the classical passages). If the question needs a computed fact that is NOT "
+    "listed available, say plainly that you do not compute that yet -- NEVER improvise one "
+    "from general or pop-astrology knowledge.\n"
+    "- Do NOT offer, suggest, or advertise a capability the user did not ask about. Answer "
+    "the question that was asked and stop; never end with 'would you like your lucky colour / "
+    "transits / ...'. No upselling.\n"
+    "- Ask a clarifying question ONLY when the question cannot be answered without a detail "
+    "the user has not supplied and no sensible default exists -- at most ONE such question, "
+    "naming only capabilities in the map. Otherwise answer directly.\n"
+    "- When a 'HOW TO ANSWER THE COMPUTED PART' block is present, follow its directives for "
+    "the computed capability the user asked about."
 )
 
 
@@ -520,6 +536,8 @@ def interpret_expert(
     llm: Optional[Callable[..., tuple]] = None,
     model: str = INTERPRETER_MODEL,
     history: Optional[list] = None,
+    capability_manifest: str = "",
+    capability_directives: Optional[list] = None,
 ) -> dict:
     """Free-text expert answer over the complete fact block + retrieved passages.
 
@@ -533,9 +551,15 @@ def interpret_expert(
     verses = _verse_block(payload)
     _ctx = conversation.render_history(history)
     _ctx_block = f"{_ctx}\n\n" if _ctx else ""
+    _manifest_block = f"{capability_manifest}\n\n" if capability_manifest else ""
+    _dirs = capability_directives or []
+    _dir_block = (("HOW TO ANSWER THE COMPUTED PART:\n"
+                   + "\n".join(f"- {d}" for d in _dirs) + "\n\n") if _dirs else "")
     user = (f"{_ctx_block}"
+            f"{_manifest_block}"
             f"CHART FACTS (the only chart facts you may state):\n{fact_block}\n\n"
             f"CLASSICAL PASSAGES (for interpretation):\n{verses}\n\n"
+            f"{_dir_block}"
             f"QUESTION: {question}\n\n"
             "Answer the person directly, as an expert astrologer.")
     call = llm if llm is not None else _default_llm_expert

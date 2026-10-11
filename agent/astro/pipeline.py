@@ -46,6 +46,7 @@ from agent.astro import composer as _composer
 from agent.astro import payload_builder
 from agent.astro import timing_ranker
 from agent.astro import house_roles
+from agent.astro import capability_registry
 
 PIPELINE_VERSION = "pipeline-1.2"
 
@@ -643,21 +644,37 @@ def answer_question(
                           "refused_at": "capability_gate"},
                 "pipeline_version": PIPELINE_VERSION}
 
-    # BIRTH-TIME GATE (S145): birth_time_confident=False -> exclude KP (sub-lord
-    # based, unsafe on a 2-3 min time error); BPHS-only, always under ceiling.
-    built = planner.build_from_plan(verdict.plan, chart_facts,
-                                    token_budget=token_budget,
-                                    include_kp=birth_time_confident)
-    _lap("select_and_build_payload")
-    if built.get("refused"):
-        return {"answer": f"(no answer) {built.get('refusal_reason', 'refused')}",
-                "refused": True, "reason": built.get("refusal_reason"),
-                "plan": built["plan"],
-                "declined": verdict.declined,
-                "capability_gate_version": verdict.gate_version,
-                "trace": {"timings": timings, "payload": built.get("payload") or {},
-                          "refused_at": "payload_ceiling"},
-                "pipeline_version": PIPELINE_VERSION}
+    # DISPATCH (S150): a computed-only plan -- one or more capabilities and NO
+    # corpus domain -- is answered from its computed fact classes alone (already
+    # in chart_facts; dated capabilities would compose at answer time, like the
+    # muhurta block below). There is no corpus to retrieve, so build_from_plan
+    # and its no-domains refusal are skipped and an empty payload stands in. A
+    # plan with any corpus domain -- including a mixed corpus+capability plan --
+    # still goes through build_from_plan unchanged. A plan with NEITHER domains
+    # NOR capabilities falls to build_from_plan, which issues the honest refusal
+    # exactly as before.
+    _plan = verdict.plan
+    _computed_only = bool(getattr(_plan, "capabilities", None)) and not _plan.domains
+    if _computed_only:
+        built = {"plan": _plan, "payload": {}, "tokens": 0,
+                 "over_budget": False, "refused": False, "selection": None}
+        _lap("select_and_build_payload")
+    else:
+        # BIRTH-TIME GATE (S145): birth_time_confident=False -> exclude KP (sub-lord
+        # based, unsafe on a 2-3 min time error); BPHS-only, always under ceiling.
+        built = planner.build_from_plan(verdict.plan, chart_facts,
+                                        token_budget=token_budget,
+                                        include_kp=birth_time_confident)
+        _lap("select_and_build_payload")
+        if built.get("refused"):
+            return {"answer": f"(no answer) {built.get('refusal_reason', 'refused')}",
+                    "refused": True, "reason": built.get("refusal_reason"),
+                    "plan": built["plan"],
+                    "declined": verdict.declined,
+                    "capability_gate_version": verdict.gate_version,
+                    "trace": {"timings": timings, "payload": built.get("payload") or {},
+                              "refused_at": "payload_ceiling"},
+                    "pipeline_version": PIPELINE_VERSION}
 
     # MUHURTA (S147). Unlike the chart-only composers (which the caller attaches
     # to chart_facts), electional timing is PLAN- and TIME-dependent: it needs the
@@ -744,10 +761,29 @@ def answer_question(
     # exactly like `compose`. See interpreter.interpret_expert.
     if expert is None:
         expert = os.environ.get("ASTRO_EXPERT_MODE", "0") == "1"
+    # Computed-only answers have no corpus verses to cite, so the cited-claim
+    # (non-expert) path cannot apply; always render them in expert mode.
+    if _computed_only:
+        expert = True
     if expert:
+        # CAPABILITY AWARENESS (S150 step 4). Give the interpreter the SAME
+        # self-describing map the planner has: which computed capabilities are
+        # available for THIS chart (fact_key present and non-empty) and which
+        # inputs are present, plus the per-capability answering directives for
+        # whatever the planner routed to. The interpreter answers on-map only,
+        # declines off-map ("I don't compute that yet"), never upsells, and asks
+        # at most one grounded clarification -- all governed by EXPERT_SYSTEM.
+        _avail_keys = sorted(k for k, v in chart_facts.items() if v)
+        _inputs_present = ("exact_birth_time",) if birth_time_confident else ()
+        _cap_manifest = capability_registry.interpreter_manifest(
+            _avail_keys, _inputs_present)
+        _cap_directives = capability_registry.directives_for(
+            getattr(_plan, "capabilities", None))
         ex = _interp.interpret_expert(question, fact_block, built["payload"],
                                       llm=interpreter_llm, model=_interp_model,
-                                      history=history)
+                                      history=history,
+                                      capability_manifest=_cap_manifest,
+                                      capability_directives=_cap_directives)
         _lap("interpreter_expert")
         # S147: fold any gate clarification (e.g. the muhurta "what window?" ask)
         # into the SHOWN answer. The non-expert _render path already appends

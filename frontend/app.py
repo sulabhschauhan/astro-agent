@@ -46,6 +46,7 @@ from agent.interpretive.claim_extraction import CitationByChunk, CitationByRule
 # from here without re-reading that doc first.
 from agent.astro.pipeline import answer_question
 from agent.astro.chart_facts import build_chart_facts, ChartFactsError
+from agent.astro.static_facts import build_static_facts
 from agent.astro.answer_view import render_user_answer
 from agent.astro import qa_capture
 
@@ -1660,144 +1661,43 @@ if prompt:
         # st.session_state.messages completely unchanged (no partial turn).
         try:
             with st.spinner("Reading the classical text for your chart…"):
-                # D9 COMPOSITION (S130). agent/calculations/vargas/navamsa.py has
-                # been oracle-clean since S20 (4/4 reference charts, David first
-                # for pada-boundary sensitivity) and was wired to nothing, because
-                # S20 locked "Don't touch chart_calculator. Don't retrofit D1".
-                # Composing HERE honours every rule at once: the calculator is
-                # untouched, chart_facts imports no calculator, and the adapter
-                # only restates what it is handed.
+                # STATIC FACT ASSEMBLY (S147/S150). The full chart-fixed fact
+                # block -- D9 navamsa, build_chart_facts, then every fail-soft
+                # composer (yogas, transits, KP cusp + significators, shadbala,
+                # ashtakavarga, jaimini, divisional, lucky/unlucky) -- is
+                # assembled in ONE place, static_facts.build_static_facts. This
+                # sequence previously lived inline here and silently omitted
+                # lucky_unlucky; centralising it is the single source of truth.
                 #
-                # FAIL-SOFT BY DESIGN: losing D9 must cost the Neecha Bhanga check,
-                # never the answer. build_chart_facts treats an absent navamsa key
-                # as an honest absence, so the except branch degrades cleanly.
+                # D9 is merged INSIDE build_static_facts; the raw chart below is
+                # all answer_question needs (the plan-time muhurta compose reads
+                # meta/location, never chart['navamsa'] -- navamsa reaches the
+                # interpreter through chart_facts, restated by build_chart_facts).
+                # Every composer is itself guarded, so losing one fact class
+                # never costs the answer.
                 _chart = st.session_state.chart
-                try:
-                    _meta = _chart.get("meta") or {}
-                    _d9 = compute_navamsa(_meta["jd_ut"], _meta["asc_lon_sidereal"])
-                    _chart = dict(_chart, navamsa={
-                        "d9_lagna_sign": _d9.d9_lagna_sign,
-                        "placements": {
-                            _p: {"sign": _pl.d9_sign, "house": _pl.d9_house,
-                                 "dignity": _sign_dignity(_p, _pl.d9_sign)}
-                            for _p, _pl in _d9.placements.items()},
-                    })
-                except Exception as _d9_err:  # noqa: BLE001 -- optional fact class
-                    logger.warning("D9 unavailable, answering without it: %s: %s",
-                                   type(_d9_err).__name__, _d9_err)
-
-                chart_facts = build_chart_facts(_chart)
-
-                # YOGA FACTS (S133). Computed by the detector over the fact
-                # block + karakas/special-lagnas/degrees (composed inside
-                # build_yoga_facts, which never enters the interpreter payload).
-                # Same fail-soft posture as the D9 block: losing the yogas
-                # costs the ruling-in/ruling-out half, never the answer.
-                # "yogas" is declared in capability_gate.FACT_BLOCK_PROVIDES.
-                try:
-                    chart_facts["yogas"] = build_yoga_facts(_chart, chart_facts)
-                except Exception as _yerr:  # noqa: BLE001 -- optional fact class
-                    logger.warning("yogas unavailable, answering without them: "
-                                   "%s: %s", type(_yerr).__name__, _yerr)
-
-                # TRANSIT FACTS (S142). Per-antardasha Saturn gochara + Sade Sati
-                # phase, computed over the dasha tree already restated into
-                # chart_facts (composed here, never inside chart_facts.py -- same
-                # posture as yogas above). This is the cross-system corroboration
-                # (Sade Sati / Saturn transit) a benchmark answer used to tell a
-                # real dasha window from a same-math false positive; losing it
-                # costs that corroboration, never the answer.
-                # "transits" is declared in capability_gate.FACT_BLOCK_PROVIDES.
-                try:
-                    chart_facts["transits"] = build_transit_facts(_chart, chart_facts)
-                except Exception as _terr:  # noqa: BLE001 -- optional fact class
-                    logger.warning("transits unavailable, answering without them: "
-                                   "%s: %s", type(_terr).__name__, _terr)
-
-                # KP FACTS (S143). The 7th house cusp's sub-lord (Krishnamurti
-                # Paddhati), read off chart['meta']['house_cusps_kp_sidereal']
-                # (a different ayanamsha, computed by calculate_chart() itself --
-                # see chart_calculator.py's S143 comment). Same fail-soft
-                # posture as yogas/transits above: losing it costs one
-                # corroborating signal for marriage timing, never the answer.
-                # "kp_seventh_cusp_sub_lord" is declared in
-                # capability_gate.FACT_BLOCK_PROVIDES.
-                try:
-                    chart_facts["kp"] = build_kp_facts(_chart)
-                except Exception as _kperr:  # noqa: BLE001 -- optional fact class
-                    logger.warning("KP facts unavailable, answering without them: "
-                                   "%s: %s", type(_kperr).__name__, _kperr)
-
-                # KP SIGNIFICATORS (S144). Per-planet KP house significators,
-                # now ephemeris-COMPUTED from _chart
-                # (agent.calculations.kp.significator_engine, KP Reader II
-                # fourfold + Reader IV node agency) -- no PDF dependency
-                # (PDF-AS-ORACLE-ONLY, S143). Same fail-soft posture as the
-                # kp/transits/yogas blocks above; losing it costs the
-                # period-varying marriage/career signal, never the answer.
-                # "kp_planet_significations" is declared in
-                # capability_gate.FACT_BLOCK_PROVIDES.
-                try:
-                    chart_facts["kp_planet_significations"] = build_kp_significator_facts(_chart)
-                except Exception as _kserr:  # noqa: BLE001 -- optional fact class
-                    logger.warning("KP significators unavailable, answering without "
-                                   "them: %s: %s", type(_kserr).__name__, _kserr)
-
-                # SHADBALA (point 1). Six-fold planetary strength, aggregated and
-                # oracle-validated in agent/calculations/strength. Composed here
-                # like yogas/transits/KP; build_shadbala_facts is itself fail-soft
-                # (returns {} on error), the try/except mirrors the siblings.
-                # "shadbala" is declared in capability_gate.FACT_BLOCK_PROVIDES.
-                try:
-                    chart_facts["shadbala"] = build_shadbala_facts(_chart)
-                except Exception as _serr:  # noqa: BLE001 -- optional fact class
-                    logger.warning("Shadbala unavailable, answering without it: "
-                                   "%s: %s", type(_serr).__name__, _serr)
-
-                # ASHTAKAVARGA (point 1). SAV bindus per house + per-planet BAV,
-                # oracle-validated in agent/calculations/ashtakavarga. Composed
-                # here like shadbala/yogas/KP; build_ashtakavarga_facts is itself
-                # fail-soft (returns {} on error). "ashtakavarga" is declared in
-                # capability_gate.FACT_BLOCK_PROVIDES.
-                try:
-                    chart_facts["ashtakavarga"] = build_ashtakavarga_facts(_chart)
-                except Exception as _averr:  # noqa: BLE001 -- optional fact class
-                    logger.warning("Ashtakavarga unavailable, answering without it: "
-                                   "%s: %s", type(_averr).__name__, _averr)
-
-                # JAIMINI (point 1). Chara karakas + Arudha/Upapada Lagna,
-                # oracle-validated in agent/calculations/jaimini. Composed here
-                # like the other fact classes; build_jaimini_facts is itself
-                # fail-soft per part (returns {} or a subset). "jaimini" is
-                # declared in capability_gate.FACT_BLOCK_PROVIDES.
-                try:
-                    chart_facts["jaimini"] = build_jaimini_facts(_chart)
-                except Exception as _jerr:  # noqa: BLE001 -- optional fact class
-                    logger.warning("Jaimini unavailable, answering without it: "
-                                   "%s: %s", type(_jerr).__name__, _jerr)
-
-                # DIVISIONAL CHARTS (point 2). Domain vargas (D10/D7/D2/D30/
-                # D12/D3/D24), oracle-validated in agent/calculations/vargas.
-                # Composed here like navamsa/jaimini; build_divisional_facts is
-                # fail-soft per varga. "divisional" is declared in
-                # capability_gate.FACT_BLOCK_PROVIDES.
-                try:
-                    chart_facts["divisional"] = build_divisional_facts(_chart)
-                except Exception as _dverr:  # noqa: BLE001 -- optional fact class
-                    logger.warning("Divisional charts unavailable, answering "
-                                   "without them: %s: %s",
-                                   type(_dverr).__name__, _dverr)
+                _btc_exact = st.session_state.get(
+                    "birth_time_confidence_choice", "").startswith("Exact")
+                # S150: build the static fact block FRESH each turn. The
+                # fact_store JSON cache is deliberately BYPASSED -- json.dump
+                # silently stringifies integer dict keys, so a cache HIT returned
+                # lord_house_map / house_lords / ashtakavarga.sav_by_house keyed
+                # by "1".."12" instead of 1..12, crashing every int house lookup
+                # with KeyError. Re-enabling the cache needs a key-preserving
+                # serialization (a separate task); a fresh build has correct int
+                # keys and still carries lucky_unlucky + the single-source
+                # composition that was the point of static_facts.
+                chart_facts = build_static_facts(_chart)
 
                 # BIRTH-TIME GATE (S145): KP included only if the user affirmed
-                # their birth time is exact to the minute; else BPHS-only.
-                _btc = st.session_state.get(
-                    "birth_time_confidence_choice", "").startswith("Exact")
+                # their birth time is exact to the minute (computed as _btc_exact
+                # above, where it also keys the per-chart fact cache); else BPHS-only.
                 result = answer_question(
                     prompt, chart_facts,
                     chart=_chart,  # S147: raw chart for the plan-time muhurta compose
                     history=st.session_state.messages,  # S147: prior turns (current prompt not yet appended)
                     expert=st.session_state.get("astro_expert_mode", True),
-                    birth_time_confident=_btc)
+                    birth_time_confident=_btc_exact)
                 # Two surfaces, one result: the user reads render_user_answer's
                 # plain-language view; the full trace (verse text, ids,
                 # silent_on, timings, usage) goes to the capture file.
