@@ -225,12 +225,13 @@ class Plan:
     time_scope: str
     in_scope: bool
     reasoning: str
-    # muhurta (S147): electional-timing flag + the planner-extracted horizon.
-    # NOT a corpus domain (muhurta has no BPHS chapters) -- a separate signal the
-    # capability gate and the muhurta_facts composer key off. muhurta_horizon is
-    # {"mode":"days"|"count","value":int} when the user named a window, else None
-    # (the gate then asks for one). Defaults keep every pre-S147 Plan(...) valid.
-    muhurta: bool = False
+    # muhurta_horizon (S147; migrated S151): the electional horizon for the
+    # `muhurta` computed CAPABILITY (see `capabilities`). muhurta moved off a
+    # dedicated bool flag onto a capability_registry row (S151); the horizon
+    # stays a plan field because it is the one date parameter the capability
+    # needs. {"mode":"days"|"count","value":int} when the user named a window,
+    # else None (the pipeline then defaults to a 2-year scan). Defaults keep
+    # every earlier Plan(...) valid.
     muhurta_horizon: Optional[dict] = None
     # capabilities (S150): computed, non-corpus answer routes (lucky days, and
     # later the dated engines) the question asks for, by id from
@@ -305,17 +306,17 @@ ALSO OUT OF SCOPE, ALWAYS: a question about HOW this system or classical astrolo
 
 CAPABILITIES -- some questions are answered from CALCULATION, not from the classical text (for example "which is my luckiest day of the week"). A closed list of these COMPUTED CAPABILITIES is given at the END of these instructions, each with the kind of question it serves. When the user's question asks for one, put its id in the "capabilities" array. A question may be BOTH a corpus reading and a computed capability (fill domains AND capabilities), or purely computed: a question that asks ONLY for a computed capability and needs no classical text is still in_scope TRUE, with "domains": [] and the capability id in "capabilities". Most questions are corpus-only (capabilities empty). NEVER invent a capability id that is not in that list.
 
-6. MUHURTA -- true ONLY when the user asks for the best or auspicious DATE or TIME to DO or START something: to marry, to buy or move into a house, to start a business or job, to travel, to hold a ceremony. This is ELECTIONAL -- "when should I DO X". It is NOT "when will X happen to me" or "when will I get X" -- that is a prediction and uses timing_dasha with muhurta FALSE. When muhurta is true, STILL fill domains and houses for the life area as usual (a date to marry still needs the marriage houses for context). Default false.
+6. MUHURTA -- an electional "when should I DO X" question (the best/auspicious date or time to ACT) is a COMPUTED CAPABILITY, not a corpus domain: route it by putting "muhurta" in the capabilities array (its full trigger is defined in the computed-capabilities list at the END of these instructions). When you do, STILL fill domains and houses for the life area as usual (a date to marry still needs the marriage houses for context).
 
-7. MUHURTA_HORIZON -- fill ONLY when muhurta is true; otherwise null. Read how far ahead the user wants to look, FROM THEIR OWN WORDS, as ONE of:
+7. MUHURTA_HORIZON -- fill ONLY when "muhurta" is in capabilities; otherwise null. Read how far ahead the user wants to look, FROM THEIR OWN WORDS, as ONE of:
    {"mode": "days", "value": <integer>} for a time window -- convert months/years yourself (1 month = 30 days, 1 year = 365 days): "next 6 months" -> {"mode":"days","value":180}; "this year" -> {"mode":"days","value":365}; "next year or two" -> {"mode":"days","value":730}.
    {"mode": "count", "value": <integer>} when they ask for a NUMBER of dates: "next 2-3 good dates" -> {"mode":"count","value":3}; "the next auspicious day" -> {"mode":"count","value":1}.
-   null if they named no window at all (the system will then ask them for one).
+   null if they named no window at all (the system then defaults to a 2-year scan).
 
 8. REASONING -- two or three sentences saying why, naming the house derivations explicitly.
 
 Output STRICT JSON only. No markdown fences, no text before or after, exactly this shape:
-{"domains": ["..."], "houses": [1], "whose_chart": "self", "time_scope": "none", "in_scope": true, "capabilities": [], "muhurta": false, "muhurta_horizon": null, "reasoning": "..."}"""
+{"domains": ["..."], "houses": [1], "whose_chart": "self", "time_scope": "none", "in_scope": true, "capabilities": [], "muhurta_horizon": null, "reasoning": "..."}"""
 
 # The computed-capability manifest is appended from the ONE registry
 # (capability_registry), so adding a capability is a single registry row and the
@@ -446,13 +447,9 @@ def validate_plan_object(obj: object) -> tuple[Optional[dict], list[str]]:
     if not isinstance(reasoning, str) or not reasoning.strip():
         errors.append("reasoning must be a non-empty string")
 
-    # muhurta flag (S147). Absent -> False (keeps pre-S147 planner output valid);
-    # present-but-not-bool is a shape error.
-    muhurta = obj.get("muhurta", False)
-    if not isinstance(muhurta, bool):
-        errors.append(f"muhurta={muhurta!r} must be a boolean")
-
-    # muhurta_horizon: null, or {"mode":"days"|"count","value":positive int}.
+    # muhurta_horizon (S147; gated on the `muhurta` capability since S151): null,
+    # or {"mode":"days"|"count","value":positive int}. Shape is validated whenever
+    # present; it is kept only when "muhurta" is among the routed capabilities.
     horizon = obj.get("muhurta_horizon")
     if horizon is not None:
         value = horizon.get("value") if isinstance(horizon, dict) else None
@@ -476,8 +473,7 @@ def validate_plan_object(obj: object) -> tuple[Optional[dict], list[str]]:
         "time_scope": scope,
         "in_scope": in_scope,
         "capabilities": capabilities,
-        "muhurta": muhurta,
-        "muhurta_horizon": horizon if muhurta else None,
+        "muhurta_horizon": horizon if "muhurta" in capabilities else None,
         "reasoning": reasoning.strip(),
     }, []
 

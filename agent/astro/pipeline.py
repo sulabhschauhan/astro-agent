@@ -681,11 +681,12 @@ def answer_question(
     # planner's horizon (plan.muhurta_horizon) and a scan anchored at "now", so it
     # is composed HERE, after planning. Needs the raw chart (natal Moon sign +
     # nakshatra); if the caller passed none, muhurta is simply absent. The gate has
-    # already asked for a horizon when muhurta was flagged without one, so a scan is
-    # reached only when a horizon is present. Fail-soft: a compose failure costs
+    # defaulted to a 2-year scan when the user named no horizon (S147), so a scan
+    # is always reached for a muhurta question. Fail-soft: a compose failure costs
     # muhurta, never the answer. Lazy import keeps pipeline importable without
-    # swisseph for the non-muhurta tests.
-    if getattr(plan, "muhurta", False) and chart is not None:
+    # swisseph for the non-muhurta tests. Routed via the `muhurta` CAPABILITY
+    # (S151) rather than a dedicated plan flag.
+    if "muhurta" in (getattr(plan, "capabilities", None) or []) and chart is not None:
         try:
             from agent.astro.muhurta_facts import build_muhurta_facts
             import swisseph as _swe

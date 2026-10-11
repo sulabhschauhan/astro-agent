@@ -131,31 +131,35 @@ def _obj(**over):
     return base
 
 
+# Migrated S151: muhurta is routed via the `muhurta` CAPABILITY, not a bool flag.
 def test_planner_parses_muhurta_horizon():
     fields, errs = P.validate_plan_object(
-        _obj(muhurta=True, muhurta_horizon={"mode": "days", "value": 180}))
-    assert errs == [] and fields["muhurta"] is True
+        _obj(capabilities=["muhurta"], muhurta_horizon={"mode": "days", "value": 180}))
+    assert errs == [] and "muhurta" in fields["capabilities"]
     assert fields["muhurta_horizon"] == {"mode": "days", "value": 180}
 
 
-def test_planner_muhurta_absent_defaults_false():
+def test_planner_muhurta_absent_defaults_none():
     fields, errs = P.validate_plan_object(_obj())
-    assert errs == [] and fields["muhurta"] is False and fields["muhurta_horizon"] is None
+    assert errs == [] and "muhurta" not in fields["capabilities"]
+    assert fields["muhurta_horizon"] is None
 
 
 def test_planner_rejects_bad_horizon():
     for bad in ({"mode": "weeks", "value": 3}, {"mode": "days", "value": 0},
                 {"mode": "days", "value": -5}, {"mode": "count"}, {"value": 3}, "180"):
-        fields, errs = P.validate_plan_object(_obj(muhurta=True, muhurta_horizon=bad))
+        fields, errs = P.validate_plan_object(
+            _obj(capabilities=["muhurta"], muhurta_horizon=bad))
         assert fields is None and any("muhurta_horizon" in e for e in errs), bad
 
 
-def test_planner_nulls_horizon_when_muhurta_false():
+def test_planner_nulls_horizon_when_muhurta_capability_absent():
+    # horizon present but no muhurta capability -> nulled (not routed)
     fields, errs = P.validate_plan_object(
-        _obj(muhurta=False, muhurta_horizon={"mode": "days", "value": 180}))
+        _obj(muhurta_horizon={"mode": "days", "value": 180}))
     assert errs == [] and fields["muhurta_horizon"] is None
 
 
-def test_planner_rejects_non_bool_muhurta():
-    fields, errs = P.validate_plan_object(_obj(muhurta="yes"))
-    assert fields is None and any("muhurta" in e for e in errs)
+def test_planner_accepts_muhurta_capability():
+    fields, errs = P.validate_plan_object(_obj(capabilities=["muhurta"]))
+    assert errs == [] and fields["capabilities"] == ["muhurta"]

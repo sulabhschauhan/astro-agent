@@ -102,6 +102,35 @@ REGISTRY: tuple[Capability, ...] = (
             "fact block does not list."
         ),
     ),
+    Capability(
+        id="muhurta",
+        intent_gloss=(
+            "the best / auspicious DATE or TIME to DO or START something -- to "
+            "marry, to buy or move into a house, to start a business or job, to "
+            "travel, to hold a ceremony. This is ELECTIONAL -- 'when should I DO "
+            "X'. It is NOT 'when will X happen to me' / 'when will I get X' "
+            "(that is a prediction and uses the corpus timing, NOT this)."
+        ),
+        fact_key="muhurta",
+        label="Electional timing (muhurta)",
+        dated=True,
+        needs_chart=True,
+        interpreter_directive=(
+            "The user asked for a GOOD DATE/TIME TO ACT, not for when an event "
+            "will befall them. These windows are COMPUTED -- present the ones "
+            "given and NEVER invent or shift a date. Lead with the BEST window; "
+            "if a different EARLIEST good window is given, name it too (e.g. 'the "
+            "best time is <x>; if you'd rather act sooner, <y> is also strong'). "
+            "State favourability plainly -- clearly auspicious (TIER_1) vs "
+            "acceptable but weaker (TIER_2) -- and mention any caution limbs in "
+            "one short phrase. This is GENERIC favourability only: do NOT claim "
+            "it is tailored to the specific event. Answer an electional question "
+            "from THESE muhurta windows, NEVER from the dasha/timing ranking. If "
+            "the facts say no auspicious window was found in the searched span, "
+            "say exactly that and name the span -- do NOT manufacture a date, and "
+            "never tell the user a window is 'not available' or 'not pre-computed'."
+        ),
+    ),
 )
 
 _BY_ID: dict[str, Capability] = {c.id: c for c in REGISTRY}

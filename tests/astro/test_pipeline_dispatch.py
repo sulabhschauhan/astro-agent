@@ -28,7 +28,6 @@ _LUCKY_PLAN = {
     "time_scope": "none",
     "in_scope": True,
     "capabilities": ["lucky_days"],
-    "muhurta": False,
     "muhurta_horizon": None,
     "reasoning": "Asks for the lucky weekday -- a computed capability, no corpus.",
 }

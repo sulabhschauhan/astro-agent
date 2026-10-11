@@ -419,10 +419,11 @@ def test_gate_makes_no_llm_call():
 # ── muhurta (S147): the horizon clarification + the fact render ─────────────
 
 def _muhurta_plan(domains, *, muhurta, horizon):
+    # Migrated S151: muhurta is routed via the `muhurta` CAPABILITY, not a bool flag.
     return Plan(
         question="q", domains=list(domains), houses=[1], whose_chart="self",
         time_scope="none", in_scope=bool(domains), reasoning="r",
-        muhurta=muhurta, muhurta_horizon=horizon,
+        capabilities=(["muhurta"] if muhurta else []), muhurta_horizon=horizon,
     )
 
 

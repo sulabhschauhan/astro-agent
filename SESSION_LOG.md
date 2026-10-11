@@ -2638,3 +2638,25 @@ NEW: `agent/astro/{muhurta_facts,conversation,fact_store,static_facts,timeline_s
 2. **Timeline engines still to build**: masa composer (on existing `core/panchanga.py`, same find_state_segments pattern) and the transit INGRESS table (widen the existing Saturn-only gochara into a general per-graha ingress/station table). Then wire `build_timeline` + the runtime dispatcher (planner emits parametrised calc-requests; muhurta becomes the first registered calc; beyond-1yr-horizon = live-compute). Combustion is the first ratified engine of this set.
 3. **Storage split decision** at timeline-assembly time: shared chart-independent ephemeris cache vs per-chart copy (combustion/transit/masa intervals are identical across charts).
 4. **Deferred from S146** (still open): validate the timing-ranking probe (W_KARAKA N>1 decision); interpreter "surface top-ranked window even if past".
+
+
+---
+
+## S151 (2026-10-11) — store int-key fix (DONE) + muhurta→registry migration (Option A, IN PROGRESS)
+
+Design-chat + direct execution on the device tree (Cowork-with-device model per the S151 handover). No git commit this session unless a `RATIFIED: commit authorized` token is given; tree left modified for review.
+
+### Point 1 — caching int-key fix: DONE (in tree, not committed)
+Root cause: JSON coerces int dict keys to strings, so a cache HIT returned `lord_house_map` / `house_lords` / `ashtakavarga.sav_by_house` with keys "1".."12" where readers expect 1..12. Six read sites already hand-patched this with `.get(h) or .get(str(h))` (pipeline ×3, predicates ×2, lucky_facts ×1) and silence_gate coerces `int(k)`; the ONE unpatched reader (`pipeline._fact_block` sav_by_house) both silently dropped the per-house lines (`if _h in sav_h` false on str keys) AND KeyError'd (`sav_h[_sh]`).
+Fix: `_decode_int_keys` at the STORE load boundary (fact_store.load_or_build cache-hit return; timeline_store.load_or_refresh fresh-window return) — digit-string keys coerced to int recursively, non-digit (planet-name) keyed dicts untouched. Copied into both stores (S147 no-share lock), NOT shared. Makes keys consistently int store-wide; the six hand-patches are now redundant (left in place — cleanup is a later task). NO SCHEMA_VERSION bump (old files decode correctly on read); NO runtime shape-assert in the stores (they stay calculator-agnostic — the house-survival coverage check lives in the two new round-trip tests instead).
+Proven in-sandbox on the REAL cached chart `fecfe1a48656e908.json`: BEFORE decode = per-house 0/12 + KeyError; AFTER = 12/12 + OK. Sulabh ran pytest: store tests 26 passed; full suite 5064 passed / 7 skipped / 2 xfailed / 0 failed (+2 = the two new round-trip tests, uncommitted working-tree changes).
+Files: agent/astro/fact_store.py, agent/astro/timeline_store.py, tests/astro/test_fact_store.py, tests/astro/test_timeline_store.py.
+
+### Point 2 — muhurta → capability registry: Option A DECIDED (execution follows)
+Decision (Sulabh, ratified in chat): migrate muhurta from the bespoke `plan.muhurta` flag onto a `capability_registry` row (dated=True), KEEPING muhurta's compose muhurta-shaped for now — do NOT build a generic registry-driven dated-compose dispatcher yet.
+Resolved by reading (not a question): muhurta stays LIVE-composed at answer time, NOT stored in timeline_store. Its horizon is question-parametrised (2yr default / "next N days" / "next N dates"); timeline_store holds fixed-window, sky-shared facts only (combustion/ingress/masa, S149).
+
+### LOCKED DECISION — the generic "dated-compose socket" is deferred to Point 3 (do not build a second one-off cable)
+The question "how generic to build the dated-compose mechanism" is answered: muhurta is the ONLY dated capability today, so a generic dispatcher built now would be generalising from one example (rule-of-three violation). Point 3 brings the 2nd–4th dated engines (combustion, graha ingress "when does Saturn enter my 7th", masa) AND a second unresolved question — CAPABILITY PARAMETERS: muhurta needs `{horizon}`, ingress needs `{planet, house}`; right now `muhurta_horizon` hangs on `Plan` as a one-off.
+THEREFORE (Sulabh's instruction, this entry is the durable record): when the Point 3 engines land, DESIGN THE GENERIC DATED-COMPOSE MECHANISM + THE CAPABILITY-PARAM MECHANISM TOGETHER, with 2–4 real consumers in hand — a compose-callable per dated capability dispatched generically, and a typed param-carrying shape on the capability/plan. Do NOT add another bespoke per-engine compose cable the way muhurta's is. The muhurta Option-A compose is the concrete seed that mechanism generalises from; migrating muhurta onto the generic socket is part of that Point 3 arc.
+TRIGGER: the first Point 3 dated engine (combustion or ingress) reaching the dispatcher.
