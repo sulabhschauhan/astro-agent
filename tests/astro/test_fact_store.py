@@ -105,3 +105,34 @@ def test_write_failure_still_returns_built_facts():
     out = FS.load_or_build("k", lambda: {"ok": 1},
                            cache_dir="/proc/does_not_exist_ro")
     assert out == {"ok": 1}
+
+
+def test_cache_hit_restores_int_dict_keys(tmp_path):
+    """A cache HIT must be key-identical to a fresh build (the S150 bug).
+
+    JSON coerces int dict keys to strings; the load path restores them, so
+    sav_by_house + lord_house_map + house_lords come back int-keyed and
+    pipeline._fact_block's `sav_h[_sh]` (int index) no longer KeyErrors.
+    """
+    def builder():
+        return {
+            "lord_house_map": {h: (h % 12) + 1 for h in range(1, 13)},
+            "house_lords": {h: {"lord": "Mars"} for h in range(1, 13)},
+            "ashtakavarga": {"sav_by_house": {h: 20 + h for h in range(1, 13)}},
+            "planet_bav_in_sign": {"Sun": 3, "Moon": 4},  # name keys must stay str
+        }
+
+    FS.load_or_build("k", builder, cache_dir=str(tmp_path))  # miss -> persists
+    # the hazard is real: on disk the keys are strings
+    raw = json.loads((tmp_path / "k.json").read_text(encoding="utf-8"))
+    assert set(raw["facts"]["lord_house_map"]) == {str(h) for h in range(1, 13)}
+
+    out = FS.load_or_build("k", builder, cache_dir=str(tmp_path))  # hit -> decoded
+    # coverage: every one of the 12 houses survives, as an int
+    assert set(out["lord_house_map"]) == set(range(1, 13))
+    assert set(out["ashtakavarga"]["sav_by_house"]) == set(range(1, 13))
+    assert all(isinstance(k, int) for k in out["house_lords"])
+    # the render access that used to crash on a hit now works
+    assert out["ashtakavarga"]["sav_by_house"][7] == 27
+    # name-keyed dicts are left untouched
+    assert set(out["planet_bav_in_sign"]) == {"Sun", "Moon"}

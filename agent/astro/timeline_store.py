@@ -72,6 +72,34 @@ def _parse_iso_date(s) -> _dt.date | None:
         return None
 
 
+def _decode_int_keys(obj):
+    """Recursively restore int dict keys that JSON coerced to strings.
+
+    COPIED from fact_store (not shared) by the S147 no-coupling decision: the
+    two stores keep their own ~15-line core. JSON object keys are always
+    strings, so a dict keyed by house number round-trips as {"1": ..} and a
+    reader expecting int keys breaks on a cache hit (S150). This store will
+    carry int-keyed dated facts (house-from-lagna / house-from-Moon
+    projections, S149), so it needs the same fix at its own load boundary.
+
+    Rule: a dict ALL of whose keys are digit strings has its keys coerced to
+    int; a mixed or non-digit-keyed dict is untouched. Applied only on read.
+
+    Tuning note (THRESHOLD DISCIPLINE): digit-keys-only by design; a future
+    fact class wanting string-digit keys would be coerced. None exists today.
+    """
+    if isinstance(obj, dict):
+        keys = list(obj.keys())
+        all_digit = bool(keys) and all(
+            isinstance(k, str) and k.lstrip("-").isdigit() for k in keys)
+        if all_digit:
+            return {int(k): _decode_int_keys(v) for k, v in obj.items()}
+        return {k: _decode_int_keys(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_decode_int_keys(v) for v in obj]
+    return obj
+
+
 def needs_reanchor(blob, today: _dt.date) -> bool:
     """True when `blob` must be rebuilt: absent, malformed, stale-schema, or its
     forward reach has dropped below REANCHOR_TAIL_DAYS of `today`.
@@ -132,7 +160,7 @@ def load_or_refresh(
         blob = None
 
     if not needs_reanchor(blob, today):
-        return blob.get("facts") or {}
+        return _decode_int_keys(blob.get("facts") or {})
     logger.info("timeline_store: (re)building window for %s (as_of=%s)", key, today)
 
     as_of = today

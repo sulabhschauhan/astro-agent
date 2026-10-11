@@ -90,6 +90,38 @@ def chart_identity_key(jd_ut, asc_lon_sidereal, *, exact: bool) -> str:
     return hashlib.sha256(norm.encode("utf-8")).hexdigest()[:16]
 
 
+def _decode_int_keys(obj):
+    """Recursively restore int dict keys that JSON coerced to strings.
+
+    JSON object keys are always strings, so a dict keyed by house number
+    (1-12) round-trips as {"1": ..}. Readers expect int keys; before this,
+    six call sites hand-patched the ambiguity with `.get(h) or .get(str(h))`
+    and one (pipeline._fact_block, sav_by_house) did not -- a cache HIT fed it
+    string keys and it KeyError'd (S150). Fixing it once here, at the load
+    boundary, makes keys consistently int store-wide so a cache hit is
+    key-identical to a fresh build.
+
+    Rule: a dict ALL of whose keys are digit strings has its keys coerced to
+    int; a mixed or non-digit-keyed dict (e.g. planet-name keys) is untouched.
+    Applied only to cached data on read.
+
+    Tuning note (THRESHOLD DISCIPLINE): digit-keys-only by design. A future
+    fact class that legitimately wants string-digit keys (e.g. year labels)
+    would be coerced -- none exists today, and every reader already assumes
+    int-or-str keys. Revisit the rule if such a fact class is introduced.
+    """
+    if isinstance(obj, dict):
+        keys = list(obj.keys())
+        all_digit = bool(keys) and all(
+            isinstance(k, str) and k.lstrip("-").isdigit() for k in keys)
+        if all_digit:
+            return {int(k): _decode_int_keys(v) for k, v in obj.items()}
+        return {k: _decode_int_keys(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_decode_int_keys(v) for v in obj]
+    return obj
+
+
 def load_or_build(
     key: str,
     builder: Callable[[], dict],
@@ -123,7 +155,7 @@ def load_or_build(
             with open(path, encoding="utf-8") as f:
                 blob = json.load(f)
             if isinstance(blob, dict) and blob.get("schema_version") == SCHEMA_VERSION:
-                return blob.get("facts") or {}
+                return _decode_int_keys(blob.get("facts") or {})
             logger.info("fact_store: schema/shape mismatch for %s -> rebuilding", key)
     except Exception as exc:  # noqa: BLE001 -- a bad cache read must never block an answer
         logger.warning("fact_store: cache read failed (%s) -> rebuilding", exc)

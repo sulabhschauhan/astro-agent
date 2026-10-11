@@ -159,3 +159,21 @@ def test_today_defaults_to_date_today_when_omitted(tmp_path):
     out = TS.load_or_refresh("k", lambda as_of: {"ok": as_of.isoformat()},
                              cache_dir=str(tmp_path))
     assert out["ok"] == dt.date.today().isoformat()
+
+
+def test_cache_hit_restores_int_dict_keys(tmp_path):
+    """The dated store will carry int-keyed projections (house-from-lagna,
+    S149); a cache hit must restore int keys, like fact_store."""
+    today = _day("2026-10-04")
+
+    def builder(as_of):
+        return {"house_from_lagna": {h: [] for h in range(1, 13)}}
+
+    TS.load_or_refresh("k", builder, today, cache_dir=str(tmp_path))  # miss
+    raw = json.loads((tmp_path / "k.json").read_text(encoding="utf-8"))
+    assert set(raw["facts"]["house_from_lagna"]) == {str(h) for h in range(1, 13)}
+    # a day later, still inside the window -> cache hit -> decoded
+    out = TS.load_or_refresh("k", builder, today + dt.timedelta(days=1),
+                             cache_dir=str(tmp_path))
+    assert set(out["house_from_lagna"]) == set(range(1, 13))
+    assert all(isinstance(k, int) for k in out["house_from_lagna"])
