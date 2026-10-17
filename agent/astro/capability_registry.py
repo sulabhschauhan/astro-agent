@@ -55,6 +55,18 @@ class Capability:
         dated: True when the fact is parametrised by a date/horizon and must be
             composed at answer time (muhurta/ingress class); False for a
             chart-fixed fact read straight from the static store (lucky days).
+        kind: HOW the fact is produced at answer time (S152 dated-compose socket):
+            "chart"    -- already composed onto chart_facts by the caller; the
+                          dispatcher does nothing (lucky days, and every corpus
+                          fact class).
+            "live"     -- its own composer runs at answer time over a
+                          question-sized window (muhurta: horizon bounds a scan,
+                          deliberately NOT stored -- S151).
+            "timeline" -- one SHARED build_timeline scan serves every timeline
+                          capability in the plan at once; each trims its own
+                          slice (ingress / combustion / masa). Selection is the
+                          interpreter's, exactly as for every other fact class,
+                          so these need NO typed planner param.
         needs_chart: True when composing the fact needs the raw chart.
         requires_input: inputs that must be present for the fact to exist
             (e.g. "exact_birth_time", "pdf"); surfaced in the interpreter
@@ -69,6 +81,7 @@ class Capability:
     fact_key: str
     label: str
     dated: bool = False
+    kind: str = "chart"
     needs_chart: bool = True
     requires_input: tuple[str, ...] = ()
     interpreter_directive: str = ""
@@ -114,6 +127,7 @@ REGISTRY: tuple[Capability, ...] = (
         fact_key="muhurta",
         label="Electional timing (muhurta)",
         dated=True,
+        kind="live",
         needs_chart=True,
         interpreter_directive=(
             "The user asked for a GOOD DATE/TIME TO ACT, not for when an event "
@@ -131,6 +145,85 @@ REGISTRY: tuple[Capability, ...] = (
             "never tell the user a window is 'not available' or 'not pre-computed'."
         ),
     ),
+    # ----- DATED, TIMELINE KIND (S152). One shared build_timeline scan serves
+    # all three; each trims its own slice. Facts are chart-independent in the sky
+    # (Tier A, ephemeris_cache) and projected per chart (Tier B, build_timeline).
+    # The engines are ephemeris-ratified (ingress/masa S148, combustion S147).
+    Capability(
+        id="ingress",
+        intent_gloss=(
+            "WHEN a planet changes sign / enters a house in the future -- "
+            "'when does Saturn enter my 7th', 'when does Jupiter move into "
+            "Taurus', 'when is Saturn's next sign change', 'when does Mars "
+            "transit into my 10th'. A TRANSIT-TIMING question about a specific "
+            "planet's future sign or house change. NOT 'what will happen to me' "
+            "(prediction -> corpus timing) and NOT 'a good day to act' (muhurta)."
+        ),
+        fact_key="ingress",
+        label="Planetary sign/house ingress dates",
+        dated=True,
+        kind="timeline",
+        needs_chart=True,
+        interpreter_directive=(
+            "Answer from the computed ingress events in the fact block. Each "
+            "gives a planet's next sign change with the sign it enters and the "
+            "house that move lands in, counted from BOTH the ascendant and the "
+            "Moon -- use the from-ascendant house unless the user framed the "
+            "question from the Moon. Name the date (a UT instant), the sign, and "
+            "the house. Only the seven moving grahas are computed; the lunar "
+            "nodes Rahu and Ketu are NOT in this engine, so if asked about them "
+            "say that transit is not computed yet. Never invent or shift a date; "
+            "if a planet has no sign change in the searched window, say so and "
+            "name the window."
+        ),
+    ),
+    Capability(
+        id="combustion",
+        intent_gloss=(
+            "WHEN a planet is combust (too close to the Sun, 'aastha') in the "
+            "near future, or is it combust now -- 'when is Mercury combust', 'is "
+            "Venus combust right now', 'upcoming combustion of Mars'. The five "
+            "taragrahas only; the Sun and Moon are excluded by doctrine."
+        ),
+        fact_key="combustion",
+        label="Combustion (planet-too-close-to-Sun) windows",
+        dated=True,
+        kind="timeline",
+        needs_chart=True,
+        interpreter_directive=(
+            "Answer from the computed combustion windows, each a start/end UT "
+            "instant for one planet. Only the five taragrahas (Mars, Mercury, "
+            "Jupiter, Venus, Saturn) are scanned; the Sun and Moon are excluded "
+            "by doctrine, so decline those specifically. State the window plainly "
+            "and never invent a date; if the asked planet has no window in the "
+            "searched span, say so."
+        ),
+    ),
+    Capability(
+        id="masa",
+        intent_gloss=(
+            "WHICH lunar month (masa) it is now or will be, or when the next "
+            "lunar month begins -- 'what is the current Vedic month', 'which "
+            "masa are we in', 'when does the next lunar month start'. NOT a "
+            "panchanga tithi / festival / muhurta question."
+        ),
+        fact_key="masa",
+        label="Lunar month (masa) calendar",
+        dated=True,
+        kind="timeline",
+        needs_chart=False,
+        interpreter_directive=(
+            "Answer from the computed masa (lunar-month) facts. Each month "
+            "carries a start/end UT instant and a sankranti (solar-ingress) "
+            "count. A month with EXACTLY ONE sankranti carries its Sanskrit "
+            "name -- use it. A month with a different count is intercalary "
+            "(adhika / kshaya) and its name is deliberately WITHHELD by the "
+            "engine: report the count and that it is a non-standard month, and "
+            "NEVER guess or name it. Dates are UT instants; the exact LOCAL "
+            "civil date can shift by a day and is not computed here, so speak in "
+            "terms of the month, not a precise local day."
+        ),
+    ),
 )
 
 _BY_ID: dict[str, Capability] = {c.id: c for c in REGISTRY}
@@ -145,6 +238,25 @@ def get(cap_id: str) -> Capability | None:
 def fact_keys() -> frozenset[str]:
     """The set of fact-block keys every registered capability reads."""
     return frozenset(c.fact_key for c in REGISTRY)
+
+
+def _ids_of_kind(kind: str) -> frozenset[str]:
+    return frozenset(c.id for c in REGISTRY if c.kind == kind)
+
+
+def timeline_capability_ids() -> frozenset[str]:
+    """Ids whose facts come from ONE shared build_timeline scan (S152).
+
+    The dated-compose dispatcher uses this to decide which capabilities in a
+    plan are served by a single timeline build, so the shared sky is never
+    scanned once per capability.
+    """
+    return _ids_of_kind("timeline")
+
+
+def live_capability_ids() -> frozenset[str]:
+    """Ids composed live at answer time over a question-sized window (muhurta)."""
+    return _ids_of_kind("live")
 
 
 def directives_for(cap_ids) -> list[str]:

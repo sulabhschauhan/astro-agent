@@ -149,6 +149,21 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # uploaded this session; {} (absent) whenever none
                            # was -- additive fact class, same posture as
                            # "transits"/"kp_seventh_cusp_sub_lord".
+    "ingress",            # S152 DATED (timeline kind). Each of the 7 moving
+                           # grahas' next sign/house ingress, trimmed from one
+                           # shared build_timeline scan by agent.astro.dated_facts.
+                           # build_timeline_facts. Additive; no predicate
+                           # (unfittable), no REQUIREMENT -- the interpreter
+                           # selects which ingress matters, like every other class.
+    "combustion",         # S152 DATED (timeline kind). Near-term combustion
+                           # windows for the 5 taragrahas (Sun/Moon excluded),
+                           # from the same shared scan. Additive; no predicate,
+                           # no REQUIREMENT.
+    "masa",               # S152 DATED (timeline kind). The current + upcoming
+                           # lunar months (amanta), placement facts only -- an
+                           # intercalary month's name is withheld (S148 lock).
+                           # From the same shared scan. Additive; no predicate,
+                           # no REQUIREMENT.
 })
 
 

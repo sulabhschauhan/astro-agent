@@ -52,6 +52,7 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
         {"ascendant_sign", "lord_house_map", "planet_positions", "house_lords",
          "aspects", "dignity", "navamsa", "yogas", "dasha_periods", "transits", "shadbala", "ashtakavarga", "jaimini", "divisional",
          "muhurta", "lucky_unlucky",
+         "ingress", "combustion", "masa",
          "kp_seventh_cusp_sub_lord", "kp_planet_significations"})
 
 
@@ -498,3 +499,75 @@ def test_muhurta_absent_renders_nothing():
     facts = {"lord_house_map": {h: 1 for h in range(1, 13)},
              "ascendant_sign": "Leo"}
     assert "Muhurta (electional timing)" not in pipeline._fact_block(facts)
+
+
+# ── S152 timeline fact classes: ingress / combustion / masa ────────────────
+# Each rendered when chart_facts carries it, absent otherwise, and declared in
+# FACT_BLOCK_PROVIDES (the growth-contract pin above already lists all three).
+
+_BASE = {"lord_house_map": {h: 1 for h in range(1, 13)}, "ascendant_sign": "Leo"}
+
+
+def test_ingress_capability_is_rendered_when_the_facts_carry_it():
+    from agent.astro import pipeline
+    assert "Upcoming planetary ingresses" not in pipeline._fact_block(dict(_BASE))
+    with_ing = pipeline._fact_block(dict(_BASE, ingress={
+        "window": {"start": "2026-10-17 00:00 UT", "end_date": "2029-10-21"},
+        "events": [
+            {"body": "Saturn", "date": "2027-05-31 12:00 UT",
+             "from_sign": "Aquarius", "to_sign": "Pisces",
+             "to_house_from_lagna": 8, "to_house_from_moon": 3,
+             "retrograde": False},
+        ]}))
+    assert "Upcoming planetary ingresses" in with_ing
+    assert "Saturn enters Pisces on 2027-05-31 12:00 UT" in with_ing
+    assert "house 8 from the ascendant" in with_ing
+    assert "house 3 from the Moon" in with_ing
+    assert "Rahu/Ketu are NOT computed" in with_ing   # honest coverage note
+    assert "ingress" in CG.FACT_BLOCK_PROVIDES
+
+
+def test_combustion_capability_is_rendered_when_the_facts_carry_it():
+    from agent.astro import pipeline
+    assert "Combustion windows" not in pipeline._fact_block(dict(_BASE))
+    with_comb = pipeline._fact_block(dict(_BASE, combustion={
+        "window": {"start": "2026-10-17 00:00 UT", "end_date": "2027-11-21"},
+        "windows": [
+            {"planet": "Mercury", "start": "2026-10-20 00:00 UT",
+             "end": "2026-11-02 00:00 UT", "ongoing": False,
+             "retrograde_at_mid": True},
+            {"planet": "Venus", "start": "2026-10-10 00:00 UT",
+             "end": "2026-10-25 00:00 UT", "ongoing": True,
+             "retrograde_at_mid": False},
+        ]}))
+    assert "Combustion windows" in with_comb
+    assert "Mercury: 2026-10-20 00:00 UT to 2026-11-02 00:00 UT (retrograde)" in with_comb
+    assert "CURRENTLY combust" in with_comb              # the ongoing Venus window
+    assert "combustion" in CG.FACT_BLOCK_PROVIDES
+
+
+def test_masa_names_a_standard_month_and_withholds_an_intercalary_one():
+    from agent.astro import pipeline
+    assert "Lunar month (masa) calendar" not in pipeline._fact_block(dict(_BASE))
+    with_masa = pipeline._fact_block(dict(_BASE, masa={
+        "window": {"start": "2026-10-17 00:00 UT", "end_date": "2027-11-21"},
+        "current": {"start": "2026-10-10 15:50 UT", "end": "2026-11-09 00:00 UT",
+                    "sankranti_count": 1, "name_sa": "Kartika", "masa_index": 7},
+        "upcoming": [
+            {"start": "2026-11-09 00:00 UT", "end": "2026-12-09 00:00 UT",
+             "sankranti_count": 2, "name_sa": None, "masa_index": None},
+        ]}))
+    assert "Lunar month (masa) calendar" in with_masa
+    assert "Current month -- Kartika:" in with_masa
+    # intercalary month: name withheld, reported by count -- NEVER guessed
+    assert "(intercalary -- name withheld)" in with_masa
+    assert "sankranti_count 2" in with_masa
+    assert "masa" in CG.FACT_BLOCK_PROVIDES
+
+
+def test_timeline_classes_absent_render_nothing():
+    from agent.astro import pipeline
+    block = pipeline._fact_block(dict(_BASE))
+    assert "Upcoming planetary ingresses" not in block
+    assert "Combustion windows" not in block
+    assert "Lunar month (masa) calendar" not in block

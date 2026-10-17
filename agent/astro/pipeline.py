@@ -426,6 +426,71 @@ def _fact_block(chart_facts: dict) -> str:
                 for _r in _wins:
                     lines.append(f"    - {_mu_fmt(_r)}")
 
+    # INGRESS (S152, timeline kind). Each moving graha's NEXT sign change with
+    # the sign and the house it moves into, from both the ascendant and the
+    # Moon; composed by agent.astro.dated_facts.build_timeline_facts from ONE
+    # shared build_timeline scan. Guarded on presence -> a facts dict without it
+    # renders byte-identically (the legacy-dict pin). GROWTH CONTRACT: "ingress"
+    # is in capability_gate.FACT_BLOCK_PROVIDES.
+    ing = chart_facts.get("ingress") or {}
+    ing_events = ing.get("events") or []
+    if ing_events:
+        _w = ing.get("window") or {}
+        lines.append("")
+        lines.append(
+            "Upcoming planetary ingresses (next sign change per graha) -- COMPUTED; "
+            f"searched from {_w.get('start')} to {_w.get('end_date')}. The seven "
+            "moving grahas only (the lunar nodes Rahu/Ketu are NOT computed here). "
+            "EXPLAIN the relevant one; never invent or shift a date:")
+        for _e in ing_events:
+            _rx = " (retrograde)" if _e.get("retrograde") else ""
+            lines.append(
+                f"  {_e['body']} enters {_e.get('to_sign')} on {_e.get('date')}{_rx} "
+                f"-- house {_e.get('to_house_from_lagna')} from the ascendant, "
+                f"house {_e.get('to_house_from_moon')} from the Moon "
+                f"(leaving {_e.get('from_sign')})")
+
+    # COMBUSTION (S152, timeline kind). Near-term combustion windows for the five
+    # taragrahas (Sun/Moon excluded by doctrine), from the same shared scan.
+    # Guarded on presence. GROWTH CONTRACT: "combustion" is in FACT_BLOCK_PROVIDES.
+    comb = chart_facts.get("combustion") or {}
+    comb_w = comb.get("windows") or []
+    if comb_w:
+        lines.append("")
+        lines.append(
+            "Combustion windows (a planet too close to the Sun) -- COMPUTED, the "
+            "five taragrahas only (Sun and Moon excluded). EXPLAIN the relevant "
+            "one; never invent a date:")
+        for _c in comb_w:
+            _now = " -- CURRENTLY combust" if _c.get("ongoing") else ""
+            _rx = " (retrograde)" if _c.get("retrograde_at_mid") else ""
+            lines.append(
+                f"  {_c.get('planet')}: {_c.get('start')} to {_c.get('end')}{_rx}{_now}")
+
+    # MASA (S152, timeline kind). The current + upcoming lunar months (amanta),
+    # placement facts only -- an intercalary month's NAME is withheld (S148 lock),
+    # reported by its sankranti count instead. From the same shared scan. Guarded
+    # on presence. GROWTH CONTRACT: "masa" is in FACT_BLOCK_PROVIDES.
+    masa = chart_facts.get("masa") or {}
+    if masa.get("current") or masa.get("upcoming"):
+        lines.append("")
+        lines.append(
+            "Lunar month (masa) calendar -- COMPUTED (amanta). Dates are UT "
+            "instants; the exact LOCAL civil date can differ by a day. A month "
+            "with sankranti_count != 1 is intercalary and its name is withheld by "
+            "design -- report the count, do NOT name it:")
+
+        def _masa_fmt(_m: dict) -> str:
+            _nm = _m.get("name_sa") or "(intercalary -- name withheld)"
+            return (f"{_nm}: {_m.get('start')} to {_m.get('end')} "
+                    f"[sankranti_count {_m.get('sankranti_count')}]")
+
+        _cur = masa.get("current")
+        if _cur:
+            lines.append(f"  Current month -- {_masa_fmt(_cur)}")
+        for _m in masa.get("upcoming") or []:
+            lines.append(f"  Upcoming -- {_masa_fmt(_m)}")
+
     # DASHA / TIMING (S141). Restated from calculate_chart()['dasha'] by
     # chart_facts._read_dasha -- Vimshottari mahadasha + antardasha. Pratyantar is
     # suppressed there (wrong lord at that granularity under the drift). The dates
@@ -705,6 +770,26 @@ def answer_question(
             if _mf:
                 chart_facts = {**chart_facts, "muhurta": _mf}
         except Exception:  # noqa: BLE001 -- muhurta is additive; never fatal
+            pass
+
+    # TIMELINE CAPABILITIES (S152). ingress / combustion / masa all project the
+    # SAME sky over the SAME window, so they are composed from ONE shared
+    # build_timeline scan (dated_facts.build_timeline_facts), routed by the
+    # registry's kind="timeline" -- NOT one scan per capability (the bespoke
+    # cabling the S151 lock forbade). Selection is the interpreter's: the full
+    # trimmed set is attached and it picks the slice the question is about, like
+    # every other fact class. Needs the raw chart; fail-soft (a scan failure
+    # costs the dated facts, never the answer). Lazy import keeps pipeline (and
+    # the non-dated tests) importable without swisseph.
+    _tl_caps = [c for c in (getattr(_plan, "capabilities", None) or [])
+                if c in capability_registry.timeline_capability_ids()]
+    if _tl_caps and chart is not None:
+        try:
+            from agent.astro.dated_facts import build_timeline_facts
+            _tf = build_timeline_facts(chart, _tl_caps)
+            if _tf:
+                chart_facts = {**chart_facts, **_tf}
+        except Exception:  # noqa: BLE001 -- dated facts are additive; never fatal
             pass
     _lap("muhurta")
 
