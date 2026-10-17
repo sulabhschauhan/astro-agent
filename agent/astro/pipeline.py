@@ -360,6 +360,33 @@ def _fact_block(chart_facts: dict) -> str:
             lines.append(f"  {_v['name']} ({_code}, {_v['domain']}) -- lagna "
                          f"{_v['lagna']}: {_parts}")
 
+    # FRIENDSHIP (S152). Five-fold compound planetary friendship (Pancha-dha
+    # maitri, PVR), composed by agent.astro.friendship_facts.build_friendship_facts
+    # from each planet's natal sign. Directional, 7 classical planets (nodes
+    # excluded by doctrine). Guarded on presence -> a facts dict without it renders
+    # byte-identically (the legacy-dict pin). GROWTH CONTRACT: "friendship" is in
+    # capability_gate.FACT_BLOCK_PROVIDES.
+    fr = chart_facts.get("friendship") or {}
+    fr_bp = fr.get("by_planet") or {}
+    if fr_bp:
+        fr_sg = fr.get("signs") or {}
+        _FR_GLOSS = {"Adhimitra": "great friend", "Mitra": "friend",
+                     "Sama": "neutral", "Satru": "enemy", "Adhisatru": "bitter enemy"}
+        lines.append("")
+        lines.append(
+            "Five-fold planetary friendship (Pancha-dha maitri -- natural + "
+            "temporary combined, PVR) -- COMPUTED, each planet's relation TOWARD "
+            "the others (directional; 7 classical planets, nodes excluded by "
+            "doctrine):")
+        for _p in ("Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"):
+            _b = fr_bp.get(_p)
+            if not _b:
+                continue
+            _parts = [f"{_FR_GLOSS[_lab]}: {', '.join(_b[_lab])}"
+                      for _lab in ("Adhimitra", "Mitra", "Sama", "Satru", "Adhisatru")
+                      if _b.get(_lab)]
+            lines.append(f"  {_p} (in {fr_sg.get(_p, '?')}) -- " + "; ".join(_parts))
+
     # LUCKY / UNLUCKY WEEKDAYS (S147). CALCULATED from the chart's own house
     # lordships by agent.astro.lucky_facts.build_lucky_facts -- a trikona (1/5/9)
     # lord's weekday is favourable, a dusthana-only (6/8/12) lord's weekday is to

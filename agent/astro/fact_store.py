@@ -43,7 +43,8 @@ __all__ = ["SCHEMA_VERSION", "DEFAULT_CACHE_DIR", "chart_cache_key",
 # Bump whenever build_static_facts changes which fact classes it produces, so
 # every pre-existing cached file is treated as stale and rebuilt on next use.
 #   v1 -> v2 (S147): added "lucky_unlucky" fact class.
-SCHEMA_VERSION = 2
+#   v2 -> v3 (S152): added "friendship" fact class (pancha-dha maitri).
+SCHEMA_VERSION = 3
 
 # MUST be listed in .gitignore -- real birth data is never committed.
 DEFAULT_CACHE_DIR = os.path.join("data", "fact_cache")

@@ -135,9 +135,13 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # cross-system corroboration for marriage-timing
                            # selection, not a gate on its own.
     "kp_planet_significations",  # KP house significators (Sun..Ketu -> houses
-                           # signified), parsed from AstroSage's own printed
-                           # "Significators of Houses" table by
-                           # agent.calculations.kp.significators.parse_kp_significators,
+                           # signified), COMPUTED IN-HOUSE from the ephemeris
+                           # (S144) by agent.calculations.kp.significator_engine.
+                           # compute_kp_significators -- NOT parsed; the PDF
+                           # parser (kp/significators.py) is retained as an
+                           # OFFLINE ORACLE ONLY. [Corrected S152: this comment
+                           # previously said "parsed ... requires a PDF", which
+                           # was stale since S144 and misread as a PDF dependency.]
                            # composed by agent.astro.kp_significator_facts.
                            # build_kp_significator_facts (S143-followup, this
                            # session). Unlike "kp_seventh_cusp_sub_lord", this
@@ -145,9 +149,9 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # antardasha's own lord's significations are tagged
                            # in the dasha timeline), so it can actually
                            # discriminate between two antardashas -- the fixed
-                           # cuspal sub-lord fact cannot. Requires a PDF
-                           # uploaded this session; {} (absent) whenever none
-                           # was -- additive fact class, same posture as
+                           # cuspal sub-lord fact cannot. Always available
+                           # (ephemeris-computed, no PDF needed) -- additive fact
+                           # class, same posture as
                            # "transits"/"kp_seventh_cusp_sub_lord".
     "ingress",            # S152 DATED (timeline kind). Each of the 7 moving
                            # grahas' next sign/house ingress, trimmed from one
@@ -163,6 +167,13 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # lunar months (amanta), placement facts only -- an
                            # intercalary month's name is withheld (S148 lock).
                            # From the same shared scan. Additive; no predicate,
+                           # no REQUIREMENT.
+    "friendship",         # S152 STATIC. Five-fold compound planetary friendship
+                           # (Pancha-dha maitri, PVR), computed from each planet's
+                           # natal sign by agent.astro.friendship_facts.
+                           # build_friendship_facts (7 classical planets, nodes
+                           # excluded by doctrine). Surfaces the tiers S130 left
+                           # out as "contested"; additive context, no predicate,
                            # no REQUIREMENT.
 })
 

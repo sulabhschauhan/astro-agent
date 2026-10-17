@@ -52,7 +52,7 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
         {"ascendant_sign", "lord_house_map", "planet_positions", "house_lords",
          "aspects", "dignity", "navamsa", "yogas", "dasha_periods", "transits", "shadbala", "ashtakavarga", "jaimini", "divisional",
          "muhurta", "lucky_unlucky",
-         "ingress", "combustion", "masa",
+         "ingress", "combustion", "masa", "friendship",
          "kp_seventh_cusp_sub_lord", "kp_planet_significations"})
 
 
@@ -571,3 +571,22 @@ def test_timeline_classes_absent_render_nothing():
     assert "Upcoming planetary ingresses" not in block
     assert "Combustion windows" not in block
     assert "Lunar month (masa) calendar" not in block
+
+
+def test_friendship_capability_is_rendered_when_the_facts_carry_it():
+    """S152 five-fold friendship fact class: rendered when present, absent
+    otherwise, declared in FACT_BLOCK_PROVIDES (the growth-contract pin)."""
+    from agent.astro import pipeline
+    assert "Five-fold planetary friendship" not in pipeline._fact_block(dict(_BASE))
+    with_fr = pipeline._fact_block(dict(_BASE, friendship={
+        "signs": {"Sun": "Leo", "Saturn": "Aquarius"},
+        "by_planet": {
+            "Sun": {"Adhimitra": ["Moon"], "Mitra": ["Mars"], "Sama": [],
+                    "Satru": [], "Adhisatru": ["Saturn"]},
+            "Saturn": {"Adhimitra": [], "Mitra": ["Mercury"], "Sama": [],
+                       "Satru": ["Sun"], "Adhisatru": []},
+        }}))
+    assert "Five-fold planetary friendship" in with_fr
+    assert "Sun (in Leo) -- great friend: Moon; friend: Mars; bitter enemy: Saturn" in with_fr
+    assert "Saturn (in Aquarius) -- friend: Mercury; enemy: Sun" in with_fr
+    assert "friendship" in CG.FACT_BLOCK_PROVIDES
