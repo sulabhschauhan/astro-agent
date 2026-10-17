@@ -800,6 +800,14 @@ def calculate_chart(name: str, dob: str, tob: str, place: str) -> dict:
             "ayanamsha_lahiri": round(ayanamsha, 4),
             "asc_lon_sidereal": round(asc_lon, 4),
             "jd_ut": round(jd_ut, 6),
+            # Birth datetime, tz-aware with the fixed birth UTC offset (S152).
+            # Mirrors calculate_solar_return()'s meta.local_datetime. Dated fact
+            # composers (yogini_facts) render boundaries in this LOCAL frame to
+            # match JHora and the Vimshottari _calc_dasha convention, not UT.
+            # Not a scalar -- chart_facts reads only jd_ut/asc_lon_sidereal, so
+            # this datetime is read at build time and never serialised to the
+            # fact_store cache.
+            "local_datetime": birth_local,
             # KP (S143): Placidus cusps 1..12, KP/Krishnamurti-ayanamsha sidereal
             # degrees. Everything else in this dict is Lahiri; this one key is the
             # deliberate exception -- see the comment above where it is computed.

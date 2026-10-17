@@ -35,6 +35,7 @@ Python 3.11.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 
 import swisseph as swe
 
@@ -52,11 +53,21 @@ _LORD_FULL = {
 }
 
 
-def _iso_date(jd: float) -> str:
-    """Julian Day (UT) -> 'YYYY-MM-DD'. Date granularity is enough for MD spans
-    (years long); the interpreter is handed calendar dates, not Julian Days."""
-    y, m, d, _h = swe.revjul(jd, swe.GREG_CAL)
-    return f"{y:04d}-{m:02d}-{d:02d}"
+def _local_date_iso(jd: float, offset: timedelta) -> str:
+    """Julian Day (UT) -> 'YYYY-MM-DD' in the BIRTH's local timezone.
+
+    S152 fix: the engine's boundaries are JD UT; JHora (and the validated
+    Vimshottari path, chart_calculator._calc_dasha/_fmt_date) display dates in
+    birth-LOCAL time. Rendering the UT date instead shifted every boundary by
+    the time-of-day crossing local midnight -> the measured 1-2 day, per-chart
+    offsets against the JHora Yogini table (IST/SAST shifted, London ~exact).
+    Applying the birth UTC offset before taking the date puts Yogini on the same
+    frame as Vimshottari. Year length is identical on both (365.256363), so this
+    is a rendering frame fix, not a dasha-math change.
+    """
+    y, m, d, h = swe.revjul(jd, swe.GREG_CAL)
+    utc_dt = datetime(y, m, d, tzinfo=timezone.utc) + timedelta(hours=h)
+    return (utc_dt + offset).date().isoformat()
 
 
 def build_yogini_facts(chart: dict) -> dict:
@@ -76,19 +87,30 @@ def build_yogini_facts(chart: dict) -> dict:
         it is computed at answer time. Never raises.
     """
     try:
+        meta = (chart or {}).get("meta") or {}
         pp = (chart or {}).get("planetary_positions") or {}
         moon_lon = (pp.get("Moon") or {}).get("longitude")
-        jd = (chart.get("meta") or {}).get("jd_ut")
+        jd = meta.get("jd_ut")
         if moon_lon is None or jd is None:
             logger.warning("yogini: Moon longitude or birth jd_ut not resolvable")
             return {}
+
+        # Render boundaries in the BIRTH's local timezone, matching the validated
+        # Vimshottari convention (see _local_date_iso). meta['local_datetime'] is
+        # the tz-aware birth datetime; its fixed UTC offset is carried forward to
+        # every period, exactly as _calc_dasha carries birth_local's tzinfo. No
+        # local_datetime -> fall back to UT (offset 0): the old behaviour, so a
+        # chart lacking it is no worse than before, never an error.
+        _ldt = meta.get("local_datetime")
+        _off = _ldt.utcoffset() if (_ldt is not None
+                                    and _ldt.utcoffset() is not None) else timedelta(0)
 
         periods = compute_yogini_dasha(float(moon_lon), float(jd))
         mds = [{
             "lord": _LORD_FULL.get(p.lord, p.lord),
             "yogini": p.yogini_name,
-            "start": _iso_date(p.begin_jd),
-            "end": _iso_date(p.end_jd),
+            "start": _local_date_iso(p.begin_jd, _off),
+            "end": _local_date_iso(p.end_jd, _off),
             "years": p.years,
         } for p in periods]
         if not mds:

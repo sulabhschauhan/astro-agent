@@ -10,7 +10,11 @@ unvalidated formula.
 """
 from __future__ import annotations
 
-from agent.astro.yogini_facts import build_yogini_facts, _LORD_FULL
+from datetime import timedelta
+
+import swisseph as swe
+
+from agent.astro.yogini_facts import build_yogini_facts, _LORD_FULL, _local_date_iso
 from agent.calculations.dashas.yogini import compute_yogini_dasha
 
 _MOON_LON = 201.0          # arbitrary sidereal longitude
@@ -58,3 +62,13 @@ def test_fail_soft_when_birth_jd_missing():
 def test_fail_soft_on_empty_or_none_chart():
     assert build_yogini_facts({}) == {}
     assert build_yogini_facts(None) == {}
+
+
+def test_local_date_iso_applies_the_birth_offset_across_midnight():
+    """S152 timezone fix: a boundary late in the UT day must render on the NEXT
+    local day once the birth offset pushes it past local midnight -- the frame
+    that matches JHora / the Vimshottari convention."""
+    jd = swe.julday(2000, 1, 1, 23.0)                 # 2000-01-01 23:00 UT
+    assert _local_date_iso(jd, timedelta(0)) == "2000-01-01"          # UT frame
+    assert _local_date_iso(jd, timedelta(hours=2)) == "2000-01-02"    # +2h rolls over
+    assert _local_date_iso(jd, timedelta(hours=5, minutes=30)) == "2000-01-02"  # IST
