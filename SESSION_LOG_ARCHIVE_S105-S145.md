@@ -1,0 +1,2170 @@
+## S105
+
+Pre-5b verb-form measurement sweep (6 live gpt-4o calls, 2 hands x N=3, temp=0). Confirmed temp=0 is NOT fully deterministic -- verb-form ("joins"/"joined") and even which relational lines get reported drift run-to-run on the identical image. The earlier "joined" gap (that aborted the first 5b attempt) was real but did not recur in this 6-call sample -- established that the S106 inflection fix is aimed at the right class of variance (tense/aspect), not a one-off fluke. Read-only, no commit.
+
+## S106 (7c2cea9)
+
+Deterministic inflection normalization shipped in `contact_mapper.py`: generate-the-forms (not stem-the-input) expansion of every declared verb into its regular tense/aspect siblings, a crossed/crossed-by collision guard (never guesses active `cuts` from an ambiguous bare "crossed"), and an import-time ambiguity guard. Fixes `joins`/`joined` and every regular tense family. **PROVISIONAL, per user directive:** on the NEXT verb-form failure (an irregular like `met`/`cut`, or a genuine new synonym), REMOVE the inflection layer entirely and replace verb->token mapping with a simple LLM call -- do not patch narrowly again. `meeted`/`cutted` are known-harmless dead keys (never produced by real English); `met`/bare `cut` are known, accepted un-covered silences.
+
+## S107 (44e6e5b)
+
+Atomic Step 5b cutover: `H_028`/`L_026` now fire via CONTACTS -> `contact_mapper` -> targets; the typed RELATIONSHIP emission+parse path is fully retired (shared symbols `_RELATIONSHIP_TOKENS`/`_RELATIONSHIP_LINE_HEADER`/`_RELATIONSHIP_LINE_ALIAS` + `_store_relationship` KEPT as the bridge's filing primitive). New bridge `_assemble_relational_targets` lives in `palm_reading.py`; `prepare_palm_reading` confirmed the sole rules-feeding caller. Live two-hand sanity 6/6 (N=3 x 2 hands), determinism gate byte-identical vs. the pre-cutover deterministic path.
+
+## S108 (fb10989)
+
+Standalone LLM synonym-resolver shipped, `contact_llm_fallback.py` -- fires ONLY on a contact `contact_mapper` already returned `token=None` for; maps the unknown raw verb to the CLOSEST KNOWN CANONICAL verb (never a token directly), then re-runs the real deterministic `map_contact` on that canonical form so token/position-split logic stays 100% deterministic. Batched (one call per reading regardless of how many contacts need rescue), fail-closed on hallucination/malformed JSON/timeout (whole batch -> unclear), returns structured audit records per contact. NOT wired into the pipeline this step.
+
+## S109 (5ad314e)
+
+Wired the S108 fallback into `prepare_palm_reading` via `_assemble_relational_targets_with_fallback`: exactly one batched LLM call per reading across BOTH hands, fires only on residual `token=None` contacts, degrades safely to the deterministic-only result on any unexpected error (never breaks a reading), audits logged at WARNING (amended same session to include `position_unresolved` -- visibility/measurement only, no token fired, no second call). Determinism gate stays byte-identical with the fallback client stubbed to raise if ever touched; live dormancy check confirmed 0 fallback calls on the standing test images (every verb already resolved deterministically).
+
+## S110
+
+David_right live probe (3 calls, first real third hand tried on the relational arc). `L_026` (Head+Heart+Life triple-join) never fired -- the Heart line reports zero contacts on this hand, an anatomy/perception limit, not a pipeline gap (H_028, the structurally identical single-antecedent sibling, fires cleanly every run). The Fate line is clearly and consistently perceived (unlike parked `FT_016`), and "Fate crosses Head" is captured cleanly end-to-end -> the `cuts` token -- but NO rule in the corpus consumes `cuts` for any feature: a real, newly-surfaced rule-coverage gap, distinct from a perception or pipeline failure. Read-only, no commit.
+
+## S111
+
+STOPPED before authoring: the task asked to author two new Fate stopped-by-Heart/Head rules from Cheiro p164, but `FT_007`/`FT_008` already exist, verified 2026-08-22, encoding exactly that doctrine (via the older TERMINATION-landmark antecedent) -- the census's "no such rule exists / UNCAPTURABLE" text was stale relative to the live corpus. No code touched; flagged for a design-chat call on migrate-vs-duplicate.
+
+**Doctrine finding (from the S110/S111 arc):** a plain Head-crossing of Fate is anatomically universal and doctrinally INERT -- no Cheiro reading attaches to it; do NOT author a `cuts`-on-Head rule for the Fate line. The real doctrine at that junction is `stopped_by` (p164, negative) vs. `meets`/`FT_016` (positive, join-and-ascend). `cuts`'s own real doctrine (bar/influence lines cutting the fate line, p136) is a DIFFERENT source, part of the already-scoped-out Hindu ray-line/Line-of-Influence subsystem (S96).
+
+## S112 (44a720f)
+
+Migrated `FT_007`/`FT_008` IN-PLACE (same rule_ids, same claim/source_quote/doctrine_sentence_ids/verified status) from the ambiguous TERMINATION-landmark antecedent (`attribute: Position` + `relation_target`) to the typed `stopped_by` token. Closes a real, live false-positive: a bare "Fate terminates at Heart" landmark couldn't distinguish an abrupt HALT (this doctrine, bad omen) from `FT_016`'s opposite join-and-ascend good-omen doctrine at the identical endpoint. Fixture-tested only -- no live hand has ever exhibited this geometry; live `stopped_by`-verb emission stays untested until one does.
+
+## S113 (8f36f67)
+
+Fixed `vocab_reachability_scan.py`: typed-relationship tokens are now classified via the relation registries (`relation_target_registry` etc.), not the value-attribute map (`attribute_feature_mapping`). Root cause: the scanner's value-map existence check short-circuited BEFORE the relation branch ever ran; `joins_at_origin`/`meets` had been worked around by injecting them into the value map (2 of 8 tokens), leaving `stopped_by`/`cuts`/`cut_by`/`touches`/`takes_possession_of`/`branch_in` false-flagged unreachable. Fix mirrors the already-correct `rule_vocabulary_closure_gate.py`. Negative guard (a genuinely unknown attribute) preserved -- the gate still bites.
+
+## S114 (9963397)
+
+Fixed `gate_rule_citations.py`: was hardcoded to a dead legacy S84 candidate pool (zero live rule_ids) and a corpus path used inconsistently; repointed onto the live rule files + `cheiro_clean_v1.json`, replaced the source_page-vs-page_ref adjacency check with a whole-corpus anchor search (tolerates the printed-page<->page_ref offset). Report-only (never writes a rule file); added test coverage (zero prior coverage existed). Result: ALL 75 live + 13 parked rules anchor in the corpus, ZERO fabrication signal. **FINDING:** the page-numbering convention differs PER FILE, not one global offset -- Fate's `source_page` is a genuinely PRINTED page number (+60 to reach the corpus `page_ref`); Head/Heart and Life already use the corpus's own `page_ref` directly (offset ~0). Check which convention a chapter is using before assuming +60 when authoring a new file's citations.
+
+## S115 (3f91d67)
+
+Removed the two leftover `joins_at_origin`/`meets` keys from `attribute_feature_mapping` (the value-attribute map) -- the last remnant of the old pre-S113 scanner workaround. Prompt diff showed ONLY those two lines removed from the vision value-prompt's "VALID ATTRIBUTES" lists; relation-rule firing (`H_028`/`L_026`/`FT_016`) byte-identical; all 8 typed tokens confirmed still reachable via the relation path with ZERO of them now in the value map -- direct proof of the independence S113 established. Live sanity: a left-hand vision-API refusal occurred on this run (unrelated to the edit -- `describe_palm_image`'s own prompt was never touched), handled as honest silence; the right hand fired `H_028` normally, satisfying the check.
+
+## S118 (27a9edd)
+
+**Banned-mention censor: the support-gate jurisdiction principle applied GENERALLY.** S117's `3a3d625` established that a rule-fired feature is outside the retrieval support-gate's authority and applied it to the two gate TUPLES; S118 applies the SAME ratified principle to the banned-mention censor (`_check_banned_feature_mentions`, `agent/interpretive/palm_reading.py`). Claim-driven, NOT needle-driven: no Mars special-casing, no `_SUPPORT_NEEDLES` edit, no retrieval change.
+
+ROOT CAUSE, confirmed at HEAD before editing and NOT a `3a3d625` regression. `3a3d625` works as designed -- per `diagnostics/s117_live_confirmation_raw.json`, `"mount of mars positive"` (the M_023 claim, C6) is in NEITHER gate tuple. The failure is entirely downstream: `"mount of mars negative"` fired no rule and retrieved no supporting chunk, so it sits honestly in `unsupported_features`, and `_SUPPORT_NEEDLES` gives BOTH Mars mounts the single shared needle `"mars"` (documented accepted imprecision -- Cheiro p113 has no single-word discriminator). The old censor asked only "did SOME needle of this unsupported feature match?" via `pattern.search`, so C6's sentence ("The Upper Mount of Mars gives you active courage and a martial spirit.") matched `"mars"` on the unclaimed sibling's behalf and failed the whole otherwise-clean reading TWICE -- once at the Stage-2 extra-validator seam, once at the fail-closed backstop.
+
+THE PREDICATE (per-MATCHED-NEEDLE attribution, `finditer` not `search`): let `allowed_needles` = union of `_SUPPORT_NEEDLES` over every feature holding a surviving rule claim; flag an unsupported feature iff it has >=1 word-boundary match AND at least one MATCHED needle is absent from `allowed_needles`. A matched word is allowed when attributable to ANY feature that fired a rule; a genuinely unsupported feature is still flagged the moment it is named by a word no claim accounts for, so the hallucination guard is intact. Nothing in the predicate names a feature, a mount, or Mars -- it reads `_SUPPORT_NEEDLES` only to DERIVE the allowed set, so future needle edits and new shared-needle pairs are covered by construction.
+
+REJECTED ALTERNATIVE, evaluated and NOT equivalent (the instructing prompt offered it as a "cleaner equivalent" framing): the whole-feature subset form, "skip `feature` when needles(feature) is a subset of allowed_needles". Strictly coarser and over-flags. Counterexample, now a test: with `sun line` claimed (`allowed={sun}`) and `mount of apollo` unsupported, `needles(apollo)={apollo,sun}` is NOT a subset, so a sentence about the CLAIMED sun line still fails -- even though its only matched word, `"sun"`, is fully attributable to the claim. Per-matched-needle attribution is what actually states the ratified principle; the subset form only approximates it. Recorded in the shipped docstring.
+
+THREADING (compute once, pass down -- no recomputation): `features_with_surviving_rule_claims` was already computed once in `_prepare_deterministic_prep` (the same expression that narrows both gate tuples) but was NOT in scope at either censor call site. Carried on a new defaulted `PalmReadingPrep.rule_claim_features` field; `allowed_needles` derived ONCE in `complete_palm_reading` and fed to BOTH live call sites (`_build_display_extra_validators`'s `_banned` closure = Stage-2 retry seam; `_run_display_checks` = fail-closed backstop), so the two can never disagree. The retired `_run_ring1_checks` path keeps the empty default and is byte-identical.
+
+BLAST RADIUS, stated precisely: because `3a3d625` already removes a claimed feature from `unsupported_features`, the censor could never flag a claimed feature for naming ITSELF -- so the only outcomes S118 can flip are ones where a genuinely unsupported feature SHARES or OVERLAPS the matched needle with a claimed one. Today `_SUPPORT_NEEDLES` holds exactly two such collisions, `{mars positive, mars negative}` on `"mars"` and `{mount of apollo, sun line}` on `"sun"`; both are tested in both directions. Every other reading, and the ENTIRE LLM Stage-1 path (its claims are retrieval-sourced, hence squarely inside the gate's jurisdiction -- pinned by a dataclass-default test), is byte-identical.
+
+TESTS: 13 new in `tests/interpretive/test_palm_reading_rules_engine.py` (+263), covering generality/non-Mars, the Mars live failure, guard-intact, decline-unchanged, and no-claims. The primary generality proof is the `sun line` <-> `mount of apollo` overlap run in BOTH directions; the stronger direction has the claim held by the SUN LINE (a line, not a mount) with the unsupported apollo carrying a strict SUPERSET of its needles -- that is simultaneously the anti-mount-patch proof and the case that fails under the rejected subset framing, so it pins the predicate's SHAPE, not just its outcome. A rule-fired sun line cannot be built end-to-end today (no sun-line rules exist in any of the 4 live rule files), so that pair is exercised at the censor's own boundary with the allowed set still derived by the production helper. The Mars case IS end-to-end and deterministic (no live call): `MOUNTS: DEVELOPMENT (Upper Mount of Mars): present` -> M_023 -> one claim, retrieval stubbed to unrelated life-line text so the sibling is honestly unsupported; asserts the verbatim live C6 sentence reaches `reading_text`, `validation.failures == ()`, and EXACTLY 2 LLM calls (2 means the seam saw no failure and Stage 2 never retried). Its pre-fix counterpart is not hypothetical -- the no-claims parametrised row asserts the SAME sentence + SAME unsupported feature + empty allowed set still yields the old failure string.
+
+FIXTURE CORRECTION made en route, flagged not silent: the guard test originally used "the markings on the palm are many" expecting `markings/other features` to flag. It does not -- `"markings"` does not word-boundary-match the `"mark"` needle. That is PRE-EXISTING, DELIBERATE behavior (the S67 R2 rider: word boundaries so `"remarkable"` never fires `"mark"`), unrelated to S118 and unchanged by it; the test was corrected to `"a star"`. Same singular-noun needle limitation already registered in CLAUDE.md's Carry-Forward ("needle-inventory audit", S70 F-E). No needle was edited.
+
+VERIFICATION: deterministic C6 recheck replaying the LIVE capture (real `reading_text_tagged`, real `unsupported_features`, real claim set from `s117_live_confirmation_raw.json`; no live call made) -> BEFORE `['unsupported feature mentioned: mount of mars negative']`, AFTER `[]`. `scripts/gate_rule_citations.py` -> NOT_FOUND_ANYWHERE 0. Full suite **3687 passed / 7 skipped / 0 failed**. Four lines' rule/reading files re-run explicitly -> 270 passed. Registry-wide sweep: 15 flags with no claims, 0 flags with every feature claimed -- guard fully live at one extreme, fully deferential at the other, nothing hardcoded between.
+
+**Capture-net digest tool committed (`dee8007`).** S116-era artifact, built and tested in an earlier session but never committed; landed here unchanged. `agent/interpretive/capture_net_digest.py` (170 lines) is a READ-ONLY summarizer over the capture-net JSONL -- groups by trigger / trigger x feature / disposition and surfaces the `ai_decision` lane for the monthly human review, with `build_digest`/`render_markdown` plus a `--since/--until` CLI. Never writes, moves, or truncates the log (verified against source: `read_text` only, no write path anywhere); `_KNOWN_TRIGGERS` derives from `capture_net._DISPOSITION_TO_TRIGGER` rather than duplicating the vocabulary. NO auto-verdicts and NO contradiction detection by design -- it is the review's INPUT, never a substitute for it (Working Style #5). Companion to the capture-net writer + wiring committed at S116 `3866997`. 7 tests, already collected by the suite before the commit (pytest collects from the filesystem, not the git index -- which is why the suite count did NOT rise on commit; verified separately at 7 passed).
+
+BRANCH CLOSE-OUT: `wip/interpretive-pilot` fully pushed, head `1d18fa2`, no tracked file modified, `git log origin/wip..HEAD` empty. 47 untracked paths remain, ALL classified keep-untracked session artifacts (28 `diagnostics/*`, 18 one-off `scripts/*` probes, 1 `probes/`); zero sit outside those directories. Working Style #16 audit RUN rather than assumed: every untracked probe basename grepped against committed `CLAUDE.md`/`SESSION_LOG.md`/`diagnostics/` -> zero citations, so none backs a recorded decision and leaving them untracked opens no audit gap. Ready for the astrology pivot.
+
+CARRIED DEBT, unchanged and still open: `claim_voicing._FEATURE_TRAIT_NEEDLES` is a drifted verbatim copy of `_SUPPORT_NEEDLES` (10 vs 16 features), and the DUAL USE of `_SUPPORT_NEEDLES` for both corpus retrieval and output censoring is the deeper structural cause -- Direction B, deferred to its own session, out of S118's scope.
+
+LOG GAP NOTED, not silently papered over: this file has NO S116 and NO S117 entry (first S116/S117 mention anywhere in it is this line). Both sessions shipped real work -- S116 the capture-net writer + wiring (`3866997`), S117 the mounts arc (mount-development emission/extractor, the 24-rule Mounts chapter, live wiring, and the support-gate jurisdiction fix `3a3d625`). Backfilling them from commit history is a separate task and was deliberately NOT attempted here, to avoid reconstructing sessions from commit messages alone into a durable record.
+
+## S119 (37d88e8)
+
+**THE SELF-GROUNDING CONSOLIDATION.** A rule-sourced claim now cites its OWN authored, gate-verified `source_page`+`source_quote` and no retrieval chunk is resolved for it at all. Nine commits, measured start to finish: citation accuracy **31% -> 100%** (gate-verified), live rule count **99 -> 87**, suite **3794 passed / 7 skipped**. This is the fourth and final member of the "a retrieval-era mechanism must not gate a rule claim" family, after S117 `3a3d625` (support-gate tuples) and S118 `27a9edd` (banned-mention censor) -- and unlike those two, which exempted rule claims from a gate, this one removes the retrieval dependency itself.
+
+MEASURED FIRST, NOT ASSUMED (`e7eec28`, Step 0). The consolidation opened with an audit probe over all 99 live rules rather than a design argument: **31 correct / 52 wrong / 13 dropped** -- 69% of live rules carried a wrong or missing citation. Two independent root causes, both mechanical. (1) A rule's authored `source_page` is not the corpus `page_ref` -- the fate-line file is offset by a constant +60, so every fate rule resolved into the wrong chapter entirely. (2) `resolve_chunk_id` always selected `_c0` regardless of which chunk on the page actually carried the quote. The 13 "dropped" rules were worse than wrong: a rule whose chunk could not be resolved was silently DROPPED from the claim set, so `FT_003` fired correctly and then vanished before the reading. The probe is committed with its numbers per Working Style #16 -- an uncommitted probe cannot be audited when its numbers turn out wrong.
+
+THE FLIP (`c879e45` Step 1 additive, `f9383d4` Step 2 the cutover). Step 1 added a citation sum type to `Claim` (`by-chunk | by-rule`) as a pure carrier, changing no behavior -- so the type could land and be tested before anything depended on it. Step 2 flipped rule claims onto the `by-rule` arm and DELETED both the chunk-resolution path and the silent-drop branch. The safety argument is not "the new citations look right": it is that `scripts/gate_rule_citations.py` already verifies every authored quote against the real corpus text, so a by-rule citation is authentic by the same check that authored it. `FT_003` un-dropped as a direct consequence. Accuracy went 31% -> 100% because the question changed -- there is no longer a resolution step that can be wrong, only an authored quote that the gate has already verified.
+
+DOWNSTREAM CONSEQUENCES, each its own commit rather than folded into the flip. `46573c4` (Step 3): the decline/jurisdiction set was being computed from POST-DROP claims, so a dropped rule made the reading actively lie -- "the classical texts I work from do not clearly address your fate line" while `FT_003` had in fact fired on it. Re-sourced from SURVIVING RULES, killing the false decline. `17cb671` (Step 4): the capture net was keyed off the old chunk-resolution failure mode and therefore saw nothing at all after the flip; re-keyed off `by-rule` `source_page`. The dropped-rule tripwire is retained but now DORMANT BY CONSTRUCTION -- see the invariant below.
+
+MOUNT BASE MEANINGS ARE DEFINITIONS, NOT CLAIMS (`7be74db`, Step 5). The mounts chapter authored a "base meaning" rule per mount that fired on mere presence and produced a standalone claim. Read back as delivered prose, these are Barnum statements -- true of everyone, discriminating nobody. Reclassified as DEFINITIONS that supply consequent context to GRADED rules and never stand alone; 10 rules retired. `sources` was rebuilt from by-rule citations in the same commit, which closed the S120 "2 of 6" sources gap as a side effect rather than as a separate fix. Consequence accepted deliberately, not worked around: mounts with only a base meaning and no graded rule (Saturn, Mercury, Lower Mars, Luna) are now HONESTLY SILENT. Silence is the correct product behavior here (Palm Diagnostic Principle #2), not a coverage regression to paper over.
+
+DEFECT 2, found by reading the source rather than the code (`7177a32`). Saturn's `M_015`/`M_016` survived Step 5 as graded rules, so Saturn was not yet silent. Checked against the PDF: both quotes are HEAD-LINE back-references that merely mention Saturn in passing -- they are not mount doctrine at all. Retired; Saturn is now fully silent. This exposed a gate limitation worth stating plainly: `gate_rule_citations.py` verifies that a quote is AUTHENTIC (it exists in the corpus at the cited page), never that the quote AGREES with the antecedent it was attached to. Defect 2 is one instance of that class; the rest of the corpus is unaudited against it (parked track below).
+
+THE NEEDLE-TABLE SPLIT (`92230fa` Step 6, `37d88e8` Step 7) -- closing the CARRIED DEBT S118 logged verbatim. Step 6 was a PURE RENAME: `_SUPPORT_NEEDLES` served two jobs with genuinely different requirements -- corpus support-gate matching (permissive substring against OCR'd book text) and output-feature identification (word-boundary against the model's own fluent English) -- so it split into `_RETRIEVAL_NEEDLES` and `_OUTPUT_FEATURE_IDENTIFIERS` with IDENTICAL values, each consumer repointed to its own job's table, pinned by an equality test against an independently transcribed pre-split oracle so a future divergence must be a conscious, tested edit. Step 7 then deleted `claim_voicing._FEATURE_TRAIT_NEEDLES`, the verbatim copy commented "kept identical anyway so the two dictionaries never drift apart for no reason" -- which had drifted regardless to **10 features against the real 16**, missing every mount added at S117. The copy existed only because `palm_reading` imports `claim_voicing` at module level, so the reverse import would close a cycle; the fix is the leaf module `agent/interpretive/feature_needles.py`, which imports nothing from `agent.interpretive` and can therefore be read from both sides. Both modules now hold the SAME objects, not equal copies.
+
+V-5 BEHAVIOR-CHANGE ANALYSIS, reported BEFORE relying on tests (Step 7 was dogfood-gated for exactly this reason). V-5 flattens the needle table into a UNION of words and never uses the per-feature structure, so the delta is 16 -> 22 words: `apollo`/`luna`/`mars`/`mercury`/`moon`/`saturn` ("sun" was already present via `sun line`). `_check_flow_doctrine_guard` skips every segment whose tag is not `FLOW`, so the change is precisely: an UNANCHORED `[FLOW]` connective naming a mount noun now fails where it silently passed. Anchored `[C<n>]`/`[OBS]` mount sentences were never in V-5's jurisdiction -- already pinned pre-Step-7 by two existing tests -- so the widening cannot reject a legitimate mount sentence. No scoping sub-decision was needed: the 6 new words are proper nouns, and the union already carried far more collision-prone ordinary English (`life`, `head`, `cross`, `star`, `mark`, `sun`).
+
+DOGFOOD GATE (Step 7, required before commit -- a green suite was explicitly NOT sufficient). One live run, `data/test_images/palm_right_test.jpg`, rules ON, one explicit `OpenAI()` client, N=1, never `client=None`. The hand is the right gate because it produces mount claims whose nouns are among the 6 newly-added needles. Result: `validation_passed=True`, `validation_failures=[]`, `stage2_retry_used=False`, `stage2_first_attempt_failures=[]`. The Venus, Jupiter and Upper-Mars claim sentences all reached the delivered reading; the only new-needle occurrence in the entire draft was "Mars" inside the anchored `[C6]` segment. Guard proven LIVE rather than merely silent by a counterfactual on the SAME real text -- moving "Mount of Mars" out of `[C6]` into the closing `[FLOW]` sentence fires `doctrine_guard` on the exact new needle, a sentence that would have passed silently before Step 7. So it is the `[FLOW]`-only scoping, not blindness, that keeps the real draft clean.
+
+SELF-CAUGHT CORRECTIONS, flagged not silent. (1) Step 7's "no second needle literal" scan was first written as "any dict keyed by feature names" and flagged three LEGITIMATE dicts (`observation_extractor`'s feature->registry and feature->display-name maps, `palm_reading`'s feature->field-label map). Tightened to the needle table's actual signature -- each line feature maps to a tuple CONTAINING its own bare noun. Kept structural rather than name-based deliberately: the deleted copy escaped notice for sessions precisely BECAUSE it was named `_FEATURE_TRAIT_NEEDLES` and not `_SUPPORT_NEEDLES`, so a name-only grep would miss the next re-transplant too. (2) `data/palm_rules/palm_rules_mounts_v1.json`'s shared-needle note cited `observation_extractor._SUPPORT_NEEDLES` -- a module that never held that symbol; corrected to `feature_needles.RETRIEVAL_NEEDLES` with the rename history recorded.
+
+VERIFICATION across the arc: `scripts/gate_rule_citations.py` -> `NOT_FOUND_ANYWHERE 0` at every step (87 live, 16 parked rules, 4 files). Reachability scan 27 passed. Suite progression through Steps 6-7: 3743 -> 3758 (+15, Step 6) -> 3794 (+36, Step 7), 7 skipped throughout, **zero existing tests changed behavior at either step** -- each delta is exactly the new tests, which is the specific claim a pure-rename/pure-move refactor has to be able to make.
+
+
+## S122 — vocab-contract / provenance arc — REVERTED to 048fe97
+Outcome: all code reverted to session start; work archived in branch/tag `archive/S122-vocab-provenance-arc` (recoverable, off the active branch).
+What we did (archived, not on branch): emission_menus mapper, vocab_adapter (unwired), provenance validator + suite-blocking gate + baseline, retired-rule cleanup (16 dead rules), FT_001/FT_009 well_marked→deep, FT_001 provenance migration, Heart HL_001/003/004 relation_target rewire (uncommitted).
+PROVEN SAFE: before/after replay on the s120 real hand showed IDENTICAL firing at 048fe97 vs 2ae5f87 (same 6 rules) — the arc broke nothing; it was inert to the reading.
+Why reverted: the arc was citation-integrity work, not richness work, and rested on an incompletely-traced diagnosis.
+KEY LEARNINGS:
+1. TWO extraction channels exist for line origins — flat-value (extract_observation tokenizes prose vs the registry's closed value pool; rising_from_X ARE legal Starting_Point values) AND structured (extract_relational_targets → targets, via ORIGIN/TERMINATION menus). A rule reachable via one may be dead via the other. Trace BOTH before calling any rule dead. This session twice overclaimed "provably unfireable"/"CI blind spot" by tracing only the structured channel.
+2. Line-origin dual-encoding (flat value vs relation_target) is the REAL open question — resolve which channel real vision actually uses BEFORE rewiring. (s120 evidence: real vision emitted origin via the structured ORIGIN menu, not as a flat value — but not fully verified.)
+3. Reading is thin on real hands (6/87 fired on s120) — a REACHABILITY + BREADTH problem (Heart/Fate fire ~0; Thumb/Sun/Marriage/Health unauthored), NOT a provenance problem. Thinness is pre-existing (6/87 at session start), partly by-design honest silence.
+4. PROCESS: fully trace plumbing (all channels + consumers) and confirm on a real hand BEFORE designing a fix. Do not act on a diagnostic whose channel-tracing is incomplete.
+
+## S123 (97bbd01)
+
+**METHOD CORRECTION OPENED THE SESSION.** The S122 arc (reverted at session start, `7bc0735`) had judged which rules were "dead" by tracing only the CODE side -- the vocabulary-mismatch probe (`dbce778`) and its report (`048fe97`) classified antecedents against the emitted vocabulary without first asking what the RULES actually required, and reached wrong verdicts twice as a result (S122's own KEY LEARNINGS above). This session opened by correcting the method rather than the symptom: `290435b` adds the DESIGN-INTENT-FIRST standing law to CLAUDE.md -- everything present or absent is BY DESIGN until the record proves otherwise, and nothing may be called a bug without a history search and an explicit verdict label (BY DESIGN / PARKED / SCOPED OUT / KNOWN TRADE-OFF / UNRECORDED / GENUINE DEFECT). The ontology and vision prompt were derived FROM rule requirements, not the other way around, so judging the pipeline from the code's side alone is backwards by construction. The same commit closes the S123 audit of known-intentional items (Position overload, Hand/Type, Quadrangle, `most_specific_wins`, comparative/magnitudes) and flags two genuine findings for the arc that follows: the Line of Life ORIGIN/TERMINATION menu is NOT REQUIRED (no live rule needs it), and the SLOPE field ships half-connected.
+
+**THE VISION_FLAT_SUBFIELDS ARC** closes that second finding. SLOPE (Head/Heart/Fate) and BREAK TYPE/LENGTH EXTENT (Fate) were emitted by vision on every hand as indented closed sub-fields that matched neither `_gather_feature_texts`'s flat-label lookup nor `_RELATIONAL_SUBFIELD`'s regex -- read by nothing, leaving H_026/FT_003/FT_006/FT_012 blind to signals vision was already sending. Four commits, each inert until the last: `dc50132` declares each field's attribute, closed menu and escape value in the registry, with a `write_policy` DERIVED (never hand-asserted) from whether the menu equals the attribute's full legal range (`authoritative`, overwrites on collision) or is a proper subset (`fill_only`, writes only into an empty slot) -- `fill_only` exists specifically because BREAK TYPE=broken would otherwise clobber a plain-sentence Continuity=double and kill FT_013 while fixing FT_012. `5e4771d` adds `extract_flat_subfields`, fully registry-driven, unwired. `53ecd0a` adds the SLOPE MAGNITUDE vision-prompt field itself (conditional, `n/a` whenever the degree isn't clearly judgeable -- S87 had already measured this boundary as genuinely unstable). `fff4301` wires the reader into the reading pipeline via a new `_merge_flat_subfields`, policy-aware, proven on the real s120 hand: the observation genuinely changes (Fate gains Slope=upward) while the fired set stays byte-identical to the pre-arc baseline.
+
+**H_026 RE-POINTED, THE SLOPE DEFECT CLOSED.** `5098e90` adds the second antecedent H_026 was always missing -- Line of Head Slope_Magnitude=slight -- because Cheiro p146 states two distinct consequents (slight slope -> imaginative work; very sloping -> romance/idealism/Bohemianism) and the old single-antecedent H_026 asserted the slight-slope claim on any downward slope, accentuated included. Fired set on s120 drops 6 -> 5, losing only H_026 (that capture predates the SLOPE MAGNITUDE field and carries no magnitude at all) -- correct honest silence, not a regression. A live N=5 stress probe on a real hand then confirmed the whole arc end to end: SLOPE/SLOPE MAGNITUDE labels byte-exact across all five draws, the parser clean, and **FT_003 firing on a real hand for the first time**. `884068b`/`05d7b8c` close the defect in CLAUDE.md, additionally ruling that vision run-to-run variance on an identical photograph is BY DESIGN (borderline anatomical judgements a human palmist would also disagree on -- never treat a changed fired set on a re-run as a regression), parking Thumb (same relative-judgement class as the already-dead `proximity_degree` axis), and opening the Heart audit that the next two commits act on.
+
+**HEART MIGRATION (`b23f0a7`), the first rules moved under DESIGN-INTENT-FIRST.** The Heart chapter fired ZERO on every real hand: its `Starting_Point` antecedents keyed the flat channel, but for Head/Heart/Fate the vision prompt emits origin only through the structured ORIGIN menu, and `_parse_fields` discards it from the flat path. Audit found no recorded rationale anywhere -- these six rules (HL_001, HL_003, HL_004, HL_005, HL_010, HL_018) were authored 11 days BEFORE the structured channel existed and were never revisited. Ruled an authoring-order artifact, migrated by CONNECTED SUBSET COMPONENT, never partially: `{HL_001, HL_010}` and `{HL_004, HL_005, HL_018}` each moved whole, because partial migration is exactly what broke `archive/S122-heart-rewire-wip` -- `resolve_priority` compares whole antecedent tuples, so a migrated rule silently stops being a subset of an unmigrated sibling. Verified, not assumed: the pairwise subset graph was recomputed via the real loader and the real `Antecedent.signature()` across all 87 rules, same-group and cross-group, before and after -- byte-identical. Proven on three real captured hands: Heart's ORIGIN is Mount of Jupiter or Junction of First and Second Fingers on every draw on record, so HL_001 or HL_003 now fires on every hand -- **the first love claims this pipeline has ever produced.**
+
+**THE ABSENCE-DETECTION FIX (`29ff43f`, tagged S125 in the commit but landing inside this session's arc).** Found live on David's hand: he has no fate line, vision correctly wrote "FATE LINE: absent", but `_ABSENCE_PHRASES` had no bare "absent", so `_is_genuine_negative_absence` returned False, the feature stayed in the retrieval pool, cleared the score floor, produced zero claims, and the reader was told the classical texts do not clearly address fate lines -- false, since FT_003 fires for two other subjects in the same probe. A genuine defect, not a design choice: the vision prompt itself invites "state plainly if absent or barely visible", so the prompt invited vocabulary the detector could not recognise. Fixed additively (bare "absent" added to tier 1, every existing phrase byte-identical) and closed generically rather than by patching one word -- a single-source list of the prompt's invited absence vocabulary is now cross-checked against the detector in both directions, so a future prompt edit that invites a new absence term fails CI until the detector is taught it. "Barely visible" deliberately NOT added -- a faint line is a real observation, and treating it as absence would suppress a genuine finding. Not fixed, investigated and reported inert: the extractor maps bare "absent" into `Branching=absent` because no Presence attribute exists and Branching has no closed-value binding, so Stage-1 improvised into the one unconstrained slot; confirmed no live rule keys it.
+
+**HEAD MIGRATION (`97bbd01`), the same fix applied to the same-shaped Head backlog.** Seven rules were diagnosed dead on 2026-08-07 in `_audit/reconciliation_head.md` ("the descriptor is the bottleneck, not the rule book"); the structured channel that fixes them arrived at S92-S93 scoped narrowly to proximity and branching, and the dead list was never revisited -- a backlog gap, not a design decision. Migrates H_002/H_003 (mechanical `Starting_Point` swap to Line of Life / Lower Mount of Mars) and RESHAPES H_013/H_024, collapsing two antecedents (`Branching=branched` AND `Position=terminating_on_Mount_of_X`) into one branch relation to Mount of Jupiter / Mount of Luna -- following H_014's shipped S93 precedent, since keeping both channels would require vision to supply the branch twice at once, which it never does. Excluded with reasons: H_007 (no structured equivalent), H_015 (Marks/Square, scoped out S96), H_023 (names no specific mount, unresolvable, not guessed), H_010a/b/H_020/H_021 (Position=high, permanently parked). Proven on three real hands: **H_002 joins the fired set on all three -- Head's ORIGIN reads Line of Life on 6 of 6 draws on record, the strongest reachability found in this whole arc** -- while H_003/H_013/H_024 stay honest silence (their values never observed on any hand yet captured). Subset graph byte-identical before/after; H_011 < H_007 intact; H_028 unaffected. The same commit unpins three generic engine tests in `test_palm_rules_table.py` that had borrowed `BY_ID["H_002"]` as a stand-in for "an undirected single-antecedent rule" -- coupling engine mechanics to live doctrine so a legitimate rule edit broke tests about something else entirely. Rebuilt on synthetic rules through the real `PalmRule`/`Antecedent` construction path, proven decoupled by running them against both the pre- and post-migration rule files with identical results; re-pointing at a different real rule was rejected as relocating the landmine, not removing it. Roughly fifteen further tests in the same file carry the identical fragility, catalogued and deliberately deferred.
+
+**END-TO-END READ, three real subjects** (`diagnostics/s124_live_e2e_read_run.py`, sulabh/david/athira, deterministic rules engine on, N=1 per subject, no re-sampling). Confirmed every fired rule reaches the tagged prose: fired/surviving rule count and claim count matched 1:1 for all three subjects (sulabh 7/7, athira 7/7, david 6/6) with zero silent drops -- the direct proof that the S119 self-grounding consolidation and this session's migrations compose correctly end to end, not just at the engine layer. This run is what surfaced David's fate-line absence bug live, closed by `29ff43f` above.
+
+**BEFORE / AFTER, stated plainly.** Session start (S122's own close-out figure, reconfirmed by this session's own pre-migration replays): **6 of 87 rules** fired on a real hand -- H_026, H_028 (Head), L_001 (Life), M_001/M_014/M_023 (Mounts) -- with **love (Heart) and destiny (Fate) at zero**, and Heart/Fate each honestly silent on every subject tried. Current HEAD: love, destiny AND head are all populated on real hands -- HL_001/HL_003 (Heart) fire on every draw on record, FT_003 (Fate) fires live, and H_002 joins Head's fired set on 6 of 6 draws, alongside the pre-existing H_026/H_028. Full suite at close: **3830 passed / 7 skipped / 0 failed** (`97bbd01`).
+
+**THE ABSENCE-DOCTRINE FEASIBILITY STUDY, FEASIBLE BUT NOT WORTH IT.** Sulabh asked whether a genuinely-absent feature (David's missing fate line, going silent since the S125 fix above) should become a rule-authorable doctrine surface -- a Presence attribute, absence rules sourced from Cheiro. Traced first, not designed first: the feared pipeline blocker does not exist -- S119 self-grounding means a rule-sourced claim bypasses the retrieval support gate by construction, so nothing there needed to change. Parked anyway, on YIELD not RISK: an exhaustive sweep of all 579 Cheiro corpus chunks found only TWO cleanly authorable absence rules (Heart p160 "no line of heart -> not capable of deep affection"; Fate p165), against one conditional (Sun p170, gated on "an otherwise talented and artistic hand"), one already-parked feature (Health p171), and one inside the already-scoped-out palm-region-shape subsystem (Health/Triangle p204). Worse, only the Fate line has any live evidence vision can detect absence at all -- across 11 captured hands the Heart line was reported present every single time. One deliverable rule plus one speculative one does not justify a new registered attribute, a binding, and a regression-risky edit to the Fate line's already-shipped vision field. Two claims made in-session while scoping the fix turned out WRONG and are corrected on the record: registering a Presence attribute does NOT close HL_015 for free (it needs value "faded", which does not exist in the registry either, and Heart has never been reported faded on any captured hand), and does NOT resolve the Branching=absent mis-mapping automatically either (Branching would still legally accept "absent" globally unless separately bound). Both stay open, unchanged, as their own items. Revisit triggers, recorded not just implied: (a) a doctrine sweep across the other 21 corpus books surfaces enough further absence rules to amortise the infrastructure cost; (b) a live hand is ever captured showing a genuine Heart-line absence, making the second rule non-speculative.
+
+**VERSION A SHIPPED (`9ce9028`): STATE A DEFINITE ABSENCE, STAY SILENT ON A CAN'T-TELL.** Sulabh's revised ruling did not reopen the parked doctrine question -- it separated it from a narrower, cheaper one: David's reading should say his fate line was not found, plainly, as an observation, with no doctrinal content and no hedging about photographs. The load-bearing scope rule is what makes this safe rather than noisy: "absent" is an unhedged, positive determination and gets a sentence; "not clearly visible", "not observed", "none", "unremarkable", "no clear marks" and "not visible" are can't-tell/visibility-hedged and stay silent exactly as before -- a flat photograph cannot show what a palmist would find by folding and tilting the hand, so uncertainty is honest silence, not a finding. Without that split the change would have appended a "markings/other features: not detected" sentence to essentially every reading produced -- that feature, not the fate line, is the one flagged genuinely-absent on 9 of the 9 captured hands available; the fate line is the rare case, one of nine. Rendered as a Python-templated paragraph appended after `_run_display_checks`, exactly the way the existing decline block already is, deliberately never routed through `claim_voicing` -- its own display guard is keyed on `unsupported_features`, which a genuinely-absent feature is never a member of, so it would have offered zero protection against the model embellishing an absence into doctrine. The same jurisdiction principle S119 already established for the two existing gate tuples was extended to this third one, so a feature can never be both stated absent and voiced by a firing rule claim in the same reading. Proven on all 9 captured runs, not assumed: exactly one statement produced, David's fate line; zero for markings/other features on any hand; the other 8 readings are a no-op by construction. 10 new tests, suite 3830 -> 3840.
+
+**FILED, NOT FIXED: ABSENCE VOCABULARY LIVES IN THREE PLACES (`cbe02fe`).** Closing this arc surfaced the same drift shape that produced the SLOPE half-connected defect earlier in this session: the vision prompt's own English (`agent/palm_processor.py`), the runtime `_ABSENCE_VOCABULARY` tuple (`agent/interpretive/palm_reading.py`), and the test module's `_PROMPT_INVITED_ABSENCE_PHRASES` list are three separate places carrying the same vocabulary, inconsistent with `vision_flat_subfields`, which the SLOPE arc put in the registry for exactly this reason. Nothing is currently broken -- the S125 two-way sync test bridges the prompt and the test list, and the two runtime lists derive from one tuple -- so this was deliberately NOT moved to `ontology_registry.json` mid-arc: the feature is working, tested and guarded, and relocating vocabulary now is risk for zero behaviour change. Filed as CLAUDE.md's S123 open item (f) specifically so it is not discovered a third time and mistaken for a new finding.
+
+**SESSION CLOSE, UPDATED.** Full suite at final close: **3840 passed / 7 skipped / 0 failed** (`cbe02fe`).
+
+## S124
+
+SESSION: ASTROLOGY RETRIEVAL ARCHITECTURE
+
+DECISIONS RATIFIED (locked, do not revisit)
+- Rule authoring is DEAD. No hand-authored doctrine rules. Fidelity moves from build time to run time.
+- Retrieval IS in the citation path. The prior constraint forbidding this is formally retired.
+- Retrieval unit = CHAPTER. Median 3,336 tokens. Notes/commentary stay attached to their verse.
+- Citations are INTERNAL ONLY, for debug logs. Never shown to the user.
+- Addressing = ORDINAL position (ch24_s001..sNNN), contiguous, no gaps. Printed verse numbers are metadata only: 35 of ch24's 144 are missing due to OCR, so they cannot be addresses.
+- Printed PDF page numbers dropped entirely. page_ref is the internal key.
+- Devanagari stripped from payloads, retained in storage. 37% real token cut, no quality loss (6-run A/B).
+- Interpreter never quotes. It cites a location; the system fetches text.
+- LLM never computes chart facts. One chart, one source, always.
+- Filter fails SAFE: unparsed or untagged content is KEPT, never dropped.
+- No answer skeletons, no priority/ranking tags, no relevance-ordered payloads. Ranking cannot be defined domain-free.
+- Router will REASON about houses (including derived/bhavat-bhavam), not use a fixed domain-to-house table.
+- 16-domain closed vocabulary is correct and locked: career, marriage, wealth, children, health, education, longevity, travel, property, parents, siblings, spirituality, enemies_conflict, timing_dasha, technique_method, planetary_nature.
+
+ARTIFACTS BUILT
+- data/chapter_index_bphs.json - 100 units, all 7 validation checks pass, zero character loss. Canary: bphs1_ch24 starts at page_ref 188.
+- data/segment_index_bphs_career3.json v2 - 135 segments, ordinals, text_sha256 drift protection.
+- data/career_payload_bphs.json - filtered career payload, 31.6% cut.
+- data/domain_tags_bphs.json - 1129 segments, 100 units. SEE CAVEAT.
+- agent/astro/payload_builder.py - generic payload builder (component).
+- scripts/verify_claim_direction.py - direction-checking verifier.
+
+MEASURED FACTS
+- Zero genuine fabrications across all interpreter runs. Location-based citation was never beaten.
+- Three separate times a "fabrication" was called and was WRONG - the tool or the diagnostic was at fault (Raja Yoga verse, 5th-lord-in-2nd, ch24_v25/v41). Check the tool before blaming the model.
+- Relation filter cuts 31.6% within selected chapters, but only 4.6% across the whole book (242,571 -> 231,470). 46 of 69 splittable chapters yield ZERO lord-house relations; 76.3% of kept tokens arrive via fail-safe. It is a WITHIN-CHAPTER tool, not a selector.
+- Domain tagging is reproducible: 8/8 probe units re-tagged blind returned identical domain sets.
+- Unfittable rate 0.09% - the 16-domain vocabulary holds at scale.
+- Temperature 0 + fixed seed did NOT produce identical OpenAI output. Some nondeterminism is inherent to the serving stack.
+- Zero CONTRADICT findings across 3 clean OpenAI runs, but only ONE conclusion appeared in all three. Gist is directionally stable, thin on consistency.
+- Reading corpus text costs ~9x source tokens due to Devanagari fragments. This constrains any future full re-read.
+
+REJECTED APPROACHES (do not retry)
+- Entity-level tagging (houses/planets as flat lists): kept 122/135, a 4% cut. Cannot narrow a placement census, because a chart matches exactly 12 of 144 cells and only the RELATIONSHIP identifies which.
+- Priority/ranking tags: measured WORSE citation agreement than plain free-form (0.60 vs 0.625 Jaccard).
+- Strict verbatim quoting: 73% failure, almost all cosmetic (case, curly quotes, model silently correcting OCR typos).
+- TOC-based chapter detection: OCR-damaged; sequential walk works.
+- Subagents as interpreters: tool access CANNOT be disabled in Claude Code, so context isolation is impossible and repo contamination is live. Cost 167k per run. Use OpenAI for interpreter runs.
+- Parallel/multi-agent fan-out: 300k+ overruns. Sequential only.
+
+OPEN ITEMS
+1. data/domain_tags_bphs.json is PARTLY TITLE-INFERRED, not text-derived. Reading stopped after ~70 units. 61.9% of tags are low confidence (vs 14% when text was actually read). Career selection pulls 21.2% of the corpus (51,454 tokens) versus 4% on the properly-read subset. High-confidence tags are trustworthy; the rest need a text re-read before the router depends on them.
+2. Router does not exist. Must output: domains (from the closed 16), houses (reasoned, including derived), whose-chart (self/other), and time scope. Must widen when uncertain, never narrow. Log every decision.
+3. Silence gate does not exist. Verifier currently detects only.
+4. Direction verifier catches reversed citations only where a relation was extracted. Partial coverage by design; do not chase the gap.
+5. 16 of 74 calculation modules are stubs (vargas, vimshottari, yogas, shadbala, chart_d1 and others). Facts gate rules as hard as text does.
+6. Two live bugs unfixed: "will my child succeed in his career" returns the USER's Shadbala; the out-of-scope guard matches by substring so any question naming the sign Cancer is refused as medical.
+7. Only BPHS 1+2 is in scope. 11 other books untouched.
+8. diagnostics/latest_run.md was overwrite-only and destroyed evidence twice. Now archived to diagnostics/runs/<timestamp>.md with a copy.
+
+
+## S125 — Planner + Silence Gate built; five-stage pipeline PROVEN end to end; palm scope corrected; V1 order re-ratified (2026-09-05)
+
+**POC VERDICT: PASSED.** The S124 five-stage architecture answered real questions end to end for the first time, without a hand-picked chapter list. Question -> plan -> chapters -> verses -> grounded, cited, chart-specific answer, with honest refusal where material runs out. Zero ghost citations in every run on record.
+
+### BUILT (both uncommitted at session close — no ratification token was given)
+- `agent/astro/planner.py` (`planner-1.0`) — the missing Stage 1. One LLM call emitting `{domains, houses, whose_chart, time_scope, in_scope, reasoning}`. Python validates SHAPE ONLY (house 1-12, domain in the closed 16, whose_chart/time_scope in their sets); it never judges doctrine, deliberately, so the domain->house table this architecture removed cannot creep back. Malformed -> ONE retry -> deterministic keyword fallback stamped `planner_fallback: true`, every decision appended to `diagnostics/planner_decisions.jsonl`. Fallback never guesses houses and refuses outright when nothing matches. `plan_and_build()` runs plan -> select_units -> build_payload -> filter_segments_by_domain.
+- `agent/astro/silence_gate.py` (`silence-gate-1.0`) — Stage 5a. Deterministic, no LLM (Working Style #9). Drops a claim ONLY when the CLAIM'S OWN text states a lord-in-house condition that is readable, unambiguous, and positively false for the chart. Fail-open everywhere; any internal error ships the answer unmodified with the failure recorded.
+- Tests: `tests/astro/test_planner.py` (41) + `tests/astro/test_silence_gate.py` (51) = **92 passing, 0 failed**. These are ADDITIVE to the 3,840-test suite, which was not re-run this session.
+
+### BOTH S124 LIVE BUGS ARE CLOSED BY CONSTRUCTION
+- "will my child succeed in his career" -> `whose_chart: other`, houses `[5, 2, 10]`, the 2nd being the 10th-from-the-5th. No second birth record needed, ever.
+- the "Cancer = medical" substring guard -> **there is no substring guard anywhere**. `in_scope` is the planner's judgement; Python only checks it is a boolean. A test asserts the constructs `_OUT_OF_SCOPE` / `OUT_OF_SCOPE_KEYWORDS` / `_MEDICAL` cannot be reintroduced.
+
+### MEASURED — do not re-derive
+1. **S124 open item 1 was FALSE and is CLOSED.** `domain_tags_bphs.json` is NOT partly title-inferred. ZERO of 100 units. Every unit was tagged from real corpus text at one of three read depths. No re-read budget is needed; the audit that proved it is `diagnostics/runs/20260905T101738Z_audit_tag_coverage.md`.
+2. **`approx_tokens` undercounts the real tokeniser by 1.61-1.66x**, measured against real OpenAI `prompt_tokens` (48,589 -> 80,882; 12,864 -> 20,736; 91,418 -> 152,542). A chars/4 estimate is itself ~17% low on this corpus. NEVER size a payload from `approx_tokens` or chars/4 again — only from `prompt_tokens`.
+3. **gpt-4o TPM cap is 30,000 at this account tier.** A 68,342-token request was rejected 429 pre-billing. The cap binds long before the 128k context window does. Tier-specific; a tier upgrade changes it with no code change.
+4. **Unit-level selection ships 37-48% of the corpus**; stacking the per-segment domain tags cuts a further 22-46% (career 90,653 -> 48,589 approx-tokens). Segment ids in `domain_tags_bphs.json` and `payload_builder` resolve 1,129/1,129 — one id scheme, no bridging needed.
+5. **WIDE IS DEAD for house-shaped questions.** Career, ARM A vs ARM B: dropping 298 of 304 segments changed gpt-4o-mini's citation set by NOTHING, and the smaller payload cleared the TPM cap so gpt-4o could run at all — producing the better answer (2 claims, a real verse citation, a specific reading). The fail-safe segments contributed ZERO citations.
+6. **STRICT IS DEAD for timing questions.** "When will I get married": 336 of 350 kept segments (96%) have zero extractable relations. **14 is the hard ceiling** on what a house-keyed filter can EVER keep, at ANY house list — measured across `[7]`, `[7,2,11]`, `[7,2,11,8]` and all 12 houses (2 / 9 / 9 / 14 segments). The planner's thin `[7]` cost 7 segments; the filter's design costs 336. Off by a factor of 48.
+7. **Only 3 of 10 subjects land in a workable band today** (>=6 segments, under the TPM cap): career, children, health. Over TPM: wealth, marriage — both fixed by a tier upgrade, not by code. Too thin: education, property, siblings, travel, spirituality. ROOT CAUSE: `extract_relations` recognises essentially one sentence shape, so 90-95% of verses are invisible to it in every domain.
+8. **gpt-4o-mini never cites a verse.** Across every mini arm on record it cited only whole-chapter units; `domain_match` count zero. gpt-4o is the only model that cited real segments. Every mini-only result is a weaker signal than it appeared.
+9. **gpt-4o refuses correctly where mini invents.** Given 2 thin segments on a timing question, gpt-4o produced 0 claims and said the material could not answer it; mini produced 3 Barnum claims from the same input. More claims was never the goal.
+10. **The precondition-mismatch defect, quantified.** 3 of 12 shipped claims in the live three-domain run recite doctrine whose "if" clause is false for this chart ("if the 12th lord is in the ascendant" — chart has 12th->6th; "5th lord in the 5th"/"in the 6th" — chart has 5th->2nd). Correctly cited, correctly quoted, not about this person. SAME defect class as the `p139_c0` finding that reversed the T4 palm ratification at S71.
+11. **The silence gate, replayed on those 12 real claims: 3 dropped, 9 kept, zero false drops.** Coverage varies hard by question — health 100% judged, career 50%, children 38%. The gate REPORTS its own `ungated_pct` on every answer so a human always knows how much was actually checked.
+
+### THE SILENCE GATE'S OWN NEAR-MISS — recorded because the lesson generalises
+`silence-gate-1.0`'s first implementation reused `payload_builder.extract_relations`. An adversarial review pass reproduced **six classes of WRONG DROP** on ordinary interpreter prose: negation ("NOT in the 5th" read as "in the 5th"), cross-sentence bridging (the 200-char DOTALL window inventing a relation from two unrelated sentences), missed disjunctions ("in the 9th or the 2nd" reading only the first), foreign reference frames ("from the Moon", navamsa, D-10, Arudha, transits all judged against the ascendant map), indirect attribution ("aspected by Jupiter in the 9th" — the 9th belongs to Jupiter), and bare numerals ("the 2 charts examined" read as the 2nd house).
+
+**ROOT CAUSE, and it is a doctrine mismatch rather than a bug:** `extract_relations` is a RETRIEVAL filter, deliberately permissive because over-matching there merely keeps extra text (fail-safe). As a precision judge, an over-match SILENCES A TRUE CLAIM — invisible in production. **A permissive matcher can never be a precision judge.** Fixed by replacing it with a purpose-built strict reader that works one sentence at a time and refuses to judge at the first sign of negation, alternatives, another reference frame, indirect attribution, dasha phrasing, or a compound condition. All six are now locked regression tests.
+
+### DECISIONS RATIFIED (do not re-litigate)
+- **PALM IS IN V1 and is BUILT.** Reverses the S71 "V1 PALM DROPPED" Option-Z lock, which is now stamped SUPERSEDED in CLAUDE.md (entry preserved; its technical content about GPT-4o-mini's limits on hedged classical prose remains valid and is what the two-stage extract-then-voice architecture answers).
+- **The S124 five-stage pipeline is the FINAL answer architecture.** The old S23 "no LLM-synthesised answer text" lock does not survive it; the deterministic calc domains become the fact block the Interpreter reads.
+- **V1 ORDER, re-ratified by Sulabh at session close: SELECTION FIRST, calculations after.** The 16 calculation stubs are stubs *because those calculations were hard to get right* — each carries the 4-reference-chart validation protocol and will take a long time. Selection is a one-file problem gating 7 of 10 subjects today. Doing the slow item first leaves most of the corpus unreachable for months.
+- **`calc_router.py` was deliberately NOT used as the planner's fallback.** It emits CALCULATION domains (`current_dasha`, `muhurta_window`...), a different output type in a different stage; mapping it onto the 16 TEXT domains would be a fresh hardcoded table — exactly what this architecture removed. It is untouched and continues to serve Track A.
+
+### CORRECTIONS MADE ON THE RECORD
+- **PALM IS COMPLETE FOR V1 SCOPE — an in-session claim to the contrary was WRONG and is retracted.** Sun / Health / Mars / Marks / hand-types / fingers / thumb / nails were read off S95's forward-looking list and called "remaining chapters". **S96 formally scoped them out**, per-configuration reasons recorded in `data/palm_rules/unauthorable_register.json` (marks and signs, hand-type family, two-hand laterality, and the whole p136-139 Influence-ray subsystem — "not emission-reachable" or outside the Cheiro-Western core). Marriage lines PARKED (no vision emitter block exists — architecturally unmeasurable). Thumb PARKED (S123, same relative-judgement class as the dead `proximity_degree` axis). The four live rule files — `head_heart`, `life_line`, `fate_line`, `mounts` — ARE the V1 palm scope. **The register exists precisely so closed questions are not re-litigated. This session re-litigated one.**
+- **CLAUDE.md's duplicate S72 palm-UI-gate entry resolved by grep, not argument.** `_PALM_ENABLED` EXISTS at `frontend/app.py:47` and gates 4 UI render blocks (868, 889, 1259, 1440). The "PLANNED, NOT YET IMPLEMENTED" twin is stamped STALE in place (supersede-don't-delete).
+- **`ASTRO AGENT — MASTER BUILD PLAN.md` REWRITTEN.** The prior version was frozen at **Session 42-44** — it named V1 as "3-domain deterministic calc Q&A", carried the S23 no-LLM-text lock, and contained no mention of the palm rules engine or the BPHS text pipeline. It described a system that no longer exists. Replaced with a three-track map (calculations / palm / BPHS text) through V2, with every open decision carrying its gate. `SESSION_5_PLAN.md` and `claude_handover_S97.md` reduced to one-paragraph tombstones — a stale handover is worse than none, because it is confidently wrong.
+- **A verification whose expected value was invented buys nothing (Working Style #16, violated in-session).** A prompt asked Claude Code to `grep -c HARD_CONTEXT_CEILING` and "expect 4". The true count is 3, in BOTH the old and new versions of the file — so the check could never have discriminated. The value, not the count, is the discriminating grep. Chasing it did surface a real problem: repeated writes to `agent/astro/planner.py` were reverted between commits (twice observed). **Cause unknown, not investigated — flag for the next session if it recurs.**
+
+### CARRY-FORWARD, OPEN
+1. **SELECTION is the next arc and the only V1 blocker of its size.** Broaden the relevance signal beyond the single lord-in-house sentence shape. **FLAG, recorded not buried:** selection can only be MEASURED on the eight non-timing subjects, because `timing_dasha` material cannot be validated until `vimshottari` exists. MITIGATION, to be built INTO the selection arc rather than deferred — design the timing relevance signal (planet and period names, NOT houses) now, ship it unmeasured, validate the day `vimshottari` lands. Do NOT leave `timing_dasha` out of the selection design because it cannot yet be tested.
+2. **Planner + silence gate are UNCOMMITTED.** Both built, both tested, awaiting a ratification token.
+3. **The silence gate is a scalpel, not a net.** It judges only the plain "the Nth lord is in the Mth" sentence. Dasha, conjunction and aspect claims pass through unjudged — not because the gate is weak, but because the fact block holds only 12 lord placements and an ascendant. Each calculation stub closed widens gate coverage with NO new gate code.
+4. **16 calculation stubs, 1,087 bytes total, all docstring-only** — `vimshottari` (gates every "when" question), `chart_d1` (gates the fact block), `yogas/detector` + 4 catalogs, `shadbala` roll-up, `vargas/divisional`, `vimshopaka`, 3 more dashas, `varshaphal`/`muntha`/`sahams`. **Closing these retires AstroSage as a side effect** — the PDF exists only because the engine cannot compute these yet.
+5. The planner's live house lists run thin (`[7]` for a marriage-timing question). A widening instruction was added to `SYSTEM_PROMPT`; its effect is UNMEASURED — the first run that would have tested it used a stale copy of the file.
+6. Repeated silent reverts of `agent/astro/planner.py` between writes — see the correction above.
+
+
+## S126 — Answer pipeline complete end-to-end; interpreter locked to gpt-5; selection reconciled to the locked 16 domains; Fix1 timing-tag cleanup (2026-09-11)
+
+DESIGN-CHAT session (Cowork). Executed directly against the working tree via the device bridge; the GPT validation ran on Sulabh's machine (the Cowork sandbox is firewalled from api.openai.com by egress policy). Suite after the session's commit: **3938 passed, 7 skipped, 0 failed** (`diagnostics/latest_run.md`).
+
+### BUILT + COMMITTED (S126)
+- `agent/astro/interpreter.py` (`interpreter-1.0`) — Stage 4. Emits STRUCTURED claims `{statement, segment_ids}` (so the silence gate can judge each claim's precondition), corpus-first prompt (verse block leads the system message = cacheable prefix), GHOST GUARD (any cited id not in the payload is stripped; a claim left with no real id is dropped, so the gate never sees a ghost id), `reasoning_effort=minimal`, dependency-injected `llm` for stub tests. Model locked `gpt-5`.
+- `agent/astro/pipeline.py` (`pipeline-1.0`) — `answer_question`: plan → select_units → build_payload → filter_segments_by_domain → interpret → apply_silence_gate → rendered answer. Builds the FACT BLOCK from the chart's lord→house map + ascendant. Fails open / refuses with the reason on record; never raises for a model/gate problem.
+- `tests/astro/test_interpreter.py` (6) + `tests/astro/test_pipeline.py` (2) — stub-llm, no API. End-to-end proof: a true-precondition claim kept, a false-precondition claim dropped by the gate, a ghost id stripped.
+- `agent/astro/planner.py` config: `INTERPRETER_CONTEXT_WINDOW` 128_000→400_000, `HARD_CONTEXT_CEILING` 72_000→225_000 (= (400k real − ~15k output/reasoning reserve) / 1.70 approx-ratio).
+- `data/domain_tags_bphs.json` — Fix 1 (below).
+- planner.py + silence_gate.py (built S125, previously uncommitted) landed in the same commit under a ratification token.
+
+### FIX 1 — timing-tag pollution removed (data-only; the ONE tagging fix that survived)
+`timing_dasha` was wrongly co-tagged on machinery and out-of-scope material. Dropped it from: `bphs2_ch46` (the dasha COMPUTATION manual → now `technique_method` only) and `bphs2_ch61/62/63` (Effects of Pratyantar/Sookshma/Prana dashas — the SUPPRESSED sub-dasha levels, ±37-day drift lock). Result: `timing_dasha` 252→38 segs (−36% of the domain was pollution); the "when will I marry" payload fell 158k→113k real tokens with ZERO doctrine dropped, because every removed segment was computation or a suppressed level. All 1,129 segments preserved; unit `per_domain` rollups recomputed.
+
+### MODEL — gpt-4o → gpt-5 (VALIDATED on real calls, do not re-derive)
+Validation (`scripts/validate_model.py`, run on Sulabh's machine 2026-09-10, real gpt-5): 4 real questions + 1 out-of-scope.
+- **0 ghost citations on every question** — every cited id exists in the payload. (career 6 real cites, wealth 7, property 4.)
+- **Honest refusal on "when will I marry"** — gpt-5 walked the marriage-timing yogas, ruled out the ones that don't fit the chart, and refused to give an age because the FACT BLOCK lacks planet positions (only lord→house today). This is the correct behaviour AND the concrete proof that timing needs `vimshottari`/`chart_d1`.
+- **Recall held at 99k–105k prompt tokens** (no degradation). The account cleared 105k with **no 429**, so gpt-5's TPM headroom is far above gpt-4o's 30k — the TPM wall is effectively gone on gpt-5.
+- **Cost ~$0.16 per big question** at `reasoning_effort=minimal` (reasoning ran ~2k–5.7k tokens, higher than the "~0.6k" estimate, but the payload is input-dominated ~82k:1.2k so it stays cheaper than gpt-4o's $0.22 and far cheaper cached).
+- gpt-5 fits EVERY question (max wealth_timing ~149k real) in ONE 400k-window call — no split, no narrowing, no doctrine dropped.
+
+Model comparison (live 2026 pricing, third-party, [Likely]): gpt-4o $2.50/$10, 128k, FAILS big+timing (over window); **gpt-5 $1.25/$10 cached $0.125, 400k — chosen**; GPT-5.6 Terra $2.50/$15, 1M, 89.6% recall (safety net, unused); GPT-5.6 Luna/mini **REJECTED — 41.3% long-context recall = cites wrong verses (the S125 mini-trap, benchmark-confirmed)**. Caching is automatic, ~24h TTL, 90% off the repeated prefix — keep the user-independent verse block as the prompt PREFIX.
+
+### DECISIONS RATIFIED (do not re-litigate)
+- **Interpreter model = gpt-5** (config in planner.py). `reasoning_effort=minimal`, corpus-first prompt.
+- **Selection speaks ONLY the locked 16-domain vocabulary** (S124). No topic/rule_type/facet axis was adopted. The planner emits `domains` (which it already did) + the `time_scope` it already emits; selection is `filter_segments_by_domain` + the within-chapter relation funnel (demoting the funnel was TESTED and REJECTED — it only enlarges payloads).
+- **Standing cost/correctness doctrine: never narrow, never fail-open to silence doctrine.** Window overflow is solved by the 400k model (lossless); TPM by account tier (money). Sub-tagging / a per-query LLM filter were considered and rejected as narrowing judges (a wrong drop silences a true claim).
+
+### CORRECTIONS ON THE RECORD (mistakes made and reversed this session — read before repeating)
+- **Anchored the whole first design on a REJECTED artifact.** Built a topic + `rule_type` tag layer on top of `segment_tags_bphs_career3.json` (segtag-2.0), and invented a `property_home` topic. Both wrong: S124 locks the 16 domains as the vocabulary (`property` is already in it), and S124 REJECTED entity-level (houses/planets) tagging. Sulabh caught it ("why segtag/property_home as external?… we decided not to design based on rule… read the log"). Retracted; `topic_select.py` and the topic-tag experiment are NOT part of the design. **Lesson: check the locked vocabulary and the REJECTED-APPROACHES list before proposing a new tagging axis.**
+- **`rule_type` (single or multi-valued) was scope creep** on the axis we agreed to keep backstage. The timing-vs-machinery distinction it was meant to carry is already carried by the 16 domains (`technique_method` = machinery, `timing_dasha` = timing). Dropped.
+
+### CARRY-FORWARD / NEXT (see claude_handover_S126.md)
+1. **`vimshottari` + `chart_d1` calc stubs** — the immediate next work. They widen the FACT BLOCK beyond lord→house (planet positions + running dasha), which is exactly what gpt-5's honest timing-refusal proved is missing. Unlocks all "when" questions and retires AstroSage. Each carries the 4-reference-chart validation protocol.
+2. **Vision / palm track** — Sulabh flagged starting the vision work in the next session (palm is already COMPLETE for V1 scope per S125; this is new vision work, scope to be defined next session).
+3. The silence gate stays a scalpel (judges only plain lord-in-house claims) until the fact block grows; each calc stub widens its coverage with no new gate code.
+4. **`parked_cost_reduction` SUPERSEDED + removed from the project (S126).** Its top lever (gpt-4o-mini interpreter) is REJECTED by the model validation (41.3% long-context recall); its prompt-caching idea is ADOPTED (gpt-5 auto 90% cache); the cost it targeted is already ~$0.16/big-Q (~$0.03 cached), nothing refuses over ceiling. Only unbuilt remnant: cache the interpreter ANSWER for chart-independent questions — LOW priority, not gating anything.
+
+### S126 close addendum — branch hygiene + sync (2026-09-12)
+- **`main` is stale at S84; `wip/interpretive-pilot` is the trunk** (deliberate since the ~S90 pivot; workflow = commit/push/pull on wip). Verified: wip is 214 commits ahead, main 0 ahead, FF-safe (main is an ancestor). DO NOT build on main — it starts from S84 and silently drops the whole pipeline. Confirm `git branch --show-current` == wip/interpretive-pilot before any work.
+- **a0569b0 (pushed) — tracked 12 accidentally-untracked LOAD-BEARING files** the committed pipeline imports/reads: `agent/astro/payload_builder.py`, `agent/astro/__init__.py`, `tests/astro/__init__.py`, `data/chapter_index_bphs.json`, `data/career_payload_bphs.json`, + 7 build/validate scripts. Before this, committed code imported an untracked module → a clean clone would ImportError; the 3938-pass suite only worked on local working-tree files. `wip` now clones clean (3938 pass). The S90 "untracked = only diagnostics/scripts/probes" invariant had silently broken; restored. `segment_index/tags_career3.json` stay untracked (no committed code reads them).
+- **OPEN — RAG/sync staleness (Sulabh action, project settings):** the project's GitHub sync points at `main`, so the project RAG serves S84-era content. FIX: repoint the sync branch `main` → `wip/interpretive-pilot`. Until then, a new session's RAG is 42 sessions stale — trust CLAUDE.md + SESSION_LOG + the handover over RAG hits. A `main`→`wip` FF-merge was considered and REJECTED: wip is the deliberate trunk, repointing the sync is the root-cause fix; merging would re-diverge on the next wip commit.
+
+### S126 → S127 build-guidance CORRECTION (2026-09-12, verified vs archives; supersedes optimistic handover phrasing)
+A fresh session (Output.txt) read `main`/S84 and correctly refused to build on unverifiable state. Its stub findings are VERIFIED here and correct three overclaims:
+- **`vimshottari` unlocks RANGE-level "when", NOT day-precise dates.** Gap D1 (S75/S76, `docs/KNOWN_DIVERGENCES.md`): row-0 (MD-1 end) residual vs Drik −0.33 to −2.66d, non-linear/seasonal → apparent-Moon convention divergence. RATIFIED accepted gap: range answers unaffected, day-precision EXCLUDED from V1. MD/AD logic already lives in `agent/chart_calculator.py` (S44 "import the real logic, do not touch the stub"); building the stub = extract/wire WITH regression coverage first, not greenfield.
+- **`chart_d1` stub is DELIBERATE** (P1.1/P1.4 Chart-dataclass refactor aborted S22/S24 — consumers take primitives). `chart_calculator.calculate_chart()` is the production D1 path with ZERO regression coverage; computes per-planet sidereal longitudes internally but its public dict exposes sign/house/dignity/retrograde, NOT raw longitudes. To surface positions: add regression tests to the production path FIRST (HARDEST-CASE-FIRST), then expose longitudes — do NOT rewrite the stub.
+- **AstroSage STAYS in V1.** Ratified S68 ("AstroSage PDF stays V1, no replacement scoped"). The S125 "retire AstroSage as a side effect" was an ASPIRATION, not a ratified decision — corrected. Removal contingent on the engine demonstrably covering AstroSage outputs.
+- **For any session that can't see S126:** the S126 code is on `wip/interpretive-pilot` @ `a0569b0` (pushed), NOT `main` (stale S84). Reconcile against `wip`, never `main`.
+
+## S127 — chart_d1 longitude surfacing + 4-chart oracle reconciliation + verification-gate rules
+
+**Shipped (committed):**
+- 1a `53b90f3`: David characterization regression test for calculate_chart() public D1 fields (sign/house/dignity/retrograde + lagna, 16 fields). Drift-guard, NOT an oracle. CAVEAT: per-planet dignity has no oracle table -- characterization only.
+- 1b `a65cb4c`: surfaced per-planet sidereal `longitude` in calculate_chart() public output (additive; value was computed internally and discarded -- no new ephemeris call). Extended the David test with 9 longitude asserts (1e-6 deg drift tol). Suite 3954->3963.
+- oracle `25dd869`: reference/oracle_fixtures/{david,sheridan,sulabh,surbhi}.md -- matched-mode section 3e (JHora Traditional Lahiri) as ratified D1 oracle.
+
+**Key findings:**
+- Prior JHora D1 captures (3b/3c) were **True-Chitrapaksha mode, not Traditional Lahiri** -- mode contamination, same class as the ayanamsa boilerplate bug. Corrected; True-Chitra tables tagged, retained for provenance.
+- Matched-mode residual (production vs JHora Trad-Lahiri) = documented **Camp-Y apparent-position gap** (Gap A1): max ~54" (Surbhi Mercury), 30.7" David, 44.2" Sheridan. Sun ~ -20" on all four = annual aberration signature. Rahu/Ketu ~ -0.14" = Mean-node match, no flip. NOT drift.
+- Ratifications propagated (corrected: **S75**, not S72): Gap O1/O2/O3.
+- Data-flag closures: Surbhi Moon = **Shatabhisha** (S74 "U-Bhadrapada #24" mislabel corrected); Surbhi Mercury(~3.6 deg)+Jupiter(~4.98 deg) **combust** (S51 "none" Basics-view invalidated); Surbhi Jupiter 29 deg 56' Leo **boundary-sensitive** flagged. Surbhi Ashtakavarga sentinel cells collapse to one (Moon-Virgo).
+
+**Process (CLAUDE.md rules 32-34 added):** root-caused this session's own misdirections -- calling the dasha/chart_d1 stubs a "stalled refactor," an already-documented Parasara/Varahamihira divergence a "new finding," mislabeling S75 as S72, reinventing rule-26's run-archive as per-person manifests. Single cause: **asserting from memory/summary before reading an available primary source.** Rules 32 (summaries!=authority), 33 (DESIGN-INTENT-FIRST binds the design chat), 34 (design chat reads what it can) added.
+
+**Recon (mapped, not built):** fact-block flow = pipeline._fact_block() renders ONLY lord_house_map + ascendant. Silence-gate **fails open** (non-relation claims -> UNDETERMINED -> kept). Widening with dasha/longitude is NOT gate-blocked but ships UNVERIFIED. chart_facts construction point NOT yet located.
+
+**NEXT:** fact-block widening -- chart_d1 position FIRST (restate-don't-compute, low risk), dasha DEFERRED until the gate can range-verify. Start with the S127 recon prompt (locate chart_facts construction; confirm gate fail-open on live tree; propose longitude wiring). Parked: PVR Ashtakavarga hand-computation cells (David/Sheridan).
+
+## S129 — Path B cutover: app.py rewired, capability gate, fact block widened to planet positions, QA capture + user-facing answer view, advisory planet reader, replay harness, Saturn oracle slip resolved (2026-09-12)
+
+> NOTE ON THE GAP: this file jumps S127 -> S129. **S128 was never logged here.** S128's
+> work is recorded only in `claude_handover_S126.md`-style handover text and in the
+> S128 lock at `CLAUDE.md:17` (now stamped SUPERSEDED). Do not infer S128 content from
+> this entry — it is not a summary of S128.
+
+OUTCOME: the Streamlit app now answers through the five-stage Path B pipeline. Coverage is
+narrow and DELIBERATELY so — what the fact block cannot support, the app declines in plain
+language instead of inventing. AstroSage PDF stays as the covering surface (S125 V1 order).
+
+**BRANCH:** `wip/interpretive-pilot`. Written to disk uncommitted; SHA assigned at Sulabh's
+commit — this entry names no SHA because none existed when it was written (CODE-READ
+PROVENANCE).
+
+**THE CUTOVER (the decision):**
+Two answer paths had been derailing sessions. Path A (`agent/infra/orchestrator`) assembles
+fixed templates and opens no book — it can never produce the objective's grounded, cited,
+chart-specific answer. Path B (`agent/astro/*`) is Planner -> Calculator -> Retriever ->
+Interpreter -> Verifier. Sulabh ratified **everything to B**. `frontend/app.py` now imports
+`answer_question` from `agent.astro.pipeline`, `build_chart_facts` from
+`agent.astro.chart_facts`, `render_user_answer` from `agent.astro.answer_view`, and
+`agent.astro.qa_capture`. Path A is RETAINED, tested, intact as the revert target, and wired
+to nothing. Its known defects are left unfixed BY DECISION.
+
+**BUILT (new modules):**
+- `agent/astro/chart_facts.py` — the adapter that did not exist. Restates
+  `calculate_chart()` output into `{lord_house_map, ascendant_sign, planet_positions}`.
+  **Computes nothing. Fails closed on any partial map.** Emits house + sign ONLY —
+  no dignity (no oracle table to validate it), no longitude (no verse keys on a degree),
+  no retrograde (three recorded grounds). `_GRAHA_ORDER` is classical, for byte-stable
+  rendering. 12/12 against the JHora oracle for Sulabh.
+- `agent/astro/capability_gate.py` — Stage 1.5, deterministic, NO LLM, sits between
+  planning and retrieval. Declines any question needing facts the block does not carry.
+  `FACT_BLOCK_PROVIDES = {ascendant_sign, lord_house_map, planet_positions}`. ONE
+  requirement today: `dasha_timing` (domain `timing_dasha` OR `time_scope in
+  {future, specific_period}`). **This is what makes a narrow fact block SAFE rather than
+  merely narrow** — the silence gate only judges "Nth lord in the Mth" and FAILS OPEN, so
+  a dated claim would otherwise ship unverified (Working Style #5).
+- `agent/astro/qa_capture.py` — per-launch `diagnostics/qa_capture/<UTC>.md`, appended per
+  turn. Records question, chart_facts, BOTH plans (pre- and post-gate), gate verdict,
+  selection + payload, interpreter usage + ghost ids, silence-gate stats, **full
+  untruncated cited verse text with char counts**, per-stage timings, the user answer AND
+  the pipeline render separately, raw interpreter JSON. Never raises. Gitignored (holds a
+  real chart).
+- `agent/astro/answer_view.py` — the user surface. Strips `[ids]`, drops `silent_on`,
+  swaps "the native" -> "you", appends a chapter-level source line. **Deliberately does
+  NOT rewrite claim text** — rewriting is where a verified claim becomes an unverified one.
+  Title guard at 60 chars / sentence punctuation because 20 of 100 chapter `title_raw`
+  values are OCR run-on sentences.
+- `scripts/replay_capture.py` — zero-API-cost replay: payload rebuild -> stored raw
+  response -> silence gate -> advisory -> answer_view -> diff. `CapturedTurn.user_answer_source`
+  distinguishes `answer_view` from `legacy_pipeline_render` so old captures are not
+  spuriously diffed.
+
+**MODIFIED:**
+- `pipeline.py` v1.0 -> v1.2: gate wired in, `_lap()` per-stage timings, `trace` dict
+  (`plan_before_gate`, `gate_refused_outright`, `payload`, `interpreter_raw`, `gate_error`),
+  `_fact_block` renders planet positions.
+- `planner.py`: `plan_and_build` split into `plan_question` + `build_from_plan(...)`.
+  Behaviour-neutral; `plan_and_build` unchanged for every existing caller.
+- `interpreter.py`: VOICE block in `_SYSTEM_HEAD` — address the user directly, NEVER write
+  "the native", ban kendra/trikona/dispositor/Navamsa/Atmakaraka etc., `silent_on` labelled
+  INTERNAL. Added `reasoning_effort_requested`/`_applied` to usage so the `except TypeError`
+  fallback cannot silently drop the param.
+- `silence_gate.py`: new **ADVISORY** planet reader (`read_planet_condition`,
+  `judge_planet_claim`). Records verdicts, **has no drop authority**. A sentence matching
+  both readers returns `None` (ambiguity rule). New stats incl. the promotion metric
+  `advisory_would_drop_a_kept_claim`.
+- `agent/calculations/core/chart_d1.py`: docstring rewritten to open
+  "THIS STUB IS DELIBERATE AND PERMANENT. DO NOT IMPLEMENT IT" with the verbatim S22/S24
+  abort quote.
+- `docs/ANSWER_PATHS.md`: rewritten — records the cutover, the gate, the pratyantar debt,
+  Path A's retained-but-unwired status and its known defects.
+- `CLAUDE.md`: S129 Path B lock added; S128 lock stamped SUPERSEDED; chart_d1 added to the
+  DESIGN-INTENT-FIRST known-intentional list.
+- `diagnostics/KNOWN_PATTERNS.md`: row **P-022** for the chart_d1 confusion.
+
+**FACT-BLOCK GROWTH CONTRACT (enforced by test):** widening `pipeline._fact_block` REQUIRES
+adding the matching key to `capability_gate.FACT_BLOCK_PROVIDES` in the SAME change.
+
+**PRATYANTAR:** still unhooked on Path B. The fact block carries no dasha, so today's safety
+is **ABSENCE, not a guard**. Whoever adds dasha to the block MUST add the suppression in
+that same change (±37d drift, wrong lord).
+
+**MEASURED BEFORE BUILDING:** 344 planet-in-house vs 176 lord-in-house corpus sentences,
+94.5% judgeable. Retrograde-keyed verses = 10/20,426 (0.05%) — the ground for omitting
+retrograde from the fact block.
+
+**SATURN "(R)" ORACLE CONFLICT — RESOLVED from primary sources.**
+Cross-chart retrograde census (4 charts x 7 grahas): 8 `(R)` marks, 7 agreed with recomputed
+pyswisseph speeds. Only `sulabh` Saturn disagreed — production says direct at
+**+0.008719 deg/day**. Decisive evidence is inside `sulabh.md` itself: its raw JHora
+Traditional-Lahiri export prints `Saturn - BK   8 Sg 50' 14.60"  Mool  3  Sg  Ge` with **no
+(R)**, and that value is EXACTLY the section-3e row's value — so that line is provably the
+row's source. The other three fixtures print retrograde Saturns as `Saturn (R) - PK ...` in
+the identical format, so the marker is not being dropped by the export. VERDICT: a
+**transcription slip** when the 3e table was hand-typed. Not a JHora convention, not a
+pyswisseph bug. Near-station is ruled out — `david` Mars at -0.012495 deg/day is nearly as
+slow as Sulabh's Saturn and flags correctly. `sulabh.md` corrected (`(R)` removed, marked,
+correction note retaining the superseded sentence); `docs/PROJECT_FACTS.md` RESOLVED entry
+supersedes the UNRESOLVED one. **Census is now 8/8. No JHora check is needed from Sulabh.**
+
+**COST DISCIPLINE (new, at Sulabh's instruction):** live dogfood runs burn real OpenAI
+credit. A live run is now required ONLY when (1) the interpreter prompt changed, (2) the
+fact block gained a new fact class, (3) model/config changed, (4) something is being
+ratified. Everything else replays through `scripts/replay_capture.py` at zero API cost.
+**The sandbox is FIREWALLED from api.openai.com — live runs happen only on Sulabh's machine.**
+
+**FROZEN FIXTURE:** `tests/fixtures/qa_captures/s129_live_gpt5_20260912T160015Z.md` — the
+real 2026-09-12 gpt-5 run. Costs a live run to recreate; do not delete.
+
+**VERIFIED:** 4 reference charts x 7 question shapes x 2 interpreter modes = 56/56 no
+exception, real retrieval, 21k-67k approx-token payloads. Suite 3939 -> 3982 passed, same 9
+pre-existing key/corpus-dependent failures. Post-Saturn: 123 passed across `tests/astro` +
+`tests/regression`.
+
+**MY OWN ERRORS THIS SESSION (root-caused, not just listed):**
+- Called `ch34_s011` a mis-citation — **for the second time across sessions**. Cause: printed
+  `s["text"][:460]` of a 5,396-char segment; the Raja Yoga verse sits at ~char 1,800. It is
+  5/5 faithful. FIX: `qa_capture` now stores full untruncated verse text with char counts,
+  so truncation can no longer masquerade as a mis-citation.
+- Fabricated Surbhi's birth data ("14 Oct 1992, Delhi"). Real: **11 Sep 1992, 10:30, Patna**.
+  Caught by oracle mismatch. Corrected and re-run.
+- Handed Sulabh a Claude Code prompt instead of doing the work myself. Corrected — I have
+  the access; I do the coding.
+- Asked Sulabh to check JHora when the answer was inside `sulabh.md`. Corrected by running
+  the census myself. **Same root cause as rules 32-34: reaching for a human before reading
+  an available primary source.**
+
+**NEXT:**
+1. Sulabh's stress test with the widened fact block (qualifies as a REQUIRED live run —
+   planet positions are new to the model).
+2. Promote or hold the advisory planet reader on `advisory_would_drop_a_kept_claim` from
+   that run. Do NOT promote on intuition.
+3. Deferred/owed: aspects + conjunctions (Q1 option c); `vimshottari` + pratyantar hook;
+   architect's refactor (`pipeline._fact_block` still calls `payload_builder.parse_lord_house_map`);
+   stale MASTER BUILD PLAN (~13 lines); cost-constraint re-ratification ($0.01 ratified vs
+   measured ~$0.19 / 75s); **`main` is stale at S84, so project RAG is ~45 sessions behind.**
+
+
+## S130 — reasoning_effort was never reaching the API; fact block widened 4 ways (house_lords, aspects, dignity head, navamsa); ghost citations root-caused (2026-09-13)
+
+**BRANCH:** `wip/interpretive-pilot`, on top of `c0d6c70`. Written to disk UNCOMMITTED;
+SHA assigned at Sulabh's commit — this entry names none because none existed when it was
+written (CODE-READ PROVENANCE).
+
+**HEADLINE:** three things this project believed were missing or blocked turned out to be
+already built and merely unwired, and the reason each was 'blocked' did not survive being
+checked against its own cited source. Rows P-024 and P-025 exist so this stops recurring.
+
+### 1. `reasoning_effort` NEVER REACHED THE API (P-023, FIXED)
+`interpreter._default_llm` passed `reasoning_effort` as a NAMED kwarg and, on `TypeError`,
+retried WITHOUT the parameter. On an SDK whose `chat.completions.create` signature predates
+that kwarg, the drop path ran on EVERY call. Measured 7/7 turns in
+`diagnostics/qa_capture/20260913T040439Z.md`: `reasoning_effort_applied=false`, 3,328-8,384
+reasoning tokens, 50-58s interpreter stages. FIX: the TypeError path now retries via
+`extra_body={"reasoning_effort": ...}`, which reaches the API on any SDK version; only an
+API-side refusal drops it, and `usage.reasoning_effort_path` records which of the three
+paths ran. MEASURED AFTER (`20260913T051158Z.md`, same Saturn question):
+`path=extra_body`, reasoning_tokens **8384 -> 0**, interpreter **50.51s -> 21.07s**,
+total **55.51s -> 24.37s**. STANDING LESSON: a TypeError on a named kwarg means the SDK
+SIGNATURE is old, NOT that the API rejects the parameter. Never conflate the two.
+
+### 2. FACT BLOCK WIDENED FOUR WAYS — all pure restatement
+Every key below was ALREADY produced by `calculate_chart()` and simply not restated by the
+adapter. No calculation was added anywhere; `chart_calculator.py` is untouched.
+- **`house_lords`** — `house_lord_mapping` rows carry `house/sign/lord/lord_in_house`; the
+  adapter read two and DISCARDED the lord's planet name and the sign. So the block could
+  not say "the 9th lord is Sun", and lord co-location was a 12-line inference. Now
+  restated, plus two pure regroupings: lords sharing a house, and planets ruling two houses.
+- **`aspects`** — `conjunctions` / `aspects_by_planet` / `aspected_by` restated verbatim,
+  plus a MUTUAL grouping (a one-way aspect and a mutual one carry different doctrinal
+  weight; a benchmark answer for this chart rated a one-way aspect as a certain raja yoga
+  precisely by not distinguishing them).
+- **`dignity`, HEAD ONLY** — Exalted / Debilitated / Own Sign restated; Friendly / Inimical
+  / Neutral NOT. See §3.
+- **`navamsa`** — D9 restated from a caller-supplied chart. See §4.
+Growth contract honoured on all four; `tests/astro/test_capability_gate.py` pins each, and
+a further test pins that a pre-S130 `chart_facts` dict still renders BYTE-IDENTICALLY so
+replaying an old capture reports no false diff. Suite 217 -> 228.
+
+**WHY IT MATTERS (measured against a Claude-desktop benchmark answer for the same chart).**
+Before: the Interpreter emitted "the 9th lord in the 4th" and "the 10th lord in the 4th" as
+two UNRELATED claims and never noticed they name one house — which is the
+Dharma-Karmadhipati yoga. After (`20260913T065603Z.md`): "With the 9th lord (Sun) conjoined
+the 10th lord (Mercury) in the 4th, an angle, you have an angle-trine lords' union." It also
+found Venus ruling BOTH the 6th and 11th, which the benchmark answer missed entirely.
+This is Working Style #23 in practice: feed the computed term, never ask the model to bridge
+two representations.
+
+### 3. THE S129b DIGNITY EXCLUSION WAS UNRATIFIED AND ITS STATED GROUND WAS FALSE
+`chart_facts.py` excluded ALL dignity because "no oracle table exists to validate it" and
+because "docs/KNOWN_DIVERGENCES.md records the dignity vocabulary fragmenting three ways".
+CHECKED: **KNOWN_DIVERGENCES.md contains no dignity entry at all.** Its only three-way
+fragmentation is Gap S1, Saptavargaja Bala, which is about VIRUPA TIER WEIGHTS in Shadbala
+(Mooltrikona=45 / Own=30 / Pramudita=20 vs Kapoor 45/30/22.5/15) — how much STRENGTH a tier
+scores, never which sign a planet is exalted in. A full design-chat history search (run by
+Sulabh, pasted to `diagnostics/latest_run.md`) found NO session where the exclusion was
+agreed; the last locatable fact-block session is S127, which had not yet even found the
+`chart_facts` construction point. Treat the old comment as written by Claude Code and never
+ratified.
+`_dignity()` (chart_calculator.py:147-162) tests EXALTATION, then DEBILITATION, then
+`_OWN_SIGNS` — all fixed constants locked S21 from PVR Table 6, uncontested and never
+revisited — and only THEN falls through to `_FRIENDS`, which is the genuinely contested
+part. So the S129b reasoning correctly blocks the tail and incorrectly blocks the head.
+S21 named the consumer at the time: "most raja/dhana yogas and Neecha Bhanga literally
+require knowing exaltation/debilitation/own-sign status".
+**STILL OUT, deliberately:** friendship tiers, and exaltation DEGREES — the tables carry
+signs only, so deep-exaltation and degree-keyed Neecha Bhanga variants stay unreachable.
+Do not synthesise either.
+
+### 4. NAVAMSA (D9) WAS BUILT ALL ALONG — WIRED AT LAST
+`agent/calculations/vargas/navamsa.py` has been built and oracle-clean since **S20**:
+`compute_navamsa(jd_ut, asc_lon_sidereal)`, 4/4 reference charts passing (David tested
+FIRST specifically for pada-boundary sensitivity), commit `2a70f1a`. It was wired to
+NOTHING for ~110 sessions because S20 locked *"Don't touch chart_calculator. Don't retrofit
+D1"* — an ARCHITECTURAL lock. Nobody ever decided D9 should stay away from users; S20's own
+V1 scope table marks D9 REQUIRED for the two highest-value marriage questions. The unwired
+state was DRIFT, not policy.
+That lock is HONOURED, not worked around: `calculate_chart()` already returns
+`meta.jd_ut` + `meta.asc_lon_sidereal`, which are exactly `compute_navamsa`'s two arguments.
+So `frontend/app.py` composes D9 and `chart_facts._read_navamsa` only RESTATES it —
+calculator untouched, adapter still importing no calculator, P-022 respected. FAIL-SOFT: a
+D9 failure costs the Neecha Bhanga check, never the answer.
+**ACCEPTED PRECISION GAP:** those meta values are rounded (jd_ut 6dp, asc_lon 4dp), worth
+~0.2 arc-seconds against a 3d20' pada. Resolving it means exposing unrounded values from
+chart_calculator, i.e. the S20 lock. Recorded, not resolved.
+**FIRST LIVE RESULT:** `Mercury: Virgo, D9 house 12, Exalted` — which ANSWERS the exact
+question the benchmark answer had to leave open ("the remaining route is Mercury being
+exalted in Navamsa… I haven't been asked to read it"). Jupiter and Venus are also exalted
+in D9, Moon in own sign.
+
+### 5. GHOST CITATIONS ROOT-CAUSED (fix landed, NOT yet live-verified)
+Every ghost in the 2026-09-13 runs came from the prompt carrying **two address formats at
+once**: split chapters render as `[ch34_s003]` (book prefix stripped, per-segment) while
+whole chapters render as `[bphs2_ch57]` (full unit id, NO sub-ids). The model normalises to
+the dominant per-segment format and mints sub-ids for the whole ones. 9 of 10 ghosts in one
+turn were `ch57_s001..s016` against `bphs2_ch57` "Effects of the Antardasas in the Dasa of
+Saturn" — a chapter genuinely present, genuinely on-topic, carried WHOLE. The remaining two
+were ordinal overruns: `ch34_s013` where ch34 ends at s012, `ch17_s012` where ch17 ends at
+s004. Measured: 23 of 81 selected units contribute zero segments and are carried whole.
+NOT fabrication — an ADDRESSING failure, and an expensive one, because the ghost guard drops
+the CLAIM along with the id (the Saturn turn shed 10 ids and shipped 2 claims).
+FIX: `interpreter._id_manifest()` renders a complete CITABLE IDS list ahead of the verses,
+whole chapters flagged as having no sub-ids, plus an inline marker on each whole chapter.
+4 tests, incl. one asserting the manifest actually reaches the system prompt.
+This is S124's own law reappearing: an id space the model cannot enumerate produces
+addresses that cannot resolve.
+
+### 6. OPEN, FOUND THIS SESSION, NOT FIXED
+- **A false-precondition claim shipped.** Saturn turn: "…as the 10th lord in the 8th gives
+  obstructions…" — this chart's 10th lord is in the 4th. The enforcing silence gate did NOT
+  judge it: `read_condition` returned `None` with "condition is negated or exclusionary",
+  because the word "unless" appears in a DIFFERENT clause of the same sentence. Fails safe,
+  so it was kept — and shipped. The negation guard is clause-blind.
+- **`ungated_pct` hit 100%** on two turns: the enforcing gate judged nothing at all.
+- **The planner selects almost everything.** 14 of 16 domains for "What does Saturn's
+  placement mean"; 81 units; prompt_tokens 185k-229k against the ~80k the $0.19/question
+  estimate was built on. `cached_tokens` 0 on six of seven turns — the corpus-first cache is
+  not hitting.
+- **`planetary_nature` is a glossary domain.** All five chapters are reference material
+  (ch2 Great Incarnations, ch3 Planetary Characters, ch4 Zodiacal Signs, ch76 Five Elements,
+  ch77 Satwa Guna). The planner picked it ALONE for "What do Mars and Venus say about me?"
+  and gpt-5 correctly recited definitions — "Venus is a female planet" — with a true
+  placement prefix. Faithful, cited, gate-clean, worthless to a reader. Proposed one-line
+  planner gloss is in `diagnostics/planet_reader_evidence_S130.md` §2, NOT applied: a planner
+  prompt change alters planning for every question and cannot be verified without live
+  gpt-4o calls, which the sandbox cannot make.
+- **Answer SHAPE is now the biggest gap to the benchmark.** The facts are no longer the
+  constraint — Sarala VRY (8th lord in 12th) and the Moon's Neecha Bhanga both sit in the
+  block and went unused, and D9 was never mentioned. The benchmark leads with a verdict,
+  ranks by reliability, and states what it rules out; ours emits a flat list of whichever
+  verses matched, and still leaks banned jargon ("angle-trine lords' union").
+  This is an interpreter-prompt + `answer_view` job.
+
+### 7. ADVISORY PLANET READER — HOLD (unchanged)
+`20260913T040439Z.md`: 21 planet claims judged, `advisory_would_drop_a_kept_claim` = **0**.
+A REAL zero, not the vacuous one S129 feared — but gpt-5 wrote every claim as "With <planet>
+in the <TRUE house>, <doctrine>", so the reader validated a true prefix 21 times and was
+never given the chance to refuse. Promotion grants DROP authority; no drop event has been
+observed, so the behaviour promotion actually changes is still unmeasured. `HOLD`.
+`scripts/classify_advisory_drops.py` sorts would-drops into CORRECT_CATCH /
+UNCAUGHT_LORDSHIP / DEFINITIONAL and now has a branch for "fired but never disagreed".
+
+### 8. MY OWN ERRORS THIS SESSION (root-caused)
+- Called `silence_gate.py:525-527` a GENUINE DEFECT (`claim in kept` membership). It is not:
+  `judge_claim` is a pure function of the claim dict, so value-equal claims get equal
+  verdicts and land in the same bucket — the false positive is unreachable BY CONSTRUCTION.
+  Proven with a 2,800-case exhaustive differential harness, 0 mismatches. I asserted a defect
+  without proving reachability (rule 28) and overruled the Architect on a false premise.
+- Asserted the capture lacked a judged-count denominator for the promotion metric. It does
+  not — `advisory_applicable`/`_not_applicable`/`_undetermined` have always been in
+  `gate_stats`. I asserted from the handover instead of the code (rules 32-34).
+- Twice claimed a live-run question set would work without checking what the model actually
+  cites; corrected only after measuring 96 planet-shaped sentences sitting unused in the
+  career payload.
+- Delivered source files as chat file-cards instead of just writing them to the repo.
+
+**NEXT:** see `claude_handover_S130.md`.
+
+
+## S131 — Stage 5b composer (answer shape becomes an LLM decision); yoga detector built, ruling-out becomes a calculation (2026-09-13)
+
+**BRANCH:** `wip/interpretive-pilot`, on top of **`b6bcc54`** — the S130 commit.
+Written to disk UNCOMMITTED. Suite **4123 passed, 7 skipped, 5 deselected**,
+unchanged before and after every edit this session.
+
+**CORRECTION TO THE RECORD, FOUND FIRST THING.** Sulabh opened the session saying
+S130 was uncommitted; `CLAUDE.md:8` and SESSION_LOG §S130 say the same. Both are
+stale by ~70 seconds: `.git/logs/HEAD` records
+`c0d6c70 -> b6bcc5447728339ec3e96323a604893cc8798662` at 1789289494, message
+"S130: reasoning_effort never reached the API…". S130 IS committed. The two
+documents were written just before the commit and never updated.
+
+### 1. THE SCORER WAS DESIGNED, THEN REJECTED — RECORDED SO IT IS NOT REBUILT
+S131 first proposed answer shape as: an extended claim schema carrying
+fact-reference `mechanism` / `degraders` / `unresolved`, a deterministic
+reliability+ceiling scorer, and verdict templates selected by the topology of the
+scored set. **Sulabh rejected it:** "scoring logic will change as per scenarios and
+same for topology… we will get into mesh of all these setting and thresholds".
+He was right — it is precisely the threshold proliferation Working Style #4 exists
+to stop, and it would need a new lattice branch per question shape. REPLACED by an
+LLM composer. **Do not re-propose the scorer.**
+
+### 2. STAGE 5b — THE COMPOSER (`agent/astro/composer.py`, NEW)
+A second, tiny gpt-5 call whose ONLY input is the gated claim set: question, the
+kept claims with each claim's ENFORCED gate verdict, dropped claims, `silent_on`.
+It decides salience and order and writes plain English.
+
+**Why a separate stage and not the interpreter prompt.** Every `_SYSTEM_HEAD` edit
+is a live-run trigger against a 185k-token payload. The composer takes shape work
+off it entirely and **the interpreter prompt was not touched this session.**
+
+**Cost, measured not assumed** (`diagnostics/qa_capture/20260913T065603Z.md`):
+composer input 553 and 312 tokens against the SAME turn's **185,297** interpreter
+prompt tokens — ~0.8%. Live: `prompt_tokens` 1176 / 766, `completion_tokens`
+537 / 313, `reasoning_effort_path=extra_body`.
+
+**THE S129b NO-REWRITE RULE IS REPLACED BY MECHANISM, NOT RELAXED.** S129b barred
+`answer_view` from rewriting AND re-ordering because rewriting is where a
+gate-verified claim silently becomes unverified. The composer does both, so
+`composer._verify` substitutes:
+- **ENFORCING — no new chart facts.** A rewrite may not contain a chart token
+  (house ordinal / graha / sign / dignity) absent from the claim it rests on.
+  Closed vocabulary, set containment, NO prose parsing — deliberately not the
+  clause-reading whose negation guard proved clause-blind (S130 §6). A failing
+  block DEGRADES to the original claim text; it is never dropped.
+- **ADVISORY — conditions survive.** Recorded in `condition_advisory`, NOT
+  enforced. A keyword test cannot distinguish a genuinely unhedged rewrite from
+  one carrying the condition in other words ("a strong 6th lord brings…"), and
+  enforcing it would push most answers back to the jargon original — defeating the
+  stage. Promotion is gated on the measured rate, exactly as the planet reader was
+  (S129b (4)). **Do not promote on intuition.**
+- **COVERAGE.** Every input claim is rendered or explicitly demoted with a reason;
+  anything unaccounted for is auto-restored (`unaccounted_restored`).
+
+**OFF BY DEFAULT.** `compose=False` (or `ASTRO_COMPOSER_ENABLED` unset) means the
+branch does not run and the result is byte-identical to pre-S131. The composer
+never raises and never replaces `answer`.
+
+**VERIFIED BEFORE BUILDING (no assumptions):** `GateResult.verdicts` carries a
+per-claim `ClaimVerdict`, built in claim order — but `answer_question`'s return
+dict does NOT carry it (repo-wide grep: only `silence_gate.py:108` and `:580`
+touch `.verdicts`). It is reachable in-process at the gate call, which is where
+Stage 5b sits. Claims carry NO id anywhere, so `composer._claim_rows` assigns
+positional ids by re-deriving the kept partition from `gate.verdicts` — no change
+to `GateResult` was needed.
+
+**LIVE RESULT (real gpt-5, both turns, via `replay_capture --compose`).** Stage 4
+replayed from the stored raw response, so only the composer call was live.
+**0 invented facts across two independent calls.** Both answers opened with a
+verdict ("Yes—you do have clear angle–trine combinations…" / "the picture is
+cautious because both key points are unverified"), both flagged verified vs
+unverified per claim, both closed with what was not assessed. Turn 1's ordering
+roughly tracked `checked` status. Full before/after text in
+`diagnostics/latest_run.md`, archived under `diagnostics/runs/`.
+gpt-5 at `reasoning_effort=minimal` is NOT deterministic call to call — the two
+calls differed in wording and in whether the advisory fired. Expected, not a defect
+(the S123 run-to-run-variance law applies to text composition too).
+
+### 3. THE YOGA DETECTOR (`agent/calculations/yogas/`)
+Four Phase-0 stubs FILLED: `detector.py`, `catalog/raja_yogas.py`,
+`catalog/special.py`. Pure arithmetic over the already-computed fact block — no
+ephemeris, no `chart_calculator` import, no chart fact computed (S124 + S20 hold
+by construction). Catalogue modules are plain `detect(facts) -> list[dict]`, so
+nothing in `catalog/` imports `detector`; there is no cycle. NEVER RAISES.
+
+**EVERY RULE RETURNS A NOT-FIRED REASON.** That is the deliverable, not a nicety:
+"you do not have Gajakesari, because your Moon and Jupiter are six houses apart"
+is the half of an answer this pipeline has never been able to produce.
+
+**PRE-FLIGHT DONE (P-024), before writing anything:** `pancha_mahapurusha.py` was
+already BUILT (3,322 bytes, uses `calculations.core.dignity.get_dignity_status`)
+and wired to nothing; `detector` / `raja_yogas` / `neecha_bhanga` / `dhana_yogas`
+/ `special` were docstring-only stubs; `chart_calculator._calc_yogas` returns ONLY
+`mangal_dosha` and `kalsarpa_yoga` — there was no raja-yoga logic to restate.
+
+**VALIDATED 6/6 against `Output.txt`** (the Claude-desktop benchmark for this same
+chart; identity confirmed from the capture's own `chart_facts` — Sagittarius
+lagna, Moon debilitated in Scorpio 12th, Mars exalted in Capricorn, Mercury
+debilitated in Pisces 4th, Venus own sign 6th). `scripts/probe_yoga_detector_S131.py`
+-> RESULT: PASS.
+
+| rule | expected | got |
+|---|---|---|
+| Dharma-Karmadhipati | FIRED | FIRED |
+| Sarala (VRY) | FIRED | FIRED |
+| kendra_trikona_4_5 (Mars aspects Jupiter) | FIRED | FIRED |
+| Harsha (VRY) | RULED OUT | RULED OUT |
+| Vimala (VRY) | RULED OUT | RULED OUT |
+| Gajakesari | RULED OUT | RULED OUT |
+
+**CONTESTED, DELIBERATELY UNRESOLVED.** Vipareeta rules carry `contested=True` +
+`contested_note`: Uttara Kalamrita requires the dusthana lord in one of the OTHER
+two dusthanas; later compilations also count its own. The module takes the UK
+reading — the same one the benchmark used to rule out Harsha. Do NOT widen the
+condition; that is the Tiebreaker-principle call and it is Sulabh's.
+
+**DUPLICATE-LOOKING HITS: RULED, NO ACTION.** 7 fired rows include
+`kendra_trikona_7_9` and `kendra_trikona_10_9`, both resting on the same physical
+Sun+Mercury conjunction; both are genuinely distinct lordship links. Sulabh:
+"Our composer will automatically merge them we need not to do anything."
+
+### 4. MY PREMISE WAS FALSE AND SULABH CAUGHT IT
+S131 asserted the ruled-out set could not be produced because the desktop
+benchmark ruled out Gajakesari and Harsha using training knowledge, which S124
+bars. Sulabh asked where that knowledge came from. VERIFIED in
+`data/chapter_index_bphs.json`: **Gajakesari is in `bphs1_ch36` ("Many Other
+Yogas"), the Vipareeta trio in `bphs2_ch48`, Neecha in `bphs1_ch24`.** Worse —
+all four chapters were ALREADY SELECTED and shipped in the 065603Z turn (46 units
+selected). The doctrine was in front of gpt-5 and went unused, and `ch48_s001`
+sits in that turn's `ghost_citations`: the model reached for the Vipareeta chapter
+and the addressing bug threw the citation away. Ruling-out was never an
+outside-knowledge problem. This is rule 33/34 again — I asserted a limit without
+searching the primary source I could already read.
+
+### 5. OPEN, FOUND THIS SESSION, NOT FIXED
+- **Jargon survives the rewrite.** "angle–trine" appeared unglossed in 5 of 6
+  claim blocks plus the lead. A prompt blocklist was **rejected by Sulabh as
+  hardcoding** ("we cant harcode block for each of these kinds of issues"). Two
+  general routes, neither chosen: reframe the rule from a banned-word list to a
+  principle plus self-check, or DERIVE a jargon lexicon from the corpus (frequent
+  in BPHS, rare in ordinary English) — the same SSOT reasoning as
+  `feature_needles.py` and `ontology_registry.json`.
+- **One condition drop observed.** Turn 1 claim 0: source "especially WHEN that
+  1st lord also rules the 4th…" → rewrite stated it settled. Logged by the
+  advisory check, not blocked. Sulabh: "lets keep this in mind, no action as of
+  now."
+- **`ungated_pct` measured 66.7% and 100%** on the two turns. On the Saturn turn
+  the composer has NO verification signal to rank by, because every claim is
+  UNDETERMINED. The clause-blind negation guard therefore now blocks composer
+  quality and has risen in priority.
+- **The fact block is NOT yet widened with yogas.** Whoever does it MUST add the
+  key to `capability_gate.FACT_BLOCK_PROVIDES` in the SAME change.
+- **`interpreter.py`'s module docstring is still stale** — "PATH B / LAB TRACK —
+  NOT WIRED TO THE PRODUCT (S128 lock)", false since S129.
+
+### 6. MY OWN ERRORS THIS SESSION
+- Asserted the ruled-out set needed outside knowledge without grepping the chapter
+  index I could already read (§4). Rules 33/34.
+- Proposed a scorer + topology templates that would have become a threshold mesh;
+  Sulabh's rejection was correct on the merits, not a preference.
+- Overstated composer iteration as "free". Stage 4 replays free; the composer call
+  is live at ~1.5k tokens. Corrected in-session.
+- Delivered source as chat file-cards once, against a standing instruction.
+  `device_commit_files` takes a staged path directly; no card is needed.
+
+**NEXT:** see `claude_handover_S131.md`. First task is Neecha Bhanga.
+
+
+## S132 — yoga layer consolidated to one module; formulas re-sourced from PVR; Ghatika Lagna built (2026-09-13)
+
+**Uncommitted on `wip/interpretive-pilot` atop `9473c55`.** S131 IS committed
+(three commits: `4d92e10` composer, `71796fe` yoga detector, `9473c55` docs);
+`claude_handover_S131.md` §1 says "S131 IS UNCOMMITTED" and is stale.
+
+### 1. One module
+
+`agent/calculations/yogas/rules.py` replaces `catalog/raja_yogas.py`,
+`catalog/special.py` and `catalog/neecha_bhanga.py`. Merge verified
+behaviour-identical FIRST — 18 verdicts, same ids, same fired flags, same
+evidence, run against the real capture `20260913T065603Z.md` — then extended.
+Removed two duplicate copies each of `_ordinal`/`_house_lords` and two
+duplicate `KENDRA_HOUSES`.
+
+The three-file split was never a design decision. Verified against the original
+design-chat history: it appears once, as a file path typed inline while
+drafting a Session 40 prompt. `ASTRO AGENT — MASTER BUILD PLAN.md:78` then
+records those names, so the plan inherited an undebated choice rather than
+making one.
+
+`catalog/pancha_mahapurusha.py` deliberately NOT merged: it takes
+degree-level placements and its own dataclasses (19KB of passing tests on that
+interface), which the fact-block contract cannot supply. **It is still wired to
+nothing** — `_CATALOG` never calls it.
+
+### 2. Doctrine prose removed from calculation modules
+
+`source` strings naming books, `_VRY_CONTEST`'s Uttara-Kalamrita sentence, and
+every `reason` that taught the rule rather than stating the placement. Reasons
+now read "Jupiter stands 6th from the Moon (Moon in the 12th, Jupiter in the
+5th)". `BPHS`, `Kalamrita` and `_SOURCE` occur zero times across the modules.
+Rationale (Sulabh's, sharper than the one I was giving): a sentence of doctrine
+in code is a FRAGMENT standing in for a whole chapter — it reads as
+authoritative, so nothing goes back for the rest, and the chapter's own
+conditions never arrive. Row P-029.
+
+### 3. Ghatika Lagna — a real calculation
+
+`agent/calculations/jaimini/special_lagnas.py`. Bhava / Hora / Ghatika Lagna
+from the governing sunrise and the Sun's sidereal longitude; rates 15 / 30 / 75
+degrees per hour. **The Vedic day boundary is the trap**: a pre-sunrise birth
+(Sulabh, 00:30) belongs to the PREVIOUS calendar day's sunrise; using the same
+morning's makes elapsed time negative and lands every special lagna a third of
+a zodiac away.
+
+### 4. Twelve calculations added, formulas re-sourced from PVR
+
+S131's and early-S132's yoga formulas came from JHora's on-screen "Brief
+definition of yoga" column. Re-sourced from
+`data/pdfs/Vedic Astrology_ PVR Narashimha Rao.pdf`. **Four were wrong:**
+
+- **THE VIPAREETA FAMILY WAS INVERTED.** PVR p.145: Harsha = 6th lord in the
+  **6th**, Sarala = 8th lord in the **8th**, Vimala = 12th lord in the
+  **12th**. S131 coded "the dusthana lord in one of the OTHER TWO dusthanas"
+  per Uttara Kalamrita and locked it as a contested definition. PVR is the
+  primary spec source and says own house — the S131 framing was backwards.
+- **Raja Yoga was missing parivartana.** PVR p.146 names three associations:
+  conjunction, graha drishti, exchange. S131 had two.
+- **Nipuna** — PVR p.126 is "together (in one sign)"; "mutual 7ths" is JHora
+  screen text only.
+- **Kalpadruma** — PVR p.140 is "quadrants, trines or exaltation signs"; own
+  sign is not in the spec.
+
+Yogada CONFIRMED as coded (PVR p.179). **Adhi is ambiguous in PVR** — its
+definition says "6th, 7th and 8th from Moon", its own worked example places the
+benefics in the 5th and 4th. Settled by the oracle: the 8th from Sulabh's Moon
+is EMPTY and JHora still fires Adhi listing exactly "Ju, Ve", so the loose
+reading is JHora's and is adopted; giver set matches planet-for-planet.
+Recorded in `_adhi`'s docstring — do not re-litigate.
+
+**BPHS itself was never opened.** PVR only.
+
+### 5. Validation — computed first, compared after
+
+Everything below from birth details only
+(`"Sulabh", "6 Apr 1988", "00:30", "Calcutta, India"`), compared to
+`reference/oracle_fixtures/sulabh.md` afterwards.
+
+| what | computed | oracle | delta |
+|---|---|---|---|
+| Bhava Lagna | Capricorn 6.9341 | Capricorn 6.9375 (§3f) | 12" |
+| Hora Lagna | Libra 22.1378 | Libra 22.1389 (§3f) | 4" |
+| Ghati Lagna | Pisces 7.7489 | Pisces 7.7429 (§3f) | 21" |
+| Chara Karakas | 8/8 | §9a | exact |
+| D9 signs | 9/9 | §3f Navamsa column | exact |
+
+**15 of 16 §10c yogas fire**, giver planets matching where printed.
+
+**The 16th does not fire, correctly.** JHora's "Viparita Raja Yoga (Mo) — 8th
+lord in 6th or 12th" is not PVR's Sarala. Spec source wins; divergence
+RECORDED, same disposition as the Drik Bala AstroSage-vs-JHora split.
+
+**Every NOT-FIRED verdict is unverified** — JHora prints only what it finds, so
+Gajakesari, Vimala, PVR-Sarala and the six kendra-trikona pairs are unproven in
+either direction. Needs a second chart; `surbhi.md` has no Yogas tab yet.
+
+### 6. Oracle migration
+
+`tests/fixtures/jhora_sulabh.md` §7 (the only yoga oracle in the repo for any
+chart) migrated verbatim to `reference/oracle_fixtures/sulabh.md` §10c, 16
+rows. **Before deleting the old file, re-point `SESSION_LOG.md:139`**, which
+cites it as the Pancha Mahapurusha real-chart oracle.
+
+### 7. Process failures — rows P-026..P-029
+
+Every one was caught by Sulabh, not by me.
+
+- **P-026** — answered from `claude_handover_S131.md` repeatedly, retracting
+  each time an older source surfaced. The Master Build Plan settled in one grep
+  what four exchanges could not. Order: build plan → locks → KNOWN_PATTERNS →
+  code → handover LAST.
+- **P-027** — fed `sulabh.md` §3f's Ghati Lagna INTO the Yogada calculations,
+  then "validated" against the same file and reported 16/16. Honest figure was
+  12/16 until GL was computed for real.
+- **P-028** — took formulas from the oracle's own definition text, so JHora
+  supplied the formula and graded the answer.
+- **P-029** — doctrine prose in calculation modules.
+
+Plus two not worth their own rows: shipped a strict AND a wide Harsha rather
+than resolving the conflict (that is not neutrality — the answer layer would
+have told the user both); and used the palm track's vocabulary ("rule", "rule
+condition") for astrology calculations.
+
+### 8. Carry-forward
+
+Tests (none exist for the whole yoga layer); wiring yogas to the answer path
+(and the planner selects chapters from the QUESTION, never the FACTS, so a
+fired yoga does not pull its doctrine chapter in); `pancha_mahapurusha.py`
+unwired; restating `_calc_yogas` into Path B; deleting the three `catalog/`
+stubs; BPHS cross-check; second chart for the ruled-out direction. The wider
+BPHS yoga set stays OUT until the 16 are done — Sulabh's explicit instruction.
+
+
+## S133 — yoga layer completed and validated on two charts; yoga facts wired into the answer path (Phase 1) (2026-09-13)
+
+**UNCOMMITTED on `wip/interpretive-pilot` atop `85a0707`** (S132's third commit). New yoga tests pass (44 rules + wiring tests); full suite not run this session (design-chat + sandbox only, no live API in sandbox).
+
+### 1. Yoga calculations completed (`agent/calculations/yogas/rules.py`)
+Started from S132's 15-of-16 fired on Sulabh only. Added/fixed and validated against BOTH `sulabh.md` §10c AND `surbhi.md` §10c, computed from birth details and compared AFTER (P-027):
+- ADDED: Anaphaa (12th from Moon); the full Naabhasa sankhya family Gola..Veenaa (distinct occupied-sign count 1..7, one lookup); Yogada by Hora Lagna; Maha Yogada (associated with lagna + GL + HL); Pancha Mahapurusha (all five), degree-accurate.
+- FIXED, each surfaced by the SECOND chart (Surbhi): Vipareeta dusthana-lord link now checks all three pairs 6-8/6-12/8-12 (Sulabh fires 6-8, Surbhi 6-12; the 6-8-only version missed Surbhi); Adhi widened to count Mercury when it keeps benefic company by conjunction OR aspect (Surbhi givers Me,Ju,Ve); Yogakaraka no longer false-fires on a lagna lord owning a kendra — PVR p.177 needs a quadrant (4/7/10) AND a trine (5/9), the 1st is both so it cannot supply the trine (JHora prints no yogakaraka for Sulabh); Dharma-Karmadhipati now fires on conjunction/aspect/exchange (was conjunction only); Neecha Bhanga's exaltation-sign-lord cancellation condition completed (was a stubbed not-evaluable).
+- Raja Sambandha RE-SOURCED FROM PVR §11.8 (P-028): it is a FAMILY; JHora prints whichever sub-combination fires with that combination's own result text. Two computed — (5) AmK in a trine from lagna -> "a famous minister" (Sulabh, Jupiter AmK in the 5th); (6) AmK in a quadrant/trine FROM AK -> "an associate liked by a king" (Surbhi, Rahu AmK 5th from AK Jupiter). NEITHER transcription reproduced BOTH charts alone; the S132/early-S133 from-AK-only reading was wrong for Sulabh.
+- Pancha Mahapurusha is DEGREE-ACCURATE via `core.dignity.get_dignity_status` (resolves Moolatrikona). Degrees reach the detector from a detector-only `planet_degrees` key. `catalog/pancha_mahapurusha.py` stays UNWIRED and is now redundant (retire when convenient). `rules.py` imports `get_dignity_status` — a pure table lookup, not ephemeris and not `chart_calculator`.
+
+### 2. Validation — both charts, computed-then-compared (`scripts/probe_yoga_charts.py`)
+Sulabh: special lagnas 12"/4"/22" (Moshier in the sandbox; his own ephemeris gives ~21"), Chara Karakas 8/8, all 16 §10c rows reproduced (15 fired + the one deliberate PVR-Sarala divergence, JHora's "8th lord in 6th/12th" which PVR calls a different yoga — recorded, not fired). Surbhi: Karakas 8/8, all 16 §10c rows reproduced (Sasa, Anaphaa, Paasa, Maha Yogada, the 6-12 Vipareeta, Adhi Me/Ju/Ve). Every not-fired verdict is now proven in BOTH directions by the second chart. 44 logic tests in `tests/calculations/yogas/test_rules.py`.
+
+### 3. Yoga facts wired to the answer path — PHASE 1
+- NEW `agent/astro/yoga_facts.py`: `build_yoga_facts(chart, chart_facts)` runs the detector over an augmented block (karakas + special-lagna SIGNS + degrees, all detector-local) and returns the detector report `{fired, ruled_out}`; fail-soft (never raises). [CORRECTION 2026-09-14: the `inputs` audit block described below was NOT attached in the S133-committed code -- see the §4 note.] The augmented inputs NEVER enter the interpreter payload.
+- `pipeline._fact_block` renders "Yogas PRESENT in the chart" (fired + reasons) and "Yogas CHECKED and NOT present" (ruled-out names).
+- `capability_gate.FACT_BLOCK_PROVIDES` += "yogas" (growth contract; `tests/astro/test_capability_gate.py` updated — the exact-set pin now includes it).
+- `frontend/app.py` composes `chart_facts["yogas"]` right after the D9 block, fail-soft.
+- [CORRECTION 2026-09-14] The `inputs` audit block (karakas / GL & HL signs / per-planet degrees) was DESIGNED to ride inside `chart_facts["yogas"]` for `qa_capture`, but the S133-committed `build_yoga_facts` did NOT attach it — it returned `detect_yogas(det).to_dict()` directly. `planet_degrees` IS fed to the detector, so degree-accurate PMP is live; only the audit RECORD was missing. Attaching it is S134's task (next session).
+
+### 4. Live dogfood (Sulabh's machine, gpt-5) — Phase 1 VALIDATED
+`diagnostics/qa_capture/20260913T161031Z.md`, six questions. Yoga facts computed correctly live (21 fired, GL Pisces, HL Libra, `errors: []`) and the interpreter USED them: Q2 named Harsha/Nipuna/Sunaphaa/Adhi grounded in ch36/ch37; Q4 explained Mercury's Neecha Bhanga via the D9-exaltation route correctly; Q1 used the 9th+10th-lord raja combination; Q3 did careful ruling-out; Q5 timing DECLINED by the capability gate (and Q1 too — both were time_scope=future). A clear, measurable improvement over the S130 state (the doctrine chapters were selected then but the facts were absent, so gpt-5 ignored them). NOTE: that run's `chart_facts.yogas.inputs` is null because the running Streamlit had the pre-`inputs` `yoga_facts` cached in `sys.modules`; a full app restart captures it. Not a bug. [CORRECTION 2026-09-14: this diagnosis was WRONG. The committed `build_yoga_facts` never attaches `inputs` at all; caching was a red herring. It is a real (small) gap — a degree-accurate PMP verdict had no captured record of the degree behind it. Fix is S134's task.]
+
+### 5. PHASE 2 CONFIRMED NEEDED (fact->chapter), with concrete targets
+Q2 and Q4 produced GHOST citations to `ch38` (the raja/solar-yoga chapter) and `ch35` (Naabhasa) — the interpreter, now holding the yoga facts, reached for yoga-DOCTRINE chapters the question-driven selection did not pull, and ghosted (the guard caught them -> dropped, nothing false shipped, but that doctrine was lost). Fact-driven chapter augmentation is the fix. Map targets observed: raja/solar -> `bphs1_ch38`, Naabhasa -> `bphs1_ch35` (Harsha/Adhi -> ch36 and lunar -> ch37 were pulled and worked; Neecha -> ch24, Vipareeta -> ch48 per the S131 lock, PMP -> ch75). MECHANISM (designed, not built): in `build_from_plan`, union each fired yoga's chapter(s) onto `select_units`' unit_ids, build the payload over the enlarged set, and EXEMPT those units from `filter_segments_by_domain` (via the payload's existing `segment_ids_by_unit`) so they are not pulled-then-dropped; the context ceiling stays the guard. Needs a RATIFIED yoga->chapter index — a doctrine-sourcing decision (BPHS titles diverge from content), Sulabh's call.
+
+### 6. Two pre-existing issues the dogfood surfaced (NOT yoga-related)
+- Q6 (remedy) 400'd: 299,852 real tokens > this gpt-5 tier's 272,000 input cap. Root cause: `build_from_plan` refuses on APPROX tokens vs a 400k window (`HARD_CONTEXT_CEILING=225k`), but the real cap is 272k, so a payload legal by the approx guard (~176k approx ≈ 300k real) was sent. FIX: refuse on `estimated_real_tokens` vs the real 272k cap. Separately, a remedy question should refuse up front (remedies out of V1 scope) and did not on Path B.
+- The yoga fact block adds ~1-2k tokens to every interpreter prompt (small; recorded).
+
+### 7. Process / cleanup
+- The three S131/S132 landmine files were DELETED this session (`tests/fixtures/sulabh_oracle_chart.py`, `scripts/probe_yoga_oracle_S132.py`, `scripts/probe_yoga_detector_S131.py`) after a guard confirmed no code imports them (only narrative mentions in `SESSION_LOG.md`/handover remained, left intact).
+- Sulabh appended a raw JHora Traditional-Lahiri block to `sulabh.md`; its special lagnas differ from §3f by 1-5 arcmin (signs identical, so no yoga impact). §3f stays the special-lagna oracle (production matches it 12"/4"/22"); the new block is a second capture — cross-software divergence, recorded, not reconciled.
+
+### 8. Carry-forward
+Phase 2 (fact->chapter, map above); the 272k real-token ceiling fix; remedy refusal on Path B; restate `chart_calculator._calc_yogas` (mangal_dosha, kalsarpa) into Path B by restatement (S20); retire `catalog/pancha_mahapurusha.py`; the wider BPHS yoga set beyond JHora's rows is now UNBLOCKED (the JHora-16 are done and validated on two charts) — open it only on Sulabh's explicit go.
+
+
+## S134
+- Attached the yoga-facts `inputs` audit block in `agent/astro/yoga_facts.build_yoga_facts` (chara_karakas, ghati/hora lagna signs, planet_degrees rounded to 4dp) — closes the gap the S133 §4 correction flagged. Diagnostics-only: `pipeline._fact_block` (agent/astro/pipeline.py) reads only `fired`/`ruled_out`, so `inputs` is captured by `qa_capture` (dumps chart_facts whole) but never reaches the interpreter payload. Degree-accurate PMP was already live in S133; this only captures the RECORD of the karakas / special-lagna signs / degrees fed to the detector.
+- Fixed the stale PMP module docstring in `agent/calculations/yogas/rules.py` (~lines 7-12): it claimed the check works off the fact block's own dignity label with a moolatrikona-only placement "unreachable". Corrected to state the S133 degree-accurate check via `core.dignity.get_dignity_status` over a detector-only `planet_degrees` key — moolatrikona IS reachable, and `catalog/pancha_mahapurusha.py` stays unwired because this check subsumes it. Now consistent with the import comment (~lines 52-56) and `_pmp_qualifies`.
+- NOT run from the session that made these edits (file bridge only, no shell on the machine): the full test suite, the live `build_yoga_facts` chart verification (Sulabh: real ephemeris + geocoder), and the two git commits. Edits were written to the working tree UNSTAGED for Sulabh to test and commit.
+
+
+## S135
+Same working session as S134 (2026-09-17); logged separately so each lock stays atomic.
+
+### 1. Token ceiling corrected to the real input cap (agent/astro/planner.py)
+- `HARD_CONTEXT_CEILING` 225_000 -> 150_000 approx; added `REAL_INPUT_CAP = 272_000`; `INTERPRETER_CONTEXT_WINDOW` stays 400_000 (total window, NOT the input limit).
+- ROOT CAUSE: the S126 ceiling derived from a 400k real WINDOW, but the model's real INPUT cap is ~272k -- a remedy question 400'd at 299,852 real prompt tokens. The 225k approx ceiling allowed 225k*1.70 = 382,500 est-real (above the cap), so an oversized payload passed the gate and 400'd at the API. `pipeline.answer_question` already refuses up front on `build_from_plan`'s `refused=True` (refused_at="payload_ceiling"), so correcting the ceiling IS the "remedy refusal up front on Path B" fix -- no separate remedy code path existed.
+- WORST-CASE JUSTIFICATION: payload est-real (approx*1.70) + ~12k fixed overhead (system prompt, fact block, question, schema; not counted by payload_tokens) must stay under 272k. (272,000-12,000)/1.70 = 152,941, rounded DOWN to 150,000 => 255,000 est-real + ~12k = ~267k worst case, ~5k under the cap, ~33k under the observed 299,852 failure.
+- refusal_reason message reworded to cite REAL_INPUT_CAP. New test `test_ceiling_est_real_is_below_the_real_input_cap` pins 150k*1.70 < 272k; existing `test_ceiling_is_below_the_model_window` (150k*1.70 < 400k) and the under/over-ceiling tests stay green (monkeypatch / small fixtures).
+
+### 2. _calc_yogas restated into Path B (agent/astro/yoga_facts.py)
+- mangal_dosha + kalsarpa_yoga are computed by chart_calculator._calc_yogas and returned under chart["yogas_doshas"], but Path B discarded them. `build_yoga_facts` now folds them into the yoga report by RESTATEMENT (S20) via `_restate_calc_yogas` -- reads the already-computed bools, never recomputes; chart_calculator untouched. Each becomes one fired/ruled_out row in the detector's {id, name, reason} shape; reason states the observed placement (Mars's house; Rahu-Ketu hemming), no doctrine (P-029). Not in the detector's JHora-16 set, so purely additive; reuses the existing "yogas" gate key and `_fact_block` render (no growth-contract change). Two tests added.
+- KNOWN: both restated yogas inherit the same Phase-2 fact->chapter grounding gap as every yoga (interpreter can speak to them but their doctrine chapter is not reliably retrieved until Phase 2). kalsarpa's strict-inequality edge (a graha exactly on the axis reads not-kalsarpa) is restated as-is; fixing it means touching chart_calculator (S20 forbids).
+
+### Not run from the editing session (file bridge only, no shell)
+- Full suite, live chart verification, and the two git commits were NOT executed here; edits written to the working tree UNSTAGED for Sulabh to test + commit + push. STILL OPEN after S135: Phase 2 (fact->chapter, next session); wider BPHS yoga set (session after); retire catalog/pancha_mahapurusha.py.
+
+### S135 addendum (2026-09-17) -- commit labeling + Phase-2 carry-forward (corrects the S135 handover per S136 review)
+- COMMIT LABELING: there is NO separate S134 commit. The S134 edits (`yoga_facts.py` inputs audit block; `rules.py` PMP docstring) were uncommitted in the tree and were folded into `6851a2d4`, whose message names only S135. The work is PRESENT; the commit is just mislabeled. Do NOT rewrite the pushed commit message (Working Style #13). [Certain the code is present; [Likely] it rode in 6851a2d4 -- confirm with `git log --stat`.]
+- PHASE-2 HEADROOM RISK (S130 §6): the planner already selects 14/16 domains / 81 units / 185k-229k real prompt tokens on one Saturn question, now against the S135 150k-approx / 272k-real cap. Stacking whole yoga chapters on top risks flipping currently-working answers into ceiling refusals. LEVER: 23 of 81 selected units contribute ZERO segments and are carried whole -- Phase-2 yoga-chapter augmentation must DISPLACE those zero-contribution units, not stack on them (also removes ghost-prone whole units).
+- MAP IS INCOMPLETE: S133 §5 maps only ~7 families (raja/solar->ch38, Naabhasa->ch35, Adhi->ch36, lunar->ch37, Neecha->ch24, Vipareeta->ch48, PMP->ch75). The detector fires 16 JHora yogas + PMP + the 2 S135-restated (mangal_dosha, kalsarpa). UNMAPPED: mangal_dosha, kalsarpa, Yogada/Maha Yogada, Yogakaraka, Dharma-Karmadhipati, Raja Sambandha. A half-map is NOT ratifiable.
+- HARSHA CONFLICT: Harsha is a Vipareeta Raja Yoga; S133 §5 records it via ch36 while the S131 lock places Vipareeta at ch48 -- adjudicate before ratifying the map.
+- ADOPTED DIRECTION (Sulabh, S135 close): add yoga chapters SEGMENT-SPLIT (dominant per-segment format), NOT whole -- sidesteps the whole-chapter citation mint (removes the ghost-drop failure class by construction rather than live-testing the S130 manifest around it), and pairs with reclaiming the 23 zero-contribution units. Do NOT touch `build_from_plan` until (a) the map is complete + ratified and (b) augmentation is designed segment-split + displacing. Full Phase-2 brief: `claude_handover_S135.md`.
+
+
+## S136 -- Phase-2 yoga->chapter map, doctrine-sourced from BPHS body text (design chat only; NO code, NO commit) (2026-09-17)
+Verified every fired yoga's doctrine home by READING chapter_index_bphs.json BODIES (title_raw is OCR-mangled and must not be used). Corrects S133 5:
+- ch38 does NOT exist -- it is `bphs1_gap38` (kind unlabelled_gap). "raja/solar->ch38" was a phantom; the live ghost-citations to ch38 hit a non-existent unit.
+- Raja lord-links + Yogakaraka + Dharma-Karmadhipati -> `bphs1_ch34` "Yoga Karakas" vv.11-17 (verbatim: v11-12 = the 6 angular/trinal-lord permutations `_kendra_trikona_links` checks; v13 = Yogakaraka). ch34 ALONE, not ch39/40.
+- Vesi -> `bphs1_gap38` s001 (its body IS "Chapter 38 Solar Yogas: Vesi/Vosi/Ubhayachari").
+- Sunaphaa/Anaphaa -> ch37 vv.7-10; Adhi -> ch37 v5 (Chandradhi, Moon-based -- ch36 v37 Lagnadhi is a DIFFERENT yoga we do not compute).
+- Gajakesari -> ch36 vv.3-4; Kalpadruma -> ch36 vv.33-34 (was unlisted in S133 5).
+- Naabhasa -> ch35 (tail spills into ch36 s001).
+- HARSHA CONFLICT RESOLVED: Harsha/Sarala/Vimala -> `bphs2_ch48` (body names all three; title_raw "...Nakshatra Dasa..." is misleading). S131 lock RIGHT, S133 5 ch36 WRONG -- ch36 body contains no Harsha.
+- Neecha Bhanga -> ch24 ("Neechabhanga" literal in body). PMP -> ch75. Raja AK-PiK/Sambandha -> ch32/ch33 (Karakamsa) [Likely].
+- Mangal Dosha -> IS in BPHS after a concept-search (not name): ch80 (Female Horoscopy) + ch66 (Mars-in-2/4/7/8). Taggable, NOT homeless.
+
+METHOD (Sulabh, S136): REUSE the existing segment-tagging approach -- NO new method. `domain_tags_bphs.json` = 1,129 `chNN_sNNN` segments, ordinal-addressed, one id scheme with payload_builder; it carries only the 16 LIFE-AREA domains (no yoga dimension), so ADD a "yoga" tag onto the relevant segments the same way. Addressing is unit_id + segment ordinal (`chNN_sNNN`), never an OCR chapter/verse number.
+
+PVR-ONLY, PARKED (Sulabh, S136): Nipuna (Sun+Mercury; PVR p.126) and Yogada/Maha Yogada (Ghati/Hora lagna; PVR p.179) are the ONLY fired yogas whose sole source is PVR, which is deliberately OUT of the tagged/RAG corpus. Nipuna appears only incidentally in BPHS (e.g. ch36 Srinatha note), no dedicated passage. DECISION: do NOT pull PVR into the corpus for just these two; revisit only if MANY future items need PVR. `kalsarpa_yoga`: no classical home at all (modern construct) -> ungroundable, leave.
+
+OPEN: (a) ratify the unit+verse map above; (b) PVR-only + Kalsarpa parked per above; (c) NEXT PASS (not started) -- resolve each verse-range to its `chNN_sNNN` segment ordinal against `segment_index` for the segment-split augmentation, then design displacement of the 23 zero-contribution units. NO source touched; no commit.
+
+### S136 continued (2026-09-18) -- unified yoga tag model DOGFOODED GREEN; planner vocabulary defect found, measured and CLOSED by REMOVING technique_method
+
+PRIOR STEP CONFIRMED (Claude Code, Sulabh's machine): the unified yoga-tag refactor in `planner.py` -- yogas as a SECOND TAG NAMESPACE on the same segments (`data/yoga_tags_bphs.json`), kept if a segment matches the question's domains OR the chart's fired yogas, one selector one filter -- is green. pytest 292 pre-existing + 20 new = 312, 0 failed. Flag-on dogfood: Q1 career ghosts 5 -> 1 -> 0 (grounded ch34_s011/s012), Q2 wealth 0 ghosts (~103k), Q3 personality 3 harmless guard-dropped overruns (ch34_s016/s017 past ch34's 12 segments). `data/yoga_segment_map.json` SUPERSEDED by the tag namespace. Phase 2's grounding goal is MET. Residual: Q1 at 254,836 est-real, ~100 tokens of margin under the S135 cap.
+
+### 1. THE DEFECT: a closed vocabulary handed to an LLM with no per-term definition (row P-030, Working Style #35)
+- `planner.SYSTEM_PROMPT` section 1 listed all 16 DOMAINS as BARE TOKEN NAMES, immediately followed by "If a question could plausibly touch several, LIST THEM ALL. Widening is correct; narrowing is a failure." Undefined labels + an unbounded widen mandate => the planner selects the term with the largest real footprint, and every individual choice is defensible, so the over-selection is invisible.
+- MEASURED from `data/domain_tags_bphs.json`: `technique_method` tags 45 of 100 units, 148,846 of 242,571 approx-tokens = 61.4% of corpus = **99.2% of `HARD_CONTEXT_CEILING` (150,000) on a SINGLE selection**. 13 units (32,948 approx) reachable ONLY through it. Tied widest with `wealth`, and the least defined term in the prompt -- the widest lever carried the loosest semantics.
+- CONSEQUENCE IS NOT COST, IT IS **FALSE SILENCE**: a ceiling refusal on a question the material CAN answer. The build plan's doctrine sanctions honest silence ("a question the material cannot answer for THIS person") and confident-wrong is the other named failure; a budget-exhaustion refusal is a THIRD class the doctrine does not sanction.
+- THIS IS WORKING STYLE #22 (S95 vocabulary contract) IN THE OVER-FIRE DIRECTION. #22 catches a silent MISS when rule-vocab != input-vocab; this is a silent OVER-FIRE when emission-vocab semantics != tag semantics. `agent/context_classifier.py::_SYSTEM_PROMPT` ALREADY glosses all four of its closed vocabularies with explicit ONLY-when guards -- house style was settled; `planner.py`, newer and far more load-bearing, was the deviation.
+
+### 2. THE FIX, TWO STEPS -- and the second supersedes the first
+- (a) GLOSS. Every domain got `domain -> definition` on its own line, wording drawn from `_FALLBACK_GLOSS` so prompt and deterministic fallback cannot silently diverge; widen mandate preserved verbatim.
+- (b) **REMOVAL, and this is the binding one (Sulabh, 2026-09-18).** `technique_method` is GONE from `DOMAINS` (16 -> 15). GROUND: **no end user ever asks how the system computes anything.** Only the system needs a formula, and formulas live in Python with the PVR/BPHS page cited in code (P-028/P-029) -- never in the interpreter payload. Shipping procedural doctrine to the interpreter is a **DISCLOSURE boundary**, not merely a cost one: it exposes how this project is configured, extractable one question at a time. So a methodology question is REFUSED, not answered.
+- SYSTEM_PROMPT section 5 now declares OUT OF SCOPE ALWAYS: any question about HOW the system or classical astrology COMPUTES or DERIVES anything -- formula, method, procedure, which technique/varga/strength measure, or how a result was reached -> `in_scope: false` with empty `domains`. The stated test: would the answer describe the person's life, or the machinery. A question about what a placement/yoga/dasha MEANS stays IN SCOPE.
+- `_validate_and_normalise` now enforces the removal FOR FREE -- an LLM emitting `technique_method` is rejected as outside the closed vocabulary. Belt and braces against a stale or jailbroken planner.
+- The `technique_method` TAG REMAINS in `data/domain_tags_bphs.json`. The procedural chapters still exist and are still tagged; only the PLAN domain is unreachable. No data change.
+
+### 3. TWO BUGS FOUND WHILE MAKING THE CHANGE
+- **`_FALLBACK_GLOSS["technique_method"]` LED WITH THE KEYWORD `"how"`.** So the DETERMINISTIC fallback path pulled 61.4% of the corpus on "how will my career go", "how is my marriage" -- one of the commonest words in the language. Entry removed; `test_no_domain_keys_on_the_bare_word_how` now forbids `"how"` as a keyword for ANY domain, permanently.
+- **THE FIX WOULD HAVE INTRODUCED A WORSE BUG.** `validate_plan_object` rejected an empty `domains` list as malformed -- so the refusal shape section 5 now asks for (`in_scope: false`, `domains: []`) would have FAILED validation and fallen through to `fallback_plan`, which would then keyword-match and plan domains for a question the planner had just correctly declared out of scope. Now: empty `domains` is legal ONLY when `in_scope` is false; still illegal when true ("in scope but nothing to fetch is a contradiction, not a refusal"). Both directions pinned by test.
+
+### 4. WITHDRAWN: the low-contribution-unit threshold (and why -- THRESHOLD DISCIPLINE, Sulabh)
+- PROPOSED: drop units contributing <= 2 segments (22 of 45 `technique_method` units, 46,263 approx-token mass). WITHDRAWN before any edit.
+- WHY: (i) the 46,263 figure is CHAPTER SIZE from the tag artifact, NOT tokens the payload ships; (ii) 98 of 100 units -- and ALL 45 `technique_method` units -- ARE segmented, so `filter_segments_by_domain` is already the operative narrowing and it FAILS SAFE by the S124 lock (untagged / unknown-id / `unfittable` segments are KEPT); (iii) a `<= N` cut would delete segments that filter already vetted, for zero measured gain.
+- AND THERE IS NO DEFENSIBLE N. The worst case for a correct answer is a chapter where the one matched segment's meaning depends on a qualifying verse elsewhere in that chapter (BPHS routinely places the "unless" three verses later). For that case the safe floor is ALL segments. A rule whose worst case requires "all" cannot be a count. If measurement ever shows real waste the replacement is STRUCTURAL: a unit enters as its segments where segmentation exists, whole only where it does not -- the same direction as the ratified S135 "segment-split, NOT whole".
+
+### 5. CORRECTION TO S130 section 6 -- its premise is structurally impossible
+- S130 section 6 recorded "23 of 81 selected units contribute zero segments and are carried whole", and that figure was the stated LEVER for Phase-2 displacement (risk A in the S136 handover).
+- `select_units` admits a unit ONLY when `per_domain[d].segment_count > 0`. A zero-contribution admission therefore CANNOT occur at unit-selection stage. RE-MEASURED S136: **0 such units across all 15 domains.** Whatever S130 observed happened at a later stage or was miscounted. It is NOT grounds for a selector threshold, and the "displace the 23 zero-contribution units" lever should not be cited again without re-deriving it from an instrumented run.
+
+### 6. MEASURED EFFECT, and what is NOT closed
+- Worst case (every domain planned): **96 units / 235,544 approx -> 83 units / 202,596 approx**. Removed: 13 units / 32,948 approx / ~56,011 est-real at 1.70.
+- NOT CLOSED: worst-case unit selection is still **135% of `HARD_CONTEXT_CEILING`**, so the segment filter remains load-bearing. The biggest remaining single-domain levers are LIFE-SUBJECT domains -- wealth 45 units/46.1%, health 31/40.2%, career 37/40.2%, longevity 29/39.1% -- which the widen mandate DELIBERATELY protects and which must NOT be narrowed.
+
+### 7. PROPOSAL B DROPPED (instrument vs life-subject domain axis)
+- B was: classify domains as instrument vs life-subject and make instrument domains non-expanding. DROPPED. It existed to tame `technique_method`, which is now gone outright -- a strictly stronger fix. The other candidate, `planetary_nature`, is 5 units / 31 segments: nothing to tame. And `capability_gate.REQUIREMENTS`' register comment shows the codebase had no such axis anywhere, so B would have introduced a taxonomy concept for no measured gain.
+
+### 8. VERIFIED + carry-forward
+- **pytest: `tests/astro/` 292 pre-existing + 18 new = 310 passed, 0 failed. FULL SUITE `tests/` 4219 passed, 7 skipped, 0 failed.** None of the predicted regression suspects (a `len(DOMAINS)==16` assertion, a fixture building `domain_vocabulary` from `P.DOMAINS`, the old "non-empty list" error string) materialised.
+- `tests/astro/test_planner_domain_gloss.py` REWRITTEN, 18 tests, no live LLM: vocabulary shape + glosses, widen mandate verbatim, `planetary_nature` ONLY-guard, life-subject domains carry NO guard, technique_method absent from DOMAINS / prompt section 1 / `_FALLBACK_GLOSS`, validator rejects it if emitted, the `"how"` regression guard, both empty-domains directions, and methodology-vs-reading fixtures.
+- FILES: `agent/astro/planner.py`, `agent/astro/capability_gate.py` (comment only -- its domain enumeration no longer names a retired domain), `tests/astro/test_planner_domain_gloss.py`, `CLAUDE.md` (Working Style #35), `diagnostics/KNOWN_PATTERNS.md` (P-030).
+- NOT DONE: **no live plan-level verification.** The 18 tests assert PROMPT TEXT, not planner behaviour; no test can prove the LLM actually stops selecting a domain. Sulabh deferred the Streamlit run to the next module end. The check when run: ask a reading question and confirm `diagnostics/planner_decisions.jsonl` shows no `technique_method`, and a methodology question returns `in_scope: false`.
+- NO COMMIT. All five files UNSTAGED on `wip/interpretive-pilot` for Sulabh to commit. No RATIFIED token was issued and none was assumed.
+- PROCESS NOTE: these edits were made from the design chat via the file bridge on Sulabh's explicit instruction to complete what could be completed, NOT routed through Claude Code -- a deliberate exception to "design here, Claude Code executes". Claude Code ran the suite. Branch + SHA were NOT nameable from the design chat (no shell); every codebase claim above is a WORKING-TREE claim.
+- STILL OPEN: the Phase-2 unit+verse map ratification (section above); wider BPHS yoga set (Sulabh's go); retire `catalog/pancha_mahapurusha.py` (route the delete, never silent); name-or-drop the 9th agent (`CLAUDE.md:204` -- 8 documented, only 6 with charter files in `.claude/`; Ephemeris Auditor and Validation Source have no charter and were run from title only this session).
+
+### 10. LIVE PLAN-LEVEL VERIFICATION — BOTH CHECKS PASS (2026-09-18, `diagnostics/qa_capture/20260918T183853Z.md`)
+- **CHECK 1, a reading question.** "What do the yogas in my chart say about my career and professional standing?" -> `domains: ["career"]`, `houses: [1,2,6,10,11]`, `in_scope: true`. **`technique_method` ABSENT.** Houses still widened correctly, so the gloss narrowed the vocabulary WITHOUT damaging the widen mandate — the thing the preserved-verbatim test was pinning.
+- **CHECK 2, a methodology question.** "How is shadbala calculated for a planet?" -> `domains: []`, `in_scope: false`, reasoning names it as methodology. **The refusal shape survived validation and did NOT fall through to `fallback_plan`** — the specific failure this session predicted and pre-fixed. Confirmed by contrast: an unrelated same-session turn ("Will I own my own house?") DID fall through and its reasoning reads "Deterministic keyword fallback (planner LLM unavailable or malformed)", so the fallback marker is visible when it fires. It did not fire here.
+- **MEASURED EFFECT, LIVE.** Career question `prompt_tokens = 84,152` against the pre-change 254,836 est-real on the comparable Q1 — roughly a 3x reduction, and no longer anywhere near `HARD_CONTEXT_CEILING`. `ghost_citations: []`. 17 claims returned, 16 shipped: the silence gate dropped the `ch24_s008` claim ("ascendant lord placed in the 10th") because Jupiter is in the 5th and only ASPECTS the 10th — a false precondition caught and dropped, i.e. the gate working as designed, not a defect.
+- **COST OF A REFUSAL IS NOW NEAR ZERO.** The methodology question never reached the interpreter: plan 3.35s, no payload, no model call, `answer_is_empty: true`. Refusing before retrieval is the whole point of doing this at the planner rather than in the prompt.
+
+### 11. STANDING WARNINGS FOR FUTURE SESSIONS — read before touching selection
+Recorded with reasoning so these are not re-derived, and not "optimised" away by a session that only sees the numbers.
+
+- **WORST-CASE UNIT SELECTION IS STILL 135% OF THE CEILING** (83 units / 202,596 approx vs `HARD_CONTEXT_CEILING = 150_000`). The live 84,152-token result is a REAL question's selection, not the worst case. **The segment filter is load-bearing and must stay fail-safe.** Do not read the good live number as headroom; it is one question's draw.
+- **THE BIGGEST REMAINING LEVERS ARE LIFE-SUBJECT DOMAINS, AND THEY ARE PROTECTED.** Measured single-domain footprints after the removal: wealth 45 units / 46.1% of corpus, health 31 / 40.2%, career 37 / 40.2%, longevity 29 / 39.1%. A future session WILL notice these and propose narrowing them. **That is forbidden**, and not for taste: the S124 standing doctrine is "never narrow, never fail-open to silence doctrine", the planner prompt's own widen mandate says narrowing is a failure, and `filter_segments_by_domain` fails SAFE by the S124 lock precisely so over-keeping costs tokens while under-keeping silences a true claim. `technique_method` was removable because it was an INSTRUMENT tag naming procedural chapters no user question should reach — a category distinction, not a size one. **Do not generalise "we removed the widest domain" into "remove or narrow the next widest."** The two cases have nothing in common except a number.
+- **WHY THE REMOVAL WAS SAFE AND A THRESHOLD WAS NOT.** Removing `technique_method` is a CATEGORICAL call with a non-cost justification (disclosure boundary): a whole class of question is refused, auditably, in one place. A contribution-density floor would have been a NUMERIC call deleting segments the fail-safe filter had already vetted, with no worst-case bound — and the worst case for a correct answer is a chapter whose one matched segment depends on a qualifying verse elsewhere in the same chapter, where the safe floor is ALL segments. A rule whose worst case requires "all" cannot be a count. See §4 above and P-030.
+- **S130 SECTION 6 IS CORRECTED, NOT MERELY DOUBTED.** Its "23 of 81 selected units contribute zero segments and are carried whole" is structurally impossible at unit-selection stage (`select_units` requires `segment_count > 0`; re-measured S136: 0 such units across all 15 domains). It was cited as the Phase-2 displacement LEVER (risk A). **Do not cite it again without re-deriving it from an instrumented run.** The C measurement carried forward from this session exists to settle where, if anywhere, that observation actually came from.
+- **P-030 IS A CLASS, NOT AN INCIDENT.** It applies to every LLM emission vocabulary in the system, not just `planner.DOMAINS`: `context_classifier._SYSTEM_PROMPT`'s four vocabularies (already compliant, the house-style reference), `composer`'s claim contract, and `data/yoga_tags_bphs.json` — which is 2.5 KB today and GROWS with the parked wider-BPHS-yoga-set item. That expansion is the next place this defect can recur, into the same ceiling.
+- **THE ROSTER DRIFT AND P-030 ARE THE SAME DEFECT IN TWO MEDIA.** A fact restated in many places drifts, and no single copy is wrong enough to notice. That is why `docs/AGENT_ROSTER.md` is now the only place the roster is stated, and why every other site was made to point at it rather than repeat it. Apply the same instinct before duplicating any locked value into a second file.
+
+### 12. USER-EXPERIENCE READ OF THE LIVE ANSWER — the honest assessment
+The pipeline is correct and the answer is NOT what a layman wants. Recorded because "grounded, cited, zero ghosts" was this arc's goal and has been MET, which makes the remaining gap a product gap, not an accuracy one. None of the below was fixed this session.
+
+1. **NO ANSWER, JUST EVIDENCE.** The user asked how their career looks and received 16 classical conditionals with no lead, no verdict, no ranking. **Stage 5b `composer.py` was built at S131 for exactly this and is OFF by default** (`compose=False` / `ASTRO_COMPOSER_ENABLED` unset). This is the single largest UX gap and it is a config flip plus a live validation, not new architecture.
+2. **JARGON THROUGHOUT.** "10th lord in the 4th", "benefics in angles from Karakamsa", "Atmakaraka", "Lagnadhi yoga", "kendra", "trine", "Budha-Aditya". `.claude/ui_ux.md` requires jargon-free output ("wealth zone" not "2nd house"). S131 already logged "angle-trine survived unglossed into 5 of 6 blocks" as OPEN, with a prompt blocklist REJECTED by Sulabh as hardcoding — so the fix must be a principle or a corpus-DERIVED lexicon. Still open, now with a second instance.
+3. **A USER-VISIBLE GRAMMAR BUG.** The shipped line reads "...**you becomes** like a king or equal to him in status". The internal render says "the native becomes". `answer_view`'s "the native" -> "you" substitution does not fix the verb, and "equal to him" leaves a pronoun pointing at the replaced subject. Cheap, contained fix in `answer_view.py`; the S129b no-rewrite rule bars rewriting CLAIM CONTENT, not repairing this substitution's own grammar.
+4. **CONDITIONALS READ AS NON-ANSWERS.** Roughly a third of the bullets open with "If ...", with the chart's actual state in a trailing parenthesis. A layman cannot tell whether the sentence applies to them. The condition must survive (S131 advisory check) but its RESOLUTION should lead.
+5. **HEAVY REDUNDANCY.** Bullets 1, 2, 3 and 11 all restate the same fact (10th lord Mercury with 9th lord Sun in the 4th) from four chapters; 9, 10 and 16 all say "benefics in angles -> Raja yoga". Reads as padding. The composer's own "drop claims that repeat another or say nothing specific to this chart" is the designed remedy and is off. NOTE: this is NOT the S131 duplicate-yoga-hit case Sulabh already ruled needs no dedupe ("our composer will automatically merge them") — same disposition, and it confirms the composer is the intended mechanism.
+6. **UNIFORMLY FLATTERING, NO COUNTERWEIGHT.** Royal patronage, honours, equal to a ruler, like a king, fame, robes and ornaments — zero tensions or caveats in 16 bullets. Nothing is factually wrong and this is BPHS's own voice, but it reads as a horoscope column and invites disbelief or over-promise. The detector's `ruled_out` half exists and surfaced nothing here; worth asking whether honest negatives should reach the answer.
+7. **THE SOURCE LINE IS HONEST BUT OPAQUE.** "ch. 21 — Effects of The Tenth House; ch. 39; ch. 24 ..." — ch. 39 carries no title at all (OCR gap, consistent with the S136 finding that `title_raw` is unreliable). Accurate, meaningless to a layman.
+8. **THE REFUSAL WORDING IS NOW SLIGHTLY WRONG FOR THIS NEW PATH.** The methodology question returned "I can't answer this from your chart and the classical text I have. Nothing in the verses that apply to your placements addresses it directly." That reason is MISLEADING here — it implies a corpus gap, when the truth is that methodology questions are declined by policy. A user may rephrase and retry. `answer_view`'s refusal copy predates the out-of-scope-methodology path and should distinguish "the text does not cover this for you" from "this is not a question about your life".
+9. **LATENCY.** 26.54s total (interpreter 21.75s), no streaming. `.claude/ui_ux.md` treats >3s as slow. Known, unaddressed, streaming is a V1.1-era item.
+
+
+### 13. THE COMPOSER FLIP (recorded S137 -- this section was MISSING from the S136 close)
+The S136 handover's read-order pointed at a section 13 that did not exist; the flip's rationale lived only in
+CLAUDE.md and in commit B's code comments. Recorded here so the log is complete.
+- `pipeline.py` default flipped: `ASTRO_COMPOSER_ENABLED=0` restores the pre-S136 path exactly; an explicit
+  `compose=True/False` argument still wins over the environment.
+- WHY THEN: S131 shipped Stage 5b dark because composed answers were not yet trustworthy -- ghost citations,
+  unused facts, a payload riding the ceiling. S136 closed all three, leaving presentation as the only gap,
+  which is this stage's entire job.
+- Commits: A `8e925de` (planner vocabulary), B `433d30f` (answer presentation), C `33bce09` (docs), all on
+  `wip/interpretive-pilot`, NOT pushed.
+
+## S137 -- verification inverted: typed preconditions replace prose matching; all 8 fact classes verifiable (2026-09-19)
+
+### 1. WHAT THE COMPOSER FLIP EXPOSED (row P-031)
+`capability_gate.FACT_BLOCK_PROVIDES` declares EIGHT fact classes. `silence_gate` could judge ONE:
+`_CONDITION_RE` matches `<Nth> lord ... in the <Mth>`, i.e. `lord_house_map`; `_PLANET_CONDITION_RE` is advisory
+with no drop authority. house_lords, aspects, dignity, navamsa, yogas and ascendant_sign -- every widening since
+S130 -- had NO verifier, and nothing recorded the gap.
+It was harmless while UNDETERMINED failed OPEN. The S136 flip made unjudgeability consequential: the first live
+composed run (`20260918T193426Z`) demoted 8 of 12 claims as "unverified", FIVE naming yogas the detector had
+already computed as FIRED. **The composer was not defective** -- it honoured its contract; the signal conflated
+"contradicted by the chart" with "no rule for this claim's grammar".
+
+### 2. THE DIAGNOSIS, AND WHY A PATCH WAS REJECTED
+Passing the fired-yoga set to the composer would have fixed 1 of 6 holes. Sulabh pushed for the uber-level read
+and it is this: **the system verifies claims by pattern-matching their English prose while already computing the
+entire chart deterministically.** The palm side solved this at S95 with typed `Antecedent` matching
+(`palm_select.match`); the astro side used regex. Bringing the mature half across is the whole design.
+
+### 3. THE ARCHITECTURE (docs/ANSWER_VERIFICATION_ARCHITECTURE.md, design of record)
+- `agent/astro/predicates.py`: 15 predicate types over the 8 fact classes, each with a gloss + scope guard
+  (Working Style #35), every one bound to its `FACT_BLOCK_PROVIDES` key by `PREDICATE_FACT_CLASS` and pinned by
+  test. **The three registers -- compute / answer-from / verify -- become one.**
+- THREE-VALUED: SATISFIED -> APPLICABLE, CONTRADICTED -> NOT_APPLICABLE, UNEVALUABLE -> UNDETERMINED.
+  **Only CONTRADICTED may drop.** S124's fail-safe doctrine, applied at the presentation layer for the first time.
+- NOTHING IS AUTHORED OFFLINE. No claim-text -> predicate mapper exists or may be built. The verse states its
+  condition; the interpreter transcribes it. The vocabulary grows with the FACT BLOCK, never with the corpus.
+- NO degree-level predicate (Ephemeris Auditor; S130 rounding gap). Enforced by test.
+
+### 4. PHASE 0 -- feasibility, $0
+`scripts/predicate_coverage_probe.py` over the 12 claims of `20260918T193426Z`: **typed coverage 95.7%** against
+an 80% gate; 5 of the 8 wrongly-demoted claims recovered as SATISFIED; 2 correctly dropped; 1 hedged. It also
+caught a confident-wrong the old gate could not see -- "Mercury aspects the ascendant" when Mercury aspects
+house 10. 52 tests.
+CAVEAT, on the record: that probe's precondition table was HAND-WRITTEN, standing in for the interpreter. It
+proved the VOCABULARY sufficient, never that the interpreter would type correctly. Superseded by section 5.
+
+### 5. PHASE 1 -- the interpreter emits, the gate evaluates
+`interpreter.py` claims gain `preconditions` (shape-validated against the closed vocabulary; an illegal one is
+dropped and recorded, NEVER costing the claim -- the ghost guard remains the only discarder). `silence_gate`
+evaluates them ahead of the prose reader, records `decided_by` and `predicate_detail`, and reports
+`typed_decided / prose_decided / typed_share_pct / predicate_coverage`.
+**NO FALLBACK from a typed UNEVALUABLE to the regex** -- it could OVERTURN a typed verdict and reinstate the
+S125 wrong-drop classes.
+Two existing `test_interpreter.py` assertions were de-brittled (they pinned the WHOLE claim dict while being
+about the ghost guard -- P-021's lesson), flagged rather than quietly patched.
+
+### 6. FIRST LIVE PHASE-1 RUN (`20260919T072700Z`) -- contract adopted, prompt wrong
+typed_share **100%** (14/14), precondition_rejects 0, prose_decided 0, 3 claims correctly dropped as
+CONTRADICTED (11th/4th/1st lord placements, all genuinely false, all previously shipped unverified).
+BUT typed_coverage 0.40 and `yoga_fired` used **ZERO times on a yoga question**. Two prompt defects, both
+P-030 in new clothes:
+- **The yoga catalogue was referenced but never ENUMERATED.** `yoga_id` is a closed value space the model cannot
+  guess. This arc committed the exact defect it had just documented.
+- **`unfittable` took 9 of 15 slots.** Its own notes read "not provided in chart facts" -- the model was checking
+  the FACT BLOCK instead of stating the VERSE's condition. Most were expressible: "Saturn, Mars and 10th lord all
+  in the 7th" is three `planet_in_house` predicates and would have been CONTRADICTED.
+
+### 7. THE FIX, AND THE RESULT (`20260919T080136Z`)
+`vocabulary_prompt(facts)` now enumerates the chart's yoga ids (`yoga_catalogue` = fired + ruled_out, exhaustive
+by construction); `interpret()` takes `chart_facts=`; `pipeline` passes it; with no catalogue the prompt FORBIDS
+yoga predicates rather than inviting invented ids. Three new prompt rules: a compound condition is SEVERAL
+predicates ANDed (worked example); judge expressibility against the VOCABULARY, never the facts; `unfittable` is
+only for concepts with no predicate type. Plus two instrumentation bugs of mine: `coverage()` was fed
+`{"verdict": ""}` (claim_verdicts read 0/0/0), and `precondition_rejects` never reached the capture.
+
+| metric | S136 flip | Phase 1 | after fix |
+|---|---|---|---|
+| typed_share_pct | n/a | 100 | 100 |
+| typed_coverage | n/a | 0.40 | **1.00** |
+| `unfittable` predicates | n/a | 9 of 15 | **0** |
+| claims shipped | 4 of 12 | 2 of 11 | **8 of 8** |
+| composer demotions | 8 | 9 | **0** |
+| latency | 44.85s | 36.62s | **23.94s** |
+
+All four fact classes exercised live: planet_positions 7, house_lords 6, yogas 4, aspects 1; 18/18 predicates
+SATISFIED; composer 0 violations, 0 advisory, lead present.
+
+### 8. OPEN, AND ONE CAUTION
+- **RECALL.** `claims_returned` fell 14 -> 8 on the fixed run with 0 contradicted and 0 unevaluable. The
+  interpreter may now be pre-filtering to claims it knows will verify: precision up, but the failure mode flips
+  from confident-wrong to SILENT-MISS, which is invisible. Read `silent_on` on a future run before calling this
+  settled. Not chased this session.
+- JARGON still partly open (S136 s12 item 2): "10th lord", "9th lord", "ascendant lord" reach the user. Better
+  than Karakamsa/kendra, not closed. A prompt blocklist stays REJECTED (S131).
+- Phase 2 (composer closed demotion vocabulary + two-tier answer) -- lower priority now demotions are 0.
+- Phase 3 (retire `_CONDITION_RE` and the advisory planet reader; `prose_decided` was 0 on both typed runs).
+  The S129b "promote the advisory planet reader on a measured rate" carry-forward DISSOLVES.
+- `scripts/predicate_coverage_probe.py` is Phase-0 scaffolding, SUPERSEDED by live typed output. Kept, not
+  deleted, because Working Style #16 requires a script whose numbers are cited in a decision to remain auditable.
+
+### 9. PROCESS
+Suite 4233 -> 4285 (Phase 0, +52) -> 4304 (Phase 1, +19) -> **4312 (fix pass, +8), 7 skipped, 0 failed.**
+`tests/astro/test_pipeline.py` verified 2/2 on the real tree at every step -- the only end-to-end exercise of
+the typed gate, and unrunnable in the design-chat sandbox.
+Full roster pass run against the charters before the architecture was settled; two conflicts resolved
+(UI/UX vs Critic -- split by surface, the 150-word limit binds the LEAD only; Business vs Architect -- Architect
+wins, Business's "defer until after ship" OVERRULED and named).
+NO COMMIT this session: no `RATIFIED: commit authorized` token was issued and none was assumed. All files
+unstaged on `wip/interpretive-pilot`.
+NEAR-MISS WORTH KEEPING: a staged upload of `qa_capture.py` went stale after I had already written a newer
+version to the tree; committing it would have silently reverted the S137 composer-capture block. Caught before
+commit, and the patch script now asserts the base file contains what it should. **A staged upload goes stale the
+moment you commit to that path.**
+
+
+### 10. AMENDMENT, same day -- THE 8-OF-8 RUN WAS NOT CLEAN
+Section 7's table stands AS MEASURED; its interpretation was wrong, and the error is mine. `typed_coverage 1.00`
+and `18/18 SATISFIED` measure predicate EVALUABILITY, not claim truth.
+A controlled diff of `20260919T072700Z` vs `20260919T080136Z` -- same question, same `unit_ids`, same chart --
+found **4 of the 8 shipped claims asserting something the fact block refutes**, each shielded by a precondition
+that is TRUE and does not test the assertion (row P-032).
+- **THE SHARPEST CASE.** *"With the 11th lord in the 10th ... honoured by authority"* declared only
+  `house_lord_is(11, Venus)`. True; the 11th lord is in the SIXTH. Run A typed the same segment as
+  `lord_in_house(11,10)`, got CONTRADICTED and **correctly dropped it**; Run B re-typed it weaker and shipped it
+  with a verified badge. Its statement even hedges -- "(interpreted via your 11th lord Venus strongly placed)" --
+  so the model KNEW the literal condition failed and reached for a passing predicate instead.
+- **CAUSE: THE S137 PROMPT FIX ITSELF.** "Judge expressibility against the VOCABULARY, never the facts" removed
+  `unfittable`, and with it the honest UNEVALUABLE signal, without supplying anything that checks the
+  precondition covers the claim. Net on one question: Run A shipped 3 false and dropped 3; Run B shipped 4 and
+  dropped 0.
+- **`silent_on` IS NOT A RECALL INSTRUMENT.** Run A lists `ch24_s008`, `ch24_s033` and `ch24_s106` in
+  `silent_on` WHILE EMITTING ALL THREE AS CLAIMS. Section 8's "read `silent_on` on a future run" is SUPERSEDED:
+  measure recall by DIFFING captures on a fixed question.
+- **THE RECALL DROP IS REAL BUT SECONDARY.** `ch24_s103` (11th lord in the 6th, SATISFIED, verifiably true) was
+  kept in Run A, is absent from Run B, and is in no `silent_on`. It was the ONLY non-flattering claim either run
+  produced -- S136 §12 item 6's missing counterweight, in hand and dropped silently.
+- **FIXED THIS PASS.** Prompt counter-rule ("do not assert in the sentence what you have not declared");
+  `predicates.statement_coverage`, an ADVISORY counter with NO drop authority, recorded per claim as
+  `uncovered_tokens` and aggregated as `claims_with_uncovered_tokens`; `predicates.chart_tokens` made the SINGLE
+  OWNER with `composer.chart_tokens` an alias. Replayed over the real Run B claims it flags 5 of 8 (one soft --
+  a yoga predicate whose detector reason does cover the named grahas -- expected over-flagging in an advisory).
+  Sandbox suite 195 -> **203 passed**.
+- **PHASE 3 IS BLOCKED.** Retiring `_CONDITION_RE` and the advisory planet reader removes the only remaining
+  machinery that reads a claim's own prose, which is exactly what goes unchecked. **Under-coverage is invisible
+  to a predicate evaluator by construction.**
+- **NEW, NEEDS VERIFICATION.** The detector's `yogada_gl_mercury` reason says "Mercury aspects the rising sign
+  (Sagittarius)" while `aspects_by_planet.Mercury = [10]`. Two parts of this system disagree on whether Mercury
+  aspects the ascendant. Resolve against PVR (Validation Source + Ephemeris Auditor) before any claim resting on
+  it is called true or false.
+- **PROCESS, twice this session.** A staged upload went stale after the same path had been committed, and would
+  have reverted earlier work both times. Caught by an assert on the base file's content. **Re-stage before
+  patching anything already written this session, and guard the patch on a string only the current version has.**
+
+---
+
+## S138 -- 64 Tier-2/3 yoga rows shipped, then put under an admission contract: the detector covers the predicate vocabulary's blind spots, not the corpus (2026-09-19)
+
+OUTCOME: the detector grew 64 -> 128 rows and then had its PURPOSE settled by full-roster
+review. Nothing was deleted. Suite **4480 passed / 7 skipped / 0 failed** (Sulabh's run).
+All work UNSTAGED on `wip/interpretive-pilot`; no `RATIFIED: commit authorized` token issued.
+
+PROVENANCE NOTE: this session had file-bridge access but NO shell on Sulabh's machine, so no
+branch/commit SHA can be named for anything below. Claims are scoped to file paths and to the
+capture `diagnostics/qa_capture/20260919T122618Z.md`.
+
+### 1. BUILT -- Tier 2 + Tier 3 yogas (64 rows, 101 tests)
+
+| Section | Source | Rows | Topic |
+|---|---|---|---|
+| `_ayush_rules` | ch19 | 14 | longevity, both arms |
+| `_sukha_rules` | ch15 | 9 | residence, property, conveyances |
+| `_ch24_rules` | ch24 | 11 | education (8), foreign residence (3) |
+| `_aasraya`/`_dala`/`_aakriti` | ch35 vv.7-15, v17 | 22 | Naabhasa shapes + sankhya suppression |
+| `_lunar_solar_rules` | ch37 vv.6-11, ch38 v1 | 5 | Durudhara, Kemadruma, Chandra-dhana, Vosi, Ubhayachari |
+
+Every row cites a sloka as `evidence[0]`, test-enforced. Zero-regression diff over **400
+randomised charts**: no pre-existing row lost or changed in `fired`/`reason`/`evidence`.
+`ch24` citations are DERIVED, not tabulated -- `_ch24_verse(lord, house) = 1 + (lord-1)*12 +
+(house-1)`, pinned against the chapter's own section headings (v37/v49/v109/v133).
+
+NOT IMPLEMENTED, each read and rejected: ch19 vv.8/15 and v9's third arm (need "bereft of
+strength"; no Shadbala exists and a dignity label is NOT a strength proxy -- that is P-032);
+ch19 v11 (needs the 8th lord debilitated IN THE ASCENDANT, which Santhanam's own note to v12
+shows is unreachable by whole signs -- a rule that can never fire is a FALSE CLEAN NEGATIVE);
+Chandra-Mangal (Jataka Parijata / Phaladeepika, NOT BPHS -- the corpus is BPHS-only so a claim
+resting on it could cite no verse).
+
+### 2. THE LIVE RUN -- 4 questions, 1 chart (`20260919T122618Z`)
+
+No defect from the batch. Typed share 85.7% / 100% / 100% / 100%. Four claims CONTRADICTED and
+dropped; every one verified correct BY HAND against the chart.
+
+**Only 2 of the 64 new rows fired** (`ch24_l11_h6`, `chandra_dhana_upachaya`). All 14 ch19 and
+all 9 ch15 rows correctly ruled out -- and the interpreter, reading ch19's verses independently
+(the domain route DID deliver ch19 to the payload), also claimed nothing from it and did not
+even list it in `silent_on`. **Two independent paths agreeing that this chart contains none of
+ch19's combinations.** That is the detector working, not failing.
+
+### 3. THE DESIGN ERROR, AND SULABH'S REJECTION OF THE FIX
+
+`_CH24_SELECTED` was indexed BY TOPIC -- 11 cells whose text discusses education / foreign
+residence. **Which cell applies is a property of the CHART, not of the question.** The chart's
+true cells (one per lord) intersected the topic-picked set exactly ONCE. Meanwhile the
+interpreter found 8+ correct ch24 cells UNAIDED from the corpus and the predicates verified
+them.
+
+The proposed fix -- re-index to the 12 true cells -- was put to Sulabh, who rejected it:
+*"is this fix considering overall architecture outside in ... and will this lead to multiple
+such separate taggings hierarchy going forward?"* He was right. Full roster invoked.
+
+### 4. ROSTER OUTCOME (7 reviewers + Debate; roster count corrected to 8, not 9)
+
+Design A REJECTED as a pattern. Design B adopted as PRINCIPLE, **reordered behind provenance**,
+**executed as retirement rather than deletion**. Conflicts and their resolutions:
+
+| Conflict | Winner | Overruled |
+|---|---|---|
+| A as a general mechanism | Architect (code structure) | Critic -- recall-fragility preserved as a golden-chart CI assertion |
+| Delete 19 rows vs deprecate | **QA** (blocks HIGH untested failure paths) | Architect/Business -- token saving delivered by prompt-exclusion |
+| Admission test prose vs executable | Architect | Critic -- residual risk answered by QA test 1 |
+| Redundancy gate vs provenance gate first | **Validation Source** | Architect -- ordering changed, mechanism kept |
+| Detector work vs token budget first | Business | Architect -- ships as its own change |
+| `user_text` as a third clause | **UI/UX** (user-facing output) | Architect -- widens the row schema |
+| Binary vs three-valued `fired` | Ephemeris Auditor | none -- unopposed HIGH |
+
+### 5. THE FINDING THAT REORDERED THE DESIGN
+
+**47 of 144 rows cite NO sloka** -- measured, not estimated; Validation Source predicted ~5.
+They include every kendra-trikona raja link, all five Pancha Mahapurusha, all seven Neecha
+Bhanga, all three Vipareeta links, Gajakesari, Adhi, Vesi, Nipuna, Kalpadruma, Yogada and the
+sankhya Naabhasa set. A predicate-redundancy admission test filters on DECIDABILITY, not
+PROVENANCE, so it would have **retained all 47 unsourced rows while retiring 19 correctly-cited
+ones.** Gate order is therefore source-named FIRST.
+
+### 6. THE DETECTOR WAS AN UNDOCUMENTED DIVERGENCE REGISTRY
+
+Every sloka id, translation divergence, commentary expansion and editorial reading lived in
+exactly ONE place -- an evidence string on a row. Retiring rows would have deleted the
+disagreements while the disagreements persisted. Extracted to `data/sloka_registry.json`
+(75 slokas, 5 rulings, 7 unapplied verse-arms, 4 not-implemented decisions, 2 HIGH debts).
+**NOT WIRED -- nothing reads it.**
+
+Live proof, ch15 v3: the English reads "the 5th lord", the Sanskrit reads
+*sukha-sthaana-adhipa* = the 4th. The detector resolved to the Sanskrit. In capture turn 2 the
+interpreter read the retrieved ENGLISH and wrote "not met here" -- while the 5th lord, Mars, is
+**Exalted**, so under its own reading the condition WAS met. Detector and corpus disagree in
+production, the interpreter follows the corpus, and the mis-evaluation landed in `silent_on`
+where nothing checks it.
+
+### 7. NEW PATTERNS
+
+- **P-033** -- the gate types what is ASSERTED and never what is WITHHELD. Turn 2 kept 2 claims
+  and withheld 12; the audited set was one sixth of the withheld set. P-031's mirror. OPEN,
+  ranked #1 uncontested by the roster.
+- **P-034** -- the detector row count tracking the CORPUS instead of the verification gap, with
+  a third tagging hierarchy as the consequence. RULED.
+
+### 8. ONE ROSTER RECOMMENDATION DELIBERATELY NOT FOLLOWED
+
+Business ranked "drop ruled-out rows from the prompt" (~620 tokens, zero appearances in four
+answers) as uncontested. **Not shipped.** n=4, and S131 put those rows there deliberately as
+"the what-I-am-ruling-out half of an answer the pipeline could not produce before" -- dropping
+them wholesale removes the ability to say "you do not have Gajakesari". Business's own
+refinement (admit a ruled-out row only when the question's domain tags touch it) is the right
+shape and needs a yoga<->domain mapping that does not exist.
+
+### 9. MEASURED, FOR THE CEILING ARGUMENT
+
+Detector cost per turn: fact block "Yogas PRESENT" ~378 -> ~446 tok; "CHECKED and NOT present"
+(names only) ~537 -> ~1,157 tok; interpreter `yoga_catalogue()` ~351 -> ~713 tok. **Total
++1,050.** The full verdict JSON doubles (18.7k -> 37.4k chars) but `ruled_out` renders as NAMES
+ONLY, so that number never reaches a prompt.
+
+**Turn 1 blew the budget: 124,925 prompt tokens, `over_budget: true`, 49 whole chapters carried,
+39.2s.** That is a ROUTING failure -- the detector is 0.8% of that turn. `cached_tokens` was 0
+on turn 1 and 3,200 on turns 2-4: the corpus-first cache prefix is only the fixed system head,
+because the verse block changes per question.
+
+### 10. OTHER FINDINGS RAISED
+
+- `_naabhasa_sankhya` contradicts ch35 v17 (the sankhya yogas are inoperable when another
+  Naabhasa yoga is derivable; the row fires unconditionally). NOT rewritten -- its verdict is
+  oracle-asserted; a separate `naabhasa_sankhya_suppressed` row names the blockers. Validation
+  Source argues the SOURCE should be fixed rather than fenced. **Needs Sulabh's ruling.**
+- ch35 v8 reading (three DISTINCT angles vs exactly three with the fourth vacant). **Open.**
+- ch35 v11 Vajra/Yava: the English reads as an OR, which taken literally fires on any chart with
+  Jupiter and Venus angular. Implemented as BOTH ARMS + all seven grahas in the angles, with an
+  explicit negative test for the literal reading. Flagged as an EDITORIAL reading -- it names no
+  source.
+- The five pre-existing PVR-sourced rows still carry no sloka id; retrofitting is
+  behaviour-visible (`test_rules.py` asserts their evidence lists) and was NOT bundled.
+- `_dharma_karmadhipati` still raises `TypeError` on `int(None)` -- latent, carried from S137.
+
+### 11. RANKED NEXT (from the Debate resolver)
+
+1. Type and check silences (P-033). 2. Resolution contract -- three-valued `fired`,
+`ayanamsa_name`, `birth_time_precision`, per-planet `boundary_flag`. 3. Instrument p50/p95
+tokens and latency over ~20 questions; cap prompt ~30k/turn. 4. Re-derive or demote `_adhi`.
+5. `subsumed_by` + `user_text` on the row schema, CI-enforced; run the admission test over all
+144 rows and publish. 6. Retire redundant rows behind `retired=True`. 7. Surface contract on
+`answer_view`. 8. Golden-chart recall assertion for ch24.
+
+**Deletion is a GATE, not a task** -- it does not proceed until QA's five tests and Critic's
+stratified 20-30 chart sample pass.
+
+### 12. OPEN, NEEDS SULABH
+
+- ch35 v8 reading; ch35 v17 (two rows or fix the source).
+- **Architect's question, which settles the detector's boundary:** when the interpreter cites a
+  corpus verse with NO detector row behind it -- which is how the 8 correct ch24 cells arrived --
+  is that claim FIRST-CLASS or SECOND-CLASS? Both designs are provisional until this is answered.
+
+
+## S139 (2026-09-19) — DISJUNCTION ROOT CAUSE + P-033 SILENCES TYPED
+
+Branch `wip/interpretive-pilot`. Suite 4480 → **4503 passed / 7 skipped / 0 failed** (+23: `test_any_of.py` 10, `test_silence_judge.py` 13). No regression; existing predicates byte-unchanged.
+
+**P-033 (silences typed & checked) — SHIPPED, recording-mode.** `interpreter.py` now emits `silent_on` as structured `{topic, segment_ids, withheld_because, note}` (a parallel typed field; the plain `silent_on` string list is DERIVED from it so `_render`/`composer` are byte-unchanged — Architect's call, since both consume it as strings). `silence_gate.py` gained `SilenceVerdict` + `judge_silence`, reusing `predicates.evaluate_claim` with the **INVERTED** mapping: a silence asserts the condition FAILS, so predicate-SATISFIED ⇒ CAUGHT_MISS (the stated reason is chart-refuted), CONTRADICTED ⇒ JUSTIFIED, UNEVALUABLE ⇒ UNCHECKABLE. New `gate_stats`: `silences_in/typed/caught_miss/justified/uncheckable/fragile_downgraded` + `silence_detail`. Recording only — changes no claim, no answer, no drop authority. Resolution guard: a CAUGHT_MISS may rest ONLY on resolution-stable predicates; a *satisfying* navamsa arm downgrades to UNCHECKABLE (`downgraded_fragile`) until the resolution contract (`boundary_flag`) lands.
+
+**Root cause found mid-validation — the typed vocabulary had AND but no OR (see P-035).** The first live P-033 run returned `caught_miss=0` on the ch15_s003 defect, verdict `justified`. Traced to the interpreter emitting the verse's OR condition ("5th lord in own sign OR own navamsa OR exalted") as THREE separate predicates, which `evaluate_claim` ANDs — the Own-Sign arm is false ⇒ whole condition CONTRADICTED ⇒ silence labelled `justified`. Reproduced against the real `predicates.py` (3-ANDed = contradicted; `any_of` = satisfied). This is NOT a P-033 bug: it is a gap in the S137 verification contract, and it was silently DROPPING true disjunctive CLAIMS in production too (confident-loss, the worse failure mode). The LLM reads OR fine; the AND came from the LLM→Python handoff — the checklist's only combine rule was AND.
+
+**Fix: `any_of` combinator (additive) in `predicates.py`.** SATISFIED if any arm holds, CONTRADICTED iff every arm refuted, else UNEVALUABLE; recurses via `evaluate()`; `validate_precondition` + `predicate_tokens` + `vocabulary_prompt` updated; `fact_class=""` (non-fact-reading, like `unfittable`) with the `test_predicates` exemption widened to cover the combinator. `interpreter.py` needs no further change — the OR teaching flows through the shared `vocabulary_prompt`.
+
+**Validation (pre/post).** Cloud sandbox against the real `predicates.py`: `test_predicates.py` 52 → 52 (no regression) + 10 `any_of` + 13 silence + 2 `any_of`↔silence interaction = **77 green**. Full suite on device: **4503/7/0**. Live re-run `20260919T163828Z`: gpt-5 **emits `any_of`**; ch15_s003 false silence now **CAUGHT** (twice, reproducibly), `decided_by: typed`, `downgraded_fragile: false` (rests on the stable D1 Exalted arm); high adoption (7/7, 5/5, 6/7, 9/9 typed); zero false alarms elsewhere.
+
+**Emission quirk (not a bug, fail-safe):** one turn wrote `"graha": "lord_of_12th"` inside an `any_of` — a description where a graha name belongs (the model can't resolve "the Nth lord" to a planet). Lands UNEVALUABLE. Future emission-tuning: teach lord-resolution via `house_lords`, or add a `lord_of(house)` indirection to the vocabulary.
+
+**Docs-drift fixed:** `interpreter.py` + `planner.py` stale "NOT WIRED (S128)" banners corrected — both are live via the pipeline since the S129 cutover. `CLAUDE.md` focus/count updated (128 → 144, 4503). P-035 added and P-033 status updated in `KNOWN_PATTERNS.md`.
+
+**Files:** `predicates.py`, `silence_gate.py`, `interpreter.py` (source); `tests/astro/test_any_of.py` (new), `test_silence_judge.py` (new), `test_predicates.py` (exemption); `planner.py` (banner, docs); `CLAUDE.md`, `KNOWN_PATTERNS.md`, `SESSION_LOG.md` (docs).
+
+**Next (S140), big wins first:** (1) routing / chart-conditioned segment selection — the 60%-corpus/125k-token cost and the dasha-scaling lever; (2) instrument the uncheckable/unfittable rate as the standing early-warning that the typed-checklist approach is holding; (3) promote P-033 recording → enforcing once the mistyping rate is measured across more questions; (4) resolution contract (three-valued `fired` + `boundary_flag`). Blocked-on-Sulabh rulings still open: ch35 v8, ch35 v17, first-class/second-class boundary.
+
+
+## S140 (2026-09-20) — FIRST/SECOND-CLASS RULING + STANDING VERIFIABILITY LEDGER; houses-into-selection killed
+
+Design/validation session run in Cowork (file-bridge to the repo working tree, NO shell on device; offline
+reproduction of the deterministic selection path in a cloud clone). All work on `wip/interpretive-pilot`,
+working-tree only — NO `RATIFIED: commit authorized` token issued this session.
+
+### 1. Tier 1.1 (chart-conditioned `plan.houses` selection) — MEASURED AND REJECTED
+Reproduced the S139 selection path (`select_units` -> `build_payload` -> `filter_segments_by_domain`) offline over
+35 captured turns; offline `kept_segments` matches the live capture exactly (career 303 == 303). Candidate filter
+(the only shape that adds no new tagging hierarchy): drop a kept segment iff its extracted relation pairs name houses
+and none intersect `plan.houses`; fail-safe keeps a segment with no extractable relation. Two disqualifying findings:
+(a) NEGLIGIBLE — aggregate cut 1.34%, 0.1–0.2% on the 84k–150k life-subject turns; the payload is 75.3% relation-less
+fail-safe segments + 16.7% whole chapters = ~92% untouchable, and those tokens sit in the wide life-subject domains
+the S137 standing warning forbids narrowing. (b) DROPS CITED VERSES — 10 cited drops across the sample, concentrated on
+the small-domain turns where it cuts most; root cause is doctrinal: a verse is indexed by its `lord of A in B` placement,
+a different coordinate system from the question's houses. Verified: travel (houses 9,12) cited `ch24_s103` "11th lord in
+the 6th ... living in foreign places" (relation {6,11}) — the single most on-topic verse, dropped. `run_filter` (chart
+placements) already does the only sound chart-conditioning. Evidence: `diagnostics/runs/20260920T055639Z.md`.
+
+### 2. RULING (Sulabh) — first-class vs second-class citation (hybrid by verifiability)
+Reopened the topic-relevance signal (P-034-ruled-out); full roster surfaced. Debate resolver: a topic-relevance signal
+is a GROUNDING/verification signal, not a selection filter (Business's cut-for-dasha overruled — the lever is elsewhere).
+The gating doctrine (S138 §12, parked for Sulabh) is ruled: **an interpreter's corpus citation is FIRST-CLASS when a
+typed predicate can decide its precondition, SECOND-CLASS when it rests on a compound/cross-chapter condition the
+vocabulary cannot yet check.** Consequences (Locked Decisions): first-class needs no row/tag/grounding; do NOT build a
+topic-tag SELECTION layer (P-034 stands with an explicit boundary); second-class citations are the detector/registry's
+chartered blind-spot coverage; "topic-relevance" is coverage-growth or `sloka_registry` grounding, never a selection cut.
+
+### 3. BUILT — standing verifiability ledger (uncommitted)
+`agent/astro/verifiability.py` (leaf module, `LEDGER_VERSION=1`, `summarize(stats)` + `rollup(ledgers)`; fail-safe — a
+pre-S137 capture without `predicate_coverage` yields `second_class=None` (unknown), never a silent 0). 
+`scripts/verifiability_rollup.py` (standing roll-up over `qa_capture/*.md`, reads `GateResult.stats`). 
+`tests/astro/test_verifiability.py` (7 pass offline). MEASUREMENT ONLY — no drop authority; `caught_miss_rate` is the
+P-033 promotion gate a human reads. Standing numbers (15 S139-era turns of 51): 92.4% claims first-class, typed_share
+96.9%, P-033 gate caught_miss 2/47 typed silences (4.3%), second-class backlog 6 unevaluable claims + 23 uncheckable
+silences (uncheckable_rate 19.0%). Row P-036.
+
+### 4. NEXT
+Wire `verifiability.summarize(GateResult.stats)` into the dogfood capture writer (`frontend/app.py`) so future turns
+emit one canonical versioned `verifiability` block (needs a live dogfood run + RATIFIED to commit). Audit the 2
+caught-misses (true false-silences?) + the 32 justified silences (any mistyped false-justify?) before flipping P-033
+enforcing. Blocked-on-Sulabh rulings still open from S138/S139: ch35 v8, ch35 v17.
+
+
+### 5. WIRING LANDED — with an architecture correction (post-user-pytest)
+The user's full `tests/astro/` run (440 pass, 1 fail) caught it: the first wiring imported `verifiability` INTO
+`qa_capture.capture_turn` and computed the ledger there, tripping `test_qa_capture_imports_nothing_from_agent_astro`.
+That guard is CORRECT (its docstring: the capture layer must not compute a derived rate — a second vocabulary copy
+drifts, P-030). Fix respected the guard rather than narrowing it: the ledger is now computed ONCE in
+`pipeline.answer_question` (`result["verifiability"] = verifiability.summarize(gate.stats)`) and `qa_capture` renders
+`result.get("verifiability")` as pure data — the same shape it renders `gate_stats`. No import, no computation in the
+capture layer; the structural test passes unchanged; the ledger is now a first-class, reusable field of the pipeline
+result. `scripts/verifiability_rollup.py` prefers the rendered canonical block, falls back to gate-stats for old
+captures. Round-trip + 7 ledger tests + the structural test all green offline; the full suite + a live dogfood are the
+user's confirmation. Files touched: `pipeline.py`, `qa_capture.py` (source, uncommitted, no RATIFIED token).
+
+
+### 6. P-033 PROMOTION AUDIT — DEFERRED; P-035 is only half-closed (new row P-037)
+Hand-read of the caught_miss + justified silences (AI-reviewing-AI; the flip stays Sulabh's checkpoint). caught_miss
+= 2/2 TRUE POSITIVES (both ch15_s003, 5th lord Mars exalted in Capricorn, stable D1 arm, fragile=False) — the
+enforcing PATH is clean, 0 false-positive catches. BUT the audit found a FALSE-JUSTIFY of the SAME doctrine in a
+second run: ch15_s003 emitted as a FLAT predicate list (no `any_of`) is ANDed, the Own-Sign arm (false) buries the
+Exalted arm (true), and the gate justifies a silence whose condition actually holds. Root cause = P-035 resurfacing:
+the `any_of` combinator works but the interpreter's ADOPTION of it is inconsistent (2 any_of / 1 flat on the same
+verse/chart, same day). Same AND-collapse puts disjunctive CLAIMS at confident-loss. VERDICT: do NOT promote P-033 to
+enforcing until `any_of` adoption is stabilized (deterministic normalization in `predicates.validate_precondition`
+preferred — removes the LLM's discretion). Row P-037. Evidence: `diagnostics/runs/20260920T174749Z.md`.
+
+
+
+================================================================================
+## S141 (2026-09-26) -- TIMING ON PATH B: dasha surfaced (restate) + expert-mode
+================================================================================
+
+CONTEXT. S141 was handed "build vimshottari / timing". DESIGN-INTENT-FIRST caught
+that the Vimshottari engine was never unbuilt: `chart_calculator._calc_dasha`
+computes the full timeline (MD/AD/PT), is oracle-validated (S74-S76; sidereal
+year 365.256363, Kapoor Ch IX; Gap D1 residual ratified), and was simply never
+restated into Path B's fact block. So this was a RESTATE + GATE-FLIP, the
+chart_d1/navamsa precedent -- not a calculation build. The Vedic-day-boundary
+"trap" in the handover is a special-lagna concern (S132), NOT a Vimshottari one:
+dasha balance is a pure function of the natal Moon's sidereal longitude, full
+precision, no sunrise term.
+
+WHAT SHIPPED (uncommitted, wip/interpretive-pilot).
+1. GAP #1 -- `_calc_dasha` serialises `past_mahadashas` (it discarded every MD
+   before the current one; that is why retrospective "when would I have married"
+   could only answer forward).
+2. GAP #2 -- `_calc_dasha` serialises `mahadasha_tree`: every full MD from birth
+   through next-3, each with its nine antardashas (birth/balance MD window-only,
+   its ADs are a partial tail). `chart_facts._read_dasha` restates it
+   (`_restate_tree`, `_dasha_period`); `pipeline._fact_block` renders the
+   complete tree (past/current/upcoming tags, running-sub-period marker, +/-37d
+   drift note, "do not compute any period yourself"). Pratyantar stays suppressed
+   (S129). This removes the model's NEED to compute a sub-period -- the
+   expert-pilot fabrication cause (it had invented Mercury-Sun because past ADs
+   were absent).
+3. CAPABILITY GATE -- `dasha_periods` added to `FACT_BLOCK_PROVIDES`; the
+   `dasha_timing` REQUIREMENT retired (`REQUIREMENTS = ()`); the gate declines
+   nothing; empty-domains refusal now owned by `build_from_plan`. The pre-wired
+   test `test_widened_fact_block_makes_the_timing_requirement_inert` anticipated
+   exactly this.
+4. INTERPRETER CLAUSE FIX (root-cause, not additive prompt bloat) -- `_SYSTEM_HEAD`'s
+   "put NOTHING not supported by a cited verse" blocked dates (a date is a chart
+   fact, not verse text), so the model named sub-periods and refused their dates
+   ("we don't have specific date ranges"). Broadened to "a cited verse OR the
+   chart facts (a placement, or a dasha period and its dates)". This alone made
+   the cited path emit dates.
+5. EXPERT MODE (the realignment, ratified by Sulabh) -- `interpreter.interpret_expert`
+   + `EXPERT_SYSTEM`: a free-text expert answer over the COMPLETE fact block.
+   Facts hard-grounded (prompt forbids stating any placement/date/yoga not in the
+   block; the block is complete so nothing is left to invent), interpretation
+   FREE, citations INTERNAL. Wired flag-gated in `pipeline.answer_question`
+   (`expert=` / `ASTRO_EXPERT_MODE=1`, default OFF so the 447 suite stays green);
+   `answer_view` passes the expert text through citation-free. No `app.py` change.
+   IMPORTANT: app.py has NO load_dotenv, so the flag must be set in the SHELL that
+   launches streamlit ($env:ASTRO_EXPERT_MODE="1"; streamlit run ...), not in .env.
+
+THE REALIGNMENT (ratified). Original architecture intent = precompute everything
+(replace the AstroSage PDF) and FEED the values; the LLM reasons like an expert;
+NO serve-time answer-gating; rigor lives UPSTREAM at calc-validation. The S124-S140
+verification arc drifted into building citation/verification machinery instead of
+widening the fact block; S141 is the first widening (dasha) and the pivot back.
+Fabrication is prevented by COMPLETENESS of input, not by guards.
+
+LIVE MEASUREMENT (expert on, "when would I have got married"). Every date is
+calculation-correct (Mercury-Venus 2011-14, Saturn-Venus 1996-99; verified to
++/-2 days by an independent reproduction of the antardasha arithmetic). BUT the
+model SELECTED Mercury-Venus 2011-14 -- the naive "Venus is the karaka, strong in
+D9" reading, which Output.txt explicitly calls a FALSE POSITIVE ("nothing happened
+there") -- and passed over Mercury-Rahu (30 Jan 2018 - 19 Aug 2020, containing the
+actual ~2019 marriage) even though that window WAS in the tree.
+
+ROOT CAUSE (the standing finding). Selection accuracy is gated on INPUT SYSTEMS,
+not calculation. Output.txt reached Dec 2019 by corroborating Sade Sati (Saturn
+transit over the ascendant Oct 2017-Jan 2020), KP (7th cusp sub-lord = Saturn),
+and Lal Kitab -- all Saturn/Rahu-pointing -- which OVERRODE the Venus reading.
+Path B feeds only BPHS + dasha + D9, so the strongest signal in its inputs is the
+Venus-karaka trap, with no counter-evidence available. NOT a calc bug; NOT
+fixable with a guard.
+
+NEXT (new session). Feed Sade Sati / Saturn gochara into the fact block -- built
+already (`agent/calculations/transits/sade_sati.py`, `gochara.py`), so a restate,
+same pattern as dasha, no new guard. It is the single system most responsible for
+the benchmark's 2019 pick. Then KP 7th-cusp sub-lord and Lal Kitab (both UNBUILT,
+bigger). Optionally: promote expert-mode from flag to default once selection
+accuracy is measured; delete scripts/expert_pilot.py (superseded).
+
+FILES (uncommitted): agent/chart_calculator.py; agent/astro/{chart_facts, pipeline,
+capability_gate, interpreter, answer_view}.py; tests/astro/{test_chart_facts,
+test_capability_gate, test_pipeline}.py; scripts/expert_pilot.py (throwaway).
+pytest tests/astro/ -q => 447 passed.
+
+## S142 (2026-09-26) -- SADE SATI / GOCHARA RESTATED INTO PATH B; ORACLE-VALIDATED ON SULABH'S OWN CHART
+
+TASK (per claude_handover_S142.md / the S141 handover's own NEXT line): feed
+Sade Sati / Saturn gochara into the fact block. A RESTATE, not a build --
+`agent/calculations/transits/sade_sati.py` and `gochara.py` were already built
+and oracle-validated (S20 / P2.2.2). Do not confuse this with S143's KP task
+below, which IS a build.
+
+WHAT SHIPPED (all Path B, uncommitted on `wip/interpretive-pilot`):
+- `sade_sati.sade_sati_phase_for_signs(natal_moon_sign, saturn_sign)` -- new
+  cheap public function, restates the existing `_phase_for_diff` rule for a
+  caller that already has Saturn's sign (from gochara), so it never invokes
+  `compute_sade_sati()`'s multi-year window-scan (measured ~0.42s/call, vs
+  ~0.0002s/call for the cheap path -- unusable at 45-72 antardashas/chart).
+- `agent/astro/transit_facts.py` (new) -- `build_transit_facts(chart,
+  chart_facts)`, same composer pattern as `yoga_facts.py`/D9: for every
+  antardasha in the RAW `chart['dasha']['mahadasha_tree']`, snapshots Saturn's
+  transit at the antardasha's MIDPOINT jd via `gochara.compute_gochara()`,
+  reads Sade Sati phase off that sign. Mahadasha-level lines NOT annotated
+  (spans too coarse for one snapshot). Fail-soft (never raises).
+- Wired: `capability_gate.FACT_BLOCK_PROVIDES` += "transits" (same commit,
+  growth contract); `pipeline._fact_block` renders `[Saturn: <sign>, house H
+  from lagna, house H from Moon, Sade Sati <PHASE>]` per antardasha line, plus
+  one explanatory sentence; `interpreter.py` EXPERT_SYSTEM's fact-type list
+  extended to recognise a transit placement; composed in both
+  `scripts/expert_pilot.py` and `frontend/app.py` (the live app).
+
+VALIDATED OFFLINE (Cowork sandbox, no OpenAI access there):
+- 4 reference charts (Sulabh/David/Sheridan/Surbhi): zero exceptions, correct
+  moon-sign agreement, non-zero period counts (54/72/63/45).
+- `sade_sati_phase_for_signs` cross-checked against the oracle-locked full-scan
+  result at the existing Sheridan/Surbhi canonical anchor (exact match) + an
+  exhaustive fuzz test of all 144 (moon-sign, saturn-sign) combinations (zero
+  mismatches).
+- Fact-block char delta for Sulabh: 6661 -> 10550 chars (+3889, ~970-1550
+  tokens) -- small against the 150k ceiling.
+
+NEW THIS SESSION -- THIRD ORACLE-VALIDATED REFERENCE CHART FOR SADE SATI.
+Sulabh asked to validate against his OWN AstroSage report
+(`data/pdfs/VedicReport5-24-202610-01-26PM.pdf`, printed 2026-05-24, pages
+10-12, "Rasi: Scorpion"). Checked `compute_sade_sati(7, jd)` against all 24
+rows spanning 1987-2049 (8 Sade Sati windows + their retrograde-split table
+rows, + 8 Small Panoti rows, which correctly collapse to NONE -- the S20
+locked scope decision, not a gap). RESULT: sign+phase 24/24 match. Boundary
+dates on the two Sade-Sati-proper windows: Rising/Libra 2011-11-15->2012-05-15
+& 2012-08-04->2014-11-02 (max drift ~1.04d), Setting/Sagittarius
+2017-01-27->2017-06-20 & 2017-10-27->2020-01-23 (max drift ~1.19d) -- both
+retrograde-split into 2 segments, matching AstroSage's own two-row split
+exactly. `_DAY_TOLERANCE` widened 1.0 -> 1.5 in test_sade_sati.py with an
+explicit justification (AstroSage is India-facing, prints day-only dates,
+almost certainly IST not UTC; IST midnight = 18:30 UTC the previous day, so a
+printed date can legitimately land up to ~1 day off a UTC-midnight
+comparison -- Sheridan/Surbhi happened to fall under 1.0 by chance, Sulabh's
+did not). FOLDED IN PERMANENTLY: tests/calculations/transits/test_sade_sati.py
+gained a 24-row parametrized sign+phase sweep + 2 boundary-precision anchor
+tests (Rising and Setting), mirroring the existing Sheridan/Surbhi tests.
+Suite there: 37/37 passing (sandbox run, conftest bypassed -- see below).
+
+THE KEY S141/S142 CLAIM IS NOW CONFIRMED BY AN INDEPENDENT COMMERCIAL SOURCE,
+NOT JUST OUR OWN EPHEMERIS AGREEING WITH ITSELF: AstroSage's own table (not
+derived from our code) places the true ~2019 marriage window (Mercury-Rahu
+antardasha) inside its Sagittarius/Setting row, and the false-positive window
+(Mercury-Venus, 2011-14) inside its Libra/Rising row -- exactly the
+corroboration transit_facts.py's docstring claims Output.txt used.
+
+NOT DONE -- THE ACTUAL SUCCESS TEST. "With expert mode on, re-ask 'when would
+I have got married' and check whether the Saturn signal moves the pick" was
+NOT run: this Cowork sandbox is firewalled from api.openai.com (documented,
+unchanged). Sulabh must run `python scripts/expert_pilot.py marriage_past`
+himself (or Streamlit with `ASTRO_EXPERT_MODE=1` set in the LAUNCHING SHELL,
+not `.env` -- app.py has no load_dotenv) and report whether GPT-5's pick
+actually shifted toward Mercury-Rahu. THIS IS THE FIRST THING TO CHECK BEFORE
+BUILDING KP OR LAL KITAB -- if Saturn transit alone fixes the selection, the
+other two systems may not be needed yet.
+
+KP 7TH-CUSP SUB-LORD -- SCOPED, NOT BUILT (S143's task). Sulabh asked whether
+KP was "simple and quick" like Sade Sati was. It is NOT -- confirmed by a full
+recursive listing of agent/calculations/: no kp/ subpackage and no sub-lord
+table exist anywhere. Two findings for S143: (a) chart_calculator.py ALREADY
+calls swe.houses(jd_ut, lat, lon_geo, b"P") (Placidus) at two sites
+(calculate_chart() ~line 723, build_varshaphal_chart() ~line 1057) but
+DISCARDS the returned cusps tuple, keeping only ascmc[0] (the ascendant) --
+capturing the 12 Placidus cusps is cheap, the ephemeris call already happens;
+(b) the existing compute_porphyry_house_cusps() (used for Bhava Dig Bala) is a
+DIFFERENT house system (Porphyry/Sripati, hsys='O') and is NOT reusable for
+KP, which specifically requires Placidus. The genuinely new, not-yet-built
+part is the KP sub-lord LOOKUP TABLE (27 nakshatras x 9 Vimshottari-
+proportional sub-lord segments = 249 divisions of the zodiac) -- mechanical
+and deterministic, no cross-source fragmentation issue, but still needs
+building, unit tests, and oracle validation (an AstroSage or JHora KP report)
+before it can be locked and restated, per the Calculation Architecture's
+per-module validation protocol. Sulabh explicitly chose to defer this to a
+NEW chat session rather than build it now. See claude_handover_S143.md.
+
+Lal Kitab remedies remain explicitly deferred to "the end" per Sulabh's own
+instruction -- do not start it before KP.
+
+FILES (uncommitted): agent/calculations/transits/sade_sati.py,
+agent/astro/transit_facts.py (new), agent/astro/capability_gate.py,
+agent/astro/pipeline.py, agent/astro/interpreter.py, scripts/expert_pilot.py,
+frontend/app.py, tests/astro/test_capability_gate.py,
+tests/astro/test_transit_facts.py (new),
+tests/calculations/transits/test_sade_sati.py.
+
+TESTING NOTE: this session ran in Anthropic's Cowork sandbox, which does not
+have `agent.infra` or `openai` staged, so tests/conftest.py could not be
+imported and the full suite could not be run here (an environment limitation,
+not a code issue). Ran the three touched test files directly with conftest
+bypassed: 37 (test_sade_sati.py) + 10 (test_transit_facts.py) + 29
+(test_capability_gate.py) passed, 0 failed. Sulabh must run the full
+`pytest tests/astro/ tests/calculations/ -q` on his own machine before commit
+(expected ~447 + new tests, per the S141/S142 handovers' own baseline).
+
+## S143 (2026-09-27) -- KP 7th-cusp sub-lord SHIPPED + wired; KP house
+significators BUILT then CORRECTED (PDF-runtime-dependency mistake caught and
+reverted same session). Committed to device via device_commit_files. NO git
+commit (no "RATIFIED: commit authorized" token given this session).
+
+PART 1 -- KP 7TH-CUSP SUB-LORD (the S143 handover's scoped task). SHIPPED.
+
+Built `agent/calculations/kp/sub_lords.py`: each of the 27 nakshatras
+(13d20' each) subdivided into 9 Vimshottari-proportional sub-lord segments,
+27 x 9 = 243 divisions of the 360d zodiac (corrected from an earlier
+handover's "249" -- 27 x 9 = 243, not 249; the wrong figure had also leaked
+into a `chart_calculator.py` comment, fixed in the same pass).
+`sub_lord_for_longitude(sidereal_lon) -> str`, boundary-tested (zero, first
+segment, exact-boundary, wraparound above 360/negative).
+
+Placidus cusps: `chart_calculator.py` was already calling
+`swe.houses(jd_ut, lat, lon_geo, b"P")` at two sites but discarding the
+returned cusps tuple, keeping only `ascmc[0]`. Now captures all 12 into
+`meta["house_cusps_kp_sidereal"]`. Confirmed NOT reusable:
+`compute_porphyry_house_cusps()` is a different house system
+(Porphyry/Sripati, hsys='O', built for Bhava Dig Bala) -- KP requires
+Placidus specifically, per the S143 handover's explicit warning.
+
+ORACLE-VALIDATED, all 4 reference charts (Sulabh/David/Sheridan/Surbhi), 48
+cusps total, against AstroSage's own "KP System / Nakshatra Nadi" Cuspal
+Positions table (word-position `extract_words()` parse, sorted by (top, x0)
+-- a naive linear `extract_text()` interleaves the page's side-by-side
+chart-diagram and dasha-date-grid into the table rows, the same trap this
+whole KP page keeps producing). RESULT: 46/48 exact match. 2 documented
+xfail divergences (David cusp 12, Surbhi cusp 10), both boundary-proximity
+misses traced to this codebase's geocoded lat/lon fixture differing from
+AstroSage's own internal city coordinates by a few arcminutes (the SAME
+class of residual already accepted for Sade Sati's day-boundary tolerance
+and the Sun/Moon arcsecond residual -- not new to KP). Using AstroSage's own
+stated coordinates instead of the geocoded fixture scores 47/48 offline
+(verified, not run in the committed suite to keep it deterministic/
+network-free). `tests/calculations/kp/test_kp_oracle_validation.py`:
+`test_measured_match_rate_is_at_least_46_of_48` is the actual regression
+floor, the two rows are `xfail(strict=False)` so a future tightening
+surfaces as XPASS rather than needing the divergence set edited.
+
+WIRED, same composer pattern as Sade Sati/D9/yogas (composed by the CALLER,
+never inside `chart_facts.py`): `agent/astro/kp_facts.py` (`build_kp_facts`)
+-> `capability_gate.FACT_BLOCK_PROVIDES += "kp_seventh_cusp_sub_lord"` ->
+`pipeline._fact_block` renders a NATAL-fact paragraph for the 7th cusp's
+sub-lord -> `interpreter.py` EXPERT_SYSTEM fact-type list extended.
+
+TWO ADDITIONAL FIXES landed in the same commit, root-caused from a measured
+defect (see below): (a) a chart-agnostic NATAL-vs-TRANSIT disambiguation
+rule -- two facts sharing a planet's name are not automatically related,
+stated as a HARD RULE in `interpreter.py`'s `EXPERT_SYSTEM` and mirrored in
+`scripts/expert_pilot.py`'s own copy; (b) a "survey every antardasha before
+ranking" completeness rule in the same two places -- a period silently
+skipped is a period implicitly ruled out without saying so.
+
+MEASURED LIVE (Sulabh, GPT-5, expert mode, "when would I have got married",
+3 separate runs across this session): Run 1 (before any fix) picked
+Mercury-Jupiter 2020-22 as most likely, cited "KP 7th cusp sub-lord is
+Saturn... Saturn was transiting Libra" as corroboration for a DIFFERENT
+window (Mercury-Venus 2011-14) -- a same-name-planet conflation between the
+FIXED cuspal sub-lord fact and an unrelated TRANSIT fact. Run 2 (after fixes
+a+b above): completeness rule worked -- Mercury-Rahu (the correct window,
+per Output.txt) now got surveyed and named as a "possible" alternative --
+but the conflation PERSISTED with different wording ("KP cross-check: the
+7th cusp sub-lord is Saturn. During this sub-period Saturn was transiting
+Libra..."), still favouring Mercury-Venus. CONCLUSION: the defect is
+STRUCTURAL, not a wording gap that a stricter prompt rule can close. The
+cuspal sub-lord is a single value FIXED for the whole chart -- it is
+identical regardless of which antardasha is being evaluated, so it
+structurally cannot discriminate between two antardashas in the same
+mahadasha. It will keep inviting a same-name-coincidence "corroboration"
+for whichever window the model already favours, no matter how the
+NATAL/TRANSIT wording is tightened.
+
+PART 2 -- KP HOUSE SIGNIFICATORS. BUILT, then the PRODUCTION WIRING WAS
+REVERTED same session (Sulabh, 2026-09-27).
+
+DIAGNOSIS: `Output.txt` (a project doc -- an independently-authored
+reference answer Sulabh had already validated in a prior Claude Desktop
+session) names the real discriminator the false-positive-picking runs above
+were missing: the KP HOUSE SIGNIFICATOR table (which houses each planet
+signifies -- a DIFFERENT KP technique from the cuspal sub-lord, unrelated to
+it, four-level occupant/house-lord/star-lord hierarchy). Unlike the cuspal
+sub-lord, this DOES vary by which lord is running, so it can actually
+discriminate between two antardashas. Output.txt states Mercury signifies
+houses 2,3,7,9,12 and Rahu signifies 1,2,3,4 for Sulabh's own chart, tying
+the true window to Mercury-Rahu via a real, period-specific KP argument
+Path B was not giving the interpreter.
+
+BUILT: `agent/calculations/kp/significators.py` (`parse_kp_significators`) --
+a pdfplumber word-position parser for AstroSage's own printed "Significators
+of Houses" table (same page/layout-interleaving trap as the Cuspal Positions
+table above; same `(top, x0)`-sorted `extract_words()` fix). VALIDATED
+against all 4 reference charts' real PDFs (Sulabh/David/Sheridan/Surbhi),
+100% match against manually-derived tables for every planet on every chart;
+Sulabh's own Mercury/Rahu rows additionally cross-checked exactly against
+Output.txt (found before this parser was written, so the parser is not
+curve-fit to its own test). `tests/calculations/kp/test_significators.py`:
+11 passed, 1 skipped (a "PDF without the KP page" branch test, skipped only
+because that fixture PDF isn't present in every checkout).
+
+BUILT: `agent/astro/kp_significator_facts.py` (`build_kp_significator_facts`,
+composer). WIRED into `capability_gate.py` (`+= "kp_planet_significations"`),
+`pipeline.py` (a per-antardasha `[signifies houses: ...]` tag next to each
+sub-period's own lord, plus a standing NATAL paragraph listing every
+planet's significated houses), and `interpreter.py`'s EXPERT_SYSTEM fact-type
+list. THEN wired into BOTH live callers -- `frontend/app.py` (parsed at PDF
+upload time into `st.session_state.kp_significators`, composed into
+`chart_facts` on every question) and `scripts/expert_pilot.py` (read
+directly from `data/pdfs/VedicReport5-24-202610-01-26PM.pdf` on disk).
+
+**THIS WAS WRONG, and Sulabh caught it.** Every other Track A fact in this
+codebase -- Sade Sati (S142), this same session's own cuspal sub-lord above
+-- is EPHEMERIS-COMPUTED, with an AstroSage/JHora PDF used ONLY as a
+test-time oracle to validate the computation, never as the thing that
+actually gets read when a real answer is served. The significator wiring
+broke that pattern for the first time: with it wired, a served answer's KP
+house-significator facts came from PARSING THE UPLOADED PDF LIVE, so no PDF
+uploaded that session meant no significator facts at all. This is the
+opposite direction from the Master Build Plan's own stated V2 horizon item,
+recorded S115 and still unstarted: "AstroSage PDF removal in favour of
+in-house computation." The original in-session defence ("this is a restate,
+same as Sade Sati/cuspal sub-lord, so it's low-risk") was WRONG -- it
+conflated two different things: restating an EPHEMERIS-COMPUTED value that
+happens to also be oracle-checked against a PDF (the actual established
+pattern), versus restating WHATEVER'S PRINTED ON THE PDF PAGE as the
+production fact itself (what was actually built). The second is a new and
+weaker category that had never existed anywhere else in this codebase.
+
+**NEW LOCKED PRINCIPLE (this session): PDF IS ORACLE-ONLY FOR TRACK A
+FACTS, NEVER THE RUNTIME SOURCE.** A Track A fact class may be validated
+against an AstroSage/JHora PDF at test time. It may never be COMPUTED by
+parsing that PDF inside any code path a live served answer depends on. If a
+technique cannot yet be computed from ephemeris, it stays UNWIRED --
+module built and tested, its composer simply not called by any production
+caller -- until it can be, rather than shipping a PDF-dependent shortcut to
+get a signal into the fact block sooner.
+
+REVERTED this session: the two composition call sites --
+`frontend/app.py`'s upload-handler parse + `kp_significators` session-state
+carry + `chart_facts["kp_planet_significations"]` attach (4 edits, restoring
+the pre-significator upload flow and `_astrosage_pdf_name`-only session
+state), and `scripts/expert_pilot.py`'s `SULABH_PDF_PATH` constant + its
+`cf["kp_planet_significations"]` composition in `_facts()`. Both files
+verified clean (`python -m py_compile`) and the full relevant sandbox
+subset re-run after the revert: 187 passed, 1 skipped, 2 xfailed
+(`test_kp_significator_facts.py`, `test_capability_gate.py`,
+`test_kp_facts.py`, everything under `tests/calculations/kp/`) -- zero
+regressions from the revert itself.
+
+LEFT IN THE TREE, deliberately, as scaffolding for the real fix:
+`agent/calculations/kp/significators.py` and its 4-chart pinned fixture in
+`tests/calculations/kp/test_significators.py` -- repurposed as the ORACLE
+for a future ephemeris-computed significator engine, exactly the role
+`test_kp_oracle_validation.py`'s cuspal table already plays; NEVER a runtime
+read again until that engine exists and needs something to validate
+against. `agent/astro/kp_significator_facts.py` (the composer function
+itself stays, just uncalled by any production caller).
+`capability_gate.py`'s `"kp_planet_significations"` key and `pipeline.py`'s
+rendering code (the per-antardasha tag + standing paragraph) stay in place,
+inert -- both are guarded on the fact's presence, which no production
+caller supplies any more, so they render nothing today, but need no rework
+once a real computed engine starts supplying the same key.
+`tests/astro/test_kp_significator_facts.py` (11 tests, composer + render
+tested directly via mocking/dict-passing, unaffected by the app.py/
+expert_pilot.py revert) stays green.
+
+STILL NOT DONE, blocking everything: the actual live GPT-5 measurement with
+the FULL current fix set (cuspal sub-lord + NATAL/TRANSIT rule +
+completeness rule, significators NOT wired) has not been re-run clean since
+the significator detour started mid-session. Sulabh must re-run
+`scripts/expert_pilot.py marriage_past` or Streamlit (a fresh PDF upload is
+no longer required for this specific fact, now that significators are
+unwired) and report whether the pick is still Mercury-Venus/Mercury-Saturn
+or has shifted, before any further KP work is scoped.
+
+NEXT (S144, see `claude_handover_S144.md`): scope and build a real
+ephemeris-computed KP significator engine (occupant of a house + the
+house's own lord + the occupant's star-lord + the house-lord's star-lord --
+a 4-level hierarchy whose PRECEDENCE/STRENGTH RANKING is classically
+contested and needs real sourcing before any code is written, not just a
+mechanical lookup), validated against the oracle fixture already built and
+pinned in `test_significators.py`, wired into production ONLY once that
+validation clears a stated match-rate floor (mirroring the cuspal
+sub-lord's 46/48 floor above). Lal Kitab remains explicitly deferred to
+"the end" per Sulabh's own standing instruction -- do not start it before
+the significator engine.
+
+FILES COMMITTED TO DEVICE this session (via `device_commit_files`; no git
+commit -- `RATIFIED: commit authorized` never given):
+`agent/calculations/kp/sub_lords.py`,
+`agent/calculations/kp/significators.py` (new),
+`agent/astro/kp_facts.py`, `agent/astro/kp_significator_facts.py` (new),
+`agent/astro/capability_gate.py`, `agent/astro/pipeline.py`,
+`agent/astro/interpreter.py`, `scripts/expert_pilot.py` (edited twice --
+wired then unwired), `frontend/app.py` (edited twice -- wired then
+unwired), `tests/calculations/kp/test_sub_lords.py`,
+`tests/calculations/kp/test_kp_oracle_validation.py`,
+`tests/calculations/kp/test_significators.py` (new),
+`tests/astro/test_kp_facts.py`, `tests/astro/test_kp_significator_facts.py`
+(new), `tests/astro/test_capability_gate.py`, `tests/astro/test_transit_facts.py`.
+
+TESTING NOTE: same Cowork-sandbox limitation as S141/S142 --
+`agent.infra`/`openai` not staged, so `tests/conftest.py` cannot be imported
+here and the full suite cannot run in this sandbox. Ran the touched files
+directly (conftest bypassed): 247 passed / 1 skipped / 2 xfailed on the
+first KP pass, 187 passed / 1 skipped / 2 xfailed re-confirming after the
+significator revert. Sulabh must run the full
+`pytest tests/astro/ tests/calculations/ -q` on his own machine before any
+git commit.
+
+
+## S144 (2026-09-27) -- KP house significators EPHEMERIS-COMPUTED (no PDF) +
+deterministic timing ranker (Saturn+Jupiter convergence); validated against
+Sulabh's real marriage date (11 Dec 2019). Working end-to-end in the pilot AND
+Streamlit. Committed to device via device_commit_files. NO git commit (no
+"RATIFIED: commit authorized" token given this session).
+
+PART 1 -- KP HOUSE SIGNIFICATOR ENGINE (the S144 handover's scoped task).
+
+The S143 handover left the significator parser built but UNWIRED (PDF-oracle
+only) and scoped S144 to build a real ephemeris-computed engine validated
+against that oracle before wiring. Done.
+
+DESIGN (KP Reader II fourfold + Reader IV node agency). A planet P signifies a
+house by four classical routes in descending strength: (1) star-of-occupant --
+the house(s) P's STAR-LORD occupies; (2) occupant -- the house(s) P occupies;
+(3) star-of-owner -- the house(s) P's STAR-LORD owns; (4) owner -- the house(s)
+P owns. NODE AGENCY (Rahu/Ketu only, additional): a node also signifies the
+houses of the planet(s) it is conjoined with (same KP bhava) and of its
+sign-dispositor. The strength RANKING across levels is classically contested;
+tiers 1-4 are emitted as numbers, node-agency routes as tier=None (their weight
+vs the classical tiers is left to the interpreter/ranker, not hardcoded).
+CITATION is code-embedded (KP Reader II/IV in the docstring) -- the standard
+Track A pattern; confirmed there is NO KP text in the ingested corpus (BOOKS.md
+is a locked 12-book registry, zero Krishnamurti), so KP stays a computed
+cross-check, not a retrievable citation, until a KP Reader is ingested (Reader
+II recommended; backlog).
+
+BUILT `agent/calculations/kp/significator_engine.py`
+(`compute_kp_significators(chart)`): occupancy from
+`meta["house_cusps_kp_sidereal"]` (KP-Placidus cusps, S143); ownership from the
+cuspal sign-lords; star-lord from the EXISTING `chart_calculator._nakshatra()`
+primitive (the [UNKNOWN] from the handover -- resolved: the 27-way star-lord
+lookup already exists, applied to the Moon for dasha; the engine applies it to
+all 9 planets, no new table). Domain-neutral: emits all 12 houses for every
+planet with (tier, via); `significators_for_house()` reads one house ranked.
+
+VALIDATION -- the engine reproduces the S143 AstroSage-parsed oracle EXACTLY for
+8 of 9 planets (Sun 3,7,9; Moon 1,3,4,8,10; Mars 1,3,4,11,12; Mercury 2,3,7,9,12;
+Jupiter 1,3,4,8; Venus 3,5,6,10; Saturn 2,8,12; Ketu 3,8). The ONE delta is Rahu
+1,2,3,4,**12** vs the oracle's 1,2,3,4 -- the extra 12 is the node-dispositor
+(Saturn) route the AstroSage table omits. Two independent methods (PDF-parse and
+ephemeris-compute) agreeing to this degree is the strongest available validation.
+
+CORRECTION MID-SESSION (recorded so it is not repeated): my first sandbox
+hand-trace and the first `test_significator_engine.py` fixture used the PDF's
+Chalit/Lahiri house cusps instead of the engine's real KP-Placidus cusps. That
+mis-placed planets (put Mercury and Rahu in the same house, fabricating a
+"conjunction" that made Rahu falsely appear to signify house 7) and produced an
+earlier wrong claim that the classical fourfold "diverges badly from AstroSage"
+-- both artifacts of the wrong cusps. A probe on the real chart
+(`scripts/_kp_sig_probe.py`, throwaway) settled the ground truth. FIX:
+`test_significator_engine.py` rewritten as an INTEGRATION test driving the real
+`calculate_chart(...)` so the fixture can never drift from production cusps
+again; the PDF parser `agent/calculations/kp/significators.py` and its 4-chart
+fixture are retained ORACLE-ONLY.
+
+WIRED (composer source swapped, output shape kept). `kp_significator_facts.py`
+rewritten to take `chart` (not `pdf_bytes`) and call the engine, flattening to
+the UNCHANGED shape `{"planet_significations": {planet: (houses, ascending)}}`
+-- so `pipeline`/`capability_gate`/`interpreter` needed zero change. The two
+production call sites S143 removed were re-added COMPUTED, honouring the S143
+PDF-AS-ORACLE-ONLY lock: `frontend/app.py` computes from `_chart` at answer time
+(the PDF-upload path no longer feeds significators), `scripts/expert_pilot.py`
+passes `chart`. `pipeline.py`'s rendered provenance string corrected from
+"parsed from AstroSage's own printed table" to "ephemeris-computed".
+
+PART 2 -- DETERMINISTIC TIMING RANKER.
+
+PROBLEM: with significators wired, the interpreter STILL could not reliably pick
+the right window -- three live runs, three different top picks, using
+significators as post-hoc justification. Root cause: significators alone cannot
+single out one antardasha (Mercury-Mercury, Mercury-Sun, Mercury-Saturn,
+Mercury-Rahu ALL touch a marriage house), and LLM-led convergence is
+non-deterministic. The discriminator is TRANSIT convergence, which the
+interpreter was fumbling (reading Sade-Sati as an obstacle rather than the
+setting-tail / Saturn-return trigger the benchmark used).
+
+BUILT `agent/astro/timing_ranker.py` -- a deterministic convergence score per
+antardasha against the PLANNER'S target houses (domain-neutral: marriage
+{2,7,11}, career {2,6,10,11}, children {2,5,11} -- one ranker, houses injected,
+no per-scenario branches). Signals + weights (THRESHOLD DISCIPLINE, justified
+independently of any chart's answer, documented in-module): W_SIG=1.0 per target
+house the AD lord signifies; W_MD=0.5 if the MD lord signifies a target house;
+W_ACT=1.0 if transiting Saturn contacts a target house (occupies / 3rd / 7th /
+10th aspect); W_RET=2.0 if Saturn is transiting its own natal house AND that
+natal position contacts a target house (a ~29.5yr return re-firing a natal
+significator -- milestone-grade, W_RET>W_ACT because a return is categorically
+rarer than a passing aspect; scope-guarded to natal relevance); W_JUP=1.0 if
+transiting Jupiter (marriage/children benefic -- 5th / 7th / 9th aspects)
+contacts a target house. The interpreter now EXPLAINS the top window instead of
+re-ranking (kills the variance). Wired in `pipeline.answer_question` (scored on
+`verdict.plan.houses`) and `expert_pilot.py`. `transit_facts.py` extended to emit
+Jupiter's sign / house-from-lagna / retrograde from the SAME per-antardasha
+gochara snapshot -- no extra ephemeris call (Jupiter was computed and discarded).
+
+VALIDATED AGAINST GROUND TRUTH (Sulabh's actual marriage 11 Dec 2019): the
+ranker's #1 marriage window is Mercury-Rahu 28 Jan 2018 - 16 Aug 2020 (score 5.5
+with Jupiter; Mercury-Mercury #2 at 4.5), which CONTAINS 11 Dec 2019. Confirmed
+BOTH in the pilot (`diagnostics/latest_run.md`) and live Streamlit (newest
+`diagnostics/qa_capture/<launch>.md`). Weights NOT tuned to the answer --
+Mercury-Rahu wins because the Saturn return (Saturn on the Sagittarius Lagna,
+aspecting the 7th) plus Jupiter's aspect converge there. Domain-neutral
+confirmed: a career target reorders the windows. Unit tests use the real chart's
+significators/transits transcribed from the fact block, so they validate the
+production case without swisseph (7 assertions green in-sandbox).
+
+MEASURED PROGRESS: S141/S143 -> the naive Venus-2011 or Mercury-Mercury-2008
+pick; S144 end -> deterministic Mercury-Rahu (contains the true date), same
+answer every run, in both the pilot and the live app.
+
+OPEN / BACKLOG (all flagged, none blocking the marriage result):
+- W_RET dominance: the return bonus is strong enough that Mercury-Rahu also tops
+  the CAREER target -- non-marriage domains are UNVALIDATED and must be checked
+  on more charts before the ranker's non-marriage output is trusted.
+- Planner target houses mix promotion + affliction houses (marriage came in as
+  [7,2,11,8]; house 8 is an obstacle house and muddies runner-up scores). Top
+  pick survives; the clean fix is PLANNER-SIDE house-role tagging.
+- Node-agency Rahu house-12 keep-vs-drop: keeping it is the one place engine !=
+  oracle; leaning keep (classically defensible, irrelevant to marriage).
+- Intra-window month precision is soft (nailed the 2.5yr window but guessed
+  "Q2-Q3 2019" vs the actual December) -- pratyantardasha would sharpen it but
+  is suppressed (S129 lock, +/-37d). Not chased.
+- Jupiter transit is Saturn's peer for CONTACT but has no return/phase concept;
+  other transiting bodies unscored.
+- Lal Kitab still deferred to "the end".
+
+FILES committed to device (no git commit; RATIFIED pending):
+`agent/calculations/kp/significator_engine.py` (new),
+`agent/astro/kp_significator_facts.py`, `agent/astro/timing_ranker.py` (new),
+`agent/astro/pipeline.py`, `agent/astro/transit_facts.py`, `frontend/app.py`,
+`scripts/expert_pilot.py`, `tests/calculations/kp/test_significator_engine.py`,
+`tests/astro/test_kp_significator_facts.py` (new),
+`tests/astro/test_timing_ranker.py` (new). Throwaway `scripts/_kp_sig_probe.py`
+to be `git rm`'d on commit.
+
+TESTING NOTE: same Cowork-sandbox limitation as S141-S143 (`agent.infra`/`openai`
+not staged; swisseph absent, so the integration tests and pilot can't run here).
+The pure ranker logic was validated in-sandbox (7 assertions green); the
+significator engine and the full end-to-end run were validated on Sulabh's
+machine (pytest + Streamlit). Sulabh must run the full
+`pytest tests/astro/ tests/calculations/ -q` before the git commit.
+
+
+## S145 (2026-09-27) -- Planner house-role weighting (Task 1); KP corpus ingested (curated 9) into the chapter_index path (Task 3); birth-time gate; KP-vs-BPHS conflict doctrine; payload-sized model routing (gpt-5 / gpt-5.6-luna)
+
+OUTCOME: Task 1 + Task 2 (S144 refinements) + Task 3 (KP corpus) all built and
+committed to device. NO git commit yet (no "RATIFIED: commit authorized" this
+session). Interpreter output-quality is handled by prompt/model settings only,
+by Sulabh's decision (no deterministic ranker cap, no hardcoding).
+
+PART 1 -- TASK 1: PLANNER HOUSE-ROLE WEIGHTING.
+Problem (S144 backlog b): the planner emits a FLAT target-house list that mixes
+roles; for marriage it emits [2,7,8,11] (the 8th = mangalya, injected by the
+planner SYSTEM_PROMPT), and the S144 ranker scored every target house equally, so
+a lord signifying the obstacle 8th earned the same marriage-timing credit as one
+signifying the 7th -- inflating runner-up windows.
+Fix, RANKER-SIDE (not a S124 table violation -- role-within-a-chosen-domain is
+fixed classical doctrine, same category as the significator method; the planner
+stays contextual and untouched):
+- NEW `agent/astro/house_roles.py`: sourced role->weight map, MARRIAGE ONLY.
+  Promotion {2,7,11}=1.0 (K-P-Reader-2 ~line 12763), negation {1,6,10}=0.0
+  (12th-from-group, ~line 2871), obstacle {8}=0.0. Every unmapped domain ->
+  all-promotion (scope guard: byte-identical to pre-S145). Zero not negative --
+  a negative weight is a tuning knob and there is one marriage ground-truth chart.
+- `timing_ranker.py`: `rank_windows`/`build_timing_ranking` now accept a set/list
+  (weight 1.0 each -- UNCHANGED S144 behaviour) OR a {house:weight} dict; scoring
+  is weight-aware; reported *_hits list positive-weight houses only. `pipeline`
+  routes plan.domains+plan.houses through `house_roles.weighted_targets` first.
+- Validated (pure, in-sandbox, 22 assertions incl. the 8 original ranker tests
+  unchanged = scope-guard proof): marriage #1 window (Mercury-Rahu) UNCHANGED
+  (it scores on 2/7, not 8); runner-ups riding on house-8 hits lose that credit;
+  monotonic (no window scores higher after zeroing 8).
+
+PART 2 -- TASK 2 (S144 refinements). 2a Rahu house-12 node_dispositor route:
+KEPT (recorded in significator_engine docstring; tier=None so it never outranks a
+real significator; irrelevant to marriage). 2b Jupiter return/phase: DEFERRED
+(W_JUP stays contact-only; recorded at the weight).
+
+PART 3 -- TASK 3: KP CORPUS AS A FIRST-CLASS INTERPRETIVE SOURCE.
+Key architecture finding: the live expert pipeline feeds the interpreter WHOLE
+BPHS chapters selected by `domain_tags_bphs.json` from `chapter_index_bphs.json`
+-- it does NOT read ChromaDB (that 14-book/7281-chunk store is the older
+query_engine path, unused by the expert pipeline). So KP must enter the
+chapter_index/domain_tags structure, NOT ChromaDB. Ingest decision: DJVU-ONLY, no
+OCR -- sampled the djvu: prose survives, TABLES collapse (grids linearise, digits
+corrupt), but the tabular doctrine is restated in adjacent prose AND the real
+lookup tables (sub-lords/significators) are already ephemeris-computed, so OCR
+buys nothing; scan garbage is left in for the LLM to read around.
+- NEW `scripts/build_kp_units.py` (idempotent on kp_ ids): reuses payload_builder's
+  OWN strip_devanagari/split_unit_segments/approx_tokens/_short_tag_map so
+  segment_ids are byte-identical to the live path; KP prose is normalised into
+  NUMBERED PARAGRAPHS so the existing VERSE_SPLIT_RE segments it (no new splitter,
+  no payload_builder change). Tagging: RECALL-FIRST deterministic first-pass
+  (over-tag fine, never miss -- matches the planner's "widen when unsure, never
+  narrow"); untagged paragraphs kept as fail-safe (unfittable). AUTO, NOT
+  human-verified beyond 2 longevity spot-checks. First-pass caught + fixed:
+  substring bug ("son" in lesson/person), compound-term misses ("Marakasthanas"),
+  death-euphemism misses -- moved to stem + word-boundary matching, recall-first.
+- CURATED 9 (confirmed by Sulabh, research-backed via KP-vs-BPHS sources): keep
+  KP's distinctive-strength books -- Reader-II, Nakshatra-Padhathi, House-Grouping,
+  2x Longevity (Hariharan + generic), Progeny-Romance, Friendship-Love-Marriage,
+  Horary-Times, Dynamics. DROPPED 12 (Astro-Secrets 1-6 general series, 2x
+  True-Astrology dupes, KP-Astrology-Basics + KP-Simple-Rules beginner, 6-KP-Readers
+  compilation, Vol-3 166k general sink) -- all built + in backup, re-addable by
+  appending to BOOKS and re-running. Merged: 100 BPHS + 9 KP = 109 units; 1129 +
+  4058 = 5187 segments; segment-id parity + concat-invariant + no-collision all
+  verified against payload_builder's segmenter.
+- Why not all 21: measured multi-domain UNIONS blew the old 150k ceiling on every
+  domain (longevity 429k, marriage 455k). Curation alone did NOT fit (even 4 books
+  over). Scope-vs-rule shedding rejected (scope only ~10% of tokens -- 90% is dense
+  rules; can't trim under ceiling without deleting rules). Resolution = raise the
+  ceiling via model (Part 5).
+
+PART 4 -- BIRTH-TIME GATE. KP's #1 weakness (sourced): the cuspal sub-lord flips
+with a 2-3 minute birth-time error. UI radio at birth entry (Approximate default /
+Exact-to-the-minute). Approximate -> KP EXCLUDED (BPHS-only, always under ceiling);
+Exact -> KP included. Wired `frontend/app.py` (radio -> session_state) ->
+`pipeline.answer_question(birth_time_confident=)` ->
+`planner.build_from_plan(include_kp=)` which drops kp_ units and records
+`birth_time_gate` in the trace. Default Approximate = KP opt-in (conservative).
+
+PART 5 -- MODEL ROUTING + OUTPUT SETTINGS.
+- Interpreter DEFAULTS to gpt-5 (stronger/cleaner narrator, 400k window); switches
+  to gpt-5.6-luna (official 1,050,000 window, $0.20/$1.20 per 1M, 2x >272k input)
+  ONLY when the MEASURED payload built["tokens"] > GPT5_SAFE_APPROX (200k approx;
+  200k*1.70=340k real < gpt-5's 400k). >HARD_CONTEXT_CEILING (500k) refuses. Size
+  is known after build_from_plan, before the interpreter call -- no guessing.
+  Ceiling constants re-derived for luna: REAL_INPUT_CAP 272k->950k,
+  HARD_CONTEXT_CEILING 150k->500k, INTERPRETER_CONTEXT_WINDOW 400k->1.05M.
+  Composer stays gpt-5; luna reserved for the interpreter's large-payload branch.
+  (Model landscape verified against official developers.openai.com model pages --
+  gpt-5 window 400k; gpt-5.6-luna 1.05M -- my training data was stale, cross-checked.)
+- Output settings on the interpreter: EXPERT_REASONING_EFFORT="low" (cut ~half the
+  latency vs default -- measured: 79-103s -> 38-55s) and EXPERT_VERBOSITY="low",
+  both passed best-effort (named kwarg -> extra_body -> dropped if the model rejects
+  them). EXPERT_SYSTEM gained: brevity cap (bottom line + <=3-4 points), FUTURE
+  questions lead with UPCOMING windows (elapsed ones only as a one-line note --
+  fixes a future question leading with a 2018 window), tie-collapse (don't
+  enumerate co-equal-score windows), and the KP-vs-BPHS conflict doctrine.
+
+PART 6 -- KP-vs-BPHS CONFLICT DOCTRINE (EXPERT_SYSTEM, from web research of
+legitimate KP sources): KP LEADS on timing / horary / yes-no / promise-vs-denial;
+CLASSICAL (BPHS/Phaladeepika) LEADS on character / yogas / meaning; on agreement
+state the convergence (highest confidence); on divergence lead with the right
+system for the question type; if no KP facts present (time not exact) answer
+classical-only and do not invent KP reasoning.
+
+LIVE OBSERVATIONS (Sulabh's Streamlit, gpt-5.6-luna): the longevity answer was
+verbose and listed 6 windows with 5 tied at 5.5, and led with a past (2018) window
+for a future question. Diagnosed: (a) the 5.5 tie is the deterministic RANKER
+(coarse integer weights), not luna; (b) 2045-48 dropped because the planner emitted
+houses [1,3,8] this run vs [1,8] before (LLM variance on question wording), not the
+KP chapters (which never touch the ranker); (c) verbosity + past-first were because
+the brevity/past-framing prompt was not committed until after that run. Sulabh's
+directive: fix via interpreter prompt + model output settings ONLY -- no
+deterministic cap, no hardcoding. Intent recorded: this whole layer is for COST +
+a lean pre-interpreter pipeline, NOT final-answer precision.
+
+FILES committed to device (no git commit; RATIFIED pending):
+`agent/astro/house_roles.py` (new), `agent/astro/timing_ranker.py`,
+`agent/astro/pipeline.py`, `agent/astro/interpreter.py`, `agent/astro/composer.py`,
+`agent/astro/planner.py`, `agent/calculations/kp/significator_engine.py`,
+`frontend/app.py`, `scripts/build_kp_units.py` (new),
+`tests/astro/test_house_roles.py` (new), `tests/astro/test_timing_ranker.py`,
+`data/chapter_index_bphs.json`, `data/domain_tags_bphs.json`.
+(`diagnostics/latest_run.md` updated but gitignored, local-only.)
+
+TESTING NOTE: pure-logic validated in-sandbox (ranker + house_roles = 22 green;
+segment-id parity + routing thresholds verified). Anything touching swisseph /
+calculate_chart / the LLM is Sulabh's machine. Sulabh should run
+`pytest tests/astro/ tests/calculations/ -q` before the git commit; a live
+Streamlit run is optional (output quality now handled by prompt/model settings).
+
+
