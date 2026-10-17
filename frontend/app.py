@@ -59,11 +59,15 @@ logger = logging.getLogger(__name__)
 # hashes, pdf_context, and any AstroSage content are deliberately EXCLUDED
 # (no-storage lock ruling 2026-07-12).
 _DOGFOOD_CAPTURE  = os.environ.get("ASTRO_DOGFOOD_CAPTURE") == "1"
-# Option Z (S71) / S72 gate: palm-side user flow disabled by
-# default in V1. All palm-side modules remain imported and
-# testable; only UI render blocks in this file are gated. V1.1
-# re-enable is a config flip (ASTRO_PALM_ENABLED=1).
-_PALM_ENABLED = os.environ.get("ASTRO_PALM_ENABLED", "0") == "1"
+# Palm-side user flow gate. HISTORY: Option Z (S71) dropped palm from V1 and S72
+# gated the UI off by DEFAULT. S125 REVERSED the drop -- palm is IN V1 and complete
+# for its scope (the four live rule files; self-grounded, gate-verified) -- so S72's
+# "default off because dropped" reason is void. S152 (ratified by Sulabh) flips the
+# DEFAULT to ON to re-enable palm for V1. The env var is KEPT as a kill-switch
+# (ASTRO_PALM_ENABLED=0 hides the palm UI) and for test monkeypatching; only the
+# default changed. All palm-side modules stay imported and testable; only the UI
+# render blocks in this file read this flag.
+_PALM_ENABLED = os.environ.get("ASTRO_PALM_ENABLED", "1") == "1"
 _DOGFOOD_LOG_PATH = _ROOT / "diagnostics" / "dogfood_capture.md"
 
 

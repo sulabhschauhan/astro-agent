@@ -387,6 +387,32 @@ def _fact_block(chart_facts: dict) -> str:
                       if _b.get(_lab)]
             lines.append(f"  {_p} (in {fr_sg.get(_p, '?')}) -- " + "; ".join(_parts))
 
+    # YOGINI DASHA (S152). Yogini Mahadasha sequence, composed by
+    # agent.astro.yogini_facts.build_yogini_facts (MD only; the engine has no
+    # antardasha). Periods are stored as dated intervals; past/current/future is
+    # resolved HERE, at answer time, against today's date (ISO-string compare, so
+    # this stays swisseph-free), never baked into the cached fact. Guarded on
+    # presence. GROWTH CONTRACT: "yogini" is in capability_gate.FACT_BLOCK_PROVIDES.
+    yog = chart_facts.get("yogini") or {}
+    yog_mds = yog.get("mahadashas") or []
+    if yog_mds:
+        import datetime as _dt
+        _today = _dt.date.today().isoformat()
+        lines.append("")
+        lines.append(
+            "Yogini dasha (36-year cycle, 8 Yoginis) -- COMPUTED major periods "
+            "(Mahadasha only). For a 'when' question, lead with the CURRENT and "
+            "upcoming periods; a past period only on a retrospective question:")
+        for _p in yog_mds:
+            if _p["end"] < _today:
+                _ph = "past"
+            elif _p["start"] <= _today < _p["end"]:
+                _ph = "CURRENT"
+            else:
+                _ph = "future"
+            lines.append(f"  {_p['lord']} ({_p['yogini']}) {_p['start']} to "
+                         f"{_p['end']} [{_ph}]")
+
     # LUCKY / UNLUCKY WEEKDAYS (S147). CALCULATED from the chart's own house
     # lordships by agent.astro.lucky_facts.build_lucky_facts -- a trikona (1/5/9)
     # lord's weekday is favourable, a dusthana-only (6/8/12) lord's weekday is to

@@ -52,7 +52,7 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
         {"ascendant_sign", "lord_house_map", "planet_positions", "house_lords",
          "aspects", "dignity", "navamsa", "yogas", "dasha_periods", "transits", "shadbala", "ashtakavarga", "jaimini", "divisional",
          "muhurta", "lucky_unlucky",
-         "ingress", "combustion", "masa", "friendship",
+         "ingress", "combustion", "masa", "friendship", "yogini",
          "kp_seventh_cusp_sub_lord", "kp_planet_significations"})
 
 
@@ -590,3 +590,24 @@ def test_friendship_capability_is_rendered_when_the_facts_carry_it():
     assert "Sun (in Leo) -- great friend: Moon; friend: Mars; bitter enemy: Saturn" in with_fr
     assert "Saturn (in Aquarius) -- friend: Mercury; enemy: Sun" in with_fr
     assert "friendship" in CG.FACT_BLOCK_PROVIDES
+
+
+def test_yogini_capability_is_rendered_with_phase_resolved_at_answer_time():
+    """S152 Yogini MD fact class: rendered when present, phase (past/current/
+    future) computed against today at render time. Dates chosen far enough apart
+    that the phase marking is stable on any plausible run date."""
+    from agent.astro import pipeline
+    assert "Yogini dasha" not in pipeline._fact_block(dict(_BASE))
+    with_yog = pipeline._fact_block(dict(_BASE, yogini={"mahadashas": [
+        {"lord": "Mercury", "yogini": "Bhadrika", "start": "1990-01-01",
+         "end": "1995-01-01", "years": 5},
+        {"lord": "Saturn", "yogini": "Ulka", "start": "2000-01-01",
+         "end": "2200-01-01", "years": 6},          # spans any plausible 'today'
+        {"lord": "Venus", "yogini": "Siddha", "start": "2300-01-01",
+         "end": "2307-01-01", "years": 7},
+    ]}))
+    assert "Yogini dasha (36-year cycle" in with_yog
+    assert "Mercury (Bhadrika) 1990-01-01 to 1995-01-01 [past]" in with_yog
+    assert "Saturn (Ulka) 2000-01-01 to 2200-01-01 [CURRENT]" in with_yog
+    assert "Venus (Siddha) 2300-01-01 to 2307-01-01 [future]" in with_yog
+    assert "yogini" in CG.FACT_BLOCK_PROVIDES

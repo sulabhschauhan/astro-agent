@@ -175,6 +175,15 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # excluded by doctrine). Surfaces the tiers S130 left
                            # out as "contested"; additive context, no predicate,
                            # no REQUIREMENT.
+    "yogini",             # S152 STATIC (dated intervals). Yogini Mahadasha
+                           # sequence (36-year, 8-Yogini cycle), computed by
+                           # agent.astro.yogini_facts.build_yogini_facts from the
+                           # natal Moon + birth JD. MD only (no antardasha engine).
+                           # Past/current/future resolved at answer time in
+                           # _fact_block. Additive context, no predicate, no
+                           # REQUIREMENT. NOTE: engine's starting-index formula is
+                           # oracle-validated on 1 of 4 reference charts -- see
+                           # yogini_facts' validation caveat.
 })
 
 
