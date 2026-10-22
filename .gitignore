@@ -87,3 +87,7 @@ data/timeline_cache/
 # above it contains NO birth data at all, only sky events over a date range, which
 # is what lets one file serve every chart on a deployment. Rebuilt in 0.44s.
 data/ephemeris_cache/
+
+# transient pytest / run logs (overwritten each run; evidence lives in *.md)
+diagnostics/*.log
+diagnostics/**/*.log
