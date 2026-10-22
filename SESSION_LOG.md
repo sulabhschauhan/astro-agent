@@ -509,3 +509,17 @@ Branch wip/interpretive-pilot. Design-in-chat + direct-tree execution; Sulabh ra
 **5. Record hygiene.** Corrected the stale `capability_gate` KP-significators comment (said "parsed from PDF / requires a PDF" — false since S144's `compute_kp_significators`). Rewrote CLAUDE.md S141 clause (e) + added the TIMING-FUTURE-DATES lock to stop every session re-opening the already-closed-and-tested marriage-window item; the future-default is already live in `EXPERT_SYSTEM`.
 
 **Still open / deferred:** Gap-D1 ayanamsa audit (shared Vimshottari+Yogini balance precision); AstroSage retirement (needs Varshaphal + Char/Ashtottari dashas built — `annual/` is empty, no chara/ashtottari files); Lal Kitab ingestion; the 6 redundant int-key `.get` hand-patches (S151).
+
+## Session 153 (2026-10-22) — Jaimini/KP/varga surfacing, dasha engines, Narayana shipped
+Suite 5177 passed / 0 failed at close. Branch wip/interpretive-pilot. All via the device bridge (direct tree edits), committed here.
+- FRIENDSHIP RENDER FIDELITY FIX: _fact_block renders all 5 pancha-dha maitri tiers incl. empties ("friend: none"). Closes the live-run mis-binning where the interpreter back-filled a missing "friend" slot from NEUTRAL planets; root cause was the render OMITTING empty tiers (a vacuum), not the fact. (pipeline.py, test_friendship_facts, test_capability_gate.)
+- KP ALL-12 CUSP SUB-LORDS: kp_facts surfaces cusp_sub_lords{1..12} (was 7th only); engine already 47/48 oracle-validated (S143). FACT_BLOCK_PROVIDES += kp_cusp_sub_lords.
+- EXTRA SHODASHVARGA: divisional_facts surfaces the finer 6 vargas (D16/D20/D27/D40/D45/D60) — all 14 already 4-chart validated; render de-duplicated to iterate the dict (P-030).
+- BHAVA ARUDHAS ALL-12: jaimini_facts surfaces bhava_padas{1..12} via compute_bhava_padas (PVR Example 29-validated), separate fail-soft block so AL/UL stay robust.
+- KARAKAMSA: jaimini_facts surfaces karakamsa (AK's navamsa sign, PVR Ch.7). "Swamsa" deliberately NOT surfaced — not a PVR term.
+- PYTEST FAILURE LOG: conftest.pytest_terminal_summary overwrites diagnostics/latest_pytest.log each run with failed nodeids + tracebacks.
+- STRONGER_RASI (§15.5.2): NEW in jaimini/strength.py — 6-rule stronger-rasi cascade (Narayana seed selector). Validated vs PVR Exercise 26 (Chart 12 D-10, 6 pairs, answer key p.217).
+- NARAYANA DASA: NEW agent/calculations/dashas/narayana.py (Jaimini rasi dasa, PVR Ch.18). Progression COMPUTED from the Brahma/Shiva/Vishnu movement rules (NOT a transcribed table); cross-validated 36/36 vs PVR Table 40. Lengths §18.2.2 (count/direction/dignity/own-sign/2nd-cycle). Validated: Table 40 + Example 66 (book) + JHora v8 END-TO-END on Sulabh — exact, every edge incl. the Sc co-lord resolving to Ketu. Wired via narayana_facts.py (yogini-style dated intervals), static_facts, _fact_block render, FACT_BLOCK_PROVIDES += narayana.
+- D5 SOLVED: stronger_co_lord(purpose="dasa_duration") stays LOCKED (do not reopen). Narayana's length fn applies PVR Step-5a (larger-length co-lord) ITSELF, reusing stronger_co_lord's purpose-independent steps 1-4. Sc=9 (Ketu) on Sulabh is the proof.
+- data/default_user/jhora_sulabh_dashas.md saved (JHora v8 oracle tables for Sulabh).
+OPEN, deferred by Sulabh until more greenfield modules land: (1) live Streamlit Narayana "when" check; (2) Narayana end-to-end on David/Sheridan/Surbhi. Parked: Narayana antardasas (§18.3); special_lagnas surfacing (no oracle yet).

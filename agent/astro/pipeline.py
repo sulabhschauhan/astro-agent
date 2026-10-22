@@ -335,21 +335,43 @@ def _fact_block(chart_facts: dict) -> str:
                      f"perceived by others): {_al}.")
     if _ul:
         lines.append(f"Upapada Lagna (UL -- the marriage/spouse significator): {_ul}.")
+    _km = jai.get("karakamsa")
+    if _km:
+        lines.append(f"Karakamsa (PVR Ch.7: the navamsa sign of the Atmakaraka "
+                     f"{_km['atmakaraka']} -- the soul's reference point for the "
+                     f"inner self, read in D9): {_km['sign']}.")
+    _bp = jai.get("bhava_padas")
+    if _bp:
+        _ar_matter = {
+            1: "self-image", 2: "wealth-image", 3: "effort/siblings-image",
+            4: "home/property-image", 5: "creativity/children-image",
+            6: "work/service-image", 7: "partnership-image",
+            8: "transformation-image", 9: "fortune/dharma-image",
+            10: "career/public-image", 11: "gains-image", 12: "loss/expense-image",
+        }
+        _bp_parts = "; ".join(f"A{_h} ({_ar_matter[_h]}): {_bp[_h]}"
+                              for _h in range(1, 13) if _h in _bp)
+        lines.append(
+            "Bhava Arudhas (Jaimini -- the sign in which each house's matters are "
+            "PERCEIVED by the world, distinct from the house itself; A1 is the "
+            "Arudha Lagna, A12 the Upapada): " + _bp_parts + ".")
 
-    # DIVISIONAL CHARTS (point 2). Domain-relevant vargas (D10 career, D7
-    # children, D2 wealth, D30 health, D12 parents, D3 siblings, D24 education),
-    # from the oracle-validated engine (agent/calculations/vargas/divisional,
-    # 4 reference charts) and composed by the caller like navamsa/shadbala/
-    # jaimini. Varga placements are a different reference frame than the D1
-    # predicates -> unfittable; no gate Requirement. GROWTH CONTRACT:
-    # "divisional" is in capability_gate.FACT_BLOCK_PROVIDES.
+    # DIVISIONAL CHARTS (point 2; S153 widened to the full Shodashvarga minus
+    # D1/D9). From the oracle-validated engine (agent/calculations/vargas/
+    # divisional, all 14 rules x 4 charts) and composed by the caller like
+    # navamsa/shadbala/jaimini. Which vargas appear is owned in ONE place --
+    # divisional_facts._SURFACED; this render iterates whatever the composer
+    # produced, with NO second hard-coded code list here (P-030). Varga
+    # placements are a different reference frame than the D1 predicates ->
+    # unfittable; no gate Requirement. GROWTH CONTRACT: "divisional" is in
+    # capability_gate.FACT_BLOCK_PROVIDES.
     dv = chart_facts.get("divisional") or {}
     if dv:
         lines.append("")
         lines.append("Divisional charts (vargas) for the relevant life areas -- "
-                     "each planet's sign and house FROM THAT VARGA's own lagna:")
-        for _code in ("D10", "D7", "D2", "D30", "D12", "D3", "D24"):
-            _v = dv.get(_code)
+                     "each planet's sign and house FROM THAT VARGA's own lagna. "
+                     "Weigh the varga relevant to the question, not every one:")
+        for _code, _v in dv.items():
             if not _v:
                 continue
             _pl = _v.get("placements") or {}
@@ -382,9 +404,19 @@ def _fact_block(chart_facts: dict) -> str:
             _b = fr_bp.get(_p)
             if not _b:
                 continue
-            _parts = [f"{_FR_GLOSS[_lab]}: {', '.join(_b[_lab])}"
-                      for _lab in ("Adhimitra", "Mitra", "Sama", "Satru", "Adhisatru")
-                      if _b.get(_lab)]
+            # Render ALL five tiers, empties as "none" -- never drop an empty
+            # tier. Dropping it (the pre-S153 behaviour) left a gap between the
+            # tiers shown: on a chart whose "friend" (Mitra) tier was empty, the
+            # interpreter saw only great-friend / neutral / enemy, and when asked
+            # a friend-or-enemy question it back-filled the missing "friend" slot
+            # out of the NEUTRAL planets -- reporting computed-neutral planets as
+            # friends/enemies (live-run fidelity miss). An explicit "friend: none"
+            # removes that vacuum so neutral reads as its own closed category.
+            _parts = [
+                f"{_FR_GLOSS[_lab]}: "
+                f"{', '.join(_b[_lab]) if _b.get(_lab) else 'none'}"
+                for _lab in ("Adhimitra", "Mitra", "Sama", "Satru", "Adhisatru")
+            ]
             lines.append(f"  {_p} (in {fr_sg.get(_p, '?')}) -- " + "; ".join(_parts))
 
     # YOGINI DASHA (S152). Yogini Mahadasha sequence, composed by
@@ -412,6 +444,34 @@ def _fact_block(chart_facts: dict) -> str:
                 _ph = "future"
             lines.append(f"  {_p['lord']} ({_p['yogini']}) {_p['start']} to "
                          f"{_p['end']} [{_ph}]")
+
+    # NARAYANA DASA (S153). Jaimini rasi dasa (PVR Ch.18), composed by
+    # agent.astro.narayana_facts.build_narayana_facts (MD only, two cycles).
+    # Dated intervals; past/current/future resolved HERE at answer time against
+    # today (ISO-string compare, swisseph-free), never baked into the cached
+    # fact. Guarded on presence. GROWTH CONTRACT: "narayana" is in
+    # capability_gate.FACT_BLOCK_PROVIDES.
+    nar = chart_facts.get("narayana") or {}
+    nar_mds = nar.get("mahadashas") or []
+    if nar_mds:
+        import datetime as _dtn
+        _today_n = _dtn.date.today().isoformat()
+        lines.append("")
+        lines.append(
+            f"Narayana dasa (Jaimini rasi dasa, PVR Ch.18) -- COMPUTED major "
+            f"periods from the {nar.get('seed', '?')} seed; each rasi acts as the "
+            f"progressed lagna for its period. For a 'when' question, lead with "
+            f"the CURRENT and upcoming periods, a past one only on a "
+            f"retrospective question:")
+        for _p in nar_mds:
+            if _p["end"] < _today_n:
+                _phn = "past"
+            elif _p["start"] <= _today_n < _p["end"]:
+                _phn = "CURRENT"
+            else:
+                _phn = "future"
+            lines.append(f"  {_p['rasi']} (lord {_p['lord']}, {_p['years']}y) "
+                         f"{_p['start']} to {_p['end']} [{_phn}]")
 
     # LUCKY / UNLUCKY WEEKDAYS (S147). CALCULATED from the chart's own house
     # lordships by agent.astro.lucky_facts.build_lucky_facts -- a trikona (1/5/9)
@@ -644,8 +704,8 @@ def _fact_block(chart_facts: dict) -> str:
     # the 7th cusp's sub-lord is marriage's own significator condition, a
     # second cross-system corroboration alongside the Sade Sati/Saturn-transit
     # tags above -- same posture, feed it, do not gate on it (S141 lock).
-    # GROWTH CONTRACT: "kp_seventh_cusp_sub_lord" is in
-    # capability_gate.FACT_BLOCK_PROVIDES.
+    # GROWTH CONTRACT: "kp_seventh_cusp_sub_lord" and "kp_cusp_sub_lords" are
+    # in capability_gate.FACT_BLOCK_PROVIDES.
     if sigs:
         lines.append("")
         sig_lines = "; ".join(
@@ -676,6 +736,34 @@ def _fact_block(chart_facts: dict) -> str:
             f"between this natal sub-lord and a transiting planet is NOT itself "
             f"a corroboration -- they are unrelated quantities unless the "
             f"specific KP technique you are applying actually connects them."
+        )
+
+    # KP all-12 cusp sub-lords (S153). The 7th-cusp paragraph above stays for
+    # its marriage-corroboration caution; this general line gives every house's
+    # cuspal sub-lord so the interpreter can weigh the cusp relevant to whatever
+    # was asked (career=10, wealth=2/11, health=6, ...). Same engine + KP
+    # ayanamsha as above; NATAL and fixed. In KP a house's own cusp sub-lord
+    # decides whether that house's matter is granted. GROWTH CONTRACT:
+    # "kp_cusp_sub_lords" is in capability_gate.FACT_BLOCK_PROVIDES.
+    kp_all = kp.get("cusp_sub_lords") or {}
+    if kp_all:
+        _house_matter = {
+            1: "self/body", 2: "wealth/family/speech", 3: "siblings/courage",
+            4: "home/mother/property", 5: "children/education", 6: "debts/health/enemies",
+            7: "marriage/partnership", 8: "longevity/upheaval", 9: "fortune/dharma",
+            10: "career/status", 11: "gains/fulfilment", 12: "loss/expenditure/moksha",
+        }
+        _kp_parts = "; ".join(
+            f"{_h} ({_house_matter[_h]}): {kp_all[_h]}"
+            for _h in range(1, 13) if _h in kp_all
+        )
+        lines.append("")
+        lines.append(
+            "KP cusp sub-lords (Krishnamurti Paddhati) -- NATAL, fixed for this "
+            "chart, computed under the KP ayanamsha (not Lahiri). Each house's "
+            "OWN cusp sub-lord decides whether that house's matter is granted; "
+            "weigh the cusp relevant to the question, not every house. "
+            + _kp_parts + "."
         )
 
     return "\n".join(lines)

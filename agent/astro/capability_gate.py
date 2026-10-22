@@ -134,6 +134,13 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # fact class, same posture as "transits" -- a second
                            # cross-system corroboration for marriage-timing
                            # selection, not a gate on its own.
+    "kp_cusp_sub_lords",   # KP sub-lord of ALL 12 house cusps (S153), same
+                           # engine/ayanamsha as kp_seventh_cusp_sub_lord above,
+                           # over the full chart['meta']['house_cusps_kp_sidereal']
+                           # array. Each house's own cusp sub-lord governs that
+                           # house's matter; additive context, no predicate, no
+                           # REQUIREMENT. The 7th-cusp entry is retained above for
+                           # its marriage-corroboration framing.
     "kp_planet_significations",  # KP house significators (Sun..Ketu -> houses
                            # signified), COMPUTED IN-HOUSE from the ephemeris
                            # (S144) by agent.calculations.kp.significator_engine.
@@ -184,6 +191,14 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # REQUIREMENT. NOTE: engine's starting-index formula is
                            # oracle-validated on 1 of 4 reference charts -- see
                            # yogini_facts' validation caveat.
+    "narayana",           # S153 STATIC (dated intervals). Narayana rasi dasa
+                           # (Jaimini, PVR Ch.18), computed by
+                           # agent.astro.narayana_facts.build_narayana_facts from
+                           # the natal ascendant + 9 planet longitudes (via the
+                           # book- and JHora-validated narayana engine). MD only,
+                           # two cycles. Past/current/future resolved at answer
+                           # time in _fact_block. Additive context, no predicate,
+                           # no REQUIREMENT.
 })
 
 

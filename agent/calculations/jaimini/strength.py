@@ -562,3 +562,178 @@ def stronger_co_lord(
         sign=sign, winner=winner, loser=loser,
         deciding_step="step_5b", diagnostics=tuple(diagnostics),
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# §15.5.2 STRONGER RASI -- sibling cascade to stronger_co_lord above. Picks the
+# Narayana-dasa SEED (the stronger of the 1st and 7th house) and compares any
+# two rasis for a rasi dasa. PVR Ch.15 Section 15.5.2 (printed pp.203-205 / PDF
+# pp.214-216): six rules in order, stopping at the first that yields a winner.
+#
+#   (1) more occupying planets wins;
+#   (2) more of {Jupiter, Mercury, lord} occupy/aspect it wins (rasi aspects);
+#   (3) contains an exalted planet wins;
+#   (4) the rasi whose LORD sits in a different-oddity sign wins;
+#   (5) natural strength dual>fixed>movable;
+#   (6) the rasi whose lord is more advanced wins.
+#
+# CO-LORD NOTE: for Aq/Sc the "lord" in Steps 4/6 is the STRONGER co-lord (PVR
+# p205: "In the case of Aq and Sc, we use the stronger lord"), via
+# stronger_co_lord(purpose="arudha") -- rasi strength, NOT dasa-duration, so the
+# D5 lock does not apply. Step 2's lord-factor counts EITHER co-lord's
+# occupation/aspect (PVR Exercise 26(5): "Aq is aspected by co-lord Rahu ...
+# Rahu's aspect also counts" though Saturn is the primary lord); implemented as
+# a distinct-planet set {Jupiter, Mercury, *co-lords}. This co-lord reading of
+# Step 2 is the one documented ambiguity -- revisit if a reference chart's JHora
+# seed ever contradicts it.
+# ──────────────────────────────────────────────────────────────────────────
+
+_ODD_SIGNS = frozenset({
+    "Aries", "Gemini", "Leo", "Libra", "Sagittarius", "Aquarius",
+})
+
+
+@dataclass(frozen=True)
+class StrongerRasiResult:
+    winner: str
+    loser: str
+    deciding_rule: str  # "rule_1".."rule_6" -- first rule that produced a winner
+    # (label, (a_value, b_value)) pairs in evaluation order; rules after the
+    # deciding one are absent. Tuple of pairs, like StrongerCoLordResult.
+    diagnostics: tuple[tuple[str, object], ...]
+
+
+def _validate_nine(planet_longitudes: dict[str, float]) -> None:
+    """9-planet / [0,360) input check (mirrors stronger_co_lord's own check)."""
+    expected = set(_REQUIRED_PLANETS)
+    given = set(planet_longitudes)
+    missing = sorted(expected - given)
+    extra = sorted(given - expected)
+    if missing or extra:
+        problems = []
+        if missing:
+            problems.append(f"missing required key(s) {missing}")
+        if extra:
+            problems.append(f"unexpected key(s) {extra}")
+        raise ValueError(
+            f"planet_longitudes must have exactly the 9 keys "
+            f"{list(_REQUIRED_PLANETS)}: {'; '.join(problems)}"
+        )
+    bad = sorted(
+        (p, planet_longitudes[p]) for p in _REQUIRED_PLANETS
+        if not (0.0 <= planet_longitudes[p] < 360.0)
+    )
+    if bad:
+        raise ValueError(
+            f"planet_longitudes must be sidereal degrees in [0, 360): "
+            f"out-of-range value(s) {bad}"
+        )
+
+
+def _rasi_lord_for_strength(sign: str, planet_longitudes: dict[str, float]) -> str:
+    """Lord of `sign` for §15.5.2 Steps 4/6. Aq/Sc -> stronger co-lord
+    (arudha purpose; NOT dasa-duration, so D5 does not apply)."""
+    if sign in _CO_LORDS:
+        return stronger_co_lord(sign, planet_longitudes, purpose="arudha").winner
+    return _CLASSICAL_SIGN_LORDS[sign]
+
+
+def stronger_rasi(
+    rasi_a: str,
+    rasi_b: str,
+    planet_longitudes: dict[str, float],
+) -> StrongerRasiResult:
+    """Stronger of two rasis per PVR Ch.15 §15.5.2 (see block comment above).
+
+    Args:
+        rasi_a, rasi_b: two distinct canonical sign names.
+        planet_longitudes: the 9 _REQUIRED_PLANETS absolute sidereal longitudes
+            (same contract as stronger_co_lord).
+
+    Returns:
+        StrongerRasiResult(winner, loser, deciding_rule, diagnostics).
+
+    Raises:
+        ValueError: unknown/equal signs; bad planet_longitudes; or a tie that
+            survives all six rules (fail-closed -- PVR gives no 7th rule).
+    """
+    if rasi_a not in _CANONICAL_SIGNS or rasi_b not in _CANONICAL_SIGNS:
+        raise ValueError(
+            f"rasi_a/rasi_b must be canonical signs; got {rasi_a!r}, {rasi_b!r}"
+        )
+    if rasi_a == rasi_b:
+        raise ValueError(f"rasi_a and rasi_b must differ; both {rasi_a!r}")
+    _validate_nine(planet_longitudes)
+
+    occ = {p: _sign_of(planet_longitudes[p]) for p in _REQUIRED_PLANETS}
+    diag: list[tuple[str, object]] = []
+
+    def _occ_or_aspect(planet: str, sign: str) -> bool:
+        ps = occ[planet]
+        return ps == sign or rasi_aspects_between(ps, sign)
+
+    def _finish(rule: str, va: float, vb: float) -> StrongerRasiResult:
+        diag.append((rule, (va, vb)))
+        winner, loser = (rasi_a, rasi_b) if va > vb else (rasi_b, rasi_a)
+        return StrongerRasiResult(
+            winner=winner, loser=loser, deciding_rule=rule, diagnostics=tuple(diag),
+        )
+
+    # Rule 1 -- occupancy.
+    a = sum(1 for p in _REQUIRED_PLANETS if occ[p] == rasi_a)
+    b = sum(1 for p in _REQUIRED_PLANETS if occ[p] == rasi_b)
+    if a != b:
+        return _finish("rule_1", a, b)
+    diag.append(("rule_1", (a, b)))
+
+    # Rule 2 -- {Jupiter, Mercury, lord(s)} occupy/aspect count. Distinct
+    # planets; Aq/Sc expand the lord to BOTH co-lords (Exercise 26(5)).
+    def _rule2(sign: str) -> int:
+        lords = set(_CO_LORDS[sign]) if sign in _CO_LORDS else {_CLASSICAL_SIGN_LORDS[sign]}
+        factors = {"Jupiter", "Mercury"} | lords
+        return sum(1 for f in factors if _occ_or_aspect(f, sign))
+    a, b = _rule2(rasi_a), _rule2(rasi_b)
+    if a != b:
+        return _finish("rule_2", a, b)
+    diag.append(("rule_2", (a, b)))
+
+    # Rule 3 -- contains a planet exalted in it.
+    def _rule3(sign: str) -> int:
+        return 1 if any(
+            occ[p] == sign and _EXALTATION_SIGN.get(p) == sign
+            for p in _REQUIRED_PLANETS
+        ) else 0
+    a, b = _rule3(rasi_a), _rule3(rasi_b)
+    if a != b:
+        return _finish("rule_3", a, b)
+    diag.append(("rule_3", (a, b)))
+
+    # Rule 4 -- lord in a different-oddity sign than the rasi wins.
+    def _rule4(sign: str) -> int:
+        lord = _rasi_lord_for_strength(sign, planet_longitudes)
+        return 1 if (occ[lord] in _ODD_SIGNS) != (sign in _ODD_SIGNS) else 0
+    a, b = _rule4(rasi_a), _rule4(rasi_b)
+    if a != b:
+        return _finish("rule_4", a, b)
+    diag.append(("rule_4", (a, b)))
+
+    # Rule 5 -- natural strength dual(3) > fixed(2) > movable(1).
+    a, b = _modality_rank(rasi_a), _modality_rank(rasi_b)
+    if a != b:
+        return _finish("rule_5", a, b)
+    diag.append(("rule_5", (a, b)))
+
+    # Rule 6 -- lord advancement (Rahu/Ketu from sign end, via _advancement).
+    la = _rasi_lord_for_strength(rasi_a, planet_longitudes)
+    lb = _rasi_lord_for_strength(rasi_b, planet_longitudes)
+    adv_a = _advancement(la, planet_longitudes[la])
+    adv_b = _advancement(lb, planet_longitudes[lb])
+    if adv_a != adv_b:
+        return _finish("rule_6", adv_a, adv_b)
+
+    raise ValueError(
+        f"{rasi_a} and {rasi_b} are tied after all six PVR §15.5.2 rules "
+        f"(through Step-6 lord advancement, full float precision). PVR gives no "
+        f"7th rule; failing closed (same posture as stronger_co_lord D6 and "
+        f"karakas.py)."
+    )

@@ -7,7 +7,9 @@ from agent.astro.divisional_facts import build_divisional_facts
 
 _P = ("Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu")
 _NAMES = {"D10": "Dasamsa", "D7": "Saptamsa", "D2": "Hora", "D30": "Trimsamsa",
-          "D12": "Dwadasamsa", "D3": "Drekkana", "D24": "Chaturvimsamsa"}
+          "D12": "Dwadasamsa", "D3": "Drekkana", "D24": "Chaturvimsamsa",
+          "D16": "Shodasamsa", "D20": "Vimsamsa", "D27": "Bhamsa",
+          "D40": "Khavedamsa", "D45": "Akshavedamsa", "D60": "Shashtiamsa"}
 
 
 class _PL:
@@ -45,13 +47,16 @@ def test_capability_gate_declares_divisional():
     assert "divisional" in capability_gate.FACT_BLOCK_PROVIDES
 
 
-def test_build_surfaces_six_when_one_fails(monkeypatch):
+def test_build_surfaces_remaining_vargas_when_one_fails(monkeypatch):
     _patch(monkeypatch)
     out = build_divisional_facts(_chart())
     assert "D30" not in out and "D10" in out        # per-varga fail-soft
     assert out["D10"]["domain"] == "career"
     assert len(out["D10"]["placements"]) == 9
     assert set(out["D10"]["placements"]["Sun"]) == {"sign", "house"}
+    # S153: the finer Shodashvarga vargas now surface too.
+    assert "D60" in out and out["D60"]["domain"] == "overall & past-life karma"
+    assert "D16" in out and out["D16"]["domain"] == "vehicles & comforts"
 
 
 def test_build_requires_meta():
@@ -66,6 +71,7 @@ def test_fact_block_renders(monkeypatch):
     assert "Divisional charts (vargas)" in fb
     assert "Dasamsa (D10, career)" in fb
     assert "Saptamsa (D7, children)" in fb
+    assert "Shashtiamsa (D60, overall & past-life karma)" in fb   # S153 finer varga
     assert "Trimsamsa (D30" not in fb               # the failed varga isn't rendered
 
 

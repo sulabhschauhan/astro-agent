@@ -30,6 +30,7 @@ def _min_chart(cusps=None):
 
 def test_capability_gate_declares_kp():
     assert "kp_seventh_cusp_sub_lord" in capability_gate.FACT_BLOCK_PROVIDES
+    assert "kp_cusp_sub_lords" in capability_gate.FACT_BLOCK_PROVIDES  # S153 all-12
 
 
 def test_build_kp_facts_is_failsoft_and_returns_shape():
@@ -52,13 +53,29 @@ def test_build_kp_facts_reads_house_7_specifically():
     cusps = [i * 30.0 for i in range(12)]  # house h -> h*30 - 30 deg (0-indexed i)
     out = build_kp_facts(_min_chart(cusps))
     from agent.calculations.kp.sub_lords import sub_lord_for_longitude
-    assert out == {"seventh_cusp_sub_lord": sub_lord_for_longitude(cusps[6])}
+    assert out["seventh_cusp_sub_lord"] == sub_lord_for_longitude(cusps[6])
+    assert out["cusp_sub_lords"][7] == sub_lord_for_longitude(cusps[6])
 
 
 def test_build_kp_facts_basic_shape():
     out = build_kp_facts(_min_chart())
-    assert set(out) == {"seventh_cusp_sub_lord"}
+    assert set(out) == {"seventh_cusp_sub_lord", "cusp_sub_lords"}  # S153 widened
     assert isinstance(out["seventh_cusp_sub_lord"], str)
+
+
+def test_build_kp_facts_surfaces_all_twelve_cusps():
+    # S153: all 12 cusp sub-lords, a pure restate of the already-validated
+    # engine (sub_lord_for_longitude) over every house cusp; the 7th stays
+    # consistent with its dedicated key.
+    from agent.calculations.kp.sub_lords import sub_lord_for_longitude
+    cusps = [i * 30.0 for i in range(12)]
+    out = build_kp_facts(_min_chart(cusps))
+    csl = out["cusp_sub_lords"]
+    assert set(csl) == set(range(1, 13))                      # every house 1..12
+    assert all(isinstance(v, str) for v in csl.values())      # planet names
+    assert csl[7] == out["seventh_cusp_sub_lord"]             # 7th consistent
+    for h in range(1, 13):
+        assert csl[h] == sub_lord_for_longitude(cusps[h - 1])  # restate, no new astrology
 
 
 def test_fact_block_renders_kp_line_when_facts_carry_it():
@@ -71,6 +88,17 @@ def test_fact_block_renders_kp_line_when_facts_carry_it():
     # the measured false-corroboration defect (Mercury-Venus getting a bogus
     # "KP corroboration" from an unrelated transiting Saturn).
     assert "NOT itself" in fb or "NOT a transiting position" in fb
+
+
+def test_fact_block_renders_all_twelve_kp_line():
+    facts = _min_facts(kp={
+        "seventh_cusp_sub_lord": "Saturn",
+        "cusp_sub_lords": {**{h: "Venus" for h in range(1, 13)}, 7: "Saturn", 10: "Mars"},
+    })
+    fb = pipeline._fact_block(facts)
+    assert "KP cusp sub-lords (Krishnamurti Paddhati)" in fb
+    assert "7 (marriage/partnership): Saturn" in fb
+    assert "10 (career/status): Mars" in fb
 
 
 def test_fact_block_omits_kp_line_when_absent():
@@ -93,3 +121,4 @@ def test_growth_contract_kp_key_is_declared():
     # must be in FACT_BLOCK_PROVIDES (test_capability_gate.py pins the
     # exhaustive set; this just guards the pair locally too).
     assert "kp_seventh_cusp_sub_lord" in capability_gate.FACT_BLOCK_PROVIDES
+    assert "kp_cusp_sub_lords" in capability_gate.FACT_BLOCK_PROVIDES

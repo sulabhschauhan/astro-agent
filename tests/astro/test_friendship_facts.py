@@ -77,3 +77,33 @@ def test_fail_soft_on_empty_or_bad_chart():
     assert build_friendship_facts({}) == {}
     assert build_friendship_facts({"planetary_positions": {}}) == {}
     assert build_friendship_facts(None) == {}
+
+
+def test_fact_block_renders_every_tier_including_empties():
+    # S153 fidelity fix: the friendship render must show all five tiers, with an
+    # empty one spelled "none" -- never dropped. The pre-fix omit-empty render
+    # left a gap the interpreter back-filled from the NEUTRAL planets (live-run
+    # miss: computed-neutral planets reported as friends/enemies). Render-only
+    # test with a synthetic row so the empty tiers are deterministic.
+    from agent.astro import pipeline
+
+    friendship = {
+        "signs": {"Sun": "Leo"},
+        "by_planet": {
+            "Sun": {
+                "Adhimitra": ["Mars"], "Mitra": [], "Sama": ["Moon", "Mercury"],
+                "Satru": ["Saturn"], "Adhisatru": [],
+            },
+        },
+    }
+    facts = {
+        "ascendant_sign": "Aries",
+        "lord_house_map": {h: (h % 12) + 1 for h in range(1, 13)},
+        "friendship": friendship,
+    }
+    fb = pipeline._fact_block(facts)
+    assert "great friend: Mars" in fb
+    assert "friend: none" in fb            # the fix -- empty Mitra shown, not dropped
+    assert "neutral: Moon, Mercury" in fb
+    assert "enemy: Saturn" in fb
+    assert "bitter enemy: none" in fb      # empty Adhisatru shown too

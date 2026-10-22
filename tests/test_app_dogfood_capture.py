@@ -54,6 +54,20 @@ S67/P6a tests above. End-to-end checkpoint ack/decline simulation is
 NOT attempted here -- it would need a Streamlit-level integration harness
 this test file doesn't have.
 """
+import os
+
+# Palm UI defaults ON since S152. frontend/app.py is a Streamlit script whose
+# module-level palm blocks read st.session_state at import; outside a Streamlit
+# runtime that store does not exist -> KeyError under both AppTest.from_file()
+# and the bare `import frontend.app` this file uses. These are load-time smoke
+# tests authored palm-OFF (S66/S67) that never drive a palm upload (see this
+# module's docstring), so pinning the gate off here restores their intended
+# condition. SCOPED TO THIS FILE on purpose -- a suite-wide default (root
+# conftest) would silently neuter every future palm-on test. Set BEFORE any
+# `import frontend.app` / AppTest re-exec, per the CLAUDE.md import-time-gate
+# rule ("a test toggling it must set the env before importing app").
+os.environ["ASTRO_PALM_ENABLED"] = "0"
+
 import sys
 from pathlib import Path
 

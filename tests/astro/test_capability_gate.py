@@ -52,8 +52,8 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
         {"ascendant_sign", "lord_house_map", "planet_positions", "house_lords",
          "aspects", "dignity", "navamsa", "yogas", "dasha_periods", "transits", "shadbala", "ashtakavarga", "jaimini", "divisional",
          "muhurta", "lucky_unlucky",
-         "ingress", "combustion", "masa", "friendship", "yogini",
-         "kp_seventh_cusp_sub_lord", "kp_planet_significations"})
+         "ingress", "combustion", "masa", "friendship", "yogini", "narayana",
+         "kp_seventh_cusp_sub_lord", "kp_cusp_sub_lords", "kp_planet_significations"})
 
 
 def test_dasha_capability_is_rendered_when_the_facts_carry_it():
@@ -587,8 +587,13 @@ def test_friendship_capability_is_rendered_when_the_facts_carry_it():
                        "Satru": ["Sun"], "Adhisatru": []},
         }}))
     assert "Five-fold planetary friendship" in with_fr
-    assert "Sun (in Leo) -- great friend: Moon; friend: Mars; bitter enemy: Saturn" in with_fr
-    assert "Saturn (in Aquarius) -- friend: Mercury; enemy: Sun" in with_fr
+    # S153 fidelity fix: ALL five tiers render every time, empties as "none"
+    # (the pre-S153 omit-empty render let the interpreter back-fill a missing
+    # "friend" slot out of the neutral planets -- a live-run mis-binning).
+    assert ("Sun (in Leo) -- great friend: Moon; friend: Mars; neutral: none; "
+            "enemy: none; bitter enemy: Saturn") in with_fr
+    assert ("Saturn (in Aquarius) -- great friend: none; friend: Mercury; "
+            "neutral: none; enemy: Sun; bitter enemy: none") in with_fr
     assert "friendship" in CG.FACT_BLOCK_PROVIDES
 
 
@@ -611,3 +616,25 @@ def test_yogini_capability_is_rendered_with_phase_resolved_at_answer_time():
     assert "Saturn (Ulka) 2000-01-01 to 2200-01-01 [CURRENT]" in with_yog
     assert "Venus (Siddha) 2300-01-01 to 2307-01-01 [future]" in with_yog
     assert "yogini" in CG.FACT_BLOCK_PROVIDES
+
+
+def test_narayana_capability_is_rendered_with_phase_resolved_at_answer_time():
+    """S153 Narayana rasi dasa: rendered when present, phase resolved against
+    today at render time. Dates chosen so the phase marking is stable."""
+    from agent.astro import pipeline
+    assert "Narayana dasa" not in pipeline._fact_block(dict(_BASE))
+    with_nar = pipeline._fact_block(dict(_BASE, narayana={
+        "seed": "Sagittarius", "progression_case": "saturn",
+        "mahadashas": [
+            {"rasi": "Sagittarius", "lord": "Jupiter", "years": 4, "cycle": 1,
+             "start": "1990-01-01", "end": "1994-01-01"},
+            {"rasi": "Capricorn", "lord": "Saturn", "years": 6, "cycle": 1,
+             "start": "2000-01-01", "end": "2200-01-01"},   # spans any 'today'
+            {"rasi": "Aquarius", "lord": "Saturn", "years": 7, "cycle": 2,
+             "start": "2300-01-01", "end": "2307-01-01"},
+        ]}))
+    assert "Narayana dasa (Jaimini rasi dasa" in with_nar
+    assert "Sagittarius (lord Jupiter, 4y) 1990-01-01 to 1994-01-01 [past]" in with_nar
+    assert "Capricorn (lord Saturn, 6y) 2000-01-01 to 2200-01-01 [CURRENT]" in with_nar
+    assert "Aquarius (lord Saturn, 7y) 2300-01-01 to 2307-01-01 [future]" in with_nar
+    assert "narayana" in CG.FACT_BLOCK_PROVIDES

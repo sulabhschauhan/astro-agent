@@ -20,14 +20,17 @@ the same role Sade Sati plays for Saturn's transit corroboration.
 
 WHAT IS COMPUTED, AND HOW CHEAPLY. chart['meta']['house_cusps_kp_sidereal']
 (12 floats, already computed by chart_calculator.calculate_chart() under
-swe.SIDM_KRISHNAMURTI) is looked up once, at index 6 (house 7), via
+swe.SIDM_KRISHNAMURTI) is looked up via
 agent.calculations.kp.sub_lords.sub_lord_for_longitude(). Pure table lookup,
 no ephemeris call -- this module is essentially free given the cusps already
-exist. SCOPE NOTE: only house 7 is composed here, per the S143 task scope
-("KP 7th-cusp sub-lord"); the 12-cusp data is already captured in
-meta['house_cusps_kp_sidereal'] if a later task wants to widen this to other
-houses (e.g. 10th for career, 2nd/11th for wealth) -- that is a one-line
-change here, not a new build.
+exist. SCOPE (S153): ALL 12 cusp sub-lords are now composed -- each house's
+own cusp sub-lord governs that house's matter in KP, the same doctrine the 7th
+cusp uses for marriage. The 7th-cusp value is ALSO surfaced on its own key
+(seventh_cusp_sub_lord), unchanged, because its marriage-corroboration framing
+and its FACT_BLOCK_PROVIDES entry / renderer paragraph depend on it. All 12
+share the one engine, already oracle-validated 47/48 across 4 charts x 12
+cusps (S143, agent/calculations/kp/sub_lords.py) -- widening needs no new
+validation.
 
 VALIDATED (S143, offline, see agent/calculations/kp/sub_lords.py and
 tests/calculations/kp/test_kp_oracle_validation.py): 46/48 exact match
@@ -54,13 +57,20 @@ def build_kp_facts(chart: dict) -> dict:
     Returns:
         {} if the input does not support it (no house_cusps_kp_sidereal, or
         not a 12-element list -- e.g. a pre-S143 chart dict). Otherwise:
-        {"seventh_cusp_sub_lord": "Saturn"} (a planet name). Never raises.
+        {"seventh_cusp_sub_lord": "Saturn",            # house 7, retained
+         "cusp_sub_lords": {1: "Venus", ..., 12: "Mars"}}  # all 12 houses
+        (planet names). Never raises.
     """
     try:
         meta = chart.get("meta") or {}
         cusps = meta.get("house_cusps_kp_sidereal")
         if not isinstance(cusps, (list, tuple)) or len(cusps) != 12:
             return {}
-        return {"seventh_cusp_sub_lord": sub_lord_for_longitude(cusps[6])}
+        # One lookup per cusp; index h-1 is house h's Placidus cusp.
+        cusp_sub_lords = {h: sub_lord_for_longitude(cusps[h - 1]) for h in range(1, 13)}
+        return {
+            "seventh_cusp_sub_lord": cusp_sub_lords[7],  # unchanged key/semantics
+            "cusp_sub_lords": cusp_sub_lords,
+        }
     except Exception as e:  # noqa: BLE001 -- a bad chart costs the KP fact, not the answer
         return {"error": f"{type(e).__name__}: {e}"}

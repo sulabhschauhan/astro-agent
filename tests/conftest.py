@@ -211,7 +211,27 @@ def _patch_stage2_openai(request, monkeypatch):
 def pytest_terminal_summary(terminalreporter):
     """Visibility only -- reports how many times the Stage 2 stub above
     was actually invoked this run, so a suite run can be checked for the
-    expected count without grepping diagnostics output."""
+    expected count without grepping diagnostics output.
+
+    ALSO (S153) overwrites diagnostics/latest_pytest.log every run with the
+    failed/errored nodeids and their tracebacks, so a review session can read
+    exactly what failed without re-running the whole suite. Overwrite-only
+    (never append), per Working Style #10/#25 -- a green run writes a
+    "0 failed" file so a stale log never misleads. Logging must never break
+    the run, hence the broad guard."""
     terminalreporter.write_line(
         f"[_patch_stage2_openai] stub invocation count: {_STAGE2_STUB_CALL_COUNT[0]}"
     )
+    try:
+        from pathlib import Path as _Path
+        failed = (terminalreporter.stats.get("failed", [])
+                  + terminalreporter.stats.get("error", []))
+        out = _Path(__file__).parent.parent / "diagnostics" / "latest_pytest.log"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        blocks = [f"pytest failure log -- {len(failed)} failed/errored\n"]
+        for rep in failed:
+            tb = (getattr(rep, "longreprtext", "") or "").strip()
+            blocks.append(f"\n### {rep.nodeid}\n{tb[:4000]}")
+        out.write_text("".join(blocks) + "\n", encoding="utf-8")
+    except Exception:  # noqa: BLE001 -- a logging failure must never fail the suite
+        pass
