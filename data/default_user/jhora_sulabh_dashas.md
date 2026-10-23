@@ -10,6 +10,9 @@ PRIMARY USE: the **Narayana Dasa of D-1** table below is the oracle for
 `tests/calculations/test_narayana_dasa.py::test_sulabh_narayana_end_to_end_vs_jhora`
 (first cycle: Sg4 Cp1 Aq2 Pi11 Ar10 Ta12 Ge8 Cn7 Le5 Vi5 Li7 Sc9 — exact match).
 
+The **Ashtottari Dasa** table (added 2026-10-23) is the next validation oracle —
+see the Ashtottari section at the end of this file (design S155).
+
 The other tables (Niryana Shoola, Navamsa, Vimsottari, Moola) are retained for
 future dasha work; not yet wired.
 
@@ -532,4 +535,169 @@ Narayana Dasa of D-1 chart (a versatile phalita rasi dasa):
  Vi: 2117-04-08 (2:13:45) - 2124-04-07 (21:22:36)
  Li: 2124-04-07 (21:22:36) - 2129-04-08 (4:07:06)
  Sc: 2129-04-08 (4:07:06) - 2132-04-07 (22:39:11)
+```
+
+---
+
+## Ashtottari Dasa (conditional nakshatra dasa) — MD + Antardasa
+
+Source: JHora (Jagannatha Hora) v8 desktop, Sulabh's chart
+(6 April 1988, 00:30, Calcutta/Kolkata). Pulled 2026-10-23, pasted by Sulabh.
+Validation oracle for the forthcoming `agent/calculations/dashas/ashtottari.py`
+(design S155).
+
+ARCHITECTURE NOTE: Ashtottari is a 108-year, 8-lord *conditional* nakshatra dasa.
+Antardasas are PROPORTIONAL (Vimshottari-style: AD_years = MD_years × AD_lord_years / 108),
+NOT equal-1/12 — that was Narayana's Option-A doctrine and does NOT apply here. The
+Vimshottari engine (`_calc_dasha`) is the architectural model, not Narayana.
+
+Lords / years (sequence): Sun 6 · Moon 15 · Mars 8 · Mercury 17 · Saturn 10 ·
+Jupiter 19 · Rahu 12 · Venus 21 (= 108). Seeded by the Moon's nakshatra.
+Sulabh's start lord = Mars (balance MD 1980–1988, partially elapsed at birth;
+running AD at birth = Moon). ADs start from the MD lord and run forward.
+
+CONDITIONAL APPLICABILITY (design S155, decision = surface-and-flag, NOT a gate):
+classical rule = Rahu in a kendra or trikona from the lagna-lord's house, Rahu ≠ lagna.
+To be computed in-house from `calculate_chart()` and surfaced as a typed
+`ashtottari_applicable` fact; JHora displays the table regardless of applicability.
+
+VALIDATION STATUS: MD skeleton (lord order, lengths, start lord Mars, balance)
++ all 8 MDs expanded to AD level, verbatim below (self-consistency verified:
+MD lengths sum to 108; AD proportions match MD_years × AD_lord_years / 108).
+Running position as of 2026-10-23: Jupiter MD (2015–2034) / Moon AD
+(2025-08-22 – 2028-04-09).
+
+```
+Ashtottari Dasa (conditional nakshatra dasa):
+
+ Maha Dasas:
+
+ Mars: 1980-06-06 (8:16:16) - 1988-06-06 (9:21:22)
+ Merc: 1988-06-06 (9:21:22) - 2005-06-06 (18:01:02)
+ Sat: 2005-06-06 (18:01:02) - 2015-06-07 (7:31:44)
+ Jup: 2015-06-07 (7:31:44) - 2034-06-07 (4:18:07)
+ Rah: 2034-06-07 (4:18:07) - 2046-06-07 (5:59:58)
+ Ven: 2046-06-07 (5:59:58) - 2067-06-07 (15:12:19)
+ Sun: 2067-06-07 (15:12:19) - 2073-06-07 (4:15:17)
+ Moon: 2073-06-07 (4:15:17) - 2088-06-07 (0:30:54)
+
+Ashtottari Dasa (conditional nakshatra dasa):
+
+ Mars MD: 1980-06-06 (8:16:16) - 1988-06-06 (9:21:22)
+
+  Antardasas in this MD:
+
+  Mars: 1980-06-06 (8:16:16) - 1981-01-09 (11:13:38)
+  Merc: 1981-01-09 (11:13:38) - 1982-04-12 (17:12:23)
+  Sat: 1982-04-12 (17:12:23) - 1983-01-09 (23:38:47)
+  Jup: 1983-01-09 (23:38:47) - 1984-06-06 (8:43:00)
+  Rah: 1984-06-06 (8:43:00) - 1985-04-26 (3:07:11)
+  Ven: 1985-04-26 (3:07:11) - 1986-11-18 (12:30:13)
+  Sun: 1986-11-18 (12:30:13) - 1987-04-26 (15:24:04)
+  Moon: 1987-04-26 (15:24:04) - 1988-06-06 (9:21:22)
+
+Ashtottari Dasa (conditional nakshatra dasa):
+
+ Merc MD: 1988-06-06 (9:21:22) - 2005-06-06 (18:01:02)
+
+  Antardasas in this MD:
+
+  Merc: 1988-06-06 (9:21:22) - 1991-02-08 (13:13:43)
+  Sat: 1991-02-08 (13:13:43) - 1992-09-08 (8:44:55)
+  Jup: 1992-09-08 (8:44:55) - 1995-09-05 (16:44:43)
+  Rah: 1995-09-05 (16:44:43) - 1997-07-25 (14:28:28)
+  Ven: 1997-07-25 (14:28:28) - 2000-11-14 (19:18:33)
+  Sun: 2000-11-14 (19:18:33) - 2001-10-26 (2:22:52)
+  Moon: 2001-10-26 (2:22:52) - 2004-03-03 (0:36:51)
+  Mars: 2004-03-03 (0:36:51) - 2005-06-06 (18:01:02)
+
+Ashtottari Dasa (conditional nakshatra dasa):
+
+ Sat MD: 2005-06-06 (18:01:02) - 2015-06-07 (7:31:44)
+
+  Antardasas in this MD:
+
+  Sat: 2005-06-06 (18:01:02) - 2006-05-10 (6:17:46)
+  Jup: 2006-05-10 (6:17:46) - 2008-02-12 (4:38:25)
+  Rah: 2008-02-12 (4:38:25) - 2009-03-23 (8:36:18)
+  Ven: 2009-03-23 (8:36:18) - 2011-03-03 (19:45:43)
+  Sun: 2011-03-03 (19:45:43) - 2011-09-26 (7:42:03)
+  Moon: 2011-09-26 (7:42:03) - 2013-02-11 (11:34:07)
+  Mars: 2013-02-11 (11:34:07) - 2013-11-11 (19:42:19)
+  Merc: 2013-11-11 (19:42:19) - 2015-06-07 (7:31:44)
+
+Ashtottari Dasa (conditional nakshatra dasa):
+
+ Jup MD: 2015-06-07 (7:31:44) - 2034-06-07 (4:18:07)
+
+  Antardasas in this MD:
+
+  Jup: 2015-06-07 (7:31:44) - 2018-10-13 (0:53:53)
+  Rah: 2018-10-13 (0:53:53) - 2020-11-21 (12:55:43)
+  Ven: 2020-11-21 (12:55:43) - 2024-08-01 (11:49:00)
+  Sun: 2024-08-01 (11:49:00) - 2025-08-22 (14:00:12)
+  Moon: 2025-08-22 (14:00:12) - 2028-04-09 (2:42:14)
+  Mars: 2028-04-09 (2:42:14) - 2029-09-08 (20:24:00)
+  Merc: 2029-09-08 (20:24:00) - 2032-09-05 (4:23:15)
+  Sat: 2032-09-05 (4:23:15) - 2034-06-07 (4:18:07)
+
+Ashtottari Dasa (conditional nakshatra dasa):
+
+ Rah MD: 2034-06-07 (4:18:07) - 2046-06-07 (5:59:58)
+
+  Antardasas in this MD:
+
+  Rah: 2034-06-07 (4:18:07) - 2035-10-10 (0:32:50)
+  Ven: 2035-10-10 (0:32:50) - 2038-02-05 (7:30:48)
+  Sun: 2038-02-05 (7:30:48) - 2038-10-09 (18:54:45)
+  Moon: 2038-10-09 (18:54:45) - 2040-06-06 (17:18:15)
+  Mars: 2040-06-06 (17:18:15) - 2041-04-26 (11:51:10)
+  Merc: 2041-04-26 (11:51:10) - 2043-03-17 (8:43:24)
+  Sat: 2043-03-17 (8:43:24) - 2044-04-26 (6:09:31)
+  Jup: 2044-04-26 (6:09:31) - 2046-06-07 (5:59:58)
+
+Ashtottari Dasa (conditional nakshatra dasa):
+
+ Ven MD: 2046-06-07 (5:59:58) - 2067-06-07 (15:12:19)
+
+  Antardasas in this MD:
+
+  Ven: 2046-06-07 (5:59:58) - 2050-07-08 (17:06:27)
+  Sun: 2050-07-08 (17:06:27) - 2051-09-09 (11:35:21)
+  Moon: 2051-09-09 (11:35:21) - 2054-08-09 (3:15:27)
+  Mars: 2054-08-09 (3:15:27) - 2056-02-25 (17:15:35)
+  Merc: 2056-02-25 (17:15:35) - 2059-06-18 (1:02:24)
+  Sat: 2059-06-18 (1:02:24) - 2061-05-27 (16:04:55)
+  Jup: 2061-05-27 (16:04:55) - 2065-02-05 (5:37:45)
+  Rah: 2065-02-05 (5:37:45) - 2067-06-07 (15:12:19)
+
+Ashtottari Dasa (conditional nakshatra dasa):
+
+ Sun MD: 2067-06-07 (15:12:19) - 2073-06-07 (4:15:17)
+
+  Antardasas in this MD:
+
+  Sun: 2067-06-07 (15:12:19) - 2067-10-10 (5:27:31)
+  Moon: 2067-10-10 (5:27:31) - 2068-08-08 (17:24:13)
+  Mars: 2068-08-08 (17:24:13) - 2069-01-16 (14:05:28)
+  Merc: 2069-01-16 (14:05:28) - 2069-12-28 (5:11:57)
+  Sat: 2069-12-28 (5:11:57) - 2070-07-19 (7:31:21)
+  Jup: 2070-07-19 (7:31:21) - 2071-08-09 (11:49:56)
+  Rah: 2071-08-09 (11:49:56) - 2072-04-06 (0:11:03)
+  Ven: 2072-04-06 (0:11:03) - 2073-06-07 (4:15:17)
+
+Ashtottari Dasa (conditional nakshatra dasa):
+
+ Moon MD: 2073-06-07 (4:15:17) - 2088-06-07 (0:30:54)
+
+  Antardasas in this MD:
+
+  Moon: 2073-06-07 (4:15:17) - 2075-07-09 (2:51:58)
+  Mars: 2075-07-09 (2:51:58) - 2076-08-19 (4:43:13)
+  Merc: 2076-08-19 (4:43:13) - 2078-12-28 (12:35:40)
+  Sat: 2078-12-28 (12:35:40) - 2080-05-17 (3:17:54)
+  Jup: 2080-05-17 (3:17:54) - 2083-01-07 (8:42:26)
+  Rah: 2083-01-07 (8:42:26) - 2084-09-08 (22:27:18)
+  Ven: 2084-09-08 (22:27:18) - 2087-08-09 (14:16:15)
+  Sun: 2087-08-09 (14:16:15) - 2088-06-07 (0:30:54)
 ```
