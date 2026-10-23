@@ -54,8 +54,8 @@ from agent.calculations.jaimini.strength import (
     _sign_of, stronger_co_lord, stronger_rasi,
 )
 
-__all__ = ["compute_narayana_dasa", "NarayanaDasa", "NarayanaPeriod",
-           "DASA_PROGRESSION"]
+__all__ = ["compute_narayana_dasa", "compute_narayana_antardasha",
+           "NarayanaDasa", "NarayanaPeriod", "DASA_PROGRESSION"]
 
 # Odd-footed vs even-footed signs (§18.2.2 counting direction). NOT the same as
 # odd/even signs: odd-footed = 1-3 + 7-9, even-footed = 4-6 + 10-12.
@@ -254,3 +254,47 @@ def compute_narayana_dasa(
         seed=seed, seed_rule=seed_res.deciding_rule,
         progression_case=case, periods=tuple(periods),
     )
+
+
+# ── Antardasa progression (PVR §18.3; book-faithful per Example 67) ──────────
+# Odd SIGNS (not odd-footed): Aries, Gemini, Leo, Libra, Sagittarius, Aquarius.
+_NARAYANA_ODD_SIGNS = frozenset({
+    "Aries", "Gemini", "Leo", "Libra", "Sagittarius", "Aquarius",
+})
+
+# forced dasa-lords matching JHora desktop; validated against Sulabh's AD oracle
+_NARAYANA_DASA_LORD_OVERRIDE = {"Scorpio": "Ketu", "Aquarius": "Saturn"}
+
+
+def compute_narayana_antardasha(
+    dasa_rasi: str,
+    planet_longitudes: dict[str, float],
+) -> tuple[str, ...]:
+    """The 12 antardasa rasis (time order) inside the mahadasa of `dasa_rasi`.
+
+    Seed = stronger_rasi(dasa_rasi, 7th-from-it); first AD = the sign occupied
+    by the seed's lord (Sc -> Ketu, Aq -> Saturn); direction is + if that sign is
+    an odd sign else -; Saturn in the seed forces +, Ketu in the seed flips
+    (Saturn wins if both, mirroring the MD convention).
+
+    Raises:
+        ValueError: unknown dasa_rasi; bad planet_longitudes (delegated).
+    """
+    if dasa_rasi not in _CANONICAL_SIGNS:
+        raise ValueError(f"dasa_rasi must be a canonical sign; got {dasa_rasi!r}")
+
+    seventh = _CANONICAL_SIGNS[(_CANONICAL_SIGNS.index(dasa_rasi) + 6) % 12]
+    seed = stronger_rasi(dasa_rasi, seventh, planet_longitudes).winner
+
+    occ = {p: _sign_of(planet_longitudes[p]) for p in _REQUIRED_PLANETS}
+    lord = _NARAYANA_DASA_LORD_OVERRIDE.get(seed) or _CLASSICAL_SIGN_LORDS[seed]
+    first = occ[lord]
+
+    direction = 1 if first in _NARAYANA_ODD_SIGNS else -1
+    if occ["Saturn"] == seed:
+        direction = 1
+    elif occ["Ketu"] == seed:
+        direction = -direction
+
+    fi = _CANONICAL_SIGNS.index(first)
+    return tuple(_CANONICAL_SIGNS[(fi + direction * i) % 12] for i in range(12))

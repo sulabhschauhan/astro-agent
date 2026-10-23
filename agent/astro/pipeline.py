@@ -462,7 +462,9 @@ def _fact_block(chart_facts: dict) -> str:
             f"periods from the {nar.get('seed', '?')} seed; each rasi acts as the "
             f"progressed lagna for its period. For a 'when' question, lead with "
             f"the CURRENT and upcoming periods, a past one only on a "
-            f"retrospective question:")
+            f"retrospective question. For the CURRENT major period its "
+            f"sub-periods (antardasa) are listed too, and the same "
+            f"lead-with-current/upcoming rule applies to them:")
         for _p in nar_mds:
             if _p["end"] < _today_n:
                 _phn = "past"
@@ -472,6 +474,18 @@ def _fact_block(chart_facts: dict) -> str:
                 _phn = "future"
             lines.append(f"  {_p['rasi']} (lord {_p['lord']}, {_p['years']}y) "
                          f"{_p['start']} to {_p['end']} [{_phn}]")
+            # Antardasas only under the CURRENT MD (it spans years, so its 12
+            # sub-periods already cover the near future). Guarded on presence.
+            if _phn == "CURRENT":
+                for _a in _p.get("antardashas") or []:
+                    if _a["end"] < _today_n:
+                        _pa = "past"
+                    elif _a["start"] <= _today_n < _a["end"]:
+                        _pa = "CURRENT"
+                    else:
+                        _pa = "future"
+                    lines.append(f"    sub-period {_a['rasi']} {_a['start']} "
+                                 f"to {_a['end']} [{_pa}]")
 
     # LUCKY / UNLUCKY WEEKDAYS (S147). CALCULATED from the chart's own house
     # lordships by agent.astro.lucky_facts.build_lucky_facts -- a trikona (1/5/9)

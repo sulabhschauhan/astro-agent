@@ -334,3 +334,9 @@ Supersedes: the preceding S129 entry's "UNRESOLVED, needs Sulabh's call" status,
   and the sulabh.md line-197 assertion, which was wrong on both halves.
 No production code changed. `retrograde` stays out of the fact block on its
   other two grounds (0.05% doctrinal yield; a boolean flattens a near-station).
+
+
+S154 — Sulabh JHora v8 dasha oracle pull (2026-10-23)
+Source: data/default_user/jhora_sulabh_dashas.md
+Data: Narayana D-1 Maha Dasa + Antardasa tables (all 12 MDs), plus Niryana Shoola, Navamsa, Vimsottari and Moola MD tables, exported from JHora v8 desktop for Sulabh's chart. Narayana MD+AD sequences are the oracle for compute_narayana_antardasha (tests/calculations/test_narayana_dasa.py::_SULABH_NARAYANA_AD).
+Supersedes: none.

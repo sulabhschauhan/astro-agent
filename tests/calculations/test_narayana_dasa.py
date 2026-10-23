@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 
 from agent.calculations.dashas.narayana import (
-    DASA_PROGRESSION, compute_narayana_dasa,
+    DASA_PROGRESSION, compute_narayana_antardasha, compute_narayana_dasa,
     _count_to_lord, _length_for_lord, _lord_and_length,
 )
 
@@ -217,3 +217,65 @@ def test_sulabh_narayana_end_to_end_vs_jhora():
     # second cycle mirrors (12 - first), incl. Taurus -> 0 in cycle 2.
     second = {p.rasi: p.years for p in nd.periods if p.cycle == 2}
     assert second["Taurus"] == 0 and second["Sagittarius"] == 8
+
+
+# ── Antardasa (PVR S18.3) vs frozen JHora v8 oracle (Sulabh, 2026-10-23) ─────
+_SULABH_NARAYANA_AD = {
+    "Sagittarius": "Ar Ta Ge Cn Le Vi Li Sc Sg Cp Aq Pi",
+    "Capricorn":   "Sg Cp Aq Pi Ar Ta Ge Cn Le Vi Li Sc",
+    "Aquarius":    "Sg Cp Aq Pi Ar Ta Ge Cn Le Vi Li Sc",
+    "Pisces":      "Ar Ta Ge Cn Le Vi Li Sc Sg Cp Aq Pi",
+    "Aries":       "Cp Sg Sc Li Vi Le Cn Ge Ta Ar Pi Aq",
+    "Taurus":      "Le Vi Li Sc Sg Cp Aq Pi Ar Ta Ge Cn",
+    "Gemini":      "Ar Ta Ge Cn Le Vi Li Sc Sg Cp Aq Pi",
+    "Cancer":      "Sg Cp Aq Pi Ar Ta Ge Cn Le Vi Li Sc",
+    "Leo":         "Sg Cp Aq Pi Ar Ta Ge Cn Le Vi Li Sc",
+    "Virgo":       "Ar Ta Ge Cn Le Vi Li Sc Sg Cp Aq Pi",
+    "Libra":       "Cp Sg Sc Li Vi Le Cn Ge Ta Ar Pi Aq",
+    "Scorpio":     "Le Vi Li Sc Sg Cp Aq Pi Ar Ta Ge Cn",
+}
+
+
+@pytest.mark.parametrize("dasa_rasi", list(_SULABH_NARAYANA_AD))
+def test_sulabh_antardasha_matches_jhora(dasa_rasi):
+    want = tuple(_ABBR[t] for t in _SULABH_NARAYANA_AD[dasa_rasi].split())
+    assert compute_narayana_antardasha(dasa_rasi, dict(_SULABH)) == want
+
+
+def test_antardasha_unknown_rasi_raises():
+    with pytest.raises(ValueError):
+        compute_narayana_antardasha("Nope", dict(_SULABH))
+
+
+# Branches inert on Sulabh's chart. MD Aries -> seed = stronger(Aries, Libra).
+# Put every planet in Taurus except the one under test, so the seed is decided
+# by the library; we read the seed back from the library to place the planet.
+def _synthetic(**placements):
+    # distinct degrees so stronger_rasi never ends in an exact float tie
+    lons = {p: _lon("Taurus", 2.0 + 3 * i) for i, p in enumerate(_P9)}
+    lons.update({p: _lon(s, 2.0 + 3 * _P9.index(p)) for p, s in placements.items()})
+    return lons
+
+
+def _seed_of(dasa_rasi, lons):
+    from agent.calculations.jaimini.strength import stronger_rasi
+    sev = _SIGNS[(_SIGNS.index(dasa_rasi) + 6) % 12]
+    return stronger_rasi(dasa_rasi, sev, lons).winner
+
+
+def test_antardasha_saturn_in_seed_forces_forward():
+    # Seed Gemini (Mercury lord) with Mercury in an EVEN sign (Cancer -> would
+    # run backward); Saturn in the seed overrides to forward.
+    base = _synthetic(Mercury="Cancer", Saturn="Gemini")
+    assert _seed_of("Gemini", base) == "Gemini"
+    got = compute_narayana_antardasha("Gemini", base)
+    assert got[0] == "Cancer" and got[1] == "Leo"
+
+
+def test_antardasha_ketu_in_seed_flips_direction():
+    # Mercury in Cancer (even) -> backward; Ketu in the seed flips to forward.
+    base = _synthetic(Mercury="Cancer", Ketu="Gemini")
+    assert _seed_of("Gemini", base) == "Gemini"
+    got = compute_narayana_antardasha("Gemini", base)
+    assert got[0] == "Cancer" and got[1] == "Leo"
+
