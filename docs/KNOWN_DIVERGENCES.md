@@ -238,3 +238,9 @@ entry above is edited.
   discredited boilerplate, not a real per-chart oracle value, until
   that file is itself corrected — this register entry documents the
   ratification; it does not edit `PROJECT_FACTS.md`.
+
+## Varshaphal annual Lagna vs JHora (S156)
+- **Divergence:** annual Lagna (and other UT-dependent points: special lagnas, Gulika/Maandi) differs from JHora by 2'-3'; pravesh UT label by +10-14 s. Planets match <0.2".
+- **Cause:** JHora's old build extrapolates DeltaT to 78-83 s (rising ~2 s/yr); correct DeltaT is ~69 s, flat. Same physical instant, different UT label.
+- **Position:** our value is more accurate. It never flips a sign (<< 2 deg boundary band) and is negligible for dasha dates. Do not match JHora's DeltaT; no config option for it.
+- **Reopen trigger:** none. Detail: `data/default_user/jhora_sulabh_varshaphal.md` "DeltaT DIVERGENCE".

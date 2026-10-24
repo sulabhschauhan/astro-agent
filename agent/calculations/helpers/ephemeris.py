@@ -126,3 +126,30 @@ def sidereal_position(jd_ut: float, planet: int) -> SiderealPosition:
     if ret < 0:
         raise EphemerisError(jd_ut, planet, f"retflag={ret}")
     return SiderealPosition(longitude=xx[0] % 360.0, speed=xx[3])
+
+
+def sidereal_longitude_true(jd_ut: float, planet: int) -> float:
+    """Sidereal (Lahiri) TRUE/geometric longitude of `planet`, in [0, 360).
+
+    Annual-chart (Varsha Pravesh) convention, oracle-validated against
+    JHora: positions use FLG_TRUEPOS (no light-time/aberration), and the
+    ayanamsa is the TRUE (nutation-on) value from get_ayanamsa_ex_ut --
+    NOT get_ayanamsa_ut (mean), which drifts. Tropical position minus
+    ayanamsa is done explicitly because FLG_SIDEREAL would apply the
+    mean ayanamsa path. Separate from sidereal_longitude(); existing
+    callers are unchanged.
+
+    Raises:
+        EphemerisError: the underlying pyswisseph call failed.
+    """
+    swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+    try:
+        xx, ret = swe.calc_ut(jd_ut, planet, swe.FLG_SWIEPH | swe.FLG_TRUEPOS)
+        if ret < 0:
+            raise EphemerisError(jd_ut, planet, f"retflag={ret}")
+        _ret, ayan = swe.get_ayanamsa_ex_ut(jd_ut, swe.FLG_SWIEPH)
+    except EphemerisError:
+        raise
+    except Exception as exc:
+        raise EphemerisError(jd_ut, planet, str(exc)) from exc
+    return (xx[0] - ayan) % 360.0
