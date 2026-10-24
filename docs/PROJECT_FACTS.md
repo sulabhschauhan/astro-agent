@@ -340,3 +340,9 @@ S154 — Sulabh JHora v8 dasha oracle pull (2026-10-23)
 Source: data/default_user/jhora_sulabh_dashas.md
 Data: Narayana D-1 Maha Dasa + Antardasa tables (all 12 MDs), plus Niryana Shoola, Navamsa, Vimsottari and Moola MD tables, exported from JHora v8 desktop for Sulabh's chart. Narayana MD+AD sequences are the oracle for compute_narayana_antardasha (tests/calculations/test_narayana_dasa.py::_SULABH_NARAYANA_AD).
 Supersedes: none.
+
+
+S155 — Sulabh JHora v8 Ashtottari dasha oracle pull (2026-10-24)
+Source: data/default_user/jhora_sulabh_dashas.md (committed e96928f)
+Data: JHora v8 desktop Ashtottari Dasa MD+AD pull for Sulabh (6 Apr 1988 00:30 Kolkata), pasted by Sulabh; saved verbatim. All 8 MDs expanded to antardasa. Oracle for agent/calculations/dashas/ashtottari.py.
+Supersedes: none.
