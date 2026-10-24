@@ -53,6 +53,7 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
          "aspects", "dignity", "navamsa", "yogas", "dasha_periods", "transits", "shadbala", "ashtakavarga", "jaimini", "divisional",
          "muhurta", "lucky_unlucky",
          "ingress", "combustion", "masa", "friendship", "yogini", "narayana",
+         "ashtottari",
          "kp_seventh_cusp_sub_lord", "kp_cusp_sub_lords", "kp_planet_significations"})
 
 
@@ -638,3 +639,49 @@ def test_narayana_capability_is_rendered_with_phase_resolved_at_answer_time():
     assert "Capricorn (lord Saturn, 6y) 2000-01-01 to 2200-01-01 [CURRENT]" in with_nar
     assert "Aquarius (lord Saturn, 7y) 2300-01-01 to 2307-01-01 [future]" in with_nar
     assert "narayana" in CG.FACT_BLOCK_PROVIDES
+
+
+def test_ashtottari_capability_is_rendered_with_phase_and_applicability():
+    """S155 Ashtottari: MD + current-MD AD phases resolved against today, and the
+    conditional applicability SURFACED as three criteria (never a pass/fail).
+    Dates chosen so phase marking is stable on any plausible run date."""
+    from agent.astro import pipeline
+    assert "Ashtottari dasa" not in pipeline._fact_block(dict(_BASE))
+    with_ash = pipeline._fact_block(dict(_BASE, ashtottari={
+        "mahadashas": [
+            {"lord": "Mercury", "years": 17, "start": "1990-01-01",
+             "end": "1995-01-01"},                                    # past
+            {"lord": "Jupiter", "years": 19, "start": "2000-01-01",
+             "end": "2200-01-01",                                     # spans today
+             "antardashas": [
+                 {"lord": "Jupiter", "start": "2000-01-01", "end": "2003-01-01"},
+                 {"lord": "Rahu", "start": "2020-01-01", "end": "2100-01-01"},
+                 {"lord": "Venus", "start": "2150-01-01", "end": "2200-01-01"},
+             ]},
+            {"lord": "Venus", "years": 21, "start": "2300-01-01",
+             "end": "2307-01-01"},                                    # future
+        ],
+        "applicability": {
+            "criteria_met": 1, "criteria_evaluated": 3,
+            "criteria": {
+                "positional": {"applicable": False, "lagna_lord": "Jupiter",
+                               "lagna_lord_house": 5, "rahu_house": 3},
+                "paksha": {"applicable": True, "paksha": "Shukla",
+                           "birth_period": "night"},
+                "lagna_nakshatra": {"applicable": False, "lagna_nakshatra": "Mula"},
+            },
+        },
+    }))
+    assert "Ashtottari dasa (108-year, 8-lord CONDITIONAL nakshatra dasa)" in with_ash
+    assert "Mercury (17y) 1990-01-01 to 1995-01-01 [past]" in with_ash
+    assert "Jupiter (19y) 2000-01-01 to 2200-01-01 [CURRENT]" in with_ash
+    assert "Venus (21y) 2300-01-01 to 2307-01-01 [future]" in with_ash
+    # sub-periods only under the CURRENT MD, each phase-resolved.
+    assert "sub-period Jupiter 2000-01-01 to 2003-01-01 [past]" in with_ash
+    assert "sub-period Rahu 2020-01-01 to 2100-01-01 [CURRENT]" in with_ash
+    # applicability surfaced as three criteria + a met-count, never a verdict.
+    assert "Applicability -- 1 of 3 classical criteria met" in with_ash
+    assert "positional: not met (lagna lord Jupiter in house 5; Rahu in house 3)" in with_ash
+    assert "paksha: MET (Shukla paksha, night birth)" in with_ash
+    assert "lagna nakshatra: not met (lagna in Mula)" in with_ash
+    assert "ashtottari" in CG.FACT_BLOCK_PROVIDES

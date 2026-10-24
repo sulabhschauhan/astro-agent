@@ -37,6 +37,7 @@ from agent.astro.divisional_facts import build_divisional_facts
 from agent.astro.friendship_facts import build_friendship_facts
 from agent.astro.yogini_facts import build_yogini_facts
 from agent.astro.narayana_facts import build_narayana_facts
+from agent.astro.ashtottari_facts import build_ashtottari_facts
 from agent.astro.lucky_facts import build_lucky_facts
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ def build_static_facts(chart: dict) -> dict:
     _compose(facts, "friendship", lambda: build_friendship_facts(_chart))
     _compose(facts, "yogini", lambda: build_yogini_facts(_chart))
     _compose(facts, "narayana", lambda: build_narayana_facts(_chart))
+    _compose(facts, "ashtottari", lambda: build_ashtottari_facts(_chart))
     # lucky_unlucky reads the ASSEMBLED facts (house_lords), like yogas/transits,
     # so it runs last over the composed block -- not over the raw chart.
     _compose(facts, "lucky_unlucky", lambda: build_lucky_facts(facts))

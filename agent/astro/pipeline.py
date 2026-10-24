@@ -487,6 +487,75 @@ def _fact_block(chart_facts: dict) -> str:
                     lines.append(f"    sub-period {_a['rasi']} {_a['start']} "
                                  f"to {_a['end']} [{_pa}]")
 
+    # ASHTOTTARI DASA (S155). 108-year, 8-lord CONDITIONAL nakshatra dasa,
+    # composed by agent.astro.ashtottari_facts.build_ashtottari_facts (MD +
+    # proportional AD). Dated intervals; past/current/future resolved HERE at
+    # answer time (ISO-string compare, swisseph-free), never baked in. The
+    # applicability is SURFACED, not gated -- rendered as the three contested
+    # criteria so the interpreter WEIGHTS the dasa, never as a pass/fail. Guarded
+    # on presence. GROWTH CONTRACT: "ashtottari" is in FACT_BLOCK_PROVIDES.
+    ash = chart_facts.get("ashtottari") or {}
+    ash_mds = ash.get("mahadashas") or []
+    ash_appl = ash.get("applicability") or {}
+    if ash_mds or ash_appl:
+        import datetime as _dta
+        _today_a = _dta.date.today().isoformat()
+        lines.append("")
+        lines.append(
+            "Ashtottari dasa (108-year, 8-lord CONDITIONAL nakshatra dasa) -- "
+            "COMPUTED major periods. Ashtottari is CONDITIONAL: weight it by the "
+            "applicability criteria below; do NOT treat it as unconditionally in "
+            "force. For a 'when' question lead with the CURRENT and upcoming "
+            "periods, a past one only on a retrospective question. The CURRENT "
+            "major period's sub-periods (antardasa) are listed too:")
+        for _p in ash_mds:
+            if _p["end"] < _today_a:
+                _pha = "past"
+            elif _p["start"] <= _today_a < _p["end"]:
+                _pha = "CURRENT"
+            else:
+                _pha = "future"
+            lines.append(f"  {_p['lord']} ({_p['years']}y) {_p['start']} to "
+                         f"{_p['end']} [{_pha}]")
+            if _pha == "CURRENT":
+                for _a in _p.get("antardashas") or []:
+                    if _a["end"] < _today_a:
+                        _paa = "past"
+                    elif _a["start"] <= _today_a < _a["end"]:
+                        _paa = "CURRENT"
+                    else:
+                        _paa = "future"
+                    lines.append(f"    sub-period {_a['lord']} {_a['start']} "
+                                 f"to {_a['end']} [{_paa}]")
+        _crit = ash_appl.get("criteria") or {}
+        if _crit:
+            lines.append(
+                f"  Applicability -- {ash_appl.get('criteria_met', 0)} of "
+                f"{ash_appl.get('criteria_evaluated', len(_crit))} classical "
+                f"criteria met (contested; these criteria are not equivalent, so "
+                f"weight the dasa, do not treat as pass/fail):")
+
+            def _verdict(_c: dict) -> str:
+                _a = _c.get("applicable")
+                return "MET" if _a is True else ("not met" if _a is False
+                                                 else "undetermined")
+            _pos = _crit.get("positional")
+            if _pos:
+                lines.append(
+                    f"    positional: {_verdict(_pos)} (lagna lord "
+                    f"{_pos.get('lagna_lord')} in house {_pos.get('lagna_lord_house')}; "
+                    f"Rahu in house {_pos.get('rahu_house')})")
+            _pak = _crit.get("paksha")
+            if _pak:
+                lines.append(
+                    f"    paksha: {_verdict(_pak)} ({_pak.get('paksha')} paksha, "
+                    f"{_pak.get('birth_period')} birth)")
+            _nak = _crit.get("lagna_nakshatra")
+            if _nak:
+                lines.append(
+                    f"    lagna nakshatra: {_verdict(_nak)} (lagna in "
+                    f"{_nak.get('lagna_nakshatra')})")
+
     # LUCKY / UNLUCKY WEEKDAYS (S147). CALCULATED from the chart's own house
     # lordships by agent.astro.lucky_facts.build_lucky_facts -- a trikona (1/5/9)
     # lord's weekday is favourable, a dusthana-only (6/8/12) lord's weekday is to

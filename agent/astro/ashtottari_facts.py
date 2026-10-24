@@ -11,9 +11,10 @@ TWO surfaces for the conditional Ashtottari dasa, both fail-soft and additive
     independently, each with its inputs + its basis, plus a met-count. The
     interpreter weights the dasa by which criteria hold (design S155, ratified).
 
-  * build_ashtottari_facts (the dated MD+AD composition) -- lands in a later
-    unit; it will compose agent.calculations.dashas.ashtottari the way
-    narayana_facts composes the Narayana engine.
+  * build_ashtottari_facts (S155) -- the dated MD + proportional-AD composition.
+    Composes agent.calculations.dashas.ashtottari the way narayana_facts composes
+    the Narayana engine: dated intervals (phase resolved at answer time), the
+    applicability fact nested under "applicability". Per-MD AD fail-soft.
 
 RESTATE, NEVER RECOMPUTE (S124): reads fields calculate_chart() already
 produced -- the ascendant lord (lagna_chart.ascendant_lord, the chart's OWN
@@ -45,12 +46,38 @@ Python 3.11.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
+
+import swisseph as swe
 
 from agent.chart_calculator import NAKSHATRAS, _nakshatra
+from agent.calculations.dashas.ashtottari import (
+    compute_ashtottari_bhukti,
+    compute_ashtottari_dasha,
+)
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["build_ashtottari_applicability_facts", "RAHU_NAKSHATRAS"]
+__all__ = [
+    "build_ashtottari_facts",
+    "build_ashtottari_applicability_facts",
+    "RAHU_NAKSHATRAS",
+]
+
+# Engine lord strings (Yogini fixture convention) -> full planet names, so the
+# interpreter sees one vocabulary across every dasa fact class.
+_LORD_FULL = {
+    "Sun": "Sun", "Moon": "Moon", "Mars": "Mars", "Merc": "Mercury",
+    "Sat": "Saturn", "Jup": "Jupiter", "Rah": "Rahu", "Ven": "Venus",
+}
+
+
+def _local_date_iso(jd: float, offset: timedelta) -> str:
+    """Julian Day (UT) -> 'YYYY-MM-DD' in the birth's local timezone, matching
+    yogini_facts / the Vimshottari convention (render in the birth frame, not UT)."""
+    y, m, d, h = swe.revjul(jd, swe.GREG_CAL)
+    utc_dt = datetime(y, m, d, tzinfo=timezone.utc) + timedelta(hours=h)
+    return (utc_dt + offset).date().isoformat()
 
 # The three Rahu-ruled nakshatras (Vimshottari lordship). Reachability guard
 # (Working Style #21): if any name drifts from the canonical NAKSHATRAS list the
@@ -193,3 +220,79 @@ def build_ashtottari_applicability_facts(chart: dict) -> dict:
                  "disputed). No single pass/fail verdict is asserted -- weight the "
                  "dasa by how many and which criteria hold."),
     }
+
+
+def build_ashtottari_facts(chart: dict) -> dict:
+    """Ashtottari dasa (MD + proportional AD) for `chart`, as dated intervals,
+    with the conditional-applicability fact nested under "applicability".
+
+    Args:
+        chart: calculate_chart() output. Reads planetary_positions['Moon']
+            ['longitude'] (sidereal degrees) and meta['jd_ut'] (birth JD UT) for
+            the engine; meta['local_datetime'] for the render frame; plus whatever
+            build_ashtottari_applicability_facts reads.
+
+    Returns:
+        {} if nothing is resolvable (fail-soft). Otherwise, any of:
+        {"mahadashas": [{"lord","start","end","years",
+                         "antardashas": [{"lord","start","end"}]}],
+         "applicability": {...},  # from build_ashtottari_applicability_facts
+         "note": str}
+        in time order from the seed (pre-birth) MD. Phase is NOT included -- it is
+        resolved at answer time in pipeline._fact_block. A per-MD antardasa failure
+        costs only that MD's sub-periods. Never raises.
+    """
+    try:
+        meta = (chart or {}).get("meta") or {}
+        pp = (chart or {}).get("planetary_positions") or {}
+        out: dict = {}
+
+        moon_lon = (pp.get("Moon") or {}).get("longitude")
+        jd = meta.get("jd_ut")
+        if moon_lon is not None and jd is not None:
+            _ldt = meta.get("local_datetime")
+            _off = (_ldt.utcoffset() if (_ldt is not None
+                                         and _ldt.utcoffset() is not None)
+                    else timedelta(0))
+            periods = compute_ashtottari_dasha(float(moon_lon), float(jd))
+            mds = []
+            for p in periods:
+                md = {
+                    "lord": _LORD_FULL.get(p.lord, p.lord),
+                    "start": _local_date_iso(p.begin_jd, _off),
+                    "end": _local_date_iso(p.end_jd, _off),
+                    "years": p.years,
+                }
+                # Proportional antardasas, per-MD fail-soft (a bad AD compose
+                # costs only this MD's sub-periods, not the MD or the answer).
+                try:
+                    ads = compute_ashtottari_bhukti(p)
+                    md["antardashas"] = [{
+                        "lord": _LORD_FULL.get(a.lord, a.lord),
+                        "start": _local_date_iso(a.begin_jd, _off),
+                        "end": _local_date_iso(a.end_jd, _off),
+                    } for a in ads]
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "ashtottari: antardasa compose failed for %s MD: %s",
+                        p.lord, exc)
+                mds.append(md)
+            if mds:
+                out["mahadashas"] = mds
+        else:
+            logger.warning("ashtottari: Moon longitude or birth jd_ut not resolvable")
+
+        # Applicability composes independently (own fail-soft); nest if present.
+        appl = build_ashtottari_applicability_facts(chart)
+        if appl:
+            out["applicability"] = appl
+
+        if not out:
+            return {}
+        out["note"] = ("Ashtottari is a CONDITIONAL nakshatra dasa; weight it by "
+                       "the `applicability` criteria -- do not treat it as "
+                       "unconditionally in force.")
+        return out
+    except Exception as exc:  # noqa: BLE001 -- a bad input costs Ashtottari, not the answer
+        logger.warning("build_ashtottari_facts failed; omitting ashtottari: %s", exc)
+        return {}

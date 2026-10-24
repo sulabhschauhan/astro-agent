@@ -22,10 +22,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 import pytest
+import swisseph as swe
 
 from agent.chart_calculator import NAKSHATRAS
 from agent.astro.ashtottari_facts import (
     build_ashtottari_applicability_facts,
+    build_ashtottari_facts,
     RAHU_NAKSHATRAS,
 )
 
@@ -45,9 +47,17 @@ def _sulabh_chart(local_dt=None, asc_lon=250.0):
         },
         "meta": {
             "asc_lon_sidereal": asc_lon,
+            "jd_ut": swe.julday(1988, 4, 5, 19.0),   # 1988-04-06 00:30 IST -> UT
             "local_datetime": local_dt or datetime(1988, 4, 6, 0, 30, tzinfo=_IST),
         },
     }
+
+
+_MD_ORACLE_FULL = {
+    "Mars": "1980-06-06", "Mercury": "1988-06-06", "Saturn": "2005-06-06",
+    "Jupiter": "2015-06-07", "Rahu": "2034-06-07", "Venus": "2046-06-07",
+    "Sun": "2067-06-07", "Moon": "2073-06-07",
+}
 
 
 # ── Sulabh anchor: 0 of 3 ────────────────────────────────────────────────────
@@ -172,3 +182,43 @@ def test_undetermined_daynight_not_counted_as_met():
 def test_rahu_nakshatras_exist_in_canonical_list():
     assert all(n in NAKSHATRAS for n in RAHU_NAKSHATRAS)
     assert len(RAHU_NAKSHATRAS) == 3
+
+
+# ── build_ashtottari_facts: dated composition (3a) ───────────────────────────
+def test_build_facts_full_table_dates_vs_oracle():
+    r = build_ashtottari_facts(_sulabh_chart())
+    mds = r["mahadashas"]
+    assert [m["lord"] for m in mds] == [
+        "Mars", "Mercury", "Saturn", "Jupiter", "Rahu", "Venus", "Sun", "Moon"]
+    for m in mds:
+        got = datetime.strptime(m["start"], "%Y-%m-%d").date()
+        want = datetime.strptime(_MD_ORACLE_FULL[m["lord"]], "%Y-%m-%d").date()
+        assert abs((got - want).days) <= 2, f"{m['lord']} start {m['start']}"
+
+
+def test_build_facts_antardashas_proportional_sequence():
+    r = build_ashtottari_facts(_sulabh_chart())
+    jup = next(m for m in r["mahadashas"] if m["lord"] == "Jupiter")
+    assert [a["lord"] for a in jup["antardashas"]] == [
+        "Jupiter", "Rahu", "Venus", "Sun", "Moon", "Mars", "Mercury", "Saturn"]
+    # nest exactly: first AD starts at MD start, last AD ends at MD end.
+    assert jup["antardashas"][0]["start"] == jup["start"]
+    assert jup["antardashas"][-1]["end"] == jup["end"]
+
+
+def test_build_facts_nests_applicability_and_note():
+    r = build_ashtottari_facts(_sulabh_chart())
+    assert r["applicability"]["criteria_met"] == 0
+    assert "conditional" in r["note"].lower()
+
+
+def test_build_facts_empty_chart_returns_empty():
+    assert build_ashtottari_facts({}) == {}
+
+
+def test_build_facts_no_moon_keeps_applicability_drops_dasha():
+    chart = _sulabh_chart()
+    del chart["planetary_positions"]["Moon"]
+    r = build_ashtottari_facts(chart)
+    assert "mahadashas" not in r          # engine needs the Moon
+    assert "applicability" in r           # positional + lagna_nakshatra still compute

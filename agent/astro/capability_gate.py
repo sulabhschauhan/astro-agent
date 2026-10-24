@@ -199,6 +199,15 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # two cycles. Past/current/future resolved at answer
                            # time in _fact_block. Additive context, no predicate,
                            # no REQUIREMENT.
+    "ashtottari",         # S155 STATIC (dated intervals). Ashtottari 108-year,
+                           # 8-lord CONDITIONAL nakshatra dasa, computed by
+                           # agent.astro.ashtottari_facts.build_ashtottari_facts
+                           # (MD + proportional AD, via the JHora-validated engine),
+                           # with the 3-criterion conditional-applicability fact
+                           # nested under "applicability". Past/current/future
+                           # resolved at answer time in _fact_block. Additive
+                           # context, no predicate, no REQUIREMENT -- applicability
+                           # is SURFACED (weight), never a gate (design S155).
 })
 
 
