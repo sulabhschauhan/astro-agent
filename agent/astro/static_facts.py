@@ -38,6 +38,7 @@ from agent.astro.friendship_facts import build_friendship_facts
 from agent.astro.yogini_facts import build_yogini_facts
 from agent.astro.narayana_facts import build_narayana_facts
 from agent.astro.ashtottari_facts import build_ashtottari_facts
+from agent.astro.varshaphal_facts import build_varshaphal_facts
 from agent.astro.lucky_facts import build_lucky_facts
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,11 @@ def build_static_facts(chart: dict) -> dict:
     _compose(facts, "yogini", lambda: build_yogini_facts(_chart))
     _compose(facts, "narayana", lambda: build_narayana_facts(_chart))
     _compose(facts, "ashtottari", lambda: build_ashtottari_facts(_chart))
+    # varshaphal is YEAR-FIXED (not chart-fixed): the composer defaults to the
+    # current solar year, so a cached static block serves a stale Varsha once the
+    # pravesh rolls over -- the dated-layer re-anchor (timeline_store) is the
+    # required follow-up (decision #2). Fail-soft like the rest.
+    _compose(facts, "varshaphal", lambda: build_varshaphal_facts(_chart))
     # lucky_unlucky reads the ASSEMBLED facts (house_lords), like yogas/transits,
     # so it runs last over the composed block -- not over the raw chart.
     _compose(facts, "lucky_unlucky", lambda: build_lucky_facts(facts))

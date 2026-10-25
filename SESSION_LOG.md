@@ -544,3 +544,19 @@ Suite 5294/0. LIVE-confirmed on Sulabh: "which dashas am I running" -> "Ashtotta
 Two live-run findings (OPEN, carried forward, NOT S155 defects): #1 planner narrows an open follow-up to the prior turn's domains (S147 context bleed). #2 all-13-domain question overflows HARD_CONTEXT_CEILING -> misleading false-silence decline (qa_capture 20261024T062234Z.md L29252/L29298); S125/S136 P-030 class; feeds the breadth-strategy session.
 
 Roadmap (ratified): Varshaphal/Muntha/Tajika (retires AstroSage) -> Pratyantar discussion -> Breadth strategy -> Lal Kitab decision.
+
+## S156 (2026-10-25) — VARSHAPHAL / TAJIKA ANNUAL ENGINE (built, validated vs JHora, wired, suite green)
+
+Objective: Varshaphal annual-chart engine (retires AstroSage), validated against the JHora desktop oracle (Sulabh.jhd) with ZERO curve-fitting. Oracle + full method spec: `data/default_user/jhora_sulabh_varshaphal.md`.
+
+Decomposed into sub-engines, all in `agent/calculations/annual/`, all oracle-validated on Sulabh (natal 1988-04-06 00:30 IST, Calcutta): A `varsha_pravesh` (true sidereal solar return via Newton on sidereal Sun + annual D1 cast, birthplace default), B `muntha` (EXACT), C1 `panchavargeeya` (Pancha-vargeeya bala, Raman Model A — avg err 0.358, 17/21 exact, bounded Moon/Merc-neutral residual non-impactful on year-lord), C2 `varshesha` (year-lord, sourced consensus rule, SURFACE-not-gate — 2025 Venus / 2026 Jupiter / 2027 Jupiter), E dashas `mudda` + `patyayini` + `yogini` (seeds reverse-engineered from PyJHora star-lists + oracle, all exact). D (Tajika aspects) + Sahams deferred to a 2nd JHora pull.
+
+Integration (this session): `agent/astro/varshaphal_facts.build_varshaphal_facts` — fail-soft composer A→B→C1→C2→E, YEAR-FIXED (defaults to solar year containing `as_of`), dashas as dated ISO intervals, returns {} on any failure, never raises. Wired: `static_facts` (after ashtottari), `capability_gate.FACT_BLOCK_PROVIDES += "varshaphal"`, render block in `pipeline._fact_block`. Tests: `tests/astro/test_varshaphal_facts.py` + `test_varshaphal_capability_is_rendered_with_phase` (frozenset pin updated) + the 7 sub-engine tests in `tests/calculations/annual/`.
+
+Ephemeris-path leak fix (A, code change NOT curve-fit): `varsha_pravesh` set `swe.set_ephe_path(EPHE_PATH)` (bundled Swiss `.se1`, needed to match JHora) and never restored it; `set_ephe_path` is process-global, rest of engine runs on Moshier fallback → ~7e-6° shift leaked into every later `FLG_SWIEPH` call → 6 David longitude characterization tests failed ONLY in the order A-then-David (test-order leak, not a calc error). FIX: compute body wrapped in `try/finally`, `finally` restores `swe.set_ephe_path(None)`. Returned positions unchanged. Suite 5360→5366.
+
+Full suite GREEN: 5366 passed / 0 failed, 9 skipped, 2 xfailed (4m09s), from latest_run.md.
+
+Two items OPEN, deferred (not small, start fresh): (1) STALENESS RE-ANCHOR — `varshaphal` sits in the chart-fixed cached static block but defaults to current solar year → cached chart serves last year's Varsha after next pravesh until invalidated; real fix = dated layer (`timeline_store`, keyed on pravesh span, decision #2); interim contract: cachers MUST key/invalidate on result `"year"`. This is the live foot-gun → next build item. (2) EPHEMERIS SPLIT — A on `.se1`, rest on Moshier (~0.025 arcsec coherence gap, not a bug); keep-isolated vs standardize-at-startup (latter re-baselines all Moshier characterization tests); Sulabh's call.
+
+Roadmap (updated): Varshaphal staleness re-anchor (dated layer) -> Varshaphal D/Sahams (2nd JHora pull) -> Pratyantar discussion -> Breadth strategy -> Lal Kitab decision.

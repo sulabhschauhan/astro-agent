@@ -556,6 +556,69 @@ def _fact_block(chart_facts: dict) -> str:
                     f"    lagna nakshatra: {_verdict(_nak)} (lagna in "
                     f"{_nak.get('lagna_nakshatra')})")
 
+    # VARSHAPHAL (Tajika annual chart, S156). CALCULATED annual engines -- varsha
+    # pravesh + annual D1, Muntha, year-lord (Varshesha), Pancha-vargeeya bala,
+    # and the Mudda/Patyayini/Yogini dashas -- validated vs the JHora oracle (see
+    # data/default_user/jhora_sulabh_varshaphal.md), no curve-fitting. YEAR-FIXED:
+    # describes the ANNUAL chart for the Varsha stamped in "year", distinct from
+    # the natal chart; it switches at each solar return. Dashas are dated
+    # intervals; current/past/future is resolved HERE at answer time.
+    # GROWTH CONTRACT: "varshaphal" is in capability_gate.FACT_BLOCK_PROVIDES.
+    # Guarded on presence -> renders byte-identically to before when absent.
+    vp = chart_facts.get("varshaphal") or {}
+    if vp.get("year"):
+        import datetime as _dtv
+        _today_v = _dtv.date.today().isoformat()
+        al = vp.get("annual_lagna") or {}
+        mu = vp.get("muntha") or {}
+        yl = vp.get("year_lord") or {}
+        lines.append("")
+        lines.append(
+            f"Varshaphal (Tajika annual chart) for the Varsha year {vp['year']} "
+            f"-- CALCULATED, year-fixed. Pravesh {vp.get('pravesh')} to "
+            f"{vp.get('pravesh_end')}, cast at {vp.get('cast')}. This is the "
+            f"ANNUAL chart (one solar year), distinct from the natal chart: use "
+            f"it for questions about this year, the natal chart for lifelong "
+            f"themes. Do NOT conflate annual placements with natal ones:")
+        lines.append(
+            f"  Annual Lagna {al.get('sign')} {al.get('degree')} deg; Muntha in "
+            f"{mu.get('sign')} (house {mu.get('house_from_lagna')} from the annual "
+            f"Lagna).")
+        if yl.get("winner"):
+            lines.append(
+                f"  Year-lord (Varshesha): {yl['winner']} "
+                f"[rule: {yl.get('rule_path')}]. The year-lord colours the whole "
+                f"annual chart; weight its condition heavily.")
+        _vpos = vp.get("positions") or {}
+        if _vpos:
+            _vps = ", ".join(f"{_n} {_d.get('sign')} {_d.get('degree')} deg"
+                             for _n, _d in _vpos.items())
+            lines.append(f"  Annual positions: {_vps}.")
+        _pv = vp.get("pancha_vargeeya_bala") or {}
+        if _pv:
+            _pvs = ", ".join(f"{_n} {_v.get('total')} ({_v.get('band')})"
+                             for _n, _v in _pv.items())
+            lines.append(
+                f"  Pancha-vargeeya bala (annual strength, relative): {_pvs}.")
+        _dashas = vp.get("dashas") or {}
+        for _dk, _dlabel in (("mudda", "Mudda"), ("patyayini", "Patyayini"),
+                             ("yogini", "Yogini")):
+            _per = _dashas.get(_dk) or []
+            if not _per:
+                continue
+            lines.append(f"  {_dlabel} dasa (annual; lead with CURRENT/upcoming "
+                         f"for a 'when' question):")
+            for _q in _per:
+                if _q["end"] < _today_v:
+                    _phv = "past"
+                elif _q["start"] <= _today_v < _q["end"]:
+                    _phv = "CURRENT"
+                else:
+                    _phv = "future"
+                _extra = f" ({_q['yogini']})" if _q.get("yogini") else ""
+                lines.append(f"    {_q['lord']}{_extra} {_q['start']} to "
+                             f"{_q['end']} [{_phv}]")
+
     # LUCKY / UNLUCKY WEEKDAYS (S147). CALCULATED from the chart's own house
     # lordships by agent.astro.lucky_facts.build_lucky_facts -- a trikona (1/5/9)
     # lord's weekday is favourable, a dusthana-only (6/8/12) lord's weekday is to

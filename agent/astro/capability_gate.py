@@ -208,6 +208,16 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # resolved at answer time in _fact_block. Additive
                            # context, no predicate, no REQUIREMENT -- applicability
                            # is SURFACED (weight), never a gate (design S155).
+    "varshaphal",         # S156 YEAR-FIXED (dated intervals, not chart-fixed).
+                           # Tajika annual chart by agent.astro.varshaphal_facts.
+                           # build_varshaphal_facts: varsha pravesh + annual D1,
+                           # Muntha, year-lord (Varshesha), Pancha-vargeeya bala,
+                           # and the Mudda/Patyayini/Yogini dashas -- all validated
+                           # vs the JHora oracle (jhora_sulabh_varshaphal.md), no
+                           # curve-fitting. Switches at each solar return; keyed on
+                           # the "year" stamp. Past/current/future resolved at
+                           # answer time in _fact_block. Additive context, no
+                           # predicate, no REQUIREMENT.
 })
 
 

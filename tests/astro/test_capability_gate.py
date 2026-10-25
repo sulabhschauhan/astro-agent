@@ -53,7 +53,7 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
          "aspects", "dignity", "navamsa", "yogas", "dasha_periods", "transits", "shadbala", "ashtakavarga", "jaimini", "divisional",
          "muhurta", "lucky_unlucky",
          "ingress", "combustion", "masa", "friendship", "yogini", "narayana",
-         "ashtottari",
+         "ashtottari", "varshaphal",
          "kp_seventh_cusp_sub_lord", "kp_cusp_sub_lords", "kp_planet_significations"})
 
 
@@ -685,3 +685,47 @@ def test_ashtottari_capability_is_rendered_with_phase_and_applicability():
     assert "paksha: MET (Shukla paksha, night birth)" in with_ash
     assert "lagna nakshatra: not met (lagna in Mula)" in with_ash
     assert "ashtottari" in CG.FACT_BLOCK_PROVIDES
+
+
+def test_varshaphal_capability_is_rendered_with_phase():
+    """S156 Varshaphal: the annual chart renders its pravesh window, annual Lagna,
+    Muntha, year-lord, Pancha-vargeeya bala, and the three dashas with each period
+    phase-resolved against today. Dates chosen so phase marking is stable on any
+    plausible run date. Absent when the facts carry no varshaphal."""
+    from agent.astro import pipeline
+    assert "Varshaphal" not in pipeline._fact_block(dict(_BASE))
+    with_vp = pipeline._fact_block(dict(_BASE, varshaphal={
+        "year": 2025, "completed_years": 37,
+        "pravesh": "2025-04-05", "pravesh_end": "2026-04-06",
+        "boundary_flag": False, "cast": "birthplace",
+        "annual_lagna": {"sign": "Cancer", "degree": 6.49},
+        "muntha": {"sign": "Capricorn", "house_from_lagna": 7},
+        "year_lord": {"winner": "Venus", "rule_path": "benefic_aspect",
+                      "candidates": []},
+        "positions": {"Sun": {"sign": "Pisces", "degree": 22.52},
+                      "Moon": {"sign": "Cancer", "degree": 6.96}},
+        "pancha_vargeeya_bala": {"Venus": {"total": 12.5, "band": "strong"}},
+        "dashas": {
+            "mudda": [
+                {"lord": "Saturn", "start": "1990-01-01", "end": "1995-01-01"},
+                {"lord": "Mercury", "start": "2000-01-01", "end": "2200-01-01"},
+                {"lord": "Ketu", "start": "2300-01-01", "end": "2307-01-01"},
+            ],
+            "yogini": [
+                {"lord": "Mercury", "yogini": "Siddha",
+                 "start": "2000-01-01", "end": "2200-01-01"},
+            ],
+        },
+    }))
+    assert "Varshaphal (Tajika annual chart) for the Varsha year 2025" in with_vp
+    assert "Pravesh 2025-04-05 to 2026-04-06" in with_vp
+    assert "Annual Lagna Cancer 6.49 deg; Muntha in Capricorn (house 7" in with_vp
+    assert "Year-lord (Varshesha): Venus [rule: benefic_aspect]" in with_vp
+    assert "Sun Pisces 22.52 deg" in with_vp
+    assert "Venus 12.5 (strong)" in with_vp
+    assert "Saturn 1990-01-01 to 1995-01-01 [past]" in with_vp
+    assert "Mercury 2000-01-01 to 2200-01-01 [CURRENT]" in with_vp
+    assert "Ketu 2300-01-01 to 2307-01-01 [future]" in with_vp
+    # yogini periods carry the ruling-yogini name in parentheses.
+    assert "Mercury (Siddha) 2000-01-01 to 2200-01-01 [CURRENT]" in with_vp
+    assert "varshaphal" in CG.FACT_BLOCK_PROVIDES
