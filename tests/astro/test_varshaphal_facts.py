@@ -19,10 +19,13 @@ def _chart():
     return {
         "meta": {
             "jd_ut": 2447257.27,            # natal (value unused by the mock)
-            "lat": 22.5667, "lon": 88.35,
             "asc_lon_sidereal": 262.683,    # natal Lagna Sagittarius 22.68
             "local_datetime": dt.datetime(1988, 4, 6, 0, 30, tzinfo=tz),
         },
+        # lat/lon live in birth_details on a real calculate_chart() output, NOT
+        # in meta -- the composer reads them here (S157 regression guard: with
+        # lat/lon absent from meta, the pre-fix composer fail-soft-returned {}).
+        "birth_details": {"lat": 22.5667, "lon": 88.35},
         "planetary_positions": {"Moon": {"longitude": 212.2322}},  # Visakha, 8.3% left
     }
 
@@ -73,3 +76,15 @@ def test_target_year_defaults_to_current_solar_year(monkeypatch):
     # as_of before the birthday -> previous year's pravesh still runs
     out2 = vf.build_varshaphal_facts(_chart(), as_of=dt.date(2025, 2, 1))
     assert out2["year"] == 2024
+
+
+def test_latlon_read_from_birth_details_not_meta(monkeypatch):
+    # S157 regression: real calculate_chart() puts lat/lon in birth_details, not
+    # meta. A chart with lat/lon ONLY in birth_details must still compose; the
+    # pre-fix composer read meta.lat/lon and fail-soft-returned {} on every real
+    # chart, which is why the live annual-chart answer said "not available".
+    _patch(monkeypatch)
+    chart = _chart()
+    assert "lat" not in chart["meta"] and "lat" in chart["birth_details"]
+    out = vf.build_varshaphal_facts(chart, target_year=2025)
+    assert out and out["year"] == 2025

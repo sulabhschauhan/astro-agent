@@ -307,6 +307,88 @@ def test_every_drop_carries_a_reason(tmp_path):
     assert dropped and all("domain_drop_reason" in s for s in dropped)
 
 
+# ---------------------------------------- LAYER D2: breadth fan-out split (C1) --
+def test_split_payload_by_domain_shares_failsafe_and_buckets_the_tagged(tmp_path):
+    """C1 (S157): the domain-filtered payload partitions into SHARED (sent once
+    per fan-out call) and per-domain blocks. Fail-safe / multi-domain / whole-
+    chapter content is SHARED -- never dropped, never guessed into one domain."""
+    tags = _tags_stub(tmp_path, [
+        {"segment_id": "ch10_s001", "domains": ["career"], "unfittable": False},
+        {"segment_id": "ch20_s002", "domains": ["marriage"], "unfittable": False},
+        {"segment_id": "ch30_s003", "domains": ["career", "marriage"],  # multi -> shared
+         "unfittable": False},
+        {"segment_id": "ch40_s004", "domains": [], "unfittable": False},  # untagged -> shared
+    ])
+    payload = {
+        "units": [{"unit_id": "ch21", "tokens": 100}],               # whole unit -> shared
+        "segments": [
+            {"segment_id": "ch10_s001", "tokens": 10, "kept": True},
+            {"segment_id": "ch20_s002", "tokens": 20, "kept": True},
+            {"segment_id": "ch30_s003", "tokens": 30, "kept": True},
+            {"segment_id": "ch40_s004", "tokens": 40, "kept": True},
+            {"segment_id": "NOT_IN_TAGS_s9", "tokens": 5, "kept": True},  # unknown -> shared
+            {"segment_id": "ch90_s099", "tokens": 7, "kept": False},      # dropped upstream
+        ],
+    }
+    plan = _plan(["career", "marriage"])
+    filtered = P.filter_segments_by_domain(payload, plan, tags_path=tags)
+    out = P.split_payload_by_domain(filtered, plan, tags_path=tags)
+
+    assert out["by_domain"]["career"]["segment_ids"] == ["ch10_s001"]
+    assert out["by_domain"]["marriage"]["segment_ids"] == ["ch20_s002"]
+    assert out["by_domain"]["career"]["tokens"] == 10
+    assert set(out["shared"]["segment_ids"]) == {"ch30_s003", "ch40_s004", "NOT_IN_TAGS_s9"}
+    assert out["shared"]["unit_ids"] == ["ch21"]
+    assert out["shared"]["tokens"] == 30 + 40 + 5 + 100
+    # a segment dropped upstream appears in NEITHER bucket
+    assert "ch90_s099" not in out["shared"]["segment_ids"]
+    for d in ("career", "marriage"):
+        assert "ch90_s099" not in out["by_domain"][d]["segment_ids"]
+    assert out["stats"]["shared_segment_count"] == 3
+    assert out["stats"]["whole_unit_count"] == 1
+
+
+def test_split_with_no_domains_is_all_shared(tmp_path):
+    """No planned domains -> fan-out does not apply; everything kept is SHARED."""
+    tags = _tags_stub(tmp_path, [])
+    payload = {"units": [], "segments": [
+        {"segment_id": "a_s1", "tokens": 10, "kept": True}]}
+    out = P.split_payload_by_domain(payload, _plan([]), tags_path=tags)
+    assert out["by_domain"] == {}
+    assert out["shared"]["segment_ids"] == ["a_s1"]
+
+
+def test_split_never_mutates_input(tmp_path):
+    tags = _tags_stub(tmp_path, [
+        {"segment_id": "ch10_s001", "domains": ["career"], "unfittable": False}])
+    payload = {"units": [], "segments": [
+        {"segment_id": "ch10_s001", "tokens": 10, "kept": True,
+         "domain_filter": "domain_match"}]}
+    before = json.dumps(payload, sort_keys=True)
+    P.split_payload_by_domain(payload, _plan(["career"]), tags_path=tags)
+    assert json.dumps(payload, sort_keys=True) == before
+
+
+def test_build_domain_subpayload_keeps_only_shared_plus_one_domain():
+    """C2 (S157): a per-domain fan-out call sees the shared block + exactly one
+    domain's verses -- nothing from a sibling domain, nothing dropped upstream."""
+    payload = {
+        "units": [{"unit_id": "chU", "tokens": 5, "text": "u"},
+                  {"unit_id": "chX", "tokens": 5, "text": "x"}],
+        "segments": [
+            {"segment_id": "sh1", "kept": True, "tokens": 1},
+            {"segment_id": "car1", "kept": True, "tokens": 1},
+            {"segment_id": "hea1", "kept": True, "tokens": 1},   # sibling domain
+            {"segment_id": "drop1", "kept": False, "tokens": 1}],  # dropped upstream
+    }
+    shared = {"segment_ids": ["sh1"], "unit_ids": ["chU"]}
+    career = {"segment_ids": ["car1", "drop1"], "unit_ids": []}  # drop1 must stay out
+    out = P.build_domain_subpayload(payload, shared, career)
+    assert {s["segment_id"] for s in out["segments"]} == {"sh1", "car1"}
+    assert [u["unit_id"] for u in out["units"]] == ["chU"]
+    assert len(payload["segments"]) == 4  # original untouched
+
+
 def test_payload_tokens_counts_units_and_kept_segments_only():
     assert P.payload_tokens(_fake_payload()) == 100 + 10 + 20 + 5
 

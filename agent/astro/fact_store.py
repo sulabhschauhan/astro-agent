@@ -45,7 +45,10 @@ __all__ = ["SCHEMA_VERSION", "DEFAULT_CACHE_DIR", "chart_cache_key",
 #   v1 -> v2 (S147): added "lucky_unlucky" fact class.
 #   v2 -> v3 (S152): added "friendship" fact class (pancha-dha maitri).
 #   v3 -> v4 (S152): added "yogini" fact class (Yogini Mahadasha).
-SCHEMA_VERSION = 4
+#   v4 -> v5 (S157): REMOVED "varshaphal" -- it is a DATED fact, composed at
+#       answer time (pipeline.answer_question), not part of this chart-FIXED
+#       block; a pre-existing v4 file carrying it is rebuilt without it.
+SCHEMA_VERSION = 5
 
 # MUST be listed in .gitignore -- real birth data is never committed.
 DEFAULT_CACHE_DIR = os.path.join("data", "fact_cache")

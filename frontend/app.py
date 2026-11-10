@@ -47,6 +47,7 @@ from agent.interpretive.claim_extraction import CitationByChunk, CitationByRule
 from agent.astro.pipeline import answer_question
 from agent.astro.chart_facts import build_chart_facts, ChartFactsError
 from agent.astro.static_facts import build_static_facts
+from agent.astro import fact_store
 from agent.astro.answer_view import render_user_answer
 from agent.astro import qa_capture
 
@@ -1682,16 +1683,31 @@ if prompt:
                 _chart = st.session_state.chart
                 _btc_exact = st.session_state.get(
                     "birth_time_confidence_choice", "").startswith("Exact")
-                # S150: build the static fact block FRESH each turn. The
-                # fact_store JSON cache is deliberately BYPASSED -- json.dump
-                # silently stringifies integer dict keys, so a cache HIT returned
-                # lord_house_map / house_lords / ashtakavarga.sav_by_house keyed
-                # by "1".."12" instead of 1..12, crashing every int house lookup
-                # with KeyError. Re-enabling the cache needs a key-preserving
-                # serialization (a separate task); a fresh build has correct int
-                # keys and still carries lucky_unlucky + the single-source
-                # composition that was the point of static_facts.
-                chart_facts = build_static_facts(_chart)
+                # S157 (Problem 2): the per-chart STATIC cache is RE-ENABLED. The
+                # S150 bypass reason (json.dump stringifies int dict keys, so a
+                # cache HIT returned lord_house_map / house_lords / sav_by_house
+                # keyed "1".."12" and KeyError'd) is CLOSED by
+                # fact_store._decode_int_keys at the load boundary -- round-trip
+                # pinned by test_cache_hit_restores_int_dict_keys +
+                # test_cache_hit_is_deep_equal_for_rich_structure.
+                #
+                # ACCELERANT, NEVER A GATE (ratified invariant): load_or_build is
+                # fail-safe -- a miss, corrupt file, stale schema (bumped to 5
+                # this session) or a non-serialisable fact all fall back to a
+                # fresh build, so the cache can never limit or stale an answer.
+                # It holds ONLY chart-FIXED facts; the DATED composers (muhurta,
+                # the timeline caps, varshaphal) run at ANSWER time in
+                # answer_question, so a cached block can never serve a stale
+                # Varsha (S157). Empty identity key -> builds in memory, uncached.
+                _meta = _chart.get("meta") or {}
+                _bd = _chart.get("birth_details") or {}
+                chart_facts = fact_store.load_or_build(
+                    fact_store.chart_identity_key(
+                        _meta.get("jd_ut"), _meta.get("asc_lon_sidereal"),
+                        exact=_btc_exact),
+                    lambda: build_static_facts(_chart),
+                    identity={k: _bd.get(k) for k in ("name", "place", "dob", "tob")},
+                )
 
                 # BIRTH-TIME GATE (S145): KP included only if the user affirmed
                 # their birth time is exact to the minute (computed as _btc_exact

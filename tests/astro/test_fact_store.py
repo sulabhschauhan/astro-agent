@@ -136,3 +136,25 @@ def test_cache_hit_restores_int_dict_keys(tmp_path):
     assert out["ashtakavarga"]["sav_by_house"][7] == 27
     # name-keyed dicts are left untouched
     assert set(out["planet_bav_in_sign"]) == {"Sun", "Moon"}
+
+
+def test_cache_hit_is_deep_equal_for_rich_structure(tmp_path):
+    """S157 Problem 2 (cache re-enable): beyond int keys, the WHOLE static block
+    must round-trip LOSSLESSLY, so a cache HIT is interchangeable with a fresh
+    build downstream. Deep equality catches any silent JSON coercion a hit would
+    otherwise feed the interpreter (int-key->str, and would catch tuple->list /
+    set-loss if the block ever introduced one)."""
+    def builder():
+        return {
+            "lord_house_map": {h: (h % 12) + 1 for h in range(1, 13)},
+            "ascendant_sign": "Sagittarius",
+            "yogas": [{"name": "Gajakesari", "houses": [1, 4], "present": True}],
+            "shadbala": {"sun": 1.5, "moon": None, "saturn": 0.0},
+            "planet_bav_in_sign": {"Sun": 3, "Moon": 4},   # name keys stay str
+            "ashtakavarga": {"sav_by_house": {h: 20 + h for h in range(1, 13)}},
+        }
+
+    fresh = builder()
+    FS.load_or_build("deep", builder, cache_dir=str(tmp_path))       # miss -> persist
+    hit = FS.load_or_build("deep", builder, cache_dir=str(tmp_path))  # hit  -> decoded
+    assert hit == fresh, "a cache HIT must deep-equal a fresh build"

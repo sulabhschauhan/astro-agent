@@ -555,3 +555,90 @@ def interpret_expert(
     return {"answer": (content or "").strip(), "usage": usage, "model": model,
             "interpreter_version": INTERPRETER_VERSION, "raw": content,
             "expert_mode": True}
+
+
+# ── BREADTH FAN-OUT primitives (S157 C2a) ──────────────────────────────────
+# A broad question that would overflow one interpreter call is answered PER LIFE
+# AREA: interpret_domain_partial runs one expert call per planned domain over the
+# SHARED block + that domain's verses (planner.split_payload_by_domain /
+# build_domain_subpayload), then synthesize_partials writes a short BOTTOM LINE
+# over the resulting sections. THE CHAINING GUARD (roster-ratified, HIGH): the
+# sections are the grounded content; synthesis only ties them together and may
+# NOT re-interpret a section or add a claim no section made. These two functions
+# are the primitives; the orchestrator that fans out and stitches is C2b
+# (pipeline), kept separate so each half is testable on its own.
+
+def interpret_domain_partial(
+    question: str,
+    fact_block: str,
+    sub_payload: dict,
+    domain_label: str,
+    *,
+    llm: Optional[Callable[..., tuple]] = None,
+    model: str = INTERPRETER_MODEL,
+    history: Optional[list] = None,
+) -> dict:
+    """One expert reading SCOPED to `domain_label`, over `sub_payload` (the shared
+    block + this domain's verses only). Returns {domain, answer, usage, model}.
+
+    Scope is enforced two ways: `sub_payload` already carries only this domain's
+    verses plus the shared block, and a directive tells the model to answer only
+    this area as a self-contained section. Reuses interpret_expert unchanged, so
+    the grounding guardrail (every chart fact from fact_block) is identical."""
+    directive = (
+        f"Answer ONLY the '{domain_label}' dimension of the question, as a "
+        f"self-contained section a reader could read on its own. Do NOT address "
+        f"other life areas -- a separate reading covers each of those. Open the "
+        f"section by naming the area, so it can be stitched with the others.")
+    res = interpret_expert(question, fact_block, sub_payload, llm=llm, model=model,
+                           history=history, capability_directives=[directive])
+    return {"domain": domain_label, "answer": res.get("answer", ""),
+            "usage": res.get("usage") or {}, "model": res.get("model", model)}
+
+
+SYNTHESIS_SYSTEM = (
+    "You are an expert Vedic astrologer writing the BOTTOM LINE of a reading that "
+    "has already been written area by area (career, relationships, health, and so "
+    "on). You are given those finished sections and the person's question.\n\n"
+    "YOUR ONLY JOB: write a short bottom line (3-5 sentences) that ties the "
+    "sections together -- name the strongest and the most cautionary areas and "
+    "how they bear on the question asked.\n\n"
+    "ABSOLUTE LIMITS -- a hard guardrail, not a style note:\n"
+    "- Summarise and reconcile ONLY what the sections already say. Add NO new "
+    "placement, yoga, dasha, date, prediction, or claim that is not already in a "
+    "section. You are NOT reading the chart; you are tying together readings that "
+    "already were.\n"
+    "- Do NOT restate the sections in full -- the reader sees them below your "
+    "bottom line.\n"
+    "- If two sections point in opposite directions, state the tension plainly in "
+    "one line; never smooth it over or pick a winner the sections did not.\n"
+    "- Plain language, direct address ('you'), no jargon, no citations.")
+
+
+def synthesize_partials(
+    question: str,
+    partials: list,
+    *,
+    llm: Optional[Callable[..., tuple]] = None,
+    model: str = INTERPRETER_MODEL,
+) -> dict:
+    """Write the bottom line over the per-domain sections. Reads ONLY the section
+    TEXTS (never verses or the chart), so by construction it cannot ground a new
+    claim beyond what a section already stated. Returns {answer, usage, model,
+    interpreter_version}. Empty / all-blank partials -> empty answer and the LLM
+    is NOT called (the caller falls back to the sections alone)."""
+    sections = "\n\n".join(
+        f"[{p.get('domain', '')}]\n{(p.get('answer') or '').strip()}"
+        for p in (partials or []) if (p.get("answer") or "").strip())
+    if not sections:
+        return {"answer": "", "usage": {}, "model": model,
+                "interpreter_version": INTERPRETER_VERSION}
+    user = (f"QUESTION: {question}\n\n"
+            "THE SECTIONS (already written and grounded -- do not rewrite them):\n\n"
+            f"{sections}\n\n"
+            "Write only the bottom line, within the limits above.")
+    call = llm if llm is not None else _default_llm_expert
+    content, usage = call(SYNTHESIS_SYSTEM, user, model=model,
+                          reasoning_effort=EXPERT_REASONING_EFFORT)
+    return {"answer": (content or "").strip(), "usage": usage, "model": model,
+            "interpreter_version": INTERPRETER_VERSION}

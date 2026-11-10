@@ -800,6 +800,115 @@ def filter_segments_by_domain(
     return out
 
 
+def split_payload_by_domain(
+    payload: dict,
+    plan: Plan,
+    *,
+    tags_path: str = DOMAIN_TAGS_PATH,
+) -> dict:
+    """Partition a domain-FILTERED payload into a SHARED block and per-domain
+    blocks, for the breadth fan-out (S157 C1). Pure: never mutates `payload`,
+    never calls an LLM, never drops a segment.
+
+    WHY. The career-turn measurement (qa_capture 20261026T100754Z) showed the
+    fail-safe / untagged segments ride EVERY domain selection -- a naive
+    per-domain fan-out would re-pay that shared corpus once per domain, making it
+    cost-negative. This split lets the orchestrator (C2) send the shared block
+    ONCE as a stable prefix (prompt-cache-discounted on each per-domain call).
+
+    THE RULE. A kept segment goes to BY_DOMAIN[d] iff it is a `domain_match`
+    owned by EXACTLY ONE planned domain d. Everything else kept is SHARED:
+      - fail-safe segments (untagged / unknown-id / unfittable) and yoga-tag
+        segments -- kept for reasons orthogonal to the question's domains;
+      - a segment whose tags hit >=2 planned domains (sending it to one domain's
+        call would starve the others; the shared block carries it once);
+      - every whole-chapter unit (carries no per-segment domain tag; these are
+        the small irregular doctrine chapters passed intact, S124, which apply
+        broadly by nature).
+    FAIL-SAFE (S124): a segment we cannot confidently assign to one planned
+    domain is SHARED -- never dropped, never guessed into a single domain.
+
+    Args:
+        payload: the output of `filter_segments_by_domain` (kept segments carry
+            `domain_filter`). A raw/unfiltered payload also works: a segment with
+            no `domain_filter` is treated as not-a-unique-match and goes SHARED.
+        plan: read only for `plan.domains`.
+        tags_path: domain-tag table (segment_id -> domains), same source the
+            filter uses.
+
+    Returns:
+        {
+          "shared":   {"segment_ids": [...], "unit_ids": [...], "tokens": int},
+          "by_domain": {d: {"segment_ids": [...], "unit_ids": [...],
+                            "tokens": int}, ...},   # unit_ids always [] today
+          "stats": {"shared_tokens", "by_domain_tokens", "domains",
+                    "shared_segment_count", "whole_unit_count"},
+        }
+        An empty `plan.domains` yields `by_domain == {}` and everything kept in
+        SHARED (fan-out does not apply).
+    """
+    want = set(getattr(plan, "domains", None) or ())
+    tags = _load_domain_tags(tags_path)
+    seg_domains = {s["segment_id"]: set(s.get("domains") or [])
+                   for s in tags.get("segments", [])}
+
+    by_domain: dict[str, dict] = {
+        d: {"segment_ids": [], "unit_ids": [], "tokens": 0} for d in want}
+    shared_ids: list[str] = []
+    shared_tokens = 0
+
+    for seg in payload.get("segments", []):
+        if not seg.get("kept"):
+            continue
+        sid = seg.get("segment_id")
+        toks = seg.get("tokens", 0)
+        owners = seg_domains.get(sid, set()) & want
+        if seg.get("domain_filter") == "domain_match" and len(owners) == 1:
+            d = next(iter(owners))
+            by_domain[d]["segment_ids"].append(sid)
+            by_domain[d]["tokens"] += toks
+        else:
+            shared_ids.append(sid)
+            shared_tokens += toks
+
+    # Whole-chapter units carry no per-segment tag -> SHARED (broad doctrine).
+    unit_ids = [u.get("unit_id") for u in payload.get("units", [])
+                if u.get("unit_id")]
+    unit_tokens = sum(u.get("tokens", 0) for u in payload.get("units", []))
+    shared_total = shared_tokens + unit_tokens
+
+    return {
+        "shared": {"segment_ids": shared_ids, "unit_ids": unit_ids,
+                   "tokens": shared_total},
+        "by_domain": by_domain,
+        "stats": {
+            "shared_tokens": shared_total,
+            "by_domain_tokens": {d: by_domain[d]["tokens"] for d in by_domain},
+            "domains": sorted(want),
+            "shared_segment_count": len(shared_ids),
+            "whole_unit_count": len(unit_ids),
+        },
+    }
+
+
+def build_domain_subpayload(payload: dict, shared: dict, domain_block: dict) -> dict:
+    """A payload carrying ONLY the shared block + one domain's verses, for a
+    per-domain fan-out call (S157 C2). Shallow copy: reuses the segment/unit
+    objects but builds NEW `segments`/`units` lists, so interpret_expert's
+    `_verse_block` renders exactly `shared` + this domain and nothing else.
+    Never mutates `payload`. A segment not kept upstream stays excluded even if
+    its id appears in a block (defence in depth)."""
+    keep_seg = (set(shared.get("segment_ids") or [])
+                | set((domain_block or {}).get("segment_ids") or []))
+    keep_unit = (set(shared.get("unit_ids") or [])
+                 | set((domain_block or {}).get("unit_ids") or []))
+    segs = [s for s in payload.get("segments", [])
+            if s.get("kept") and s.get("segment_id") in keep_seg]
+    units = [u for u in payload.get("units", [])
+             if u.get("unit_id") in keep_unit]
+    return {**payload, "segments": segs, "units": units}
+
+
 def payload_tokens(payload: dict) -> int:
     """Approx tokens actually shipped to the interpreter: whole-chapter
     units plus every still-kept segment."""

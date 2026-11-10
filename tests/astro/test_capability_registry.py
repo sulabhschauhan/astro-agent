@@ -29,6 +29,21 @@ def test_lucky_days_pilot_present():
     assert lucky.interpreter_directive, "a capability must carry a directive"
 
 
+def test_varshaphal_capability_present():
+    # S157: the Tajika annual solar-return chart is independently routable, so a
+    # standalone "my year ahead" question is not refused out-of-scope. It is a
+    # routing/awareness row only -- kind="chart" (already on chart_facts at
+    # interpret time), so no dispatcher cable fires for it.
+    vp = cr.get("varshaphal")
+    assert vp is not None
+    assert vp.fact_key == "varshaphal"
+    assert vp.dated is True
+    assert vp.kind == "chart"
+    assert vp.id not in cr.timeline_capability_ids()
+    assert vp.id not in cr.live_capability_ids()
+    assert vp.interpreter_directive, "a capability must carry a directive"
+
+
 def test_get_unknown_returns_none():
     assert cr.get("does_not_exist") is None
 

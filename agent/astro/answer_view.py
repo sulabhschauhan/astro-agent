@@ -277,7 +277,21 @@ def render_user_answer(result: dict) -> str:
             # retry the out-of-scope rule exists to refuse (KNOWN_PATTERNS
             # P-030). Keyed off the pipeline's own refusal reason, never on
             # words in the question.
-            if str(result.get("reason") or "").strip().lower() == "out of scope":
+            #
+            # THIRD SILENCE (S157, LIVE FINDING #2). An over-ceiling refusal is an
+            # OVER-supply problem -- too much doctrine to fit one interpreter call
+            # -- the OPPOSITE of "nothing addresses it". Rendering it with the
+            # corpus-silent wording is the P-030 false silence a broad question hit
+            # live. Keyed on the pipeline's STRUCTURED refused_at, never on the
+            # technical refusal_reason text. Doubles as the interim fixed "narrow
+            # it" nudge until domain fan-out (the breadth build) lands.
+            if (result.get("trace") or {}).get("refused_at") == "payload_ceiling":
+                head = ("Your question touches too many areas of the chart to "
+                        "answer reliably in one go. Narrow it to a single focus "
+                        "-- for example career, relationships, health, money or "
+                        "timing -- and ask again, and I'll give you a fuller "
+                        "reading of that area.")
+            elif str(result.get("reason") or "").strip().lower() == "out of scope":
                 head = ("That isn't something I can read from your chart. I "
                         "answer questions about your life and what the "
                         "classical texts say about your placements -- not how "

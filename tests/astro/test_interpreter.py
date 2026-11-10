@@ -103,3 +103,61 @@ def test_manifest_reaches_the_system_prompt():
     assert "CITABLE IDS" in seen["system"]
     assert "ch34_s003" in seen["system"]
     assert "bphs2_ch57" in seen["system"]
+
+
+# ── S157 C2a: breadth fan-out primitives ───────────────────────────────────
+
+_SUB = {"segments": [
+    {"segment_id": "car_s1", "text": "Career: Sun in 10th.", "kept": True},
+    {"segment_id": "shared_s1", "text": "General: strong lagna.", "kept": True}],
+    "units": []}
+
+
+def test_interpret_domain_partial_scopes_to_the_domain_and_passes_its_verses():
+    seen = {}
+
+    def stub(system, user, *, model, reasoning_effort):
+        seen["system"] = system
+        seen["user"] = user
+        return ("Career: you rise through effort.",
+                {"prompt_tokens": 7, "completion_tokens": 4})
+
+    out = I.interpret_domain_partial("How is my life?", "FACTS", _SUB, "career",
+                                     llm=stub)
+    assert out["domain"] == "career"
+    assert out["answer"] == "Career: you rise through effort."
+    # the domain-focus directive reached the prompt
+    assert "ONLY the 'career' dimension" in seen["user"]
+    # only this sub-payload's verses are present (shared + the one domain)
+    assert "Career: Sun in 10th." in seen["user"]
+    assert "General: strong lagna." in seen["user"]
+    # it rides the EXPERT system (grounding guardrail), not the claim-JSON path
+    assert "expert Vedic astrologer" in seen["system"]
+
+
+def test_synthesize_partials_ties_sections_and_carries_the_no_invention_guard():
+    seen = {}
+
+    def stub(system, user, *, model, reasoning_effort):
+        seen["system"] = system
+        seen["user"] = user
+        return ("Overall: career is your strong suit; mind your health.",
+                {"prompt_tokens": 9})
+
+    partials = [{"domain": "career", "answer": "Career looks strong."},
+                {"domain": "health", "answer": "Watch stress."}]
+    out = I.synthesize_partials("How is my life?", partials, llm=stub)
+    assert out["answer"].startswith("Overall:")
+    # both finished sections reached the synthesis prompt
+    assert "Career looks strong." in seen["user"]
+    assert "Watch stress." in seen["user"]
+    # the hard no-invention guard is in the synthesis system prompt
+    assert "Add NO new" in seen["system"]
+
+
+def test_synthesize_partials_with_no_sections_does_not_call_the_model():
+    def boom(*a, **k):
+        raise AssertionError("synthesis must not call the model with no sections")
+
+    out = I.synthesize_partials("q", [{"domain": "career", "answer": "   "}], llm=boom)
+    assert out["answer"] == ""

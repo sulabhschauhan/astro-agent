@@ -14,8 +14,9 @@ NOT here -- they are parametrised by the question and computed at answer time.
 Faithful to the app.py block it replaces: same composition ORDER, same fail-soft
 posture (a failing composer costs its own fact class, never the answer), same
 keys (so capability_gate.FACT_BLOCK_PROVIDES and pipeline._fact_block are
-unchanged). Widening (combustion, varshaphal, the report's lucky/unlucky) lands
-HERE, in one place, next.
+unchanged). Widening of CHART-FIXED fact classes lands HERE, in one place. DATED
+facts (muhurta, the timeline caps, varshaphal) are composed at ANSWER time in
+pipeline.answer_question, never baked into this cacheable block.
 
 Python 3.11.
 """
@@ -38,7 +39,6 @@ from agent.astro.friendship_facts import build_friendship_facts
 from agent.astro.yogini_facts import build_yogini_facts
 from agent.astro.narayana_facts import build_narayana_facts
 from agent.astro.ashtottari_facts import build_ashtottari_facts
-from agent.astro.varshaphal_facts import build_varshaphal_facts
 from agent.astro.lucky_facts import build_lucky_facts
 
 logger = logging.getLogger(__name__)
@@ -95,11 +95,13 @@ def build_static_facts(chart: dict) -> dict:
     _compose(facts, "yogini", lambda: build_yogini_facts(_chart))
     _compose(facts, "narayana", lambda: build_narayana_facts(_chart))
     _compose(facts, "ashtottari", lambda: build_ashtottari_facts(_chart))
-    # varshaphal is YEAR-FIXED (not chart-fixed): the composer defaults to the
-    # current solar year, so a cached static block serves a stale Varsha once the
-    # pravesh rolls over -- the dated-layer re-anchor (timeline_store) is the
-    # required follow-up (decision #2). Fail-soft like the rest.
-    _compose(facts, "varshaphal", lambda: build_varshaphal_facts(_chart))
+    # VARSHAPHAL is NOT composed here (S157). It is a DATED fact -- the annual
+    # chart switches at every solar return -- so baking it into this chart-FIXED
+    # block would let a re-enabled fact_store cache serve a STALE Varsha past the
+    # next pravesh. It is composed at ANSWER time in pipeline.answer_question
+    # (as_of=today), the same posture as muhurta and the timeline caps. The
+    # "varshaphal" key stays in capability_gate.FACT_BLOCK_PROVIDES and is still
+    # rendered by pipeline._fact_block -- only the compose SITE moved.
     # lucky_unlucky reads the ASSEMBLED facts (house_lords), like yogas/transits,
     # so it runs last over the composed block -- not over the raw chart.
     _compose(facts, "lucky_unlucky", lambda: build_lucky_facts(facts))

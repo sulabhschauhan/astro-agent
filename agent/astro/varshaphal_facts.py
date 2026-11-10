@@ -15,11 +15,14 @@ data/default_user/jhora_sulabh_varshaphal.md):
 
 YEAR-FIXED, NOT CHART-FIXED (ratified S156). The annual chart switches at every
 solar return, so this composer takes a target_year (default: the solar year that
-contains `as_of`). It is attached in static_facts for reachability now, BUT the
-chart-fixed fact_store cache would serve a STALE year once the pravesh rolls
-over -- the dated-layer re-anchor (timeline_store, pravesh-span) is the required
-follow-up (decision #2). Until then, callers that cache must key/invalidate on
-the solar year stamped in the result ("year").
+contains `as_of`). Because it is DATED, it is composed at ANSWER time in
+pipeline.answer_question (as_of=today), NOT attached in static_facts -- S157
+re-anchor. Attaching it to the chart-fixed fact_store block let a (re-enabled)
+cache serve a STALE year once the pravesh rolled over; composing at answer time
+re-selects the current solar year every answer, so the staleness cannot arise.
+A dedicated pravesh-span cache (keyed on the solar return, invalidated at
+pravesh_end -- NOT timeline_store's today+WINDOW_DAYS window) is the optimisation
+to add only if per-answer compute cost is measured too high (multi-user).
 
 RESTATE, NEVER RECOMPUTE: reads the natal chart and calls the validated engines.
 Cast at BIRTHPLACE (Raman default + oracle match).
@@ -104,8 +107,10 @@ def build_varshaphal_facts(chart: dict, target_year: int | None = None,
     """Varshaphal annual-chart facts for `chart` (calculate_chart output).
 
     Args:
-        chart: reads meta['jd_ut','lat','lon','asc_lon_sidereal','local_datetime']
-            and planetary_positions['Moon']['longitude'].
+        chart: reads meta['jd_ut','asc_lon_sidereal','local_datetime'],
+            birth_details['lat','lon'] (where calculate_chart() puts the birth
+            coordinates -- NOT meta, same source as calculate_solar_return /
+            build_varshaphal_chart), and planetary_positions['Moon']['longitude'].
         target_year: Gregorian year of the Varsha Pravesh to compute. Default:
             the solar year containing `as_of` (or today).
         as_of: date used to pick the current solar year when target_year is None.
@@ -117,10 +122,15 @@ def build_varshaphal_facts(chart: dict, target_year: int | None = None,
     """
     try:
         meta = (chart or {}).get("meta") or {}
+        bd = (chart or {}).get("birth_details") or {}
         pp = (chart or {}).get("planetary_positions") or {}
         natal_jd = meta.get("jd_ut")
-        lat = meta.get("lat")
-        lon = meta.get("lon")
+        # lat/lon live in birth_details on a real calculate_chart() output, NOT
+        # meta (S157 fix -- reading meta here fail-soft-returned {} on every real
+        # chart since S156; the unit fixture had masked it). Same source every
+        # other Varshaphal fn uses (calculate_solar_return/build_varshaphal_chart).
+        lat = bd.get("lat")
+        lon = bd.get("lon")
         natal_lagna = meta.get("asc_lon_sidereal")
         ldt = meta.get("local_datetime")
         moon = (pp.get("Moon") or {}).get("longitude")

@@ -98,3 +98,41 @@ def test_computed_only_forces_expert_even_when_expert_false(_dispatch_env):
     )
     assert result["expert_mode"] is True
     assert result["refused"] is False
+
+
+# S157 ROUTING FIX. A standalone annual-chart question used to be refused
+# out-of-scope (no corpus domain, no capability route) -- the live finding. The
+# varshaphal capability row gives it a computed-only route, exactly like lucky
+# days: build_from_plan is skipped (it is _boom in the fixture) and the answer is
+# rendered in expert mode. _fact_block is stubbed, so this pins the DISPATCH
+# decision (not refused -> interpreter reached); the render is covered by
+# test_capability_gate.test_varshaphal_capability_is_rendered_with_phase.
+_VARSHAPHAL_PLAN = {
+    "domains": [],
+    "houses": [],
+    "whose_chart": "self",
+    "time_scope": "future",
+    "in_scope": True,
+    "capabilities": ["varshaphal"],
+    "muhurta_horizon": None,
+    "reasoning": "Annual solar-return chart -- a computed capability, no corpus.",
+}
+
+
+def test_varshaphal_computed_only_plan_answers_without_corpus(_dispatch_env):
+    def _planner(_prompt):
+        return json.dumps(_VARSHAPHAL_PLAN)
+
+    def _interp(_system, _user, *, model=None, reasoning_effort=None):
+        return ("Your year ahead, per the annual chart, looks steady.",
+                {"prompt_tokens": 5, "completion_tokens": 5})
+
+    result = pipeline.answer_question(
+        "what does my year ahead look like in my annual chart?",
+        _CHART_FACTS,
+        llm=_planner,
+        interpreter_llm=_interp,
+    )
+    assert result["refused"] is False
+    assert result["expert_mode"] is True
+    assert "annual chart" in result["answer"]

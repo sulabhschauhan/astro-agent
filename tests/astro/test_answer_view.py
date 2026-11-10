@@ -232,3 +232,45 @@ def test_ordinary_empty_answer_keeps_the_corpus_wording():
     r["reason"] = "no claims survived the gate"
     out = AV.render_user_answer(r)
     assert out.startswith("I can't answer this from your chart")
+
+
+# ── S157: over-ceiling refusal is honest, not corpus-silent (LIVE FINDING #2) ──
+
+def _ceiling_result():
+    """Shape of pipeline.answer_question's over-ceiling early return: no claims,
+    no expert answer, technical reason string, and the STRUCTURED signal
+    trace.refused_at == 'payload_ceiling' (pipeline.py refused_at branch)."""
+    r = _result(kept_claims=[])
+    r["reason"] = ("payload 913,000 approx-tokens (~1,552,000 real) exceeds the "
+                   "500,000 approx ceiling ... narrow the question or raise the ceiling.")
+    r["trace"] = {"refused_at": "payload_ceiling"}
+    return r
+
+
+def test_over_ceiling_refusal_does_not_blame_the_corpus():
+    out = AV.render_user_answer(_ceiling_result())
+    assert "Nothing in the verses" not in out
+    assert "too many areas" in out
+    assert "Narrow it" in out          # actionable, layman nudge
+    # the technical ceiling reason stays in the log, never the user surface
+    assert "approx-tokens" not in out and "ceiling" not in out
+
+
+def test_over_ceiling_is_keyed_on_refused_at_not_the_reason_text():
+    """The signal is the structured refused_at, never the technical reason
+    string. Strip the key and the SAME dict must fall back to the corpus-silent
+    wording -- proving we never prose-match the refusal reason (P-030 lesson)."""
+    r = _ceiling_result()
+    r.pop("trace")
+    out = AV.render_user_answer(r)
+    assert out.startswith("I can't answer this from your chart")
+    assert "too many areas" not in out
+
+
+def test_over_ceiling_appends_declines_after_the_head():
+    r = _ceiling_result()
+    r["declined"] = [("dasha_timing", _DECLINE)]
+    out = AV.render_user_answer(r)
+    assert "too many areas" in out
+    assert _DECLINE in out
+    assert out.index("too many areas") < out.index("I can't tell you when")

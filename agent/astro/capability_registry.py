@@ -224,6 +224,46 @@ REGISTRY: tuple[Capability, ...] = (
             "terms of the month, not a precise local day."
         ),
     ),
+    # ----- VARSHAPHAL (S156 engine, S157 routing). The Tajika annual solar-
+    # return chart. It is an ALWAYS-ON fact class -- pipeline.answer_question
+    # composes it UNCONDITIONALLY at answer time (as_of=today, S157) -- so it
+    # rides along on any in-scope corpus question. THIS row exists so a STANDALONE
+    # annual-chart question ("what does my year ahead look like") has a planner
+    # route and is not refused out-of-scope (the S157 live finding). kind="chart":
+    # the fact is already on chart_facts by interpret time, so no dispatcher cable
+    # fires for it -- the row is purely a routing/awareness entry, not a compose
+    # cable. Its fact_key is in capability_gate.FACT_BLOCK_PROVIDES (growth
+    # contract), so this routes to a fact the block actually carries.
+    Capability(
+        id="varshaphal",
+        intent_gloss=(
+            "an overview / forecast of the native's YEAR AHEAD as a whole -- the "
+            "annual chart, Varshaphal / Varshphal / Tajika / solar-return chart, "
+            "the Muntha, or the year-lord (Varshesha) -- e.g. 'what does my year "
+            "ahead look like', 'my annual chart', 'how is this year for me "
+            "overall', 'read my Varshaphal'. This is the WHOLE-YEAR solar-return "
+            "reading (birthday to birthday). NOT a single predicted event ('when "
+            "will I marry' -> corpus timing) and NOT a good date to ACT (muhurta)."
+        ),
+        fact_key="varshaphal",
+        label="Varshaphal (annual solar-return chart)",
+        dated=True,
+        kind="chart",
+        needs_chart=True,
+        interpreter_directive=(
+            "Answer from the computed `varshaphal` fact block -- the annual "
+            "solar-return chart for the Varsha stamped in `year` (distinct from "
+            "the natal chart; it switches at each solar return). Ground every "
+            "statement in what the block gives: the annual Lagna, the planetary "
+            "positions in the annual chart, the Muntha (sign + house from the "
+            "annual Lagna), the year-lord (Varshesha) with its rule path, the "
+            "Pancha-vargeeya bala, and the three annual dashas (Mudda / Patyayini "
+            "/ Yogini) as dated intervals -- lead with the sub-period running NOW. "
+            "Never invent a placement, a date or a year the block does not carry, "
+            "and never recompute one. If the block is absent, say the annual chart "
+            "is not available rather than improvising."
+        ),
+    ),
 )
 
 _BY_ID: dict[str, Capability] = {c.id: c for c in REGISTRY}
