@@ -253,6 +253,33 @@ def _timings_table(timings: dict) -> str:
 
 # ------------------------------------------------------------------- capture
 
+def _fanout_block(fo: Any) -> str:
+    """Render the breadth fan-out tree (S157 C2b): the trigger + token split, then
+    EACH per-domain sub-answer IN FULL (untruncated) with its own usage/model, then
+    the synthesis bottom line. Present ONLY on a turn that fanned out -- a normal
+    single-call turn's capture is byte-unchanged."""
+    if not isinstance(fo, dict):
+        return _fence("(no fan-out trace)")
+    head = _json_block({
+        "triggered": fo.get("triggered"),
+        "threshold_approx": fo.get("threshold_approx"),
+        "payload_approx": fo.get("payload_approx"),
+        "domains": fo.get("domains"),
+        "shared_tokens": fo.get("shared_tokens"),
+        "by_domain_tokens": fo.get("by_domain_tokens"),
+    })
+    blocks = []
+    for p in fo.get("partials") or []:
+        blocks.append(
+            f"#### domain `{p.get('domain')}`  (model={p.get('model')}, "
+            f"usage={p.get('usage')})\n" + _fence(p.get("answer") or ""))
+    syn = fo.get("synthesis") or {}
+    blocks.append(
+        f"#### synthesis / bottom line  (model={syn.get('model')}, "
+        f"usage={syn.get('usage')})\n" + _fence(syn.get("answer") or ""))
+    return head + "\n\n" + "\n\n".join(blocks)
+
+
 def capture_turn(question: str, result: dict, chart_facts: dict | None = None,
                  user_answer: str | None = None) -> Optional[Path]:
     """Append one turn's full trace. Never raises.
@@ -388,6 +415,15 @@ def capture_turn(question: str, result: dict, chart_facts: dict | None = None,
         raw = trace.get("interpreter_raw")
         if raw:
             parts.append("### interpreter raw response\n" + _fence(str(raw)))
+
+        # S157 C2b: when the turn FANNED OUT, append the full per-domain tree so a
+        # live run captures every sub-call, not just the stitched answer. Absent on
+        # a single-call turn -> that capture is byte-identical to before.
+        _fo = trace.get("fanout")
+        if _fo:
+            parts.append(
+                "### fan-out (S157 C2b -- per-domain sub-answers + synthesis)\n"
+                + _fanout_block(_fo))
 
         with path.open("a", encoding="utf-8") as fh:
             fh.write("\n\n".join(parts) + "\n")

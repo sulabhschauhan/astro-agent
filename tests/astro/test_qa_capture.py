@@ -198,6 +198,45 @@ def test_capture_error_records_a_failed_turn():
     assert "interpreter did not return valid JSON" in body
 
 
+# ── S157 C2b: the breadth fan-out tree is captured in full ──────────────────
+
+def test_fanout_tree_is_captured_in_full():
+    """A live fan-out run must record EVERY sub-call -- each per-domain answer in
+    full, plus the synthesis -- not just the stitched answer (Sulabh's capture
+    requirement)."""
+    r = _result()
+    r["trace"]["fanout"] = {
+        "triggered": True, "threshold_approx": 450_000, "payload_approx": 999_999,
+        "domains": ["career", "health"],
+        "shared_tokens": 1000, "by_domain_tokens": {"career": 50, "health": 60},
+        "partials": [
+            {"domain": "career",
+             "answer": "Career: you rise through steady effort over years.",
+             "usage": {"prompt_tokens": 120}, "model": "gpt-5"},
+            {"domain": "health",
+             "answer": "Health: watch stress and sleep in the coming period.",
+             "usage": {"prompt_tokens": 130}, "model": "gpt-5"}],
+        "synthesis": {"answer": "Bottom line: career is your strong suit; protect health.",
+                      "usage": {"prompt_tokens": 40}, "model": "gpt-5"},
+    }
+    body = QC.capture_turn("How will my life go?", r, {}).read_text(encoding="utf-8")
+    assert "### fan-out (S157 C2b" in body
+    # each per-domain sub-answer appears IN FULL, with its label + the synthesis
+    assert "domain `career`" in body and "domain `health`" in body
+    assert "Career: you rise through steady effort over years." in body
+    assert "Health: watch stress and sleep in the coming period." in body
+    assert "synthesis / bottom line" in body
+    assert "Bottom line: career is your strong suit; protect health." in body
+    # the token split is recorded for cost auditing
+    assert "by_domain_tokens" in body
+
+
+def test_single_call_turn_has_no_fanout_section():
+    """A normal single-call turn's capture is byte-unchanged: no fan-out header."""
+    body = QC.capture_turn("narrow q", _result(), {}).read_text(encoding="utf-8")
+    assert "fan-out" not in body
+
+
 # ── Stage 5b, the composer (S137) ──────────────────────────────────────────
 # The composer never raises and its enforcing check degrades rather than drops,
 # so all three of its failure shapes are SILENT in the answer text. These tests
