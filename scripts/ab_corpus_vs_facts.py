@@ -53,7 +53,8 @@ def _plan_dict(p) -> dict:
             "source": p.source, "planner_fallback": p.planner_fallback}
 
 
-def _run_arm(q, plan, chart, chart_facts, *, corpus: bool) -> dict:
+def _run_arm(q, plan, chart, chart_facts, *, corpus: bool,
+             retokenise: bool = False) -> dict:
     """One interpreter call via the production path with a fixed plan."""
     real_plan, real_build = planner.plan_question, planner.build_from_plan
 
@@ -61,7 +62,10 @@ def _run_arm(q, plan, chart, chart_facts, *, corpus: bool) -> dict:
         built = real_build(*a, **k)
         pl = built.get("payload")
         if isinstance(pl, dict):
-            built = dict(built, payload=dict(pl, segments=[], units=[]))
+            blanked = dict(pl, segments=[], units=[])
+            built = dict(built, payload=blanked)
+            if retokenise:  # model routing sees the EMPTIED payload size
+                built["tokens"] = planner.payload_tokens(blanked)
         return built
 
     planner.plan_question = lambda question, **k: plan  # never re-plan
@@ -75,11 +79,75 @@ def _run_arm(q, plan, chart, chart_facts, *, corpus: bool) -> dict:
         planner.plan_question, planner.build_from_plan = real_plan, real_build
     secs = round(time.perf_counter() - t0, 2)
     u = res.get("usage") or {}
-    return {"answer": res.get("answer") or "", "refused": bool(res.get("refused")),
+    from agent.astro.answer_view import render_user_answer
+    return {"answer": res.get("answer") or "", "user_answer": render_user_answer(res), "refused": bool(res.get("refused")),
             "reason": res.get("reason"), "model": res.get("model"),
             "prompt_tokens": u.get("prompt_tokens"),
             "completion_tokens": u.get("completion_tokens"), "seconds": secs,
             "payload_approx_tokens": res.get("tokens")}
+
+
+FACTS_ONLY_QUESTIONS = [
+    "when will I get married?",
+    "good date to get married in the next year?",
+    "When are my best career years coming up?",
+    "How are the next two or three years looking for me?",
+    "Which major dasha period am I running now, and what's next?",
+    "Which Ashtottari dasha period am I running now?",
+    "Which Narayana rasi dasa am I in now, and what's next?",
+    "What Yogini dasha period am I in?",
+    "auspicious time to start my business",
+    "I want to shift to a different rented house in dubai. What are the auspicious dates ?",
+]
+
+
+def _retry(fn):
+    try:
+        return fn()
+    except Exception:  # noqa: BLE001 -- at most one retry per failed call
+        return fn()
+
+
+def main_facts_only() -> int:
+    """Facts-only arm ONLY (corpus emptied, model routed on the emptied size)."""
+    ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    out = os.path.join(_ROOT, "diagnostics", "runs")
+    os.makedirs(out, exist_ok=True)
+    chart = calculate_chart(*SULABH)
+    chart_facts = build_static_facts(chart)
+    calls = {"planner": 0, "interpreter": 0}
+    failures, refusals, body, rows = [], [], [], []
+    for i, q in enumerate(FACTS_ONLY_QUESTIONS, 1):
+        try:
+            plan = _retry(lambda: planner.plan_question(q))
+            calls["planner"] += 1
+            r = _retry(lambda: _run_arm(q, plan, chart, chart_facts, corpus=False,
+                                        retokenise=True))
+            calls["interpreter"] += 1
+        except Exception as e:  # noqa: BLE001
+            failures.append(f"Q{i}: {type(e).__name__}: {e}")
+            continue
+        if r["refused"]:
+            refusals.append(f"Q{i}: {r['reason']}")
+        rows.append(r)
+        body += [f"## Q{i}. {q}", "", f"- plan: {json.dumps(_plan_dict(plan))}",
+                 f"- model: {r['model']}", f"- prompt_tokens: {r['prompt_tokens']}",
+                 f"- completion_tokens: {r['completion_tokens']}",
+                 f"- seconds: {r['seconds']}", "", r["user_answer"], "", "---", ""]
+    fp = os.path.join(out, f"{ts}_facts_only.md")
+    with open(fp, "w", encoding="utf-8") as f:
+        f.write("# Facts-only arm (corpus emptied), Sulabh's chart\n\n" + "\n".join(body))
+    rep_lines = [f"# facts-only run {ts}", "", f"calls made: {calls}",
+                 f"failures: {failures or 'none'}", f"refusals: {refusals or 'none'}",
+                 f"prompt tokens total: {sum((r['prompt_tokens'] or 0) for r in rows)}",
+                 f"seconds total: {round(sum((r['seconds'] or 0) for r in rows), 1)}",
+                 "warnings: see run console (varshaphal day/night azalt warning, if present)",
+                 f"output: {fp}"]
+    rp = os.path.join(out, f"{ts}.md")
+    with open(rp, "w", encoding="utf-8") as f:
+        f.write("\n".join(rep_lines) + "\n")
+    shutil.copyfile(rp, os.path.join(_ROOT, "diagnostics", "latest_run.md"))
+    return 1 if failures else 0
 
 
 def main() -> int:
@@ -178,4 +246,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main_facts_only() if "--facts-only" in sys.argv else main())

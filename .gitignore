@@ -91,3 +91,8 @@ data/ephemeris_cache/
 # transient pytest / run logs (overwritten each run; evidence lives in *.md)
 diagnostics/*.log
 diagnostics/**/*.log
+
+# S157 blind A/B outputs hold a real chart (never commit)
+diagnostics/runs/*_ab_blind.md
+diagnostics/runs/*_ab_key.json
+diagnostics/runs/*_facts_only.md
