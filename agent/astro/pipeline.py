@@ -1176,110 +1176,18 @@ def answer_question(
         _cap_directives = capability_registry.directives_for(
             getattr(_plan, "capabilities", None))
 
-        # BREADTH FAN-OUT (S157 C2b). A broad question whose single-call payload
-        # would overflow the context ceiling is answered PER DOMAIN -- one expert
-        # call over the SHARED block + that domain's verses (C1 split + C2a
-        # primitives) -- then a synthesis call writes the bottom line over the
-        # finished sections. TRIGGER: >=2 corpus domains AND payload > 0.9x ceiling
-        # (the call that would otherwise be REFUSED). THRESHOLD (S157, WS#4):
-        # 0.9 * HARD_CONTEXT_CEILING ~= 450k approx -- fires just before the hard
-        # refuse; SCOPE GUARD: fan-out never drops a domain, only splits the calls,
-        # and a single domain alone over the ceiling cannot be split so it falls to
-        # the honest decline; TUNING NOTE: lower only if large sub-calls prove slow,
-        # the ceiling is the hard bound. ACCELERANT-NEVER-A-GATE: any fan-out
-        # failure falls through to the single call below, so breadth can never
-        # cost an answer that the single path would have produced.
-        # Fan-out works purely off the corpus payload + plan (from chart_facts);
-        # it does NOT need the raw chart, so unlike varshaphal/muhurta it carries
-        # no `chart is not None` guard.
-        _fanout_domains = list(getattr(_plan, "domains", None) or [])
-        _fanout_threshold = int(planner.HARD_CONTEXT_CEILING * 0.9)
-        if (len(_fanout_domains) >= 2
-                and built.get("tokens", 0) > _fanout_threshold):
-            try:
-                _split = planner.split_payload_by_domain(built["payload"], _plan)
-                _partials = []
-                _fp = _fc = _fr = 0
-                for _d in _fanout_domains:
-                    _sub = planner.build_domain_subpayload(
-                        built["payload"], _split["shared"],
-                        _split["by_domain"].get(_d, {}))
-                    # Per-domain payloads are small (shared + one domain), so each
-                    # routes by ITS OWN size: gpt-5 for the common small sub, luna
-                    # only if one domain's slice is itself huge.
-                    _sm = (_interp.INTERPRETER_MODEL
-                           if planner.payload_tokens(_sub) <= planner.GPT5_SAFE_APPROX
-                           else _interp.LARGE_PAYLOAD_MODEL)
-                    _p = _interp.interpret_domain_partial(
-                        question, fact_block, _sub, _d,
-                        llm=interpreter_llm, model=_sm, history=history)
-                    _partials.append(_p)
-                    _u = _p.get("usage") or {}
-                    _fp += _u.get("prompt_tokens", 0)
-                    _fc += _u.get("completion_tokens", 0)
-                    _fr += _u.get("reasoning_tokens", 0)
-                _synth = _interp.synthesize_partials(
-                    question, _partials, llm=interpreter_llm,
-                    model=_interp.INTERPRETER_MODEL)
-                _su = _synth.get("usage") or {}
-                _fp += _su.get("prompt_tokens", 0)
-                _fc += _su.get("completion_tokens", 0)
-                _fr += _su.get("reasoning_tokens", 0)
-                # Assemble: bottom line + the grounded sections in plan order. The
-                # sections are VERBATIM from the per-domain calls -- synthesis never
-                # rewrote them (the chaining guard). answer_view passes an expert
-                # answer through verbatim, so NO answer_view change is needed.
-                _sections = "\n\n".join(
-                    (p.get("answer") or "").strip() for p in _partials
-                    if (p.get("answer") or "").strip())
-                _bottom = (_synth.get("answer") or "").strip()
-                _fan_answer = (f"{_bottom}\n\n{_sections}".strip()
-                               if _bottom else _sections.strip())
-                if verdict.messages:
-                    _m = "\n\n".join(verdict.messages)
-                    _fan_answer = (_fan_answer.rstrip() + "\n\n" + _m).strip() \
-                        if _fan_answer else _m
-                if not _fan_answer.strip():
-                    raise RuntimeError("fan-out produced no answer")
-                _lap("interpreter_fanout")
-                return {
-                    "answer": _fan_answer,
-                    "expert_mode": True,
-                    "refused": False,
-                    "plan": built["plan"],
-                    "declined": verdict.declined,
-                    "dropped_domains": verdict.dropped_domains,
-                    "capability_gate_version": verdict.gate_version,
-                    "kept_claims": [], "dropped_claims": [], "silent_on": [],
-                    "ghost_citations": [], "gate_stats": {}, "composed": None,
-                    "verifiability": None,
-                    "usage": {"prompt_tokens": _fp, "completion_tokens": _fc,
-                              "reasoning_tokens": _fr},
-                    "tokens": built["tokens"], "model": _interp.INTERPRETER_MODEL,
-                    "trace": {"timings": timings, "payload": built["payload"],
-                              "fact_block": fact_block, "expert_mode": True,
-                              "fanout": {
-                                  "triggered": True,
-                                  "threshold_approx": _fanout_threshold,
-                                  "payload_approx": built.get("tokens", 0),
-                                  "domains": _fanout_domains,
-                                  "shared_tokens": _split["stats"]["shared_tokens"],
-                                  "by_domain_tokens": _split["stats"]["by_domain_tokens"],
-                                  "partials": [
-                                      {"domain": p["domain"], "answer": p["answer"],
-                                       "usage": p.get("usage") or {},
-                                       "model": p.get("model")} for p in _partials],
-                                  "synthesis": {"answer": _bottom, "usage": _su,
-                                                "model": _synth.get("model")}},
-                              "timing_ranking": _timing_ranking,
-                              "plan_before_gate": {"domains": list(plan.domains or []),
-                                                   "houses": list(plan.houses or []),
-                                                   "time_scope": plan.time_scope}},
-                    "pipeline_version": PIPELINE_VERSION,
-                }
-            except Exception as _fe:  # noqa: BLE001 -- fan-out NEVER gates the answer
-                logger.warning("fan-out failed (%s); falling back to single call", _fe)
-
+        # FAN-OUT TRIGGER REMOVED (S157 close, ruled by Sulabh). The breadth
+        # fan-out (C2b) was wired AFTER build_from_plan's ceiling refusal, so it
+        # could only fire in a narrow 450-500k band where the single call already
+        # works, and could NEVER catch the true overflow it was built for (>500k
+        # correctly hits the honest "narrow it" decline). Live runs confirmed the
+        # real breadth cases are already handled: holistic questions route to the
+        # cheap expert-over-fact-block path (domains=[]), and over-broad questions
+        # get the honest decline -- both validated and preferred. The primitives
+        # (planner.split_payload_by_domain / build_domain_subpayload,
+        # interpreter.interpret_domain_partial / synthesize_partials,
+        # qa_capture._fanout_block) are KEPT DORMANT for a future need. Detail:
+        # SESSION_LOG S157.
         ex = _interp.interpret_expert(question, fact_block, built["payload"],
                                       llm=interpreter_llm, model=_interp_model,
                                       history=history,
