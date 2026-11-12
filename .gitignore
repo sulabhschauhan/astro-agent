@@ -96,3 +96,7 @@ diagnostics/**/*.log
 diagnostics/runs/*_ab_blind.md
 diagnostics/runs/*_ab_key.json
 diagnostics/runs/*_facts_only.md
+
+# S159 Part B cross-chart answer check holds real charts (Sheridan/David/Surbhi) --
+# same no-storage privacy ruling as the A/B outputs above; never commit.
+diagnostics/runs/*_cross_chart.md
