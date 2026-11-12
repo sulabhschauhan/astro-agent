@@ -1,0 +1,52 @@
+{
+  "_meta": {
+    "updated": "2026-11-12",
+    "unit": "USD per 1M tokens",
+    "billing_surface": "OpenAI API (platform.openai.com), pay-as-you-go",
+    "provenance": "OpenAI API pricing page, confirmed via web 2026-11-12. NOT Azure OpenAI, NOT the ChatGPT Enterprise/Business rate cards (both of which Sulabh uploaded 2026-11-12 but neither is his billing surface). The ChatGPT token-based card is FLAT (no 272k tier, no cache-write); the API and Azure are NOT flat.",
+    "context_tier": {
+      "threshold_input_tokens": 272000,
+      "rule": "If a request's input tokens exceed 272000, the ENTIRE request (not just the overflow) bills at the long-context rate. Determined per-request from measured prompt_tokens, never from approx_tokens.",
+      "tuning_note": "Re-confirm the 272000 threshold and the long-context multipliers from the OpenAI pricing page on any model change; both were vendor-set as of 2026-11-12."
+    },
+    "service_tier_multipliers": {
+      "standard": 1.0,
+      "flex": 0.5,
+      "batch": 0.5,
+      "fast": 2.0,
+      "_note": "Multiplier applies uniformly to input, cached, cache_write and output. Flex (service_tier='flex', sync but slower/variable latency, can 429 under load -> fall back to standard) and Batch (async, <=24h) both bill at 0.5x. Fast is 2x. Base rates below are the STANDARD tier per context tier.",
+      "_validation_default": "flex"
+    }
+  },
+  "models": {
+    "gpt-6.1-terra": {
+      "_role": "candidate single interpreter model under test",
+      "window": 1050000,
+      "max_input": 922000,
+      "max_output": 128000,
+      "short": {"input": 1.00, "cached": 0.05, "cache_write": 1.25, "output": 5.00},
+      "long":  {"input": 2.00, "cached": 0.10, "cache_write": 2.50, "output": 7.50}
+    },
+    "gpt-6-luna": {
+      "_role": "Step-5 planner replacement candidate (cheap, small payloads, never near 272k)",
+      "window": 1050000,
+      "short": {"input": 0.10, "cached": 0.01, "cache_write": 0.125, "output": 0.50},
+      "long":  {"input": 0.20, "cached": 0.02, "cache_write": 0.25,  "output": 0.75}
+    },
+    "gpt-5.6-terra": {
+      "_role": "Step-4 fallback: one run on the 4 large questions if Terra fails depth criterion (b)",
+      "short": {"input": 2.00, "cached": 0.20, "cache_write": 2.50, "output": 12.00},
+      "long":  {"input": 4.00, "cached": 0.40, "cache_write": 5.00, "output": 18.00}
+    },
+    "gpt-5.6-luna": {
+      "_role": "11 Nov A/B baseline model (4 large Qs). GPT-5.6 line replaced by GPT-6 on the API pricing page; rates retained for historical cost reconciliation only. NOTE: the 4 large 11 Nov questions billed at the LONG tier, not the short tier the handover prose implied.",
+      "short": {"input": 0.20, "cached": 0.02, "cache_write": 0.25, "output": 1.20},
+      "long":  {"input": 0.40, "cached": 0.04, "cache_write": 0.50, "output": 1.80}
+    },
+    "gpt-5": {
+      "_role": "11 Nov A/B baseline model (2 small Qs). Legacy; not on the current API pricing page. Rates NOT re-confirmed here -- fill from invoice/pricing before relying on them for the baseline cost reconciliation.",
+      "short": null,
+      "long": null
+    }
+  }
+}
