@@ -191,3 +191,73 @@ def test_build_timing_ranking_reports_only_positive_houses():
     ranking = tr.build_timing_ranking(facts, weights)
     assert ranking["target_houses"] == [2, 7, 11]
     assert ranking["windows"][0]["ad_lord"] == "Rahu"
+
+
+# --- S158: five-year lead window ------------------------------------------------
+import datetime as _dt_t
+
+
+def _syn_facts(periods_extra=None, ads=None):
+    """A controlled synthetic chart: one MD 'M' whose lord and three AD lords all
+    signify house 7, so every window scores 1.5 (1 significator + 0.5 MD). C also
+    gets a Saturn transit contacting 7 (+1 -> 2.5), making it the lifetime peak.
+    Saturn natal house is None, so the return bonus is disabled."""
+    sig = {"M": [7], "A": [7], "B": [7], "C": [7]}
+    ads = ads if ads is not None else [
+        {"lord": "A", "start": "1 Jan 2020", "end": "1 Jan 2022"},   # past of 2027
+        {"lord": "B", "start": "1 Jan 2028", "end": "1 Jan 2030"},   # in 2027+5y
+        {"lord": "C", "start": "1 Jan 2040", "end": "1 Jan 2043"},   # far future
+    ]
+    tree = [{"mahadasha": {"lord": "M"}, "phase": "future", "antardashas": ads}]
+    periods = {"C|1 Jan 2040": {"saturn_house_from_lagna": 7}}
+    periods.update(periods_extra or {})
+    return {
+        "dasha_periods": {"mahadasha_tree": tree},
+        "kp_planet_significations": {"planet_significations": sig},
+        "transits": {"periods": periods},
+        "planet_positions": {"Saturn": {"house": None}},  # disable return bonus
+    }
+
+
+def test_five_year_window_leads_and_differs_from_lifetime_peak():
+    r = tr.build_timing_ranking(_syn_facts(), {7}, as_of=_dt_t.date(2027, 1, 1))
+    assert r["five_year_window"]["ad_lord"] == "B"      # only window in [2027, 2032]
+    assert r["lifetime_peak"]["ad_lord"] == "C"         # higher score, but far off
+    assert r["five_year_window"]["score"] < r["lifetime_peak"]["score"]
+
+
+def test_five_year_equals_lifetime_when_peak_is_near():
+    r = tr.build_timing_ranking(_syn_facts(), {7}, as_of=_dt_t.date(2039, 1, 1))
+    # C (2040-2043) now falls inside the five-year horizon and is also the peak.
+    assert r["five_year_window"]["ad_lord"] == "C"
+    assert (r["five_year_window"]["md_lord"], r["five_year_window"]["start"]) == \
+           (r["lifetime_peak"]["md_lord"], r["lifetime_peak"]["start"])
+
+
+def test_five_year_window_none_when_nothing_in_horizon():
+    r = tr.build_timing_ranking(_syn_facts(), {7}, as_of=_dt_t.date(2044, 1, 1))
+    assert r["five_year_window"] is None               # all windows end by 2043
+    assert r["lifetime_peak"]["ad_lord"] == "C"        # peak still surfaced
+
+
+def test_five_year_tie_breaks_to_chronologically_earlier_not_lexical():
+    # Two in-horizon windows, equal score, dates where STRING order ("10 Jan" <
+    # "9 Jan") disagrees with CHRONOLOGICAL order (9 Jan < 10 Jan). The pick must
+    # be chronological.
+    ads = [
+        {"lord": "A", "start": "10 Jan 2028", "end": "1 Jan 2029"},
+        {"lord": "B", "start": "9 Jan 2028", "end": "1 Jan 2029"},
+    ]
+    r = tr.build_timing_ranking(_syn_facts(periods_extra={}, ads=ads), {7},
+                                as_of=_dt_t.date(2027, 1, 1))
+    assert r["five_year_window"]["start"] == "9 Jan 2028"
+
+
+def test_parse_and_overlap_helpers_fail_soft():
+    assert tr._parse_window_date("28 Jan 2018") == _dt_t.date(2018, 1, 28)
+    assert tr._parse_window_date("garbage") is None
+    assert tr._parse_window_date(None) is None
+    as_of, horizon = _dt_t.date(2027, 1, 1), _dt_t.date(2032, 1, 1)
+    # unparseable start -> ineligible; parseable start + open-ended (bad) end -> eligible
+    assert tr._overlaps_horizon({"start": "???", "end": "1 Jan 2030"}, as_of, horizon) is False
+    assert tr._overlaps_horizon({"start": "1 Jan 2028", "end": "???"}, as_of, horizon) is True

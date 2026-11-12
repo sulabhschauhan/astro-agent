@@ -67,6 +67,7 @@ Python 3.11.
 """
 from __future__ import annotations
 
+import datetime as _dt
 import logging
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,70 @@ W_JUP = 1.0    # Jupiter transit (the natural marriage/children benefic) contact
                # TUNING NOTE: revisit ONLY with >1 reference chart where a Jupiter
                # phase demonstrably improves ranking; add as a separate weight with
                # its own justification, never by inflating W_JUP.
+
+
+# THRESHOLD (S158, ruled by Sulabh): a timing answer LEADS with the strongest
+# converging window inside this many years from now, not the lifetime peak.
+#   JUSTIFICATION -- product ruling, not a fit to any chart: "when will X improve"
+#     must answer in a horizon the user can act on; a 20-years-out peak buried the
+#     near-term window (the June-2045 lead that motivated this). FIVE years is
+#     Sulabh's call.
+#   SCOPE GUARD -- SELECTION / PRESENTATION only. It changes which window the
+#     answer LEADS with; it never touches a score, drops a window, or reorders the
+#     full ranking, and the lifetime peak is still computed and surfaced. NO score
+#     threshold is introduced (the handover's "no new score threshold").
+#   TUNING NOTE -- a UX horizon; change only on a product re-ruling, never to make
+#     a particular window lead. A user-named period overrides it (handled by the
+#     interpreter, which sees the question; the ranker does not).
+FIVE_YEAR_HORIZON_YEARS = 5
+
+# The dasha tree stores window dates in this human format, e.g. "28 Jan 2018"
+# (NOT ISO), so the five-year overlap test must PARSE, never string-compare.
+_WINDOW_DATE_FMT = "%d %b %Y"
+
+
+def _parse_window_date(s):
+    """Parse a dasha-window date ('28 Jan 2018') to a date; None on anything
+    unparseable, so a malformed row is merely ineligible for the five-year pick
+    rather than fatal -- the ranking itself never depends on this."""
+    if not isinstance(s, str):
+        return None
+    try:
+        return _dt.datetime.strptime(s.strip(), _WINDOW_DATE_FMT).date()
+    except (ValueError, TypeError):
+        return None
+
+
+def _plus_years(d, years: int):
+    """d + `years`, folding 29 Feb onto 28 Feb in a non-leap target year."""
+    try:
+        return d.replace(year=d.year + years)
+    except ValueError:
+        return d.replace(month=2, day=28, year=d.year + years)
+
+
+def _overlaps_horizon(window: dict, as_of, horizon_end) -> bool:
+    """True if [window.start, window.end] overlaps [as_of, horizon_end]. A window
+    with an unparseable START is ineligible; an unparseable/absent END is treated
+    as open-ended, so a currently-running window is never missed."""
+    start = _parse_window_date(window.get("start"))
+    if start is None or start > horizon_end:
+        return False
+    end = _parse_window_date(window.get("end"))
+    return end is None or end >= as_of
+
+
+def _peak_window(candidates):
+    """Highest score; CHRONOLOGICALLY earliest on a tie (handover: equal-score
+    ties lead with the earlier window). Parsing the start here, rather than
+    leaning on rank_windows' lexicographic start sort, is what makes the tie-break
+    truly chronological. An unparseable start sorts last so a real date wins."""
+    if not candidates:
+        return None
+    return min(candidates, key=lambda w: (
+        -float(w.get("score", 0) or 0),
+        _parse_window_date(w.get("start")) or _dt.date.max,
+    ))
 
 
 def _normalise_targets(target_houses) -> dict[int, float]:
@@ -231,6 +296,8 @@ def rank_windows(
 def build_timing_ranking(
     chart_facts: dict,
     target_houses: set[int] | list[int] | dict[int, float],
+    *,
+    as_of=None,
 ) -> dict:
     """Fail-soft composer: pull the ranker's inputs out of chart_facts and rank.
 
@@ -259,33 +326,90 @@ def build_timing_ranking(
         windows = rank_windows(tree, sigs, periods, weights, natal_saturn_house)
         if not windows:
             return {}
-        return {"target_houses": display, "windows": windows}
+        # FIVE-YEAR LEAD (S158). The strongest window overlapping the next five
+        # years is what the answer LEADS with; the lifetime peak is surfaced as
+        # one line. Both are selected by score, chronological-earliest on a tie.
+        # This filters an existing list -- no extra computation, no score
+        # threshold. `as_of` defaults to today; tests pass it for determinism.
+        _as_of = as_of or _dt.date.today()
+        _horizon_end = _plus_years(_as_of, FIVE_YEAR_HORIZON_YEARS)
+        lifetime_peak = _peak_window(windows)
+        five_year = _peak_window(
+            [w for w in windows if _overlaps_horizon(w, _as_of, _horizon_end)])
+        return {
+            "target_houses": display,
+            "windows": windows,
+            "as_of": _as_of.isoformat(),
+            "horizon_end": _horizon_end.isoformat(),
+            "five_year_window": five_year,
+            "lifetime_peak": lifetime_peak,
+        }
     except Exception as e:  # noqa: BLE001 -- ranking must never break an answer
         logger.warning("timing_ranker.build_timing_ranking failed: %s: %s",
                        type(e).__name__, e)
         return {}
 
 
+def _wid(w) -> tuple:
+    """Identity of a window for same-window comparison."""
+    return (w.get("md_lord"), w.get("ad_lord"), w.get("start"))
+
+
 def render_ranking(ranking: dict, limit: int = 6) -> str:
-    """Render the ranking as a fact-block section. Empty string if no ranking."""
+    """Render the ranking as a fact-block section. Empty string if no ranking.
+
+    S158: the answer LEADS with the next-five-years window; the lifetime peak is
+    one line. The full ranking is still listed for context. The ranker SELECTS
+    (Sulabh's ruling: the fix is in the ranker, not the prompt); the interpreter
+    only EXPLAINS.
+    """
     windows = (ranking or {}).get("windows") or []
     if not windows:
         return ""
     targets = ranking.get("target_houses") or []
+    five = ranking.get("five_year_window")
+    peak = ranking.get("lifetime_peak")
+    horizon_end = ranking.get("horizon_end")
+
+    def _one(w) -> str:
+        ph = f" [{w['phase']}]" if w.get("phase") else ""
+        return (f"{w['md_lord']}-{w['ad_lord']} ({w['start']} to {w['end']})"
+                f"{ph} -- score {w['score']}: {w['why']}")
+
     lines = [
         "",
         f"COMPUTED TIMING RANKING (deterministic convergence for houses "
-        f"{','.join(map(str, targets))} -- combines KP significators of the acting "
-        f"lords with Saturn- and Jupiter-transit corroboration; higher = stronger multi-system "
-        f"agreement). Treat this ranking as a computed FACT: EXPLAIN the top "
-        f"window(s) in plain terms and say why the lower ones rank below -- do NOT "
-        f"re-order them from your own priors. A Saturn RETURN re-firing a natal "
-        f"contact is a milestone trigger, not an obstacle.",
+        f"{','.join(map(str, targets))} -- KP significators of the acting lords "
+        f"plus Saturn/Jupiter-transit corroboration; higher = stronger multi-system "
+        f"agreement). Treat this as a computed FACT: EXPLAIN the windows in plain "
+        f"terms; do NOT re-order them from your own priors. A Saturn RETURN "
+        f"re-firing a natal contact is a milestone trigger, not an obstacle.",
+        "",
+        "HOW TO LEAD THE ANSWER:",
     ]
-    for i, w in enumerate(windows[:limit], 1):
-        ph = f" [{w['phase']}]" if w.get("phase") else ""
+    if five is not None:
         lines.append(
-            f"  {i}. {w['md_lord']}-{w['ad_lord']} ({w['start']} to {w['end']})"
-            f"{ph} -- score {w['score']}: {w['why']}"
-        )
+            f"  - LEAD with the NEXT-FIVE-YEARS window (the strongest converging "
+            f"period through {horizon_end}): {_one(five)}")
+        if peak is not None and _wid(peak) != _wid(five):
+            lines.append(
+                f"  - Then give the LIFETIME PEAK as ONE line: {_one(peak)}. If the "
+                f"five-year window scores CLEARLY below this peak, say so plainly "
+                f"and name the peak as the stronger-but-later window.")
+        else:
+            lines.append(
+                "  - The five-year window IS the lifetime peak -- no separate "
+                "later-window line is needed.")
+    else:
+        lines.append(
+            f"  - No converging window falls within the next five years (through "
+            f"{horizon_end}). Say that plainly, then give the strongest upcoming "
+            f"window: {_one(peak) if peak else '(none scored)'}.")
+    lines.append(
+        "  - If the user named a SPECIFIC period ('next two years', 'in my 40s'), "
+        "lead with the window matching THAT period instead of the five-year one.")
+    lines.append("")
+    lines.append("Full ranking (context; do NOT re-order):")
+    for i, w in enumerate(windows[:limit], 1):
+        lines.append(f"  {i}. {_one(w)}")
     return "\n".join(lines)
