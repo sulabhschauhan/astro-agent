@@ -53,7 +53,7 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
          "aspects", "dignity", "navamsa", "yogas", "dasha_periods", "transits", "shadbala", "ashtakavarga", "jaimini", "divisional",
          "muhurta", "lucky_unlucky",
          "ingress", "combustion", "masa", "friendship", "yogini", "narayana",
-         "ashtottari", "varshaphal",
+         "ashtottari", "varshaphal", "life_context",
          "kp_seventh_cusp_sub_lord", "kp_cusp_sub_lords", "kp_planet_significations"})
 
 
@@ -729,3 +729,27 @@ def test_varshaphal_capability_is_rendered_with_phase():
     # yogini periods carry the ruling-yogini name in parentheses.
     assert "Mercury (Siddha) 2000-01-01 to 2200-01-01 [CURRENT]" in with_vp
     assert "varshaphal" in CG.FACT_BLOCK_PROVIDES
+
+
+def test_life_context_is_rendered_when_the_facts_carry_it():
+    """A4 (S158): user-stated marital status renders as CONTEXT when present,
+    is absent otherwise (byte-identity for a legacy dict), carries the
+    do-not-forecast rule, and is declared in FACT_BLOCK_PROVIDES (growth pin)."""
+    from agent.astro import pipeline
+    assert "USER-STATED LIFE CONTEXT" not in pipeline._fact_block(dict(_BASE))
+    with_lc = pipeline._fact_block(dict(_BASE, life_context={"marital_status": "married"}))
+    assert "USER-STATED LIFE CONTEXT" in with_lc
+    assert "marital status = married" in with_lc
+    # the context-not-prediction rule is present (don't forecast marriage onset)
+    assert "will marry" in with_lc
+    assert "life_context" in CG.FACT_BLOCK_PROVIDES
+
+
+def test_life_context_absent_or_empty_renders_nothing():
+    """An empty/absent life_context must add no section (so a legacy facts dict
+    stays byte-identical)."""
+    from agent.astro import pipeline
+    assert "USER-STATED LIFE CONTEXT" not in pipeline._fact_block(
+        dict(_BASE, life_context={}))
+    assert "USER-STATED LIFE CONTEXT" not in pipeline._fact_block(
+        dict(_BASE, life_context={"marital_status": ""}))

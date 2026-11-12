@@ -63,8 +63,9 @@ def _dispatch_env(monkeypatch):
     monkeypatch.setattr(pipeline.planner, "build_from_plan", _boom)
     # Scope the test to dispatch: stub fact-block assembly (own tests elsewhere)
     # and isolate the timing ranker / house roles, which expect a full static
-    # fact block the computed-only route does not depend on.
-    monkeypatch.setattr(pipeline, "_fact_block", lambda cf: _CANNED_FACT_BLOCK)
+    # fact block the computed-only route does not depend on. Accepts *a/**k so the
+    # stub tracks _fact_block's real signature as it grows (S159 added display_zone=).
+    monkeypatch.setattr(pipeline, "_fact_block", lambda cf, *a, **k: _CANNED_FACT_BLOCK)
     monkeypatch.setattr(pipeline.timing_ranker, "build_timing_ranking",
                         lambda *a, **k: [])
     monkeypatch.setattr(pipeline.timing_ranker, "render_ranking",

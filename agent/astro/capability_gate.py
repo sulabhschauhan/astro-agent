@@ -218,6 +218,15 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # the "year" stamp. Past/current/future resolved at
                            # answer time in _fact_block. Additive context, no
                            # predicate, no REQUIREMENT.
+    "life_context",        # A4 (S158). USER-STATED life status (marital status
+                           # today; optional), captured in the birth form and
+                           # injected into a COPY of the facts at ANSWER time by
+                           # frontend/app.py -- NEVER baked into the chart-fixed
+                           # static block (life status changes; the chart does
+                           # not, so a cached block would serve it stale). Context
+                           # only, never a prediction (the interpreter is told so
+                           # inline in _fact_block). Additive, no predicate, no
+                           # REQUIREMENT.
 })
 
 
