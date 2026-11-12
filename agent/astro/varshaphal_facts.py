@@ -71,7 +71,7 @@ def _is_night(jd_ut: float, lat: float, lon: float) -> bool:
     try:
         eq, _ = swe.calc_ut(jd_ut, swe.SUN, swe.FLG_SWIEPH | swe.FLG_EQUATORIAL)
         hor = swe.azalt(jd_ut, swe.EQU2HOR, [lon, lat, 0.0], 0.0, 0.0,
-                        [eq[0], eq[1]])
+                        [eq[0], eq[1], eq[2]])  # xin for EQU2HOR = [RA, dec, dist]
         return hor[1] < 0.0  # altitude
     except Exception as exc:  # noqa: BLE001
         logger.warning("varshaphal: day/night calc failed, assuming day: %s", exc)
