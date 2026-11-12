@@ -1,4 +1,5 @@
 # NOTE: only this session's new dependency so far — not the full project dependency list. `pip install -r requirements.txt` will not set up a complete environment.
-timezonefinder
+timezonefinder            # S159 Part A: birthplace-zone fallback (lat/lon -> IANA name) in agent/astro/tz_display.py
+tzdata                    # S159 Part A: REQUIRED on Windows -- zoneinfo has no system tz database there, so ZoneInfo() raises without it and dated answers silently fall back to UT
 playwright  # scripts/astrosage_kundli_fetcher.py — standalone backup utility, not a core pipeline dependency
 requests    # scripts/astrosage_kundli_fetcher.py's get_place_suggestions() — already transitively present, listed for clarity

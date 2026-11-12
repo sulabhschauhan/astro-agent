@@ -791,6 +791,19 @@ with st.sidebar:
             help="KP timing needs minute-accuracy. If approximate, we use classical "
                  "(BPHS) sources only and skip KP to avoid a wrong sub-lord.",
         )
+        # A4 (S158): optional marital status, captured WITH the birth details.
+        # Read at answer time from session_state and injected into a COPY of the
+        # facts (never the chart-fixed cache), so "— not specified" -> married or
+        # unmarried is an instant update: change it and re-run Calculate Kundali
+        # (a cache hit), and the next answer reflects it with no stale read.
+        st.selectbox(
+            "Marital status (optional)",
+            ["— not specified", "Married", "Unmarried"],
+            index=0,
+            key="marital_status_choice",
+            help="Optional. If set, the reading treats it as a fact and will not "
+                 "forecast marriage as a future event for a married person.",
+        )
         submitted = st.form_submit_button(
             "Calculate Kundali",
             disabled=st.session_state.selected_place is None,
@@ -1709,6 +1722,28 @@ if prompt:
                     identity={k: _bd.get(k) for k in ("name", "place", "dob", "tob")},
                 )
 
+                # A4 (S158): USER-STATED marital status (optional, from the birth
+                # form). Injected into a COPY of the facts at answer time -- NEVER
+                # the chart-fixed cache above, which would serve a stale status on a
+                # later update (handover: life status changes, the chart does not).
+                # "— not specified" -> facts unchanged. A change takes effect on the
+                # next Calculate Kundali (a cache hit) with no rebuild or stale read.
+                _marital = st.session_state.get("marital_status_choice", "")
+                if _marital in ("Married", "Unmarried"):
+                    chart_facts = {**chart_facts,
+                                   "life_context": {"marital_status": _marital.lower()}}
+
+                # DISPLAY TIME ZONE (Part A, S159): the device's zone, read
+                # defensively so this works on any Streamlit -- st.context.timezone
+                # exists from 1.43.0 and raises below it, in which case display_tz
+                # is None and answer_question falls back to the birthplace zone (no
+                # form field). The dated answers (muhurta/ingress/combustion) are
+                # then shown in that zone; dasha and the lunar month are unchanged.
+                try:
+                    _display_tz = st.context.timezone
+                except Exception:
+                    _display_tz = None
+
                 # BIRTH-TIME GATE (S145): KP included only if the user affirmed
                 # their birth time is exact to the minute (computed as _btc_exact
                 # above, where it also keys the per-chart fact cache); else BPHS-only.
@@ -1717,7 +1752,8 @@ if prompt:
                     chart=_chart,  # S147: raw chart for the plan-time muhurta compose
                     history=st.session_state.messages,  # S147: prior turns (current prompt not yet appended)
                     expert=st.session_state.get("astro_expert_mode", True),
-                    birth_time_confident=_btc_exact)
+                    birth_time_confident=_btc_exact,
+                    display_tz=_display_tz)
                 # Two surfaces, one result: the user reads render_user_answer's
                 # plain-language view; the full trace (verse text, ids,
                 # silent_on, timings, usage) goes to the capture file.

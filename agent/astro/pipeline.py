@@ -48,6 +48,7 @@ from agent.astro import payload_builder
 from agent.astro import timing_ranker
 from agent.astro import house_roles
 from agent.astro import capability_registry
+from agent.astro import tz_display
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ def _transit_note(t: dict) -> str:
     return note
 
 
-def _fact_block(chart_facts: dict) -> str:
+def _fact_block(chart_facts: dict, display_zone: str = tz_display.UT) -> str:
     """Render the chart facts the Interpreter is allowed to reason from.
 
     GROWTH CONTRACT: every class of fact rendered here MUST have a matching key
@@ -91,7 +92,16 @@ def _fact_block(chart_facts: dict) -> str:
     `tests/astro/test_capability_gate.py` pins the two together and fails if
     they drift -- that pin is what stops the gate declining a question the
     block can now answer, or the reverse.
+
+    DISPLAY ZONE (Part A, S159). Dated answers (muhurta / ingress / combustion)
+    are shown in `display_zone` -- resolved by answer_question to the user's
+    device zone, else the birthplace zone, else UT. Conversion happens HERE, on a
+    COPY, at the point the text is written; the stored/cached facts keep their UT
+    instants (zone-free -- S149/S157). display_zone == UT (the default and the
+    last-resort fallback) is a no-op, so an unlocalised block is byte-identical.
+    masa (sunrise-at-place, S148) and the dasha timeline are out of scope.
     """
+    chart_facts = tz_display.localize_dated_facts(chart_facts, display_zone)
     lord_house, asc = payload_builder.parse_lord_house_map(chart_facts)
     lines = ["CHART FACTS (the only chart facts you may use):",
              f"Ascendant sign: {asc}"]
@@ -422,6 +432,28 @@ def _fact_block(chart_facts: dict) -> str:
             ]
             lines.append(f"  {_p} (in {fr_sg.get(_p, '?')}) -- " + "; ".join(_parts))
 
+    # USER-STATED LIFE CONTEXT (A4, S158). NOT computed from the chart -- the user
+    # stated it in the birth form (marital status today; optional). frontend/app.py
+    # injects it into a COPY of the facts at ANSWER time, never the chart-fixed
+    # cache, so an update takes effect on the next answer with no stale read. It is
+    # CONTEXT, never a prediction -- placed BEFORE the dasha/timing sections so the
+    # interpreter reads the "do not forecast what already happened" rule first.
+    # Guarded on presence -> byte-identical when absent. GROWTH CONTRACT:
+    # "life_context" is in capability_gate.FACT_BLOCK_PROVIDES.
+    _lc = chart_facts.get("life_context") or {}
+    _marital = _lc.get("marital_status")
+    if _marital:
+        lines.append("")
+        lines.append(
+            f"USER-STATED LIFE CONTEXT (the user told us this; it is NOT computed "
+            f"from the chart, and it is CONTEXT, not a prediction): marital status "
+            f"= {_marital}. Treat it as an established fact about the present. Do "
+            f"NOT forecast as a future event something the user has stated is "
+            f"already true: for a married user speak of marriage as present/past "
+            f"and address life WITHIN it (its course, the spouse, the timing of "
+            f"other matters) -- never say 'you will marry' or predict the onset of "
+            f"marriage. Do not contradict the stated status or infer beyond it.")
+
     # YOGINI DASHA (S152). Yogini Mahadasha sequence, composed by
     # agent.astro.yogini_facts.build_yogini_facts (MD only; the engine has no
     # antardasha). Periods are stored as dated intervals; past/current/future is
@@ -664,7 +696,9 @@ def _fact_block(chart_facts: dict) -> str:
             "(Chandrabala + Tarabala + Panchaka + panchanga shuddhi), NOT "
             f"event-specific. Searched {_srch.get('start')} to {_srch.get('end')}. "
             "EXPLAIN these computed windows; do NOT re-rank or invent dates. "
-            "TIER_1 = clearly auspicious; TIER_2 = acceptable but weaker.")
+            "TIER_1 = clearly auspicious; TIER_2 = acceptable but weaker. Dates and "
+            "times are in the user's local zone (named in parentheses) -- present "
+            "them as written; never say 'UT' or ask the user to convert.")
         if mu.get("none_found"):
             lines.append(
                 "  No auspicious window (TIER_1 or TIER_2) was found in that span. "
@@ -703,7 +737,9 @@ def _fact_block(chart_facts: dict) -> str:
             "Upcoming planetary ingresses (next sign change per graha) -- COMPUTED; "
             f"searched from {_w.get('start')} to {_w.get('end_date')}. The seven "
             "moving grahas only (the lunar nodes Rahu/Ketu are NOT computed here). "
-            "EXPLAIN the relevant one; never invent or shift a date:")
+            "EXPLAIN the relevant one; never invent or shift a date. Dates and times "
+            "are in the user's local zone (named in parentheses) -- present them as "
+            "written; never say 'UT' or ask the user to convert:")
         for _e in ing_events:
             _rx = " (retrograde)" if _e.get("retrograde") else ""
             lines.append(
@@ -722,7 +758,9 @@ def _fact_block(chart_facts: dict) -> str:
         lines.append(
             "Combustion windows (a planet too close to the Sun) -- COMPUTED, the "
             "five taragrahas only (Sun and Moon excluded). EXPLAIN the relevant "
-            "one; never invent a date:")
+            "one; never invent a date. Times are in the user's local zone (named in "
+            "parentheses) -- present them as written; never say 'UT' or ask the user "
+            "to convert:")
         for _c in comb_w:
             _now = " -- CURRENTLY combust" if _c.get("ongoing") else ""
             _rx = " (retrograde)" if _c.get("retrograde_at_mid") else ""
@@ -959,6 +997,7 @@ def answer_question(
     expert: Optional[bool] = None,
     token_budget: int = planner.DEFAULT_TOKEN_BUDGET,
     birth_time_confident: bool = True,
+    display_tz: Optional[str] = None,
 ) -> dict:
     """End-to-end. Never raises for a model/gate problem -- refuses or fails
     open with the reason on the record.
@@ -1103,7 +1142,15 @@ def answer_question(
             pass
     _lap("muhurta")
 
-    fact_block = _fact_block(chart_facts)
+    # DISPLAY ZONE (Part A, S159). Resolve ONE zone for the dated answers:
+    # the device zone passed from the frontend (st.context.timezone), else the
+    # birthplace zone from the chart's lat/lon, else UT. Conversion itself happens
+    # inside _fact_block, on a copy -- stored/cached facts stay UT (zone-free).
+    _bd = (chart or {}).get("birth_details") or {}
+    _display_zone = tz_display.resolve_display_zone(
+        display_tz, _bd.get("lat"), _bd.get("lon"))
+
+    fact_block = _fact_block(chart_facts, display_zone=_display_zone)
 
     # MODEL ROUTING (S145): choose the interpreter model by the MEASURED payload
     # size (known now, before the call). Small enough for gpt-5's 400k window ->
