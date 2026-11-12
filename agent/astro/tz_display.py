@@ -55,14 +55,26 @@ def _is_loadable(name) -> bool:
         return False
 
 
+# Lazy, process-wide TimezoneFinder singleton. Constructing it loads tens of MB
+# of boundary data, so it is built ONCE and reused -- never per answer (a per-call
+# construction is slow and, cold on first use, can stall a heavy test run; S159).
+_TZF = None
+
+
+def _tz_finder():
+    global _TZF
+    if _TZF is None:
+        from timezonefinder import TimezoneFinder  # heavy import only on the fallback path
+        _TZF = TimezoneFinder()
+    return _TZF
+
+
 def _birthplace_zone(lat, lon):
-    """IANA zone at (lat, lon) via timezonefinder, or None. Lazy import: the
-    data load is heavy and only the fallback path needs it. Never raises."""
+    """IANA zone at (lat, lon) via the cached timezonefinder, or None. Never raises."""
     if lat is None or lon is None:
         return None
     try:
-        from timezonefinder import TimezoneFinder
-        name = TimezoneFinder().timezone_at(lat=float(lat), lng=float(lon))
+        name = _tz_finder().timezone_at(lat=float(lat), lng=float(lon))
         return name if _is_loadable(name) else None
     except Exception as exc:  # noqa: BLE001 -- fallback must never raise
         logger.warning("tz_display: birthplace zone lookup failed: %s", exc)
