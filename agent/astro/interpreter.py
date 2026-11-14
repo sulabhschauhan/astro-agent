@@ -44,17 +44,22 @@ from agent.astro import predicates as PRED
 from agent.astro import conversation
 
 INTERPRETER_VERSION = "interpreter-1.0"
-INTERPRETER_MODEL = "gpt-5"          # DEFAULT interpreter: gpt-5 is the stronger, cleaner
-                                     # narrator and its 400k window holds any payload up to
-                                     # ~200k approx-tokens (planner.GPT5_SAFE_APPROX). Used
-                                     # for the common/smaller case.
-LARGE_PAYLOAD_MODEL = "gpt-5.6-luna" # OVERFLOW interpreter (S145): only when the built
-                                     # payload exceeds gpt-5's safe window (e.g. the full
-                                     # curated KP corpus, ~340-430k approx). gpt-5.6-luna's
-                                     # 1,050,000-token window holds it LOSSLESSLY. The
-                                     # pipeline picks between the two by the MEASURED payload
-                                     # size (known after build_from_plan, before the call),
-                                     # so there is no guessing. override per-call for A/B.
+# S160 (2026-11-14): SINGLE interpreter model = gpt-6-luna, chosen on COST.
+# gpt-6-luna ($0.10 in / $0.01 cached / $0.50 out per 1M; ~1.05M window) holds any
+# payload losslessly, so ONE model now covers both the small and the overflow case.
+# The two-model hand-off is collapsed by pointing both constants at it: the pipeline's
+# size-based branch (planner.GPT5_SAFE_APPROX) still runs but selects the same model
+# either way, so NO pipeline edit is needed. HARD_CONTEXT_CEILING / REAL_INPUT_CAP are
+# unchanged -- gpt-6-luna's window matches gpt-5.6-luna's 1.05M, so the bound still holds.
+# WHY luna, not gpt-6.1-terra: the S159 6-question validation ($1.96) found Terra
+# faithful + concise but ~10x luna's cost (~$1.40 vs ~$0.14 per large question). With no
+# revenue yet, cost leads. gpt-5 (prior default) and gpt-5.6-luna (prior overflow) are
+# both being decommissioned, so neither survives as the default regardless.
+# NOT YET LIVE-VALIDATED: gpt-6-luna has had ZERO production calls here; the ship gate
+# is the first real (free-ramp) users. REVERT PATH: set both constants to the premium
+# quality pick "gpt-6.1-terra" if early users flag answer quality.
+INTERPRETER_MODEL = "gpt-6-luna"
+LARGE_PAYLOAD_MODEL = "gpt-6-luna"
 REASONING_EFFORT = "minimal"
 
 _SYSTEM_HEAD = (
