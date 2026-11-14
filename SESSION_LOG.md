@@ -620,3 +620,16 @@ HONEST CAVEAT: the clearer TIMING presentation Terra showed across S159 (leading
 REVERT PATH: set both constants back to "gpt-6.1-terra" (the premium quality fallback) if early users flag answer quality. One-line change.
 COST / API CONTEXT: billing surface = OpenAI API (platform.openai.com), NOT Azure and NOT the ChatGPT Enterprise rate cards. Canonical rates now versioned in diagnostics/model_rates.json (272k long-context tier doubling, cache-write, service-tier multipliers flex/batch=0.5x, fast=2x). For the latency-tolerant free tier, production should call the BATCH API (-50%). The real cost lever is the 700k-token payload (LIVE FINDING #2), a separate retrieval-breadth track -- NOT the model.
 VALIDATION ARTIFACTS: scripts/terra_cost_validation.py (+ tests/test_terra_cost_validation.py, 8 passing), scripts/probe_q4_timing_ranking.py, diagnostics/runs/*_paid_run.md, diagnostics/runs/*_q4_timing_probe.md.
+
+### S160 addendum (model-string inventory + decommission sweep, 2026-11-14)
+Scanned ALL LLM-calling production modules for dying-model references (gpt-5 shuts 11 Dec 2026; gpt-4o 14 Jan 2027; gpt-5.6-luna being retired on the API pricing page).
+CHANGED (committed this sweep):
+ (1) planner.py `_default_llm` default gpt-4o -> gpt-6-luna, AND temperature now sent best-effort (try with temperature, retry without on refusal) -- GPT-6-gen models may 400 on a non-default temperature that gpt-4o accepted; the planner call previously passed temperature=0.0 UNCONDITIONALLY, so a bare model swap could have broken routing on every question. PLAN QUALITY ON LUNA NOT RE-VALIDATED -- the Step-5 plan diff (replay diagnostics/planner_decisions.jsonl, compare domains/houses/time_scope/capabilities vs recorded gpt-4o plans) is still owed before trusting routing. Revert = default back to "gpt-4o" while it lives.
+ (2) composer.py COMPOSER_MODEL default gpt-5 -> gpt-6-luna (flag-off cited-claim path; expert mode is the live default, so composer is the revert target kept runnable; reasoning_effort already best-effort).
+ (3) frontend/app.py: stale "Interpreter (gpt-5)" comment -> gpt-6-luna.
+NOT CHANGED (deliberately -- these need validation, NOT a blind swap):
+ - Palm VISION calls: palm_processor.py (72/459/518) + cheirognomy/vlm_arm.py (71), all gpt-4o. Live if palm is used; die 14 Jan 2027. Swapping the model that READS palm photos untested could silently wreck descriptions -> needs a palm smoke-test (upload -> describe -> confirm) before swapping, per the AI-reviewing-AI / sample-before-scale rules.
+ - Palm INTERPRETIVE chain: palm_reading.py (1290-1311), claim_extraction.py, claim_voicing.py, contact_llm_fallback.py -- gpt-4o / gpt-4o-mini. Live-if-palm-used; needs the same palm smoke-test.
+ - context_classifier.py (194) + astrologer.py (24): gpt-4o-mini, QUARANTINED (V1.1 retirement, not wired to the live path) -- migrate when that quarantine residue is retired.
+STALE-BUT-NOT-BREAKING (not edited -- threshold discipline, don't blind-edit a justification): planner.py gpt-4o-era threshold comments (128k context window ~line 120; 30k TPM ~line 195) are obsolete now the planner is on luna's ~1.05M window; revisit deliberately.
+OWED NEXT: (a) Step-5 planner plan-diff validation on gpt-6-luna; (b) palm smoke-test then migrate the 6 palm vision/interpretive sites off gpt-4o before 14 Jan 2027.

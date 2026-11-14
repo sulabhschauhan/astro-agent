@@ -1661,7 +1661,7 @@ if prompt:
 
         # PATH B, the five-stage pipeline (S129 cutover, docs/ANSWER_PATHS.md):
         #   question -> plan -> capability gate -> chapters/verses
-        #            -> Interpreter (gpt-5) -> silence gate -> cited answer.
+        #            -> Interpreter (gpt-6-luna, S160) -> silence gate -> cited answer.
         #
         # chart_facts is the Calculator stage's output, restated from
         # calculate_chart() by chart_facts.build_chart_facts(). It carries the

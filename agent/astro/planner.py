@@ -291,6 +291,7 @@ siblings -> brothers and sisters.
 spirituality -> moksha, guru, religion, dharma, temple life.
 enemies_conflict -> enemies, litigation, court cases, disputes.
 timing_dasha -> WHEN something happens: dasha and antardasha periods, the timing of an event.
+EXCEPTION to timing_dasha: a pure PERIOD LOOKUP -- which dasha/antardasha the native runs now or on a NAMED date, when a NAMED dasha begins or ends, or a LIST of periods (Vimshottari/Yogini/Narayana/Ashtottari) -- is the computed capability dasha_lookup, NOT timing_dasha. Route it with "domains": [] and "capabilities": ["dasha_lookup"]. BUT the moment the question names a LIFE EVENT or OUTCOME to be timed (marriage, a job, a child, money, health, travel, "when will I..."), it is a PREDICTION: keep timing_dasha and the life-area domains, and do NOT use dasha_lookup. When in doubt, treat it as a prediction.
 planetary_nature -> ONLY when the question is about a graha's intrinsic nature or significations AS SUCH (what Saturn or Jupiter signifies in general), not about a life area it happens to rule.
 If a question could plausibly touch several, LIST THEM ALL. Widening is correct; narrowing is a failure. A question that asks "when" always includes timing_dasha.
 
@@ -325,7 +326,14 @@ Output STRICT JSON only. No markdown fences, no text before or after, exactly th
 SYSTEM_PROMPT = _SYSTEM_PROMPT_BODY + "\n\n" + capability_registry.planner_manifest()
 
 
-def _default_llm(prompt: str, *, model: str = "gpt-4o", temperature: float = 0.0) -> str:
+# S160 (2026-11-14): planner model gpt-4o -> gpt-6-luna. gpt-4o shuts down 14 Jan 2027;
+# gpt-6-luna is the surviving cheap tier (and already the interpreter). The call now sends
+# `temperature` best-effort (see below) because GPT-6-gen models may reject a non-default
+# temperature that gpt-4o accepted. PLAN QUALITY ON LUNA IS NOT YET RE-VALIDATED -- the
+# Step-5 plan diff (replay diagnostics/planner_decisions.jsonl, compare
+# domains/houses/time_scope/capabilities against the recorded gpt-4o plans) is still owed
+# before trusting routing. Revert = set this default back to "gpt-4o" (while it lives).
+def _default_llm(prompt: str, *, model: str = "gpt-6-luna", temperature: float = 0.0) -> str:
     """Live OpenAI call. Isolated so tests inject a stub instead.
 
     Kept deliberately thin: this stage owns routing logic, not transport.
@@ -338,15 +346,21 @@ def _default_llm(prompt: str, *, model: str = "gpt-4o", temperature: float = 0.0
         ) from e
     try:
         client = OpenAI()
-        resp = client.chat.completions.create(
+        base = dict(
             model=model,
-            temperature=temperature,
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ],
         )
+        # temperature best-effort: gpt-4o accepted 0.0; a GPT-6-gen model may 400 on a
+        # non-default temperature. Send it, drop it on refusal -- the model swap must
+        # never fail on the parameter alone. A genuine call failure still raises below.
+        try:
+            resp = client.chat.completions.create(temperature=temperature, **base)
+        except Exception:  # noqa: BLE001 -- param rejected -> retry without it
+            resp = client.chat.completions.create(**base)
         return resp.choices[0].message.content or ""
     except Exception as e:
         raise PlannerError(f"LLM call failed: {type(e).__name__}: {e}") from e
