@@ -54,6 +54,12 @@ from dataclasses import dataclass
 
 import swisseph as swe
 
+# Point pyswisseph at the bundled .se1 files at import time (process-global,
+# idempotent). Without this the FLG_SWIEPH calls below silently fall back to
+# the lower-precision Moshier model. See ephemeris_config for the rationale
+# (S162). Import-for-side-effect; nothing from the module is referenced here.
+from agent.calculations.helpers import ephemeris_config  # noqa: F401
+
 
 class EphemerisError(RuntimeError):
     """A pyswisseph ephemeris calculation failed for a specific planet/JD.

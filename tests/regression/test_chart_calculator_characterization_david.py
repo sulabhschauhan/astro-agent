@@ -74,14 +74,22 @@ GOLDEN_PLANETARY_POSITIONS = {
 # Drift-guard, NOT JHora parity. Matched-mode JHora (Trad-Lahiri) deltas:
 # max 30.7" (Venus), Sun -20.9" ~= annual aberration -- documented Camp-Y
 # apparent-position divergence (S75/Gap A1), not drift.
+#
+# S162 RE-BASELINE: the engine now sets the Swiss .se1 ephemeris path at import
+# (agent/calculations/helpers/ephemeris_config.py) instead of silently running
+# on the Moshier fallback. These six values moved 0.02-0.57" (Moon largest) to
+# the reference-grade .se1 backend; Saturn/Rahu/Ketu are byte-unchanged (slow
+# planet below tolerance / mean-node, which has no .se1 dependence). This is a
+# drift-guard re-pin to the new production backend, NOT an oracle shift -- the
+# A1 apparent-vs-geometric gap above (20-30") dwarfs the swap and is unchanged.
 _LONGITUDE_TOLERANCE_DEG = 1e-6
 GOLDEN_LONGITUDES = {
-    "Sun": 275.4382085195396,
-    "Moon": 131.65790104926788,
-    "Mars": 51.210713661689894,
-    "Mercury": 282.74683007621394,
-    "Jupiter": 353.9064231771519,
-    "Venus": 238.73827069923064,
+    "Sun": 275.4382039175596,
+    "Moon": 131.6577442181905,
+    "Mars": 51.21070310090391,
+    "Mercury": 282.7468036581422,
+    "Jupiter": 353.9064426644389,
+    "Venus": 238.73826332516086,
     "Saturn": 96.03364889141777,
     "Rahu": 204.73956801600377,
     "Ketu": 24.739568016003773,

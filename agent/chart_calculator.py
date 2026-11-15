@@ -14,6 +14,12 @@ from timezonefinder import TimezoneFinder
 
 from agent.calculations.helpers.house_counting import resolve_house_counting_lagna  # noqa: F401  (backward compat)
 
+# Point pyswisseph at the bundled .se1 files at import time (process-global).
+# chart_calculator issues its own FLG_SWIEPH calc_ut calls; without this they
+# fall back to Moshier. conftest imports chart_calculator at session start, so
+# this one line also flips the whole test suite onto .se1. Rationale: S162.
+from agent.calculations.helpers import ephemeris_config  # noqa: F401
+
 # ─── Lookup tables ────────────────────────────────────────────────────────────
 
 SIGNS = [

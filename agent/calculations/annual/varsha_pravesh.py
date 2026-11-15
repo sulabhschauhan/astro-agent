@@ -17,8 +17,6 @@ annual-Lagna sign assignment only. Tuning note: widen if birth-time
 rectification uncertainty exceeds +/-8 min.
 """
 
-import os
-
 import swisseph as swe
 
 from agent.calculations.helpers.ephemeris import (
@@ -26,8 +24,12 @@ from agent.calculations.helpers.ephemeris import (
     sidereal_longitude_true,
 )
 
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-EPHE_PATH = os.path.join(_REPO_ROOT, "PyJHora-main", "src", "jhora", "data", "ephe")
+# The Swiss .se1 ephemeris path is now configured process-globally at import
+# time by agent.calculations.helpers.ephemeris_config (pulled in transitively
+# via the helpers.ephemeris import above), so the whole engine -- this module
+# included -- runs on .se1. This module no longer sets or restores the path
+# itself: the S156 set/restore dance existed ONLY because the rest of the
+# engine ran on the Moshier fallback, which is no longer the case (S162).
 
 BOUNDARY_DEG = 2.0
 _SUN_RATE = 0.9856091  # mean deg/day, Newton step denominator
@@ -53,60 +55,41 @@ def compute_varsha_pravesh(natal_jd_ut, natal_lat, natal_lon, target_year,
     Raises:
         EphemerisError / RuntimeError on ephemeris failure or non-convergence.
     """
+    lat = natal_lat if cast_lat is None else cast_lat
+    lon = natal_lon if cast_lon is None else cast_lon
+
+    lam0 = sidereal_longitude_true(natal_jd_ut, swe.SUN)
     try:
-        swe.set_ephe_path(EPHE_PATH)
+        jd = swe.julday(target_year, 4, 6, 0.0)
     except Exception as exc:
-        raise RuntimeError(f"varsha_pravesh: cannot set ephe path {EPHE_PATH}: {exc}") from exc
+        raise RuntimeError(f"varsha_pravesh: julday failed for {target_year}: {exc}") from exc
 
-    # EPHE_PATH points at the bundled Swiss .se1 files (needed to match the JHora
-    # oracle). The rest of the engine (chart_calculator, helpers/ephemeris) never
-    # calls set_ephe_path, so it runs on the Moshier fallback. set_ephe_path is
-    # PROCESS-GLOBAL: leaving it set here leaks .se1 into every later FLG_SWIEPH
-    # call in the process (the S156 David characterization order-leak). Compute
-    # under .se1, then restore the Moshier baseline in finally. None resets it.
+    for _ in range(_MAX_ITER):
+        err = _wrap(sidereal_longitude_true(jd, swe.SUN) - lam0)
+        jd -= err / _SUN_RATE
+        if abs(err) < _TOL_DEG:
+            break
+    else:
+        raise RuntimeError(
+            f"varsha_pravesh: root-find did not converge for {target_year} "
+            f"(residual {err:.3e} deg)")
+
+    planets = {name: sidereal_longitude_true(jd, pid) for name, pid in _BODIES}
+    planets["Ketu"] = (planets["Rahu"] + 180.0) % 360.0
+
     try:
-        lat = natal_lat if cast_lat is None else cast_lat
-        lon = natal_lon if cast_lon is None else cast_lon
+        swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+        _ret, ayan = swe.get_ayanamsa_ex_ut(jd, swe.FLG_SWIEPH)
+        cusps, ascmc = swe.houses_ex(jd, lat, lon, b"P")
+    except Exception as exc:
+        raise RuntimeError(f"varsha_pravesh: ascendant cast failed at jd={jd}: {exc}") from exc
+    asc = (ascmc[0] - ayan) % 360.0
 
-        lam0 = sidereal_longitude_true(natal_jd_ut, swe.SUN)
-        try:
-            jd = swe.julday(target_year, 4, 6, 0.0)
-        except Exception as exc:
-            raise RuntimeError(f"varsha_pravesh: julday failed for {target_year}: {exc}") from exc
-
-        for _ in range(_MAX_ITER):
-            err = _wrap(sidereal_longitude_true(jd, swe.SUN) - lam0)
-            jd -= err / _SUN_RATE
-            if abs(err) < _TOL_DEG:
-                break
-        else:
-            raise RuntimeError(
-                f"varsha_pravesh: root-find did not converge for {target_year} "
-                f"(residual {err:.3e} deg)")
-
-        planets = {name: sidereal_longitude_true(jd, pid) for name, pid in _BODIES}
-        planets["Ketu"] = (planets["Rahu"] + 180.0) % 360.0
-
-        try:
-            swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
-            _ret, ayan = swe.get_ayanamsa_ex_ut(jd, swe.FLG_SWIEPH)
-            cusps, ascmc = swe.houses_ex(jd, lat, lon, b"P")
-        except Exception as exc:
-            raise RuntimeError(f"varsha_pravesh: ascendant cast failed at jd={jd}: {exc}") from exc
-        asc = (ascmc[0] - ayan) % 360.0
-
-        in_sign = asc % 30.0
-        return {
-            "pravesh_jd_ut": jd,
-            "ascendant_sid": asc,
-            "planets_sid": planets,
-            "boundary_flag": in_sign < BOUNDARY_DEG or in_sign > 30.0 - BOUNDARY_DEG,
-            "cast_place": {"lat": lat, "lon": lon},
-        }
-    finally:
-        # Restore the process-wide ephemeris baseline (Moshier fallback) so a
-        # pravesh computation never leaks .se1 into later FLG_SWIEPH calls.
-        try:
-            swe.set_ephe_path(None)
-        except Exception:
-            pass
+    in_sign = asc % 30.0
+    return {
+        "pravesh_jd_ut": jd,
+        "ascendant_sid": asc,
+        "planets_sid": planets,
+        "boundary_flag": in_sign < BOUNDARY_DEG or in_sign > 30.0 - BOUNDARY_DEG,
+        "cast_place": {"lat": lat, "lon": lon},
+    }
