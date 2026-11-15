@@ -2,6 +2,33 @@
 
 > ARCHIVES: Sessions 19-66 -> `SESSION_LOG_ARCHIVE_S19-S66.md` (split at S81); Sessions 67-104 -> `SESSION_LOG_ARCHIVE_S67-S104.md` (split at S105); Sessions 105-145 -> `SESSION_LOG_ARCHIVE_S105-S145.md` (split at S146, S151). This live file holds head-matter + S146 onward.
 
+## S161 (2026-11-15) -- T1 ties + T2 summary-to-top + D1 fact-block completeness + KP-hierarchy significator weighting (fidelity, not a ranking fix) + negation-stays-in-corpus ruling + live gpt-6-luna validation
+
+DELIVERED (committed 35a8381: T1+T2+D1; KP batch committed + all PUSHED this session):
+- T1 (ties): `timing_ranker` returns `five_year_windows` + `lifetime_peaks` LISTS (every top-scoring window), `render_ranking` flags a tie and names every co-equal window. Singular `five_year_window`/`lifetime_peak` kept = chronologically-earliest, byte-identical to pre-change (`_peak_windows(c)[0] == _peak_window(c)`). 6 new tests.
+- T2: `interpreter.EXPERT_SYSTEM` moved the plain-language `In simple terms:` summary from END to the OPEN (prompt-only). Live-confirmed: every answer opens with it.
+- D1: `tests/astro/test_fact_block_completeness.py` -- real `calculate_chart(Sulabh)` -> `build_static_facts` + `build_varshaphal_facts`, asserts 18 MUST sections non-empty. `masa` dropped to MAY (planner-gated dated fact, not in the static+varshaphal assembly). Closes the S157 class where varshaphal was silently empty while the suite stayed green (existing varshaphal tests all monkeypatch the ephemeris). Needs swisseph (runs on Sulabh's machine).
+
+KP-HIERARCHY SIGNIFICATOR WEIGHTING (the real Stage 1; reprioritised from SAV-grading after the first-job hand-trace):
+- `significator_engine` already computes a KP tier per (planet,house): 1 star_of_occupant (strongest) .. 4 owner (weakest), node-agency=None; cited to KP Reader II. `kp_significator_facts` previously FLATTENED it ("v2 upgrade" per its docstring).
+- `kp_significator_facts` now ALSO emits `planet_signification_tiers` {planet:{house:tier}}; flat `planet_significations` byte-identical -> `_fact_block`/`capability_gate`/growth-contract untouched; no FACT_BLOCK_PROVIDES change (tiers consumed by the ranker, not rendered).
+- `timing_ranker` weights the significator term by tier: `_TIER_WEIGHT` {1:1.0, 2:0.75, 3:0.5, 4:0.25}, node None floored 0.25, absent tier -> 1.0 (flat, byte-identical). `rank_windows` gains `signator_tiers` (keyword-only, default None); `build_timing_ranking` reads `kp.planet_signification_tiers`. ORDINAL model: order sourced to Reader II, equal-step numbers an explicit modelling choice (not a cited quantity), tier-1 anchored at 1.0 so nothing inflates, NEVER fitted to events. 8 new ranker tests; 40 tests green.
+- 8-agent roster run; all pass with two documented notes (node weight contested -> floored; equal-step ladder is a modelling choice). Design record: `diagnostics/runs/20261115T0730Z_kp_hierarchy_weighting_design.md`.
+
+BACK-TEST (`probe_timing_backtest_baseline.py` updated to dual-rank flat-vs-tiered + in-horizon + first-job date CORRECTED to Feb 2012):
+- First-job "failure" was a WRONG DATE: the baseline used Feb-2011 Mercury-Ketu, which signifies no career house. Corrected to Feb-2012 Mercury-Venus, the FLAT model already ranks it 1/4 in-horizon.
+- Tiering shrinks ties and is doctrinally cleaner but does NOT improve in-horizon rank for any clean event and REGRESSED Pashmina (3/7 -> 6/7). KEPT as a FIDELITY improvement per Sulabh (fidelity-not-truth charter), NOT an accuracy win. Do not re-litigate as a ranking fix.
+
+ARCHITECTURE RULING (Sulabh): negation / promise / nullifiers (denial houses, cuspal-sub-lord promise, combustion, delay) are DOCTRINE and stay in the CORPUS, applied by the interpreter -- NEVER coded as per-scenario ranker rules (patchwork, won't generalise). Fact-block audit: NO plumbing gap -- full significations incl. denial houses, cusp sub-lords, combustion, debilitation, aspects all already rendered in `_fact_block`; the only friction is the promise two-step join (cusp sub-lord -> its significations), to watch in live validation, not a rule. The realistic metric is TOP-N HIT-RATE (event in one of the surfaced windows, ~75-90% = KP's own claim), NOT rank-1. Validation cases pinned: `diagnostics/llm_corpus_negation_validation_cases.md`.
+
+LIVE VALIDATION (gpt-6-luna, `diagnostics/qa_capture/20261115T084124Z.md`, 3 Qs):
+- gpt-6-luna serving (570k/250k/441k prompt tokens); T2 summary-on-top OK; T1 ties presented as equal OK; layman/no-jargon OK; future-lead/time-direction OK ("best period already passed" effectively resolved).
+- Career (Q2): corpus applied -- Mercury debilitation + cancellation + Venus/Mars strengths. PASS.
+- Marriage (Q1): windows + tie CORRECT (true window Jan2018-Aug2020 in the top-2 tie; the other tied window Aug2008-Dec2010 is, from live significations, the STRONGER promise on paper -- Mercury the 7th-lord signifying 2 & 7 -- so NO negation down-ranks it; the earlier "prune 2008" was an age-bias error, retracted). No window-level negation was applicable; nothing wrongly omitted.
+- Top-N hit metric: events land in surfaced windows for both marriage and career.
+
+OPEN / NEXT (only these four continue): Ephemeris split (.se1 vs Moshier); Varshaphal Tajika aspects + Sahams (retires AstroSage); Pratyantar (+/-37d, suppressed) discussion; Lal Kitab start-or-not. Owed but NOT continued now: planner plan-diff on gpt-6-luna (`planner_decisions.jsonl` captured this run); palm GPT-6 migration (deadline 14 Jan 2027); D3 per-user spend alarm (needs user identity + pricing + accumulator -- parked until multi-user; threshold 10 AED captured).
+
 ## S95 -- palm interpretation CLOSED on Head+Heart; architecture frozen; pipeline spec created
 
 OUTCOME: palm interpretation architecture is DONE and proven on Head(26)+Heart(21)=47 rules.

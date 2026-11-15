@@ -330,3 +330,75 @@ def test_render_single_window_keeps_single_lead():
     txt = tr.render_ranking(r)
     assert "LEAD with the NEXT-FIVE-YEARS window" in txt
     assert "windows TIE at the top score" not in txt
+
+
+# --- S161: KP-hierarchy significator weighting ---------------------------------
+
+
+def test_sig_weight_tier_ladder():
+    assert tr._sig_weight({7: 1}, 7) == 1.0      # star-of-occupant (strongest)
+    assert tr._sig_weight({7: 2}, 7) == 0.75     # occupant
+    assert tr._sig_weight({7: 3}, 7) == 0.5      # star-of-owner
+    assert tr._sig_weight({7: 4}, 7) == 0.25     # owner (weakest)
+    assert tr._sig_weight({7: None}, 7) == 0.25  # node agency: floored at weakest
+    assert tr._sig_weight({7: 1}, 9) == 1.0      # house absent -> flat
+    assert tr._sig_weight({}, 7) == 1.0          # empty map -> flat
+    assert tr._sig_weight(None, 7) == 1.0        # no map -> flat (byte-identical)
+
+
+def _two_lord_tree():
+    return [{"mahadasha": {"lord": "M"}, "phase": "x", "antardashas": [
+        {"lord": "A", "start": "1 Jan 2020", "end": "1 Jan 2021"},
+        {"lord": "B", "start": "1 Jan 2021", "end": "1 Jan 2022"}]}]
+
+
+def test_absent_tiers_is_byte_identical_to_flat():
+    sig = {"A": (7,), "B": (7,)}
+    w = tr.rank_windows(_two_lord_tree(), sig, {}, {7}, None)   # no signator_tiers
+    assert {x["ad_lord"]: x["score"] for x in w} == {"A": 1.0, "B": 1.0}
+
+
+def test_tier_weighting_discriminates_equal_house_count():
+    # A signifies 7 as star-of-occupant (tier 1), B as owner (tier 4). Flat buries
+    # them in a 1.0 == 1.0 tie; tiered, A must outrank B.
+    sig = {"A": (7,), "B": (7,)}
+    tiers = {"A": {7: 1}, "B": {7: 4}}
+    w = tr.rank_windows(_two_lord_tree(), sig, {}, {7}, None, signator_tiers=tiers)
+    sc = {x["ad_lord"]: x["score"] for x in w}
+    assert sc["A"] == 1.0 and sc["B"] == 0.25
+    assert w[0]["ad_lord"] == "A"
+    # the reported hits do not change -- tier only moves the score, never the output
+    assert all(x["sig_hits"] == [7] for x in w)
+
+
+def test_mixed_tier_houses_sum_correctly():
+    # One lord signifies 6 (occupant, 0.75) and 10 (owner, 0.25) -> 1.0 tiered,
+    # vs 2.0 flat. Demonstrates a strong-looking flat score shrinking to its real
+    # KP weight.
+    tree = [{"mahadasha": {"lord": "M"}, "phase": "x", "antardashas": [
+        {"lord": "V", "start": "1 Jan 2020", "end": "1 Jan 2021"}]}]
+    sig = {"V": (6, 10)}
+    tiered = tr.rank_windows(tree, sig, {}, {6, 10}, None,
+                             signator_tiers={"V": {6: 2, 10: 4}})
+    flat = tr.rank_windows(tree, sig, {}, {6, 10}, None)
+    assert tiered[0]["score"] == 0.75 + 0.25
+    assert flat[0]["score"] == 2.0
+
+
+def test_build_timing_ranking_reads_tiers_key():
+    facts = {
+        "dasha_periods": {"mahadasha_tree": _two_lord_tree()},
+        "kp_planet_significations": {
+            "planet_significations": {"A": [7], "B": [7]},
+            "planet_signification_tiers": {"A": {7: 1}, "B": {7: 4}}},
+        "transits": {"periods": {}},
+        "planet_positions": {"Saturn": {"house": None}},
+    }
+    r = tr.build_timing_ranking(facts, {7}, as_of=_dt_t.date(2019, 1, 1))
+    sc = {w["ad_lord"]: w["score"] for w in r["windows"]}
+    assert sc["A"] == 1.0 and sc["B"] == 0.25
+    # Same facts WITHOUT the tiers key -> flat (back-compat for an older fact block).
+    facts["kp_planet_significations"] = {"planet_significations": {"A": [7], "B": [7]}}
+    r2 = tr.build_timing_ranking(facts, {7}, as_of=_dt_t.date(2019, 1, 1))
+    sc2 = {w["ad_lord"]: w["score"] for w in r2["windows"]}
+    assert sc2["A"] == sc2["B"] == 1.0

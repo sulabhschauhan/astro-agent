@@ -33,13 +33,31 @@ def _chart() -> dict:
 
 def test_returns_planet_significations_shape():
     out = build_kp_significator_facts(_chart())
-    assert set(out) == {"planet_significations"}
+    # S161: a second key (planet_signification_tiers) now rides alongside the flat
+    # tuple. The flat key's shape is UNCHANGED (pipeline._fact_block reads only it).
+    assert set(out) == {"planet_significations", "planet_signification_tiers"}
     table = out["planet_significations"]
     assert set(table) == set(_PLANET_LON)                 # all 9 planets
     for houses in table.values():
         assert isinstance(houses, tuple)
         assert all(isinstance(h, int) for h in houses)
         assert list(houses) == sorted(houses)             # ascending, pipeline joins in order
+
+
+def test_tiers_shape_matches_significations():
+    # S161: the tier map carries the KP strength tier per (planet, house). It must
+    # cover EXACTLY the houses the flat tuple lists (same engine source), and every
+    # tier is a classical 1-4 or None (node agency). No tier numbers are asserted
+    # here -- that is the engine's contract (test_significator_engine.py); this only
+    # guards the composer's surface.
+    out = build_kp_significator_facts(_chart())
+    table = out["planet_significations"]
+    tiers = out["planet_signification_tiers"]
+    assert set(tiers) == set(table)                       # same planets
+    for planet, houses in table.items():
+        assert set(tiers[planet]) == set(houses)          # same houses, no drift
+        for t in tiers[planet].values():
+            assert t in (1, 2, 3, 4, None)
 
 
 def test_none_chart_is_fail_soft():

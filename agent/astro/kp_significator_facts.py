@@ -42,9 +42,19 @@ def build_kp_significator_facts(chart: dict | None) -> dict:
             meta['house_cusps_kp_sidereal']). None -> {} (fail-soft).
 
     Returns:
-        {"planet_significations": {"Mercury": (2, 3, 7, 10, 12), ...}} with
-        houses ascending per planet, or {} if chart is None / malformed / any
+        {"planet_significations": {"Mercury": (2, 3, 7, 10, 12), ...},
+         "planet_signification_tiers": {"Mercury": {2: 4, 3: 1, 7: 2, ...}, ...}}
+        with houses ascending per planet, or {} if chart is None / malformed / any
         error (this fact being absent must never break an answer).
+
+        `planet_significations` is the flat house tuple, BYTE-IDENTICAL to the
+        pre-S161 shape -- pipeline._fact_block / capability_gate / the interpreter
+        read only this key and are unaffected.
+        `planet_signification_tiers` is NEW (S161): per (planet, house) the
+        engine's KP strength tier (1 star-of-occupant strongest .. 4 owner weakest;
+        None for a contested node-agency route). The timing ranker reads it to
+        weight the significator term by KP hierarchy. It is NOT rendered in the
+        fact block, so FACT_BLOCK_PROVIDES is unchanged.
     """
     if not chart:
         return {}
@@ -56,6 +66,11 @@ def build_kp_significator_facts(chart: dict | None) -> dict:
             planet: tuple(sorted(house_map))          # {house: {...}} -> (houses,)
             for planet, house_map in computed.items()
         }
-        return {"planet_significations": table}
+        tiers = {
+            planet: {int(h): info.get("tier") for h, info in house_map.items()}
+            for planet, house_map in computed.items()
+        }
+        return {"planet_significations": table,
+                "planet_signification_tiers": tiers}
     except Exception as e:  # noqa: BLE001 -- fail-soft; a bad chart shape must not break the answer
         return {"error": f"{type(e).__name__}: {e}"}

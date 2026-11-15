@@ -94,6 +94,46 @@ W_JUP = 1.0    # Jupiter transit (the natural marriage/children benefic) contact
                # its own justification, never by inflating W_JUP.
 
 
+# KP SIGNIFICATOR-HIERARCHY WEIGHTS (S161 -- the real Stage 1). The ranker's
+# significator term used to score every signified target house flat (W_SIG each).
+# KP doctrine ranks HOW a planet signifies a house, strongest to weakest (K.S.
+# Krishnamurti, KP Reader II -- the ORDER is cited in significator_engine.py, which
+# already computes the tier):
+#     tier 1  star_of_occupant  (strongest)
+#     tier 2  occupant
+#     tier 3  star_of_owner
+#     tier 4  owner             (weakest)
+#     tier None  node-agency    (contested -- KP Reader IV gives no closed ordering)
+# These weights are an ORDINAL MODEL of that order, NOT a cited quantity (the texts
+# rank, they do not quantify). THRESHOLD DISCIPLINE:
+#   JUSTIFICATION -- tier 1 anchored at 1.0 so a strongest-tier signification scores
+#     EXACTLY as the pre-S161 flat model did; weaker tiers only scale DOWN, so no
+#     score inflates. Equal 0.25 steps are the minimal model of a known rank with
+#     unknown gaps. Derived from doctrine FIRST, never fitted to any chart's events.
+#   SCOPE GUARD -- multiplier in [0.25, 1.0], monotonic. Node-agency (None) is
+#     FLOORED at the weakest classical tier (0.25) so a contested route can never
+#     outrank a real significator. Absent tier info -> 1.0 = byte-identical to flat.
+#   TUNING NOTE -- the STEP SPACING is the one free parameter; change it only on a
+#     multi-chart back-test, never on Sulabh's events. The ORDER is not tunable
+#     (it is doctrine).
+_TIER_WEIGHT = {1: 1.0, 2: 0.75, 3: 0.5, 4: 0.25}
+_TIER_WEIGHT_NODE = 0.25     # tier None (node agency): floored at the weakest tier
+_TIER_WEIGHT_FLAT = 1.0      # no tier info for this house: flat (pre-S161 behaviour)
+
+
+def _sig_weight(tier_map, house: int) -> float:
+    """KP-hierarchy multiplier for signifying `house`, given a planet's
+    {house: tier} map (or an empty/None map). A house NOT in the map -> flat 1.0
+    (so the whole thing is byte-identical to the pre-S161 model when no tiers are
+    supplied). A house present with tier None (node agency) -> the node floor."""
+    if not tier_map or house not in tier_map:
+        return _TIER_WEIGHT_FLAT
+    tier = tier_map[house]
+    if tier is None:
+        return _TIER_WEIGHT_NODE
+    return _TIER_WEIGHT.get(tier, _TIER_WEIGHT_FLAT)
+
+
 # THRESHOLD (S158, ruled by Sulabh): a timing answer LEADS with the strongest
 # converging window inside this many years from now, not the lifetime peak.
 #   JUSTIFICATION -- product ruling, not a fit to any chart: "when will X improve"
@@ -219,6 +259,8 @@ def rank_windows(
     transit_periods: dict[str, dict],
     target_houses: set[int] | list[int] | dict[int, float],
     natal_saturn_house: int | None,
+    *,
+    signator_tiers: dict[str, dict[int, int | None]] | None = None,
 ) -> list[dict]:
     """Score every antardasha by convergence toward `target_houses`.
 
@@ -261,7 +303,12 @@ def rank_windows(
 
             sig_all = {int(h) for h in (significators.get(ad_lord) or ())} & targets
             sig_hits = sorted(h for h in sig_all if weights[h] > 0)   # reported hits
-            sig_score = W_SIG * sum(weights[h] for h in sig_all)      # weight-scaled
+            # KP-hierarchy weighting (S161): each signified house contributes its
+            # role weight scaled by the acting lord's KP tier for that house. With
+            # no tier map this is sum(weights[h]) -- byte-identical to pre-S161.
+            tier_map = (signator_tiers or {}).get(ad_lord) or {}
+            sig_score = W_SIG * sum(weights[h] * _sig_weight(tier_map, h)
+                                    for h in sig_all)
 
             t = transit_periods.get(f"{ad_lord}|{start}") or {}
             hl = t.get("saturn_house_from_lagna")
@@ -336,8 +383,12 @@ def build_timing_ranking(
             return {}
         display = sorted(h for h, w in weights.items() if w > 0)
         tree = ((chart_facts.get("dasha_periods") or {}).get("mahadasha_tree")) or []
-        sigs = ((chart_facts.get("kp_planet_significations") or {})
-                .get("planet_significations")) or {}
+        kp = (chart_facts.get("kp_planet_significations") or {})
+        sigs = kp.get("planet_significations") or {}
+        # KP-hierarchy tiers (S161). Absent on an older/malformed fact block -> the
+        # ranker weights flat (byte-identical). Present -> the significator term is
+        # weighted by KP strength tier.
+        tiers = kp.get("planet_signification_tiers")
         periods = ((chart_facts.get("transits") or {}).get("periods")) or {}
         if not tree or not sigs:
             return {}  # no dasha tree or no significators -> nothing to converge
@@ -345,7 +396,8 @@ def build_timing_ranking(
         sat = ((chart_facts.get("planet_positions") or {}).get("Saturn") or {})
         natal_saturn_house = sat.get("house") if isinstance(sat.get("house"), int) else None
 
-        windows = rank_windows(tree, sigs, periods, weights, natal_saturn_house)
+        windows = rank_windows(tree, sigs, periods, weights, natal_saturn_house,
+                               signator_tiers=tiers)
         if not windows:
             return {}
         # FIVE-YEAR LEAD (S158). The strongest window overlapping the next five
