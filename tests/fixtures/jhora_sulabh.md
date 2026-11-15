@@ -338,3 +338,110 @@ period 1 at birth with truncated duration = balance_years.
 Diagnostic comparison MUST skip row-1 `begin_jd` (mismatched
 convention by design) and compare row-1 `end_jd` + rows 2..9
 both boundaries.
+
+
+---
+
+## 9. Varshaphal / Tajaka Annual Sahams (S162, JHora v8)
+
+**Source:** JHora v8, Sulabh.jhd, Tajaka tab, "Sahamas (sahams)" view, per Varsha year.
+Captured 2026-11-15 (S162). ANNUAL (Tajaka) sahams unless marked natal.
+**Role:** ORACLE / GRADER ONLY (P-028). Saham FORMULAS must be sourced from a cited
+classical text; these JHora values only grade the computed result. Do NOT reverse-
+engineer formulas from these numbers and then "validate" against them (S131 trap).
+
+### Pravesh instants + day/night (cast place Calcutta; sunrise ~05:28, sunset ~17:50)
+
+| Varsha | Pravesh (IST) | Sun vs horizon | Branch |
+|---|---|---|---|
+| 2024 | 2024-04-06 06:04:28 | after sunrise 05:28 | DAY |
+| 2025 | 2025-04-06 12:14:10 | midday | DAY |
+| 2026 | 2026-04-06 18:28:46 | after sunset 17:50 | NIGHT |
+| 2027 | 2027-04-07 00:26:57 | before sunrise | NIGHT |
+
+### 2024 annual D-1 chart longitudes (inputs for grading 2024)
+
+| Body | Longitude |
+|---|---|
+| Lagna | 4 Ar 09' 56.95" |
+| Sun | 22 Pi 30' 56.53" |
+| Moon | 14 Aq 02' 48.83" |
+| Mars | 16 Aq 44' 05.69" |
+| Mercury (R) | 2 Ar 05' 32.47" |
+| Jupiter | 24 Ar 15' 18.27" |
+| Venus | 6 Pi 52' 35.06" |
+| Saturn | 19 Aq 58' 11.19" |
+| Rahu | 21 Pi 35' 51.30" |
+| Ketu | 21 Vi 35' 51.30" |
+| Maandi | 7 Ar 17' 16.55" |
+| Gulika | 22 Pi 29' 34.96" |
+
+(2025/2026/2027 annual D-1 longitudes NOT captured here -- grading those years
+computes the annual chart from birth details via varsha_pravesh, per P-027.)
+
+### Annual Sahams by year (verbatim JHora positions)
+
+**2024 (DAY):**
+```
+Punya 25 Aq 41'49.25"; Vidya 12 Ge 38'04.64"; Yasas 2 Ge 43'25.97"; Mitra 5 Ta 26'04.09";
+Mahatmya 13 Ta 07'40.50"; Asha 7 Ta 24'02.44"; Samartha 11 Ge 41'09.52"; Bhratru 8 Ge 27'04.03";
+Gaurava 2 Ge 43'25.97"; Pitru 1 Pi 37'11.61"; Rajya 1 Pi 37'11.61"; Matru 11 Pi 20'10.72";
+Putra 14 Ge 22'26.39"; Jeeva 29 Aq 52'49.86"; Karma 18 Aq 48'30.17"; Roga 24 Ta 17'05.06";
+Kali 11 Ge 41'09.52"; Sastra 6 Ge 22'39.56"; Bandhu 22 Ge 12'40.58"; Mrityu 24 Sg 17'05.06";
+Paradesa 14 Sg 04'35.62"; Artha 1 Ge 27'18.83"; Paradara 18 Pi 31'35.48"; Vanik 16 Aq 07'13.31";
+Karyasiddhi 21 Pi 42'32.93"; Vivaha 21 Ta 04'20.82"; Santapa 10 Li 05'19.30"; Sraddha 24 Ta 18'26.31";
+Preeti 14 Cn 50'47.25"; Jadya 28 Pi 51'26.98"; Vyapara 0 Ar 55'51.45"; Satru 0 Ar 55'51.45";
+Jalapatana 29 Le 11'45.76"; Bandhana 9 Ta 53'35.00"; Apamrityu 21 Sg 35'48.20"; Labha 18 Pi 21'42.70"
+```
+
+**2025 (DAY):**
+```
+Punya 20 Li 55'52.10"; Vidya 22 Ar 02'24.81"; Yasas 8 Pi 10'20.18"; Mitra 3 Sc 01'40.12";
+Mahatmya 26 Li 12'57.72"; Asha 6 Pi 11'59.24"; Samartha 0 Le 43'31.13"; Bhratru 28 Li 11'18.66";
+Gaurava 8 Pi 10'20.18"; Pitru 14 Ge 53'05.55"; Rajya 14 Ge 53'05.55"; Matru 12 Sc 06'20.23";
+Putra 22 Ge 08'32.11"; Jeeva 14 Ar 46'58.26"; Karma 5 Sg 00'24.92"; Roga 6 Cn 00'36.74";
+Kali 27 Ta 54'09.44"; Sastra 24 Ge 22'56.59"; Bandhu 2 Ar 12'14.67"; Mrityu 6 Pi 00'36.74";
+Paradesa 20 Ar 21'13.09"; Artha 20 Sc 27'20.39"; Paradara 15 Ge 18'40.33"; Vanik 10 Sc 46'02.25";
+Karyasiddhi 1 Ta 01'00.92"; Vivaha 6 Le 54'43.24"; Santapa 0 Vi 26'21.91"; Sraddha 6 Pi 37'34.02";
+Preeti 9 Ar 56'12.94"; Jadya 2 Le 57'55.60"; Vyapara 6 Sg 46'17.68"; Satru 6 Sg 46'17.68";
+Jalapatana 20 Sc 34'14.83"; Bandhana 26 Aq 30'06.94"; Apamrityu 11 Aq 46'14.08"; Labha 11 Li 37'48.52"
+```
+
+**2026 (NIGHT):**
+```
+Punya 11 Pi 24'33.80"; Vidya 21 Ta 18'54.67"; Yasas 20 Ge 48'34.13"; Mitra 3 Cp 41'11.14";
+Mahatmya 23 Vi 11'03.14"; Asha 22 Vi 34'36.81"; Samartha 12 Sg 22'12.78"; Bhratru 11 Aq 18'28.01";
+Gaurava 13 Le 01'19.59"; Pitru 11 Sc 51'40.64"; Rajya 11 Sc 51'40.64"; Matru 3 Ar 07'58.51";
+Putra 21 Aq 52'07.30"; Jeeva 11 Aq 18'28.01"; Karma 23 Vi 02'51.94"; Roga 20 Le 15'21.51";
+Kali 12 Ge 37'53.03"; Sastra 14 Sc 58'16.63"; Bandhu 18 Ge 54'50.80"; Mrityu 20 Ar 15'21.51";
+Paradesa 7 Aq 48'28.07"; Artha 29 Ta 29'35.77"; Paradara 9 Vi 38'19.52"; Vanik 13 Aq 48'37.67";
+Karyasiddhi 2 Le 46'45.86"; Vivaha 29 Le 08'23.12"; Santapa 1 Sc 48'51.08"; Sraddha 20 Le 21'15.69";
+Preeti 27 Aq 48'01.41"; Jadya 3 Ar 42'07.83"; Vyapara 22 Vi 34'36.81"; Satru 10 Sc 08'51.66";
+Jalapatana 28 Ta 22'44.36"; Bandhana 1 Sc 58'10.56"; Apamrityu 3 Le 13'52.70"; Labha 10 Pi 12'31.94"
+```
+
+**2027 (NIGHT):**
+```
+Punya 24 Cp 26'40.10"; Vidya 19 Sg 25'02.40"; Yasas 23 Ge 33'30.06"; Mitra 21 Le 12'26.36";
+Mahatmya 24 Cn 20'05.99"; Asha 25 Ta 27'46.19"; Samartha 17 Sg 53'57.71"; Bhratru 21 Ta 25'52.65";
+Gaurava 19 Sc 42'02.91"; Pitru 21 Sg 07'47.88"; Rajya 21 Sg 07'47.88"; Matru 21 Sc 30'31.13";
+Putra 19 Le 06'57.64"; Jeeva 21 Ta 25'52.65"; Karma 27 Cn 14'55.93"; Roga 23 Vi 51'34.83";
+Kali 25 Cp 57'44.80"; Sastra 2 Sc 39'58.13"; Bandhu 9 Aq 45'59.41"; Mrityu 23 Ta 51'34.83";
+Paradesa 21 Ge 20'45.98"; Artha 20 Li 32'42.60"; Paradara 24 Aq 52'00.22"; Vanik 4 Sg 05'43.10";
+Karyasiddhi 26 Le 07'53.53"; Vivaha 25 Aq 40'03.60"; Santapa 18 Ta 36'59.03"; Sraddha 29 Ge 11'58.54";
+Preeti 13 Pi 42'33.23"; Jadya 28 Li 38'04.59"; Vyapara 25 Ta 27'46.19"; Satru 18 Le 23'56.32";
+Jalapatana 0 Vi 14'51.16"; Bandhana 20 Pi 48'11.06"; Apamrityu 26 Cp 50'54.84"; Labha 24 Vi 16'54.95"
+```
+
+### 2024 Natal Sahams (natal chart inputs; night birth 00:30)
+```
+Punya 12 Ta 57'59.31"; Vidya 2 Vi 23'58.81"; Yasas 23 Aq 05'29.09"; Mitra 8 Cn 44'09.34";
+Mahatmya 15 Le 16'42.50"; Asha 19 Cp 24'27.21"; Samartha 29 Ar 40'45.60"; Bhratru 26 Ar 24'13.75";
+Gaurava 12 Sc 11'23.52"; Pitru 6 Ar 21'40.99"; Rajya 6 Ar 21'40.99"; Matru 28 Ge 46'42.09";
+Putra 12 Le 21'26.06"; Jeeva 26 Ar 24'13.75"; Karma 24 Pi 59'39.94"; Roga 13 Aq 08'01.85";
+Kali 15 Vi 41'12.53"; Sastra 4 Sg 09'08.94"; Bandhu 17 Vi 02'31.72"; Mrityu 13 Vi 08'01.85";
+Paradesa 22 Ge 51'01.60"; Artha 6 Aq 31'43.52"; Paradara 6 Sc 52'16.28"; Vanik 28 Ar 19'26.41";
+Karyasiddhi 12 Pi 10'01.07"; Vivaha 23 Le 11'34.36"; Santapa 16 Ar 04'40.74"; Sraddha 19 Le 55'02.50";
+Preeti 1 Ge 29'49.43"; Jadya 11 Pi 08'55.48"; Vyapara 19 Cp 24'27.21"; Satru 25 Sg 57'30.92";
+Jalapatana 16 Ge 31'13.67"; Bandhana 18 Le 33'14.35"; Apamrityu 5 Ge 33'42.75"; Labha 7 Cn 02'18.82"
+```

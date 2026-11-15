@@ -2,6 +2,22 @@
 
 > ARCHIVES: Sessions 19-66 -> `SESSION_LOG_ARCHIVE_S19-S66.md` (split at S81); Sessions 67-104 -> `SESSION_LOG_ARCHIVE_S67-S104.md` (split at S105); Sessions 105-145 -> `SESSION_LOG_ARCHIVE_S105-S145.md` (split at S146, S151). This live file holds head-matter + S146 onward.
 
+## S162 (2026-11-15) -- Ephemeris split (.se1 everywhere) + Tajaka Sahams engine (21/30 validated, 11 quarantined)
+
+PART A -- EPHEMERIS SPLIT (committed + validated).
+- Root cause: every calc requested `FLG_SWIEPH`, but only `varsha_pravesh` ever called `swe.set_ephe_path` (process-global), so every other call silently fell back to Moshier. Researched first (per Sulabh): no genuine reason for Moshier -- it was an accident, not a choice.
+- New leaf `agent/calculations/helpers/ephemeris_config.py`: single `EPHE_PATH` (-> `PyJHora-main/src/jhora/data/ephe`), `swe.set_ephe_path(EPHE_PATH)` at import. Imported (noqa F401) by `ephemeris.py` + `chart_calculator.py` -- the keystone, since conftest imports chart_calculator so the whole suite flips to .se1. Removed `varsha_pravesh`'s local `set_ephe_path` + try/finally restore dance.
+- Impact: sub-arcsecond (Moshier ~0.025" vs .se1). Re-baselined 6 David characterization GOLDEN_LONGITUDES to .se1 values (Sun/Moon/Mars/Mercury/Jupiter/Venus; Saturn/Rahu/Ketu unchanged); all 25 David tests green. A Moshier/.se1 delta on any other chart's goldens is a re-baseline, NOT a regression.
+- `varsha_pravesh` validated post-split: annual chart matches JHora to 0.14" (planets) / 4' (Lagna = 0.066deg, under the 0.5deg tol) -- rules varsha_pravesh out as any saham-error source.
+
+PART B -- TAJAKA SAHAMS ENGINE (committed; 21 emitted, 11 quarantined; NOT yet wired to fact block).
+- New `agent/calculations/annual/sahams.py`. Spec source (P-028): B.V. Raman *Varshaphal* Ch.VII pp.34-36 + Tajika Nilakanthi (`data/tajika_nilakanthi_hindi_djvu.txt`) Saham adhyaya. JHora v8 section 9 (`tests/fixtures/jhora_sulabh.md`, 4 Sulabh annual charts: 2024/25 day, 2026/27 night) GRADES ONLY.
+- TWO rules validated across ALL 4 charts (not fitted): (1) 3-term sahams apply the +30deg rule to (A-B) then close with the THIRD point instead of the Lagna; (2) NIGHT reverses A,B for EVERY saham -- JHora's measured reverse-all convention (16 night mismatches vs 26 under Raman's selective reversal; confirmed concretely -- JHora night Bhratru = its Jeeva, the exact swap).
+- METHOD CORRECTION (Sulabh rebuke, logged): the first cut brute-forced A-B pairs to fit 2024 ALONE, then cited the book post-hoc -- the exact Validation-Source "oracle grades its own homework" failure. The 4-chart run caught it (2025:7, 2026:16, 2027:17 mismatches); several pairs were only coincidentally right on 2024 (Samartha==Kali, Roga==Sraddha, Vyapara==Satru). Re-derivation from source + 4-chart validation is now the standard.
+- RESULT: 21 CONFIRMED (Punya, Vidya, Yasas, Mitra, Pitru, Rajya, Putra, Jeeva, Karma, Vivaha, Satru, Mahatmya, Asha, Matru, Sraddha, Kali, Bandhu, Paradara, Vanik, Bandhana, Jadya) reproduce JHora on all 4 charts to <0.5deg -- emitted. 11 PENDING (Gaurava, Vyapara, Samartha, Bhratru, Roga, Sastra, Karyasiddhi, Artha, Labha, Santapa, Preeti, Jalapatana) QUARANTINED: `compute_sahams(..., include_pending=False)` by default, not emitted, not asserted -- each awaits its Nilakantha shloka re-derivation + a 4-chart pass before promotion.
+- Deterministic test `tests/calculations/annual/test_sahams.py`: embeds the 4 annual charts (engine `varsha_pravesh` output) + the section-9 oracle, asserts the 21 CONFIRMED across both day and night branches + a pending-not-emitted guard + a missing-longitude error path = 6 passed (replaces the old all-31 `test_sahams_four_year_oracle`, which is removed). Doctrine: `docs/sahams_reconciliation_S162.md`.
+- NEXT: wire the 21 into `varshaphal_facts` -> `_fact_block` -> `FACT_BLOCK_PROVIDES`; build a trimmed translated Nilakantha sahams results-corpus (txt) as a corpus domain; then derive the 11 pending.
+
 ## S161 (2026-11-15) -- T1 ties + T2 summary-to-top + D1 fact-block completeness + KP-hierarchy significator weighting (fidelity, not a ranking fix) + negation-stays-in-corpus ruling + live gpt-6-luna validation
 
 DELIVERED (committed 35a8381: T1+T2+D1; KP batch committed + all PUSHED this session):
