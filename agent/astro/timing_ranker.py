@@ -149,13 +149,35 @@ def _peak_window(candidates):
     """Highest score; CHRONOLOGICALLY earliest on a tie (handover: equal-score
     ties lead with the earlier window). Parsing the start here, rather than
     leaning on rank_windows' lexicographic start sort, is what makes the tie-break
-    truly chronological. An unparseable start sorts last so a real date wins."""
+    truly chronological. An unparseable start sorts last so a real date wins.
+
+    RETAINED for back-compat; the live selection now uses _peak_windows (plural)
+    so a tie is surfaced in full rather than silently collapsed to this one pick.
+    """
     if not candidates:
         return None
     return min(candidates, key=lambda w: (
         -float(w.get("score", 0) or 0),
         _parse_window_date(w.get("start")) or _dt.date.max,
     ))
+
+
+def _peak_windows(candidates):
+    """ALL windows sharing the highest score, CHRONOLOGICALLY ordered (handover T1:
+    equal-score ties are presented together and the user decides -- a single pick
+    hid three co-equal windows in the Q4 probe). Score equality is exact: every
+    score is round(...,2) of 0.5-multiples, so float==float is safe here. An
+    unparseable start sorts last so real dates order first. Empty list on no
+    candidates.
+
+    _peak_windows(c)[0] == _peak_window(c) for any c, so the singular keys built
+    from this stay byte-identical to the pre-change values."""
+    if not candidates:
+        return []
+    top = max(float(w.get("score", 0) or 0) for w in candidates)
+    tied = [w for w in candidates if float(w.get("score", 0) or 0) == top]
+    tied.sort(key=lambda w: _parse_window_date(w.get("start")) or _dt.date.max)
+    return tied
 
 
 def _normalise_targets(target_houses) -> dict[int, float]:
@@ -333,16 +355,22 @@ def build_timing_ranking(
         # threshold. `as_of` defaults to today; tests pass it for determinism.
         _as_of = as_of or _dt.date.today()
         _horizon_end = _plus_years(_as_of, FIVE_YEAR_HORIZON_YEARS)
-        lifetime_peak = _peak_window(windows)
-        five_year = _peak_window(
-            [w for w in windows if _overlaps_horizon(w, _as_of, _horizon_end)])
+        in_horizon = [w for w in windows
+                      if _overlaps_horizon(w, _as_of, _horizon_end)]
+        # T1: surface EVERY top-scoring window, not one. The singular keys are kept
+        # (= the chronologically-earliest of each tie) so back-compat callers and the
+        # pre-change tests are byte-identical; the plural keys carry the full tie.
+        five_year_windows = _peak_windows(in_horizon)
+        lifetime_peaks = _peak_windows(windows)
         return {
             "target_houses": display,
             "windows": windows,
             "as_of": _as_of.isoformat(),
             "horizon_end": _horizon_end.isoformat(),
-            "five_year_window": five_year,
-            "lifetime_peak": lifetime_peak,
+            "five_year_window": five_year_windows[0] if five_year_windows else None,
+            "five_year_windows": five_year_windows,
+            "lifetime_peak": lifetime_peaks[0] if lifetime_peaks else None,
+            "lifetime_peaks": lifetime_peaks,
         }
     except Exception as e:  # noqa: BLE001 -- ranking must never break an answer
         logger.warning("timing_ranker.build_timing_ranking failed: %s: %s",
@@ -367,8 +395,8 @@ def render_ranking(ranking: dict, limit: int = 6) -> str:
     if not windows:
         return ""
     targets = ranking.get("target_houses") or []
-    five = ranking.get("five_year_window")
-    peak = ranking.get("lifetime_peak")
+    five_list = ranking.get("five_year_windows") or []
+    peak_list = ranking.get("lifetime_peaks") or []
     horizon_end = ranking.get("horizon_end")
 
     def _one(w) -> str:
@@ -387,27 +415,57 @@ def render_ranking(ranking: dict, limit: int = 6) -> str:
         "",
         "HOW TO LEAD THE ANSWER:",
     ]
-    if five is not None:
-        lines.append(
-            f"  - LEAD with the NEXT-FIVE-YEARS window (the strongest converging "
-            f"period through {horizon_end}): {_one(five)}")
-        if peak is not None and _wid(peak) != _wid(five):
+    if five_list:
+        if len(five_list) == 1:
             lines.append(
-                f"  - Then give the LIFETIME PEAK as ONE line: {_one(peak)}. If the "
-                f"five-year window scores CLEARLY below this peak, say so plainly "
-                f"and name the peak as the stronger-but-later window.")
+                f"  - LEAD with the NEXT-FIVE-YEARS window (the strongest converging "
+                f"period through {horizon_end}): {_one(five_list[0])}")
+        else:
+            # T1: equal-score ties are presented as co-equal, never collapsed to one.
+            lines.append(
+                f"  - {len(five_list)} windows TIE at the top score "
+                f"{five_list[0]['score']} within the next five years (through "
+                f"{horizon_end}). They are EQUALLY ranked: name ALL of them and let "
+                f"the user weigh them -- do NOT single out one as 'the' answer:")
+            for w in five_list:
+                lines.append(f"      * {_one(w)}")
+        # Lifetime peak(s): show only the ones not already in the five-year set.
+        five_ids = {_wid(w) for w in five_list}
+        later = [p for p in peak_list if _wid(p) not in five_ids]
+        if not later:
+            lines.append(
+                "  - The five-year window(s) include the lifetime peak -- no "
+                "separate later-window line is needed.")
+        elif len(later) == 1:
+            lines.append(
+                f"  - Then give the LIFETIME PEAK as ONE line: {_one(later[0])}. If "
+                f"the five-year window(s) score CLEARLY below this peak, say so "
+                f"plainly and name the peak as the stronger-but-later window.")
         else:
             lines.append(
-                "  - The five-year window IS the lifetime peak -- no separate "
-                "later-window line is needed.")
+                f"  - {len(later)} windows TIE as the LIFETIME PEAK (score "
+                f"{later[0]['score']}). If they score CLEARLY above the five-year "
+                f"window(s), name them ALL as the stronger-but-later options:")
+            for w in later:
+                lines.append(f"      * {_one(w)}")
     else:
-        lines.append(
-            f"  - No converging window falls within the next five years (through "
-            f"{horizon_end}). Say that plainly, then give the strongest upcoming "
-            f"window: {_one(peak) if peak else '(none scored)'}.")
+        if len(peak_list) <= 1:
+            p = peak_list[0] if peak_list else None
+            lines.append(
+                f"  - No converging window falls within the next five years (through "
+                f"{horizon_end}). Say that plainly, then give the strongest upcoming "
+                f"window: {_one(p) if p else '(none scored)'}.")
+        else:
+            lines.append(
+                f"  - No converging window falls within the next five years (through "
+                f"{horizon_end}). Say that plainly, then give the {len(peak_list)} "
+                f"strongest windows, which TIE at score {peak_list[0]['score']} -- "
+                f"name them ALL:")
+            for w in peak_list:
+                lines.append(f"      * {_one(w)}")
     lines.append(
         "  - If the user named a SPECIFIC period ('next two years', 'in my 40s'), "
-        "lead with the window matching THAT period instead of the five-year one.")
+        "lead with the window matching THAT period instead of the five-year one(s).")
     lines.append("")
     lines.append("Full ranking (context; do NOT re-order):")
     for i, w in enumerate(windows[:limit], 1):

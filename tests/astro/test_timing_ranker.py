@@ -261,3 +261,72 @@ def test_parse_and_overlap_helpers_fail_soft():
     # unparseable start -> ineligible; parseable start + open-ended (bad) end -> eligible
     assert tr._overlaps_horizon({"start": "???", "end": "1 Jan 2030"}, as_of, horizon) is False
     assert tr._overlaps_horizon({"start": "1 Jan 2028", "end": "???"}, as_of, horizon) is True
+
+
+# --- T1: equal-score ties are shown in full, not collapsed to one --------------
+
+
+def test_five_year_windows_returns_all_tied_top():
+    # Two in-horizon windows tie at the top score (both 1.5: one significator +
+    # MD support, no transit). Both must be returned, chronological; the singular
+    # key stays the earliest for back-compat.
+    ads = [
+        {"lord": "A", "start": "1 Jan 2028", "end": "1 Jan 2029"},
+        {"lord": "B", "start": "1 Jan 2029", "end": "1 Jan 2030"},
+    ]
+    r = tr.build_timing_ranking(_syn_facts(ads=ads), {7}, as_of=_dt_t.date(2027, 1, 1))
+    fw = r["five_year_windows"]
+    assert [w["ad_lord"] for w in fw] == ["A", "B"]      # both tied, chronological
+    assert fw[0]["score"] == fw[1]["score"] == 1.5
+    assert r["five_year_window"]["ad_lord"] == "A"       # singular = earliest (back-compat)
+
+
+def test_lifetime_peaks_returns_all_tied_top():
+    # Two windows tie at the lifetime-top score (each 2.5: significator + MD +
+    # Saturn transit). Both returned; singular key = earliest.
+    ads = [
+        {"lord": "A", "start": "1 Jan 2020", "end": "1 Jan 2022"},
+        {"lord": "B", "start": "1 Jan 2024", "end": "1 Jan 2026"},
+    ]
+    extra = {"A|1 Jan 2020": {"saturn_house_from_lagna": 7},
+             "B|1 Jan 2024": {"saturn_house_from_lagna": 7}}
+    r = tr.build_timing_ranking(_syn_facts(periods_extra=extra, ads=ads), {7},
+                                as_of=_dt_t.date(2030, 1, 1))
+    lp = r["lifetime_peaks"]
+    assert [w["ad_lord"] for w in lp] == ["A", "B"]
+    assert lp[0]["score"] == lp[1]["score"] == 2.5
+    assert r["lifetime_peak"]["ad_lord"] == "A"          # earliest (back-compat)
+
+
+def test_peak_windows_first_equals_peak_window_singular():
+    # Contract that keeps the singular keys byte-identical: _peak_windows(c)[0]
+    # is exactly what _peak_window(c) returned.
+    cands = [
+        {"ad_lord": "X", "start": "9 Jan 2028", "score": 2.0},
+        {"ad_lord": "Y", "start": "10 Jan 2028", "score": 2.0},
+        {"ad_lord": "Z", "start": "1 Jan 2030", "score": 1.0},
+    ]
+    assert tr._peak_windows(cands)[0] == tr._peak_window(cands)
+    assert [w["ad_lord"] for w in tr._peak_windows(cands)] == ["X", "Y"]  # chrono, tie only
+    assert tr._peak_windows([]) == []
+
+
+def test_render_flags_five_year_tie_and_names_all():
+    ads = [
+        {"lord": "A", "start": "1 Jan 2028", "end": "1 Jan 2029"},
+        {"lord": "B", "start": "1 Jan 2029", "end": "1 Jan 2030"},
+    ]
+    r = tr.build_timing_ranking(_syn_facts(ads=ads), {7}, as_of=_dt_t.date(2027, 1, 1))
+    txt = tr.render_ranking(r)
+    assert "2 windows TIE at the top score" in txt
+    assert "EQUALLY ranked" in txt
+    # both tied windows named in the lead block as bullet items
+    assert txt.count("      * ") >= 2
+
+
+def test_render_single_window_keeps_single_lead():
+    # Default synthetic: only B is in horizon -> one window, no tie language.
+    r = tr.build_timing_ranking(_syn_facts(), {7}, as_of=_dt_t.date(2027, 1, 1))
+    txt = tr.render_ranking(r)
+    assert "LEAD with the NEXT-FIVE-YEARS window" in txt
+    assert "windows TIE at the top score" not in txt
