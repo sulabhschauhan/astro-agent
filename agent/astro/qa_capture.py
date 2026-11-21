@@ -323,6 +323,21 @@ def capture_turn(question: str, result: dict, chart_facts: dict | None = None,
             f"\n---\n\n## TURN {now}",
             f"### question\n{_fence(question)}",
             f"### chart_facts\n{_json_block(chart_facts)}",
+            # THE interpreter's ACTUAL INPUT, verbatim. `trace["fact_block"]` is
+            # the exact string `_fact_block` produced and `interpret` /
+            # `interpret_expert` were handed. The "Tajaka Sahams" and "Maraka /
+            # longevity framework" lines live HERE, never in the `chart_facts`
+            # dict above: sahams are merged at answer time and rendered straight
+            # to text (pipeline `_fact_block`), so they are not a stored fact key,
+            # and grepping the dict for "saham" reads 0 on a perfectly healthy
+            # run. Recording the dict but not this text is why three live reviews
+            # could not tell "did maraka/sahams reach the model?" from the capture
+            # and fell back to inference. Untruncated, same doctrine as the cited
+            # source text below. Absent only on a refusal before block assembly.
+            "### fact block -- EXACT text the interpreter received\n"
+            + (_fence(trace.get("fact_block"))
+               if trace.get("fact_block")
+               else "_no fact block (refused before assembly)_"),
             # BOTH plans: the planner's own output, and what survived the gate.
             # Showing only the post-gate plan hides the gate's effect entirely
             # (S129: a capture showed domains=["marriage"] while dropped_domains
