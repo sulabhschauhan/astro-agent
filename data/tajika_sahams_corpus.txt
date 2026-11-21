@@ -1,0 +1,394 @@
+TAJAKA SAHAMS — INTERPRETIVE CORPUS (Varshaphal / annual technique)
+====================================================================
+
+PURPOSE
+  Interpretive doctrine the expert interpreter reads to speak to a saham's
+  placement in the annual (Varshaphal) chart. The ENGINE
+  (agent/calculations/annual/sahams.py) computes each saham's longitude/house;
+  THIS corpus supplies what that placement MEANS. Pairs with the fact-block
+  saham facts.
+
+SOURCES
+  * Tajika Nilakanthi (Nilakantha Daivajna), Saham adhyaya —
+    data/pdfs/tajika_nilakanthi_hindi_djvu.txt. Line anchors (l.NNNN) are to
+    that file. Devanagari key phrases are quoted so each English gloss is
+    checkable against the source.
+  * B.V. Raman, Varshaphal Ch.VII (§64–76) — English, verbatim OCR, PART 3.
+
+STATUS / FIDELITY
+  The English in PART 1 and PART 2 is CLAUDE'S TRANSLATION of OCR'd Devanagari
+  (Hindi bhasha-tika). There is no published English edition to grade it
+  against, so it is FIDELITY-PENDING until Sulabh (who reads the source)
+  verifies it. Spots where the OCR is broken are marked [OCR?]. PART 3 (Raman)
+  is already-English and carries no translation risk.
+  >>> SULABH VERIFICATION GATE: read each "Nila:" Devanagari line against its
+      English gloss before this corpus is trusted in production. <<<
+
+HOW IT IS SELECTED
+  Each segment carries a double-bracket seg tag (seg-id plus a domains list),
+  of the form shown on every entry below. Ingested into
+  chapter_index_bphs.json (one unit "nila_sahams") + domain_tags_bphs.json
+  (segment-level), so a marriage question pulls the Vivaha saham + general
+  doctrine, a career question pulls Karma/Rajya, etc. "*" = all life-area
+  domains (the general doctrine rides along with any saham).
+  NOTE (architecture, for Sulabh): sahams are an ANNUAL technique but the
+  corpus-selection layer has no natal/annual distinction, so a tag of
+  "marriage" will surface the Vivaha saham on NATAL marriage questions too. If
+  you want sahams annual-only, the planner needs a varshaphal-scope gate — your
+  call (see docs/sahams_pending_derivation_S163.md).
+
+
+====================================================================
+PART 1 — GENERAL RESULTS DOCTRINE  (applies to EVERY saham)
+====================================================================
+
+[[seg: sah_gen_fructify | domains: * ]]
+WHEN A SAHAM FRUCTIFIES. A saham's result ripens in the DASHA (operating
+period) of the saham's LORD (the lord of the sign the saham falls in). This is
+the agreed view; a second method times it by the saham-lord's degrees
+(navamsa). If the saham-lord's dasha runs within the indicated span, the result
+comes in that dasha.
+  Nila l.3729–3744: "सहमेश की दशा हो तब फल होगा, यह सर्वसंमत है … जो दिन मिलें
+  हैं, यदि उनके भीतर तत्स्वामी की दशा ही हो तो दशा ही में फल हो जायगा।"
+
+[[seg: sah_gen_strength | domains: * ]]
+STRENGTH OF A SAHAM. A saham is STRONG when its lord is well placed — in its
+own sign / exaltation / a good (kendra-trikona) house — and carries
+panchavargeeya strength not less than five, and is NOT in a dusthana (6/8/12).
+A saham whose lord is benefic, conjunct or aspected by benefics, and itself
+strong, gives the GOOD results of its significations; a saham whose lord is
+weak/afflicted is barren.
+  Nila l.3764–3775: "जो सहम अपने स्वामी शुभ … से युक्त वा दृष्ट हो तथा सहमेश
+  … बली हो तो … शुभ फल का संभव करता है"; l.3781 "पंचवर्गी में पांच से कम न हो
+  तथा दुःस्थान में न हो।"
+
+[[seg: sah_gen_halfyear | domains: * ]]
+BENEFIC/MALEFIC ASSOCIATION SETS THE HALF-YEAR. (Second half of the year =
+from six months after the varsha-pravesh.)
+  • malefic-conjunct BUT benefic-aspected → first half bad, second half good.
+  • benefic-conjunct BUT malefic-aspected → first half good, second half bad.
+  • malefic-conjunct AND malefic-aspected → the whole year bad.
+  • benefic-conjunct AND benefic-aspected → the whole year good.
+  Nila l.3787–3801 (śloka 33): "पापयुक्त शुभदृष्ट … पूर्वार्ध में अशुभ उत्तरार्ध
+  में शुभ … शुभयुक्त पापदृष्ट … पूर्वार्ध शुभ उत्तरार्ध अशुभ …।"
+
+[[seg: sah_gen_punya_primary | domains: * ]]
+PUNYA IS THE CHIEF SAHAM. Even if other sahams are benefic, they do not deliver
+their good results unless PUNYA is sound. Therefore Punya saham is the FIRST and
+principal consideration in every birth-year.
+  Nila l.3791–3795 (śloka 34): "सहम शुभ भी हो तो शुभ फल नहीं देते, इस कारण
+  पुण्यसहम सभी जन्मवर्ष में मुख्य विचार्य है।"
+
+[[seg: sah_gen_punya_afflicted | domains: spirituality, wealth ]]
+PUNYA AFFLICTED. If Punya saham falls in the 6th, 8th or 12th from lagna and is
+malefic-conjunct in the year, and its lord is combust (dagdha / astangata), it
+destroys dharma, wealth and happiness.
+  Nila l.3803–3808 (śloka 35): "जन्म में पुण्यसहम लग्न से छठा आठवां वा बारहवां
+  हो और वर्ष में पापयुत हो तथा सहमेश दग्ध अस्तंगत हो तो धर्म, धन और सुख का नाश।"
+
+[[seg: sah_gen_inauspicious_reversed | domains: * ]]
+THE REVERSAL RULE (critical). In the aforementioned manner, one should examine
+all the sahams in both the natal and annual charts: when the Punya saham is
+strong, there is gain of wealth and the like. However, when the Roga (disease),
+Ari (enemy), Kali (strife), and Mrityu (death) sahams are strong, they yield the
+opposite [inauspicious] result, corresponding to their names. If these five
+inauspicious sahams — beginning with Roga — are weak, one should predict
+auspicious results in the annual chart and other periods.
+  Nila l.3826–3833 (śloka 36): "पुण्यसहम के बलवान् होने में द्रव्यादि लाभ होता
+  है परंतु रोग अरि कलि मृत्यु इन सहमों के बलवान् होने में विपरीत फल … रोगादि
+  पांच अनिष्ट सहम [यदि] निर्बल [हों] तो वर्षादि में शुभ फल जानना।"
+
+
+====================================================================
+PART 2 — PER-SAHAM SIGNIFICANCE AND RESULTS
+====================================================================
+Each entry: SIGNIFICATION | FORMULA (plain English; the engine is authority) |
+STATUS | PHALA (Nilakantha, where the text gives one).
+
+[[seg: sah_punya | domains: spirituality ]]
+PUNYA (पुण्य) — merit, fortune, religious good. The chief saham (see
+sah_gen_punya_primary). FORMULA day (Moon − Sun) + Lagna; night (Sun − Moon) +
+Lagna. STATUS confirmed. PHALA: see sah_gen_punya_afflicted; Punya strong and
+well-placed is the foundation of a good year.
+
+[[seg: sah_vidya | domains: education ]]
+VIDYA / GURU (विद्या) — learning, knowledge, the preceptor. FORMULA day
+(Sun − Moon) + Lagna; night reversed. STATUS confirmed. Raman "Guru = Preceptor".
+
+[[seg: sah_yasas | domains: career ]]
+YASAS / KIRTHI (यश) — fame, reputation. FORMULA (Jupiter − Punya) + Lagna.
+STATUS confirmed. PHALA: if the Yasas-saham lord is in the 8th house, it destroys
+fame and the native becomes involved in one of the great self-committed sins
+(mahapatakas). When that same lord is in the 8th, conjoined with and aspected by
+malefics, and also combust, it destroys the inherited fame passed down through
+the ancestral lineage (father, grandfather, etc.), ruining the reputation of the
+entire family. When in ithasala with a benefic → growth of fame, victory in war,
+and gain of vehicles; when in ithasala with a malefic → disgrace and loss of
+wealth.
+  Nila l.3874–3882 (ślokas 40–41): "यशसहमाधीश अष्टम स्थान में … यश का नाश …
+  अपने सारे वंश की कीर्ति नाशक है … शुभ इत्थशाली → यश की वृद्धि, युद्ध में जय,
+  वाहन लाभ; पापे → अयश, अर्थनाश।"
+
+[[seg: sah_mitra | domains: * ]]
+MITRA (मित्र) — friends, alliances. FORMULA day (Jupiter − Punya) + Venus;
+night (Punya − Jupiter) + Venus. STATUS confirmed. (No dedicated phala block;
+judged by the general doctrine. Tagged broad — no "friends" life-area domain.)
+
+[[seg: sah_pitru | domains: parents ]]
+PITRU (पितृ) — father. FORMULA (Saturn − Sun) + Lagna. STATUS confirmed. PHALA:
+Pitru saham conjunct/aspected by benefic or own-lord, in good ithasala → wealth,
+growth, honour and happiness THROUGH the father. [If the Pitru-saham lord is
+weak/afflicted] and in a movable sign → the father dies in a foreign land; if in
+a fixed sign → he dies in his own country. When the Pitru-saham lord is in full
+strength (more than 15 vishvas) and placed in an auspicious house → one becomes
+like a king and enjoys growth of fame. The same is to be understood for the
+Matru (mother) saham.
+  Nila l.3883–3896, l.3966 (ślokas ~47–49): "पितृसंबंधी धन वृद्धि मान सुख …
+  चर राशि में हो तो पिता विदेश में मरे, स्थिर राशि में स्वदेश में मरे।"
+
+[[seg: sah_matru | domains: parents ]]
+MATRU (मातृ) — mother. FORMULA (Moon − Venus) + Lagna. STATUS confirmed.
+PHALA: judged exactly as Pitru, read for the mother ("मातृसहम में भी ऐसा ही
+जानना", Nila l.3968).
+
+[[seg: sah_rajya | domains: career ]]
+RAJYA / RAJA (राज्य) — authority, position, political standing. FORMULA
+(Saturn − Sun) + Lagna. STATUS confirmed. Raman "Raja = Political". PHALA: when
+afflicted (cruel/malefic association, malefic ithasala) → loss of kingdom /
+authority / position, and loss of wealth such as gold and the like.
+  Nila l.4018–4022: "राज्यनाश … सुवर्णादि द्रव्यका नाश करते है।"
+
+[[seg: sah_putra | domains: children ]]
+PUTRA (पुत्र) — children. FORMULA (Jupiter − Moon) + Lagna (day or night same in
+Raman). STATUS confirmed. Raman "Putra = Children"; cf. Putra saham in house 5
+→ the native gets a child.
+
+[[seg: sah_jeeva | domains: longevity ]]
+JEEVA (जीव) — life, vitality, livelihood. FORMULA day (Saturn − Jupiter) + Lagna;
+night (Jupiter − Saturn) + Lagna. STATUS confirmed. Raman "Jeeva = Life".
+
+[[seg: sah_karma | domains: career ]]
+KARMA / VYAPARA-of-Raman (कर्म) — work, trade, business, profession. FORMULA
+(Mars − Mercury) + Lagna. STATUS confirmed. NOTE: Raman and Nilakantha both call
+THIS (Mars − Mercury) formula "Vyapara"; JHora's separate "Vyapara" saham is a
+DIFFERENT formula (Mars − Saturn) — see sah_vyapara_jhora. PHALA: Karma saham
+in malefic ithasala → destruction of work; conjunct OR aspected by Saturn →
+especially destroys the career; dagdha (here "पापान्तर्गत" — hemmed between
+malefics / papakartari) or retrograde (vakra) → likewise gives adverse results.
+  Nila l.4015–4020: "कर्म की विकलता (नाश) … शनि से युक्त वा [दृष्ट] हो तो विशेष
+  करके कर्म का नाश।"
+
+[[seg: sah_vivaha | domains: marriage ]]
+VIVAHA (विवाह) — marriage. FORMULA (Venus − Saturn) + Lagna (day or night same).
+STATUS confirmed. Raman "Vivaha = Marriage". PHALA: Vivaha saham conjunct
+own-lord or a benefic, aspected, and in ithasala with a benefic → brings about
+marriage; mixed benefic+malefic → marriage with difficulty.
+  Nila l.3850–3856 (śloka 39): "विवाहसहम स्वस्वामी वा शुभग्रह युक्त … शुभग्रह के
+  साथ इत्थशाली … विवाह प्राप्ति करेगा।"
+
+[[seg: sah_paradara | domains: marriage ]]
+PARADARA (परदार) — illicit union, another's spouse. FORMULA (Venus − Sun) +
+Lagna. STATUS confirmed. (Inauspicious-leaning; judge with the reversal rule.)
+
+[[seg: sah_satru | domains: enemies_conflict ]]
+SATRU (शत्रु) — enemy, foe. FORMULA day (Mars − Saturn) + Lagna; night reversed.
+STATUS confirmed. One of the FIVE INAUSPICIOUS sahams → apply the reversal rule
+(strong = more enmity, weak = relief). Raman "Satru = Foe or Enemy".
+
+[[seg: sah_kali | domains: enemies_conflict ]]
+KALI (कलि) — strife, quarrel, discord. FORMULA (Jupiter − Mars) + Lagna. STATUS
+confirmed. One of the FIVE INAUSPICIOUS sahams. PHALA: Kali saham conjunct both
+benefic and malefic and in ithasala with a malefic → death amid conflict;
+conjunct/aspected by benefic → quick victory in strife; equal benefic+malefic
+aspect → only toil and struggle, no decisive win or loss.
+  Nila l.3843–3849 (śloka 38): "कलि सहम पाप शुभ दोनों ही से युक्त … पापग्रह से
+  इत्थशाली → कलह में मरण; शुभग्रह से युक्त वा दृष्ट → थोड़े ही कलह में जय।"
+
+[[seg: sah_satru_mahatmya | domains: career ]]
+MAHATMYA (माहात्म्य) — greatness, dignity, eminence. FORMULA (Punya − Mars) +
+Lagna. STATUS confirmed. Judge by general doctrine (status/dignity ≈ career).
+
+[[seg: sah_asha | domains: * ]]
+ASHA (आशा) — desire, hope; also "direction". FORMULA (Saturn − Mars) + Lagna.
+STATUS confirmed. Nila gloss l.4045: "आशा इच्छा का नाम है, दिशा का भी नाम है।"
+(No life-area domain — tagged broad.)
+
+[[seg: sah_sraddha | domains: spirituality ]]
+SRADDHA (श्रद्धा) — faith, devotion to dharma; here, trustworthiness/belief.
+FORMULA (Venus − Mars) + Lagna. STATUS confirmed. Nila gloss l.4046: "श्रद्धा
+धर्मकार्य की मति … यहां विश्वासता का अर्थ लेना मुख्य है।"
+
+[[seg: sah_bandhu | domains: siblings ]]
+BANDHU (बन्धु) — kinsmen, relatives (up to seven generations / sapinda). FORMULA
+(Mercury − Moon) + Lagna. STATUS confirmed. Nila gloss l.4049: "बांधवः सपिण्ड
+सातपुरुष पर्यन्त का नाम है।"
+
+[[seg: sah_vanik | domains: wealth ]]
+VANIK (वणिक्) — trade, mercantile business (involving truth and falsehood /
+profit and loss — the buying-and-selling character of commerce). FORMULA
+(Moon − Mercury) + Lagna. STATUS confirmed. Nila gloss l.4050: "सत्यालीक =
+वणिग्भाव" (satyalika = the mercantile nature).
+
+[[seg: sah_bandhana | domains: enemies_conflict ]]
+BANDHANA (बन्धन) — bondage, imprisonment. FORMULA (Punya − Saturn) + Lagna.
+STATUS confirmed. One of the inauspicious set. PHALA: conjunct own-lord or
+benefic and aspected → no fear of prison/bondage; malefic-conjunct/aspected or
+in malefic ithasala → bondage.
+  Nila l.3975–3980 (śloka 51): "बन्धनसहम स्वस्वामी वा शुभग्रह युक्त दृष्टि हो तो
+  बंधन (कारागार) का भय नहीं; पापयुक्त वीक्षित … बंधन।"
+
+[[seg: sah_jadya | domains: health ]]
+JADYA (जाड्य) — dullness, inertia, torpor/chronic infirmity; ignorance.
+FORMULA day (Mars − Saturn) + Mercury; night reversed. STATUS confirmed. Nila
+gloss (l.4043 region): associated with ignorance / forgetfulness / dullness of
+body and mind.
+
+[[seg: sah_sastra | domains: education ]]
+SASTRA / ŚĀSTRA (शास्त्र) — scripture, learning, knowledge of śruti-smriti.
+FORMULA day (Jupiter − Saturn) + Mercury; night (Saturn − Jupiter) + Mercury.
+STATUS confirmed (PROMOTED S163; Nila #22, l.3527–28). Nila gloss l.4038:
+"शास्त्र, श्रुति, स्मृति ज्ञान।"
+
+[[seg: sah_santapa | domains: health ]]
+SANTAPA (संताप) — anguish, mental affliction, sorrow/burning. FORMULA
+(Saturn − Moon) + the 6th-bhava cusp; night reversed. STATUS confirmed
+(PROMOTED S163; Nila #34, l.3560). Inauspicious. Nila gloss l.4047: "आधि
+(मानसी व्यथा), व्याधि, रोग, ताप, संताप — ये सब [संताप] के पर्याय हैं।" (mental
+pain, disease, affliction — all synonyms).
+
+[[seg: sah_karyasiddhi | domains: career ]]
+KARYASIDDHI (कार्यसिद्धि) — accomplishment of undertakings, success in effort.
+FORMULA day (Saturn − Sun) + lord-of-Sun's-sign; NIGHT (Saturn − Moon) +
+lord-of-Moon's-sign [day/night-DISTINCT]. STATUS confirmed (PROMOTED S163; Nila
+#31, l.3530). PHALA: Karyasiddhi saham conjunct/aspected by benefics, or in
+ithasala with a benefic → victory in a contest/undertaking; fully benefic →
+great success; mixed with malefics → success only through struggle. The same
+mode of judging applies to Vivaha and the rest.
+  Nila l.3836–3840 (śloka 37): "कार्यसिद्धि सहम शुभ[ग्रह] से युक्त वा दृष्ट …
+  संग्राम में जय देता है … मिश्र … तो हार-जीत मिली हुई।"
+
+----- Promoted S164 (house-lord terms) + source-only + the one still pending -----
+
+[[seg: sah_artha | domains: wealth ]]
+ARTHA / DHANA (धन) — wealth, acquisition. FORMULA (2nd house cusp − 2nd-house
+lord) + Lagna, no night reversal. STATUS confirmed (Nilakantha Dhana #26 +
+reproduces JHora on 4 charts). PHALA: if conjoined with and aspected by benefics,
+and also in ithasala with a benefic → the native loses/spends previously
+accumulated wealth, then re-accumulates wealth through their own effort along
+with happiness; if conjoined with and aspected exclusively by malefics → total
+loss of wealth. Aspected by an enemy [planet] → fear of enemies and loss of
+wealth through thieves, etc.; aspected by or conjoined with a friendly [planet]
+→ gain of wealth, honour, fame, and happiness.
+  Nila l.3912–3922 (ślokas 45–46): "रिपुदृष्ट्या रिपोर्भीतिः तस्करादे धनक्षयः ॥
+  मित्रदृष्ट्या मित्रयोगाद् धनं मानो यशः सुखम्।"
+
+[[seg: sah_labha | domains: wealth ]]
+LABHA (लाभ) — gain, profit. FORMULA (11th house cusp − 11th-house lord) + Lagna,
+no night reversal. STATUS confirmed (house-lord family, exact parallel of Dhana;
+reproduces JHora on 4 charts). The 11th is the bhava of gains, so a strong,
+benefic Labha saham → fulfilment of desire and profit.
+
+[[seg: sah_gaurava | domains: career ]]
+GAURAVA / GURUTA (गौरव / गुरुता) — honour, eminence, respect. FORMULA
+(Jupiter − Moon) + Sun; night reversed (swap A,B). STATUS confirmed (Nilakantha
+Guruta #45 + reproduces JHora on 4 charts). PHALA: conjunct own-lord/benefic and
+aspected → happiness, royal eminence, fame, prosperity; benefic ithasala →
+wealth, vehicles, fame; malefic-conjunct or malefic ithasala → loss of position
+(authority), loss of wealth, AND loss of happiness. Half-year split per the
+general rule.
+  Nila l.3998–4012 (śloka 53).
+
+[[seg: sah_bhratru | domains: siblings ]]
+BHRATRU (भ्रातृ) — brother(s). FORMULA (Jupiter − Saturn) + Lagna, NO night
+reversal. STATUS confirmed (reproduces JHora on 4 charts; JHora tradition — the
+name is not in Nilakantha's 50). Judge by the general doctrine for siblings.
+
+[[seg: sah_vyapara_jhora | domains: wealth ]]
+VYAPARA-of-JHora (व्यापार, JHora sense) — trade/business. FORMULA (Mars − Saturn)
++ Lagna, NO night reversal. STATUS confirmed (reproduces JHora on 4 charts).
+IMPORTANT: this is JHora's distinct Vyapara. Do NOT conflate with Karma
+(Mars − Mercury), which BOTH Raman and Nilakantha call "Vyapara".
+
+[[seg: sah_roga | domains: health ]]
+ROGA (रोग) — disease. FORMULA (12th house cusp − Moon) + Lagna, NO night
+reversal. STATUS confirmed (reproduces JHora on 4 charts; Nilakantha names Roga
+only as phala, no formula śloka — JHora tradition). One of the FIVE INAUSPICIOUS
+sahams → reversal rule (strong = disease, weak = health). Nila l.3829.
+
+[[seg: sah_preeti | domains: * ]]
+PREETI (प्रीति) — affection, love, amity. FORMULA (Sastra saham − Punya saham) +
+Lagna, reverse-all night. STATUS confirmed (PyJHora saham.py + JHora desktop
+oracle, 4 charts). NOTE JHora uses the Sastra saham here, not Vidya as
+Nilakantha's #36 does.
+
+[[seg: sah_jalapatana | domains: travel ]]
+JALAPATANA (जलपतन) — peril from water / crossing an ocean. FORMULA (15° Cancer =
+fixed 105° − Saturn) + Lagna, reverse-all night. STATUS confirmed (PyJHora
+saham.py + JHora desktop oracle, 4 charts). NOTE JHora uses a FIXED zodiacal
+point (105°), not Nilakantha's Saturn − Moon.
+
+[[seg: sah_paradesa | domains: travel ]]
+PARADESA (परदेश) — foreign countries, residence abroad. FORMULA (9th house cusp −
+9th-house lord) + Lagna, no night reversal. STATUS confirmed (PyJHora saham.py +
+JHora desktop oracle, 4 charts). House-lord family (9th = travel/fortune bhava);
+a strong, benefic Paradesa saham favours gain through foreign lands.
+
+[[seg: sah_mrityu | domains: longevity ]]
+MRITYU (मृत्यु) — the death/longevity sensitive-point. FORMULA (8th house cusp −
+Moon) + Lagna, no night reversal. STATUS confirmed (PyJHora saham.py + JHora
+desktop oracle, 4 charts). One of the inauspicious set → reversal rule (strong =
+its adverse signification, weak = benign). TESTING NOTE (S165, temporary):
+ENABLED for evaluation — discuss its strength and placement, and you MAY engage
+with longevity timing using the classical maraka framework in the fact block
+(maraka-lord dasa/antardasa windows as periods of elevated risk), framed as a
+longevity/risk-and-resilience reading with its classical uncertainty, not as a
+certainty. [To re-block later, restore: "the answer layer suppresses explicit
+mortality statements; background strength context only; never state a time of
+death."]
+
+[[seg: sah_apamrityu | domains: longevity ]]
+APAMRITYU (अपमृत्यु) — the untimely/unnatural-death (accident/sudden-harm)
+sensitive-point. FORMULA (8th house cusp − Mars) + Lagna, reverse-all night.
+STATUS confirmed (PyJHora saham.py + JHora desktop oracle, 4 charts). Inauspicious
+→ reversal rule. TESTING NOTE (S165, temporary): ENABLED for evaluation, same as
+Mrityu — discuss its strength/placement and engage with longevity timing via the
+maraka framework (maraka-lord dasa/antardasa windows as elevated-risk periods),
+framed as a risk-and-resilience reading with classical uncertainty, not a
+certainty. [To re-block later, restore the Mrityu suppression line.]
+
+[[seg: sah_samartha | domains: career ]]
+SAMARTHA (सामर्थ्य) — capability, competence, enterprise. FORMULA (Mars − Lagna-
+lord) + Lagna, reverse-all night; EXCEPTION: if Mars owns the lagna (Aries/
+Scorpio), Jupiter replaces the lagna-lord and day/night flips. STATUS confirmed
+(source: PyJHora horoscope/transit/saham.py; reproduces JHora on all 4 charts).
+Judge for ability/competence in undertakings via the general doctrine.
+
+
+====================================================================
+PART 3 — RAMAN ENGLISH BACKBONE (verbatim OCR, no translation)
+====================================================================
+From B.V. Raman, "Varshaphal or The Hindu Progressed Horoscope", Ch.VII §64–76.
+Zero translation risk — reproduce as-is for the Raman-cited core.
+
+§64 SAHAMS — special positions corresponding to Bhavas. "These are 50 according
+to Nilakantha, 48 according to Venkatesa, and 21 according to Kesava." General
+rule: to find Punya Saham deduct the Sun's longitude from the Moon's (if the
+year commences by day; vice-versa by night). If there is no ascendant between
+the position of minuend and subtrahend, 30° are added to the result; then the
+longitude of the ascendant is always added.
+
+§65 PUNYA (Religious): day Moon − Sun; night Sun − Moon.
+§66 GURU (Vidya): day Sun − Moon; night Moon − Sun.
+§67 KIRTHI (Yasas): day Jupiter − Punya Saham; night Punya − Guru.
+§68 MITRA: day (Guru Saham − Punya Saham) + Sukra; night (Punya + Guru) + Sukra.
+§69 RAJA (Rajya): day Saturn − Sun; night Sun − Saturn.
+§70 PUTRA: day or night Guru (Jupiter) − Chandra (Moon).
+§71 JEEVA: day Saturn − Guru; night Guru − Saturn.
+§72 VYAPARA (= our Karma): day Kuja (Mars) − Budha (Mercury); night reversed.
+§73 VIVAHA: day or night Sukra (Venus) − Sani (Saturn).
+§74 SATRU: day Kuja − Sani; night Sani − Kuja.
+§75 EXPLANATIONS: Punya = Religious/merit, Guru = Preceptor, Kirthi = Fame,
+    Mitra = Friend, Raja = Political, Putra = Children, Jeeva = Life,
+    Vyapara = Trade or Business, Vivaha = Marriage, Satru = Foe or Enemy.
+§76 LORDS OF SAHAMS: the lord of the rasi in which a saham's longitude falls is
+    the lord of that saham.

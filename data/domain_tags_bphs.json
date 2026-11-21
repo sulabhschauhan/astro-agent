@@ -20,7 +20,7 @@
     "technique_method",
     "planetary_nature"
   ],
-  "segment_count": 5187,
+  "segment_count": 5229,
   "segments": [
     {
       "segment_id": "backmatter_s001",
@@ -62417,6 +62417,565 @@
       "confidence": "high",
       "unfittable": false,
       "tokens": 22
+    },
+    {
+      "segment_id": "sah_gen_fructify",
+      "unit_id": "nila_sahams",
+      "ordinal": 1,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 88
+    },
+    {
+      "segment_id": "sah_gen_strength",
+      "unit_id": "nila_sahams",
+      "ordinal": 2,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 110
+    },
+    {
+      "segment_id": "sah_gen_halfyear",
+      "unit_id": "nila_sahams",
+      "ordinal": 3,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 79
+    },
+    {
+      "segment_id": "sah_gen_punya_primary",
+      "unit_id": "nila_sahams",
+      "ordinal": 4,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 56
+    },
+    {
+      "segment_id": "sah_gen_punya_afflicted",
+      "unit_id": "nila_sahams",
+      "ordinal": 5,
+      "domains": [
+        "spirituality",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 65
+    },
+    {
+      "segment_id": "sah_gen_inauspicious_reversed",
+      "unit_id": "nila_sahams",
+      "ordinal": 6,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 154
+    },
+    {
+      "segment_id": "sah_punya",
+      "unit_id": "nila_sahams",
+      "ordinal": 7,
+      "domains": [
+        "spirituality"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 41
+    },
+    {
+      "segment_id": "sah_vidya",
+      "unit_id": "nila_sahams",
+      "ordinal": 8,
+      "domains": [
+        "education"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 24
+    },
+    {
+      "segment_id": "sah_yasas",
+      "unit_id": "nila_sahams",
+      "ordinal": 9,
+      "domains": [
+        "career"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 144
+    },
+    {
+      "segment_id": "sah_mitra",
+      "unit_id": "nila_sahams",
+      "ordinal": 10,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 36
+    },
+    {
+      "segment_id": "sah_pitru",
+      "unit_id": "nila_sahams",
+      "ordinal": 11,
+      "domains": [
+        "parents"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 129
+    },
+    {
+      "segment_id": "sah_matru",
+      "unit_id": "nila_sahams",
+      "ordinal": 12,
+      "domains": [
+        "parents"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 29
+    },
+    {
+      "segment_id": "sah_rajya",
+      "unit_id": "nila_sahams",
+      "ordinal": 13,
+      "domains": [
+        "career"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 55
+    },
+    {
+      "segment_id": "sah_putra",
+      "unit_id": "nila_sahams",
+      "ordinal": 14,
+      "domains": [
+        "children"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 34
+    },
+    {
+      "segment_id": "sah_jeeva",
+      "unit_id": "nila_sahams",
+      "ordinal": 15,
+      "domains": [
+        "longevity"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 25
+    },
+    {
+      "segment_id": "sah_karma",
+      "unit_id": "nila_sahams",
+      "ordinal": 16,
+      "domains": [
+        "career"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 99
+    },
+    {
+      "segment_id": "sah_vivaha",
+      "unit_id": "nila_sahams",
+      "ordinal": 17,
+      "domains": [
+        "marriage"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 63
+    },
+    {
+      "segment_id": "sah_paradara",
+      "unit_id": "nila_sahams",
+      "ordinal": 18,
+      "domains": [
+        "marriage"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 21
+    },
+    {
+      "segment_id": "sah_satru",
+      "unit_id": "nila_sahams",
+      "ordinal": 19,
+      "domains": [
+        "enemies_conflict"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 40
+    },
+    {
+      "segment_id": "sah_kali",
+      "unit_id": "nila_sahams",
+      "ordinal": 20,
+      "domains": [
+        "enemies_conflict"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 90
+    },
+    {
+      "segment_id": "sah_satru_mahatmya",
+      "unit_id": "nila_sahams",
+      "ordinal": 21,
+      "domains": [
+        "career"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 21
+    },
+    {
+      "segment_id": "sah_asha",
+      "unit_id": "nila_sahams",
+      "ordinal": 22,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 34
+    },
+    {
+      "segment_id": "sah_sraddha",
+      "unit_id": "nila_sahams",
+      "ordinal": 23,
+      "domains": [
+        "spirituality"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 32
+    },
+    {
+      "segment_id": "sah_bandhu",
+      "unit_id": "nila_sahams",
+      "ordinal": 24,
+      "domains": [
+        "siblings"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 29
+    },
+    {
+      "segment_id": "sah_vanik",
+      "unit_id": "nila_sahams",
+      "ordinal": 25,
+      "domains": [
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 39
+    },
+    {
+      "segment_id": "sah_bandhana",
+      "unit_id": "nila_sahams",
+      "ordinal": 26,
+      "domains": [
+        "enemies_conflict"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 58
+    },
+    {
+      "segment_id": "sah_jadya",
+      "unit_id": "nila_sahams",
+      "ordinal": 27,
+      "domains": [
+        "health"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 34
+    },
+    {
+      "segment_id": "sah_sastra",
+      "unit_id": "nila_sahams",
+      "ordinal": 28,
+      "domains": [
+        "education"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 37
+    },
+    {
+      "segment_id": "sah_santapa",
+      "unit_id": "nila_sahams",
+      "ordinal": 29,
+      "domains": [
+        "health"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 49
+    },
+    {
+      "segment_id": "sah_karyasiddhi",
+      "unit_id": "nila_sahams",
+      "ordinal": 30,
+      "domains": [
+        "career"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 108
+    },
+    {
+      "segment_id": "sah_artha",
+      "unit_id": "nila_sahams",
+      "ordinal": 31,
+      "domains": [
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 122
+    },
+    {
+      "segment_id": "sah_labha",
+      "unit_id": "nila_sahams",
+      "ordinal": 32,
+      "domains": [
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 49
+    },
+    {
+      "segment_id": "sah_gaurava",
+      "unit_id": "nila_sahams",
+      "ordinal": 33,
+      "domains": [
+        "career"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 74
+    },
+    {
+      "segment_id": "sah_bhratru",
+      "unit_id": "nila_sahams",
+      "ordinal": 34,
+      "domains": [
+        "siblings"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 37
+    },
+    {
+      "segment_id": "sah_vyapara_jhora",
+      "unit_id": "nila_sahams",
+      "ordinal": 35,
+      "domains": [
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 43
+    },
+    {
+      "segment_id": "sah_roga",
+      "unit_id": "nila_sahams",
+      "ordinal": 36,
+      "domains": [
+        "health"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 51
+    },
+    {
+      "segment_id": "sah_preeti",
+      "unit_id": "nila_sahams",
+      "ordinal": 37,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 39
+    },
+    {
+      "segment_id": "sah_jalapatana",
+      "unit_id": "nila_sahams",
+      "ordinal": 38,
+      "domains": [
+        "travel"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 45
+    },
+    {
+      "segment_id": "sah_paradesa",
+      "unit_id": "nila_sahams",
+      "ordinal": 39,
+      "domains": [
+        "travel"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 45
+    },
+    {
+      "segment_id": "sah_mrityu",
+      "unit_id": "nila_sahams",
+      "ordinal": 40,
+      "domains": [
+        "longevity"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 114
+    },
+    {
+      "segment_id": "sah_apamrityu",
+      "unit_id": "nila_sahams",
+      "ordinal": 41,
+      "domains": [
+        "longevity"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 79
+    },
+    {
+      "segment_id": "sah_samartha",
+      "unit_id": "nila_sahams",
+      "ordinal": 42,
+      "domains": [
+        "career"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 326
     }
   ],
   "units": [
@@ -65870,6 +66429,80 @@
         "property": {
           "segment_count": 11,
           "tokens": 2834
+        }
+      }
+    },
+    {
+      "unit_id": "nila_sahams",
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "segment_count": 42,
+      "tokens": 2847,
+      "per_domain": {
+        "career": {
+          "segment_count": 15,
+          "tokens": 1423
+        },
+        "children": {
+          "segment_count": 9,
+          "tokens": 630
+        },
+        "education": {
+          "segment_count": 10,
+          "tokens": 657
+        },
+        "enemies_conflict": {
+          "segment_count": 11,
+          "tokens": 784
+        },
+        "health": {
+          "segment_count": 11,
+          "tokens": 730
+        },
+        "longevity": {
+          "segment_count": 11,
+          "tokens": 814
+        },
+        "marriage": {
+          "segment_count": 10,
+          "tokens": 680
+        },
+        "parents": {
+          "segment_count": 10,
+          "tokens": 754
+        },
+        "property": {
+          "segment_count": 8,
+          "tokens": 596
+        },
+        "siblings": {
+          "segment_count": 10,
+          "tokens": 662
+        },
+        "spirituality": {
+          "segment_count": 11,
+          "tokens": 734
+        },
+        "travel": {
+          "segment_count": 10,
+          "tokens": 686
+        },
+        "wealth": {
+          "segment_count": 13,
+          "tokens": 914
         }
       }
     }
