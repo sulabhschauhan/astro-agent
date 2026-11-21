@@ -53,7 +53,7 @@ def test_fact_block_provides_matches_what_pipeline_actually_renders():
          "aspects", "dignity", "navamsa", "yogas", "dasha_periods", "transits", "shadbala", "ashtakavarga", "jaimini", "divisional",
          "muhurta", "lucky_unlucky",
          "ingress", "combustion", "masa", "friendship", "yogini", "narayana",
-         "ashtottari", "varshaphal", "life_context",
+         "ashtottari", "varshaphal", "life_context", "maraka",
          "kp_seventh_cusp_sub_lord", "kp_cusp_sub_lords", "kp_planet_significations"})
 
 

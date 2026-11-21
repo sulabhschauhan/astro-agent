@@ -48,7 +48,10 @@ __all__ = ["SCHEMA_VERSION", "DEFAULT_CACHE_DIR", "chart_cache_key",
 #   v4 -> v5 (S157): REMOVED "varshaphal" -- it is a DATED fact, composed at
 #       answer time (pipeline.answer_question), not part of this chart-FIXED
 #       block; a pre-existing v4 file carrying it is rebuilt without it.
-SCHEMA_VERSION = 5
+#   v5 -> v6 (S165): added "maraka" fact class (longevity / death-inflicting
+#       lords + their dasa/antardasa risk windows), produced in build_chart_facts
+#       and thus carried in the static block; a v5 file lacks it, so rebuild.
+SCHEMA_VERSION = 6
 
 # MUST be listed in .gitignore -- real birth data is never committed.
 DEFAULT_CACHE_DIR = os.path.join("data", "fact_cache")

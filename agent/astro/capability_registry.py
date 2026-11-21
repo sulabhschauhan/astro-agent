@@ -264,6 +264,48 @@ REGISTRY: tuple[Capability, ...] = (
             "is not available rather than improvising."
         ),
     ),
+    # ----- DASHA PERIOD LOOKUP (S160, A2). A PURE lookup of which dasha/antardasha
+    # the native runs -- NOT a prediction of when a life event happens. kind="chart":
+    # every dasha system (Vimshottari dasha_periods S141, Yogini S152, Narayana S153,
+    # Ashtottari S155) is already on chart_facts by interpret time, so no dispatcher
+    # cable fires -- this is a routing/awareness row only, exactly like varshaphal,
+    # that gives a bare period-lookup a computed-only route (domains=[]) and keeps it
+    # off the corpus timing path. fact_key="dasha_periods" is in FACT_BLOCK_PROVIDES
+    # (growth contract, zero delta). The interpreter reads the WHOLE fact block, so a
+    # Yogini/Narayana/Ashtottari-named lookup is answered from its own intervals even
+    # though this one row keys on dasha_periods. SCOPE GUARD: a question naming a LIFE
+    # EVENT to be timed ("when will I marry") is a PREDICTION and KEEPS timing_dasha +
+    # the corpus path -- enforced by the planner-prompt carve-out, gated on the live
+    # A/B routing probe (no deterministic test possible -- S150 self-sourcing stands).
+    Capability(
+        id="dasha_lookup",
+        intent_gloss=(
+            "WHICH dasha / mahadasha / antardasha / bhukti PERIOD the native is "
+            "running now or on a NAMED date, or a LIST of their periods -- "
+            "Vimshottari, Yogini, Narayana or Ashtottari -- e.g. 'what dasha am I "
+            "in', 'what's my current mahadasha/antardasha', 'when does my Jupiter "
+            "dasha end', 'list my mahadashas', 'what Yogini dasha am I running'. "
+            "This is a LOOKUP of the PERIOD ITSELF. It is NOT 'when will <a life "
+            "event> happen to me' -- that is a prediction and uses the corpus "
+            "timing path (timing_dasha), NEVER this."
+        ),
+        fact_key="dasha_periods",
+        label="Dasha period lookup (Vimshottari/Yogini/Narayana/Ashtottari)",
+        dated=False,
+        kind="chart",
+        needs_chart=False,
+        interpreter_directive=(
+            "The user asked WHICH dasha/sub-period they are in, not when an event "
+            "will befall them. Answer ONLY from the dated dasha intervals already in "
+            "the fact block. Lead with the sub-period running NOW and default to "
+            "FUTURE windows (give a past period only if explicitly asked). If the "
+            "user named a system (Yogini / Narayana / Ashtottari), use THAT system's "
+            "intervals from the block; otherwise use Vimshottari. NEVER compute, "
+            "estimate or shift a period -- every date is pre-computed and carries a "
+            "+/-37-day hedge. If a named dasha system is not in the block, say it is "
+            "not computed yet rather than improvising."
+        ),
+    ),
 )
 
 _BY_ID: dict[str, Capability] = {c.id: c for c in REGISTRY}

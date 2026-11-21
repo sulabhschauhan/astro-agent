@@ -48,6 +48,11 @@ ORACLE = {
         'Bandhana': 39.893056,
         'Artha': 61.455231,
         'Labha': 348.361861,
+        'Preeti': 104.846458,
+        'Jalapatana': 149.196044,
+        'Mrityu': 264.284739,
+        'Paradesa': 254.076561,
+        'Apamrityu': 261.596722,
     }),
     2025: ('DAY', {
         'Punya': 200.931139,
@@ -81,6 +86,11 @@ ORACLE = {
         'Bandhana': 326.501928,
         'Artha': 230.455664,
         'Labha': 191.630144,
+        'Preeti': 9.936928,
+        'Jalapatana': 230.570786,
+        'Mrityu': 336.010206,
+        'Paradesa': 20.353636,
+        'Apamrityu': 311.770578,
     }),
     2026: ('NIGHT', {
         'Punya': 341.409389,
@@ -114,6 +124,11 @@ ORACLE = {
         'Bandhana': 211.9696,
         'Artha': 59.493269,
         'Labha': 340.208872,
+        'Preeti': 327.800392,
+        'Jalapatana': 58.378989,
+        'Mrityu': 20.255975,
+        'Paradesa': 307.807797,
+        'Apamrityu': 123.231306,
     }),
     2027: ('NIGHT', {
         'Punya': 294.444472,
@@ -147,6 +162,11 @@ ORACLE = {
         'Bandhana': 350.803072,
         'Artha': 200.545167,
         'Labha': 174.281931,
+        'Preeti': 343.709231,
+        'Jalapatana': 150.247544,
+        'Mrityu': 53.859675,
+        'Paradesa': 81.346106,
+        'Apamrityu': 296.848567,
     }),
 }
 

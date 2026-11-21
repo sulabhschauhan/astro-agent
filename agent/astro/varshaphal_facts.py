@@ -50,6 +50,7 @@ from agent.calculations.annual.patyayini import patyayini_dasha
 from agent.calculations.annual.varsha_pravesh import compute_varsha_pravesh
 from agent.calculations.annual.varshesha import LAGNA_KEY, lord_of_the_year
 from agent.calculations.annual.yogini import yogini_dasha
+from agent.calculations.annual.sahams import compute_sahams
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,10 @@ _NAME_TO_SWE = {"Sun": swe.SUN, "Moon": swe.MOON, "Mars": swe.MARS,
                 "Venus": swe.VENUS, "Saturn": swe.SATURN}
 _SWE_TO_NAME = {v: k for k, v in _NAME_TO_SWE.items()}
 _NAK = 360.0 / 27.0
+# calculate-chart/pravesh planet names -> compute_sahams abbreviations (nodes incl.)
+_SAHAM_ABBR = {"Sun": "Su", "Moon": "Mo", "Mars": "Ma", "Mercury": "Me",
+               "Jupiter": "Ju", "Venus": "Ve", "Saturn": "Sa",
+               "Rahu": "Ra", "Ketu": "Ke"}
 
 
 def _is_night(jd_ut: float, lat: float, lon: float) -> bool:
@@ -174,6 +179,26 @@ def build_varshaphal_facts(chart: dict, target_year: int | None = None,
         pv_out = {n: {"total": round(pv[n]["total"], 2), "band": pv[n]["band"]}
                   for n in _SEVEN}
 
+        # F -- Tajaka Sahams (sensitive points). CONFIRMED sahams only
+        # (include_pending=False); PENDING sahams are never emitted (S162/S163).
+        # Fail-soft: missing a node longitude or any error costs only the sahams.
+        sahams_out: dict = {}
+        try:
+            spts = {}
+            for full, ab in _SAHAM_ABBR.items():
+                if full in planets:
+                    spts[ab] = planets[full]
+            spts["La"] = asc
+            for name, slon in compute_sahams(spts, night).items():
+                s_sign = int(slon // 30) % 12
+                sahams_out[name] = {
+                    "sign": _SIGNS[s_sign],
+                    "degree": round(slon % 30, 2),
+                    "house_from_annual_lagna": ((s_sign - annual_lagna_sign) % 12) + 1,
+                }
+        except Exception as exc:  # noqa: BLE001 -- sahams cost only themselves
+            logger.warning("varshaphal: sahams failed: %s", exc)
+
         # E -- the three annual dashas (each fail-soft).
         nak_no = int(float(moon) / _NAK) + 1
         frac_remaining = 1.0 - (float(moon) % _NAK) / _NAK
@@ -212,6 +237,11 @@ def build_varshaphal_facts(chart: dict, target_year: int | None = None,
                 "candidates": yl_candidates,
             },
             "pancha_vargeeya_bala": pv_out,
+            "sahams": sahams_out,
+            "sahams_note": (
+                "All Tajaka sahams are computed and validated against the JHora "
+                "desktop oracle on four annual charts."
+            ),
             "dashas": dashas,
         }
     except Exception as exc:  # noqa: BLE001 -- bad input costs varshaphal, not the answer

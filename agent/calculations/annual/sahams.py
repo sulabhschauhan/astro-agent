@@ -37,10 +37,22 @@ class SahamDef:
     b: str
     third: str | None   # None = two-point (close with Lagna); else three-point
     source: str
-    status: str
+    status: str   # CONFIRMED (oracle-validated) | SOURCE (book formula, no oracle
+                  # grade -- emitted, flagged) | PENDING (no formula -- not emitted)
+    no_swap: bool = False   # True = NO night reversal (day form holds day & night),
+                            # e.g. Nila "dinaratri" sahams and JHora's non-reversing
+                            # Vyapara/Bhratru/Roga/Artha/Labha.
+    # Day/night-DISTINCT sahams: when set AND the chart is night, these three
+    # replace (a, b, third) wholesale -- the points themselves change by branch,
+    # which a simple A,B swap cannot express. Karyasiddhi (Nila #31) is the case:
+    # day (Sa-Su)+Lsun, night (Sa-Mo)+Lmoon.
+    night_a: str | None = None
+    night_b: str | None = None
+    night_third: str | None = None
 
 
-# DAY form (a, b[, third]); night swaps a,b for every saham.
+# DAY form (a, b[, third]); night swaps a,b for every saham UNLESS the def carries
+# an explicit night_* triple (day/night-distinct).
 TABLE = [
     # --- CONFIRMED: validated on 2024/25 day + 2026/27 night ---
     SahamDef('Punya', 'Mo', 'Su', None, 'Raman p.34 s65', 'CONFIRMED'),
@@ -64,20 +76,38 @@ TABLE = [
     SahamDef('Vanik', 'Mo', 'Me', None, 'Nila s16 (l.3558)', 'CONFIRMED'),
     SahamDef('Bandhana', 'Punya', 'Sa', None, 'Nila s23 (l.3657)', 'CONFIRMED'),
     SahamDef('Jadya', 'Ma', 'Sa', 'Me', 'Nila s19', 'CONFIRMED'),
-    # --- PENDING: wrong/unverified formula; re-derive from Nilakantha, then
-    #     validate on all four charts before promoting. NOT emitted by default. ---
-    SahamDef('Gaurava', 'Ju', 'Punya', None, 'Nila -- night form unverified', 'PENDING'),
-    SahamDef('Vyapara', 'Ma', 'Sa', None, 'Nila s20 -- diverges from Satru at night', 'PENDING'),
-    SahamDef('Samartha', 'Ju', 'Ma', None, 'Nila -- 2024-coincident w/ Kali; wrong', 'PENDING'),
-    SahamDef('Bhratru', 'Ju', 'Sa', None, 'Nila -- night form unverified', 'PENDING'),
-    SahamDef('Roga', 'Ve', 'Ma', None, 'Nila -- 2024-coincident w/ Sraddha; wrong', 'PENDING'),
-    SahamDef('Sastra', 'Me', 'Sa', 'Ju', 'Nila s13 -- +30 edge unresolved', 'PENDING'),
-    SahamDef('Karyasiddhi', 'Sa', 'Su', 'Lsun', 'Nila s17 -- night form unverified', 'PENDING'),
-    SahamDef('Artha', 'Punya', 'Ve', 'Vidya', 'Nila -- unverified', 'PENDING'),
-    SahamDef('Labha', 'Ma', 'Sa', 'Ra', 'Nila -- unverified', 'PENDING'),
-    SahamDef('Santapa', 'Sa', 'Mo', 'H7', 'Nila s18 -- bhava term unverified', 'PENDING'),
-    SahamDef('Preeti', 'Vidya', 'Punya', 'La', 'Nila s19 -- extra term unresolved', 'PENDING'),
-    SahamDef('Jalapatana', 'Sa', 'Mo', 'La', 'Nila s20 -- extra term unresolved', 'PENDING'),
+    # --- Promoted S163: source shloka + JHora oracle agree on all four charts ---
+    SahamDef('Sastra', 'Ju', 'Sa', 'Me', 'Nila #22 l.3527', 'CONFIRMED'),
+    SahamDef('Santapa', 'Sa', 'Mo', 'H6', 'Nila #34 l.3560 (sixth bhava)', 'CONFIRMED'),
+    SahamDef('Karyasiddhi', 'Sa', 'Su', 'Lsun', 'Nila #31 l.3530 (day/night-distinct)',
+             'CONFIRMED', night_a='Sa', night_b='Mo', night_third='Lmoon'),
+    # --- Promoted S164 (house-lord terms + no-night-swap added). All six
+    #     reproduce JHora on all four charts <0.5deg. Artha is Nilakantha's
+    #     Dhana #26; Gaurava is Nilakantha's Guruta #45; Labha/Bhratru/Vyapara/
+    #     Roga reproduce JHora but the name is not in Nilakantha's 50 (JHora
+    #     tradition) -- shipped on 4-chart oracle match per Sulabh. Note JHora's
+    #     Vyapara (Ma-Sa) is NOT Nilakantha's Vyapara (Ma-Me = Karma). ---
+    SahamDef('Artha', 'H2', 'L2', None, 'Nila Dhana #26 (H2-L2) + oracle', 'CONFIRMED', no_swap=True),
+    SahamDef('Labha', 'H11', 'L11', None, 'house-lord family (H11-L11) + oracle', 'CONFIRMED', no_swap=True),
+    SahamDef('Gaurava', 'Ju', 'Mo', 'Su', 'Nila Guruta #45 + oracle', 'CONFIRMED'),
+    SahamDef('Bhratru', 'Ju', 'Sa', None, 'JHora (Ju-Sa, no reversal) + oracle', 'CONFIRMED', no_swap=True),
+    SahamDef('Vyapara', 'Ma', 'Sa', None, 'JHora (Ma-Sa, no reversal) + oracle', 'CONFIRMED', no_swap=True),
+    SahamDef('Roga', 'H12', 'Mo', None, 'JHora (H12-Mo, no reversal) + oracle', 'CONFIRMED', no_swap=True),
+    # Samartha (S164): PyJHora horoscope/transit/saham.py -- base (Mars - LagnaLord)
+    # + Lagna, reverse-all night; EXCEPTION handled in compute_sahams -- if Mars
+    # owns the lagna sign, Jupiter replaces the lagna lord AND day/night flips.
+    # Validated <0.07deg on all four charts.
+    SahamDef('Samartha', 'Ma', 'L1', None, 'PyJHora saham.py (Mars-LagnaLord; Mars-owns-lagna special)', 'CONFIRMED'),
+    # Preeti/Jalapatana (S165): PyJHora formulas, now oracle-validated against the
+    # JHora v8 desktop Sahama tables (all 4 charts <0.5deg). JHora's formulas
+    # DIFFER from Nilakantha's for both (Sastra not Vidya; 15deg Cancer not Moon).
+    SahamDef('Preeti', 'Sastra', 'Punya', None, 'PyJHora (Sastra-Punya) + desktop oracle', 'CONFIRMED'),
+    SahamDef('Jalapatana', 'Cn15', 'Sa', None, 'PyJHora (15deg Cancer - Saturn) + desktop oracle', 'CONFIRMED'),
+    # The three "death"-group sahams (S165): PyJHora formulas, desktop-oracle
+    # validated (<0.5deg, 4 charts). The answer layer suppresses these by prompt.
+    SahamDef('Mrityu', 'H8', 'Mo', None, 'PyJHora (8th-Moon) + desktop oracle', 'CONFIRMED', no_swap=True),
+    SahamDef('Paradesa', 'H9', 'L9', None, 'PyJHora (9th-9thlord) + desktop oracle', 'CONFIRMED', no_swap=True),
+    SahamDef('Apamrityu', 'H8', 'Ma', None, 'PyJHora (8th-Mars) + desktop oracle', 'CONFIRMED'),
 ]
 
 _REQUIRED = ('Su', 'Mo', 'Ma', 'Me', 'Ju', 'Ve', 'Sa', 'Ra', 'Ke', 'La')
@@ -86,10 +116,15 @@ _REQUIRED = ('Su', 'Mo', 'Ma', 'Me', 'Ju', 'Ve', 'Sa', 'Ra', 'Ke', 'La')
 def _resolve(pts: dict) -> dict:
     t = dict(pts)
     la = pts['La']
+    lagna_sign = int(la // 30) % 12
     for k in range(1, 13):
         t[f'H{k}'] = (la + (k - 1) * 30.0) % 360.0
+        # L1..L12: lord of the sign on each house cusp (house-lord). Nilakantha
+        # uses these for the bhava sahams -- Dhana/Artha = (H2 - L2) + lagna, etc.
+        t[f'L{k}'] = pts[_SIGN_LORD[(lagna_sign + k - 1) % 12]]
     t['Lsun'] = pts[_SIGN_LORD[int(pts['Su'] // 30)]]
     t['Lmoon'] = pts[_SIGN_LORD[int(pts['Mo'] // 30)]]
+    t['Cn15'] = 105.0   # fixed zodiacal point 15 deg Cancer (JHora's Jalapatana)
     return t
 
 
@@ -103,8 +138,11 @@ def _saham(a: float, b: float, la: float, close: float | None = None) -> float:
 def compute_sahams(pts: dict, night: bool, include_pending: bool = False) -> dict:
     """pts: annual longitudes {'Su','Mo','Ma','Me','Ju','Ve','Sa','Ra','Ke','La'}.
 
-    Returns {saham_name: longitude_deg}. Night swaps A,B for every saham. Fail-soft
-    per saham. PENDING sahams emitted only when include_pending=True.
+    Returns {saham_name: longitude_deg}. At night A,B swap by default, UNLESS the
+    def sets no_swap (day form holds) or carries a night_* triple (day/night-
+    distinct). CONFIRMED (oracle-validated) and SOURCE (book formula, no oracle
+    grade) sahams are emitted; PENDING only when include_pending=True. Fail-soft
+    per saham.
     """
     for k in _REQUIRED:
         if k not in pts:
@@ -121,9 +159,22 @@ def compute_sahams(pts: dict, night: bool, include_pending: bool = False) -> dic
         if d.status == 'PENDING' and not include_pending:
             continue
         try:
-            a, b = (d.b, d.a) if night else (d.a, d.b)
-            close = t[d.third] if d.third else None
+            _b, _night = d.b, night
+            # Samartha (PyJHora): if Mars owns the lagna sign, substitute Jupiter
+            # for the lagna lord AND flip day/night (their "swap ABC" exception).
+            if d.name == 'Samartha' and _SIGN_LORD[int(la // 30) % 12] == 'Ma':
+                _b, _night = 'Ju', not night
+            if _night and d.night_a is not None:
+                # day/night-DISTINCT: the night triple replaces (a,b,third) wholesale
+                a, b, third = d.night_a, d.night_b, d.night_third
+            elif _night and not d.no_swap:
+                a, b, third = _b, d.a, d.third   # reverse-all (A,B swap)
+            else:
+                a, b, third = d.a, _b, d.third   # day form (also night if no_swap)
+            close = t[third] if third else None
             out[d.name] = _saham(t[a], t[b], la, close)
+            t[d.name] = out[d.name]   # make it available as a component to later
+            # sahams in TABLE order (e.g. Preeti = Sastra - Punya + Lagna).
         except Exception:
             continue
     return out

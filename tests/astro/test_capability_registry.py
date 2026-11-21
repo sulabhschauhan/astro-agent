@@ -44,6 +44,24 @@ def test_varshaphal_capability_present():
     assert vp.interpreter_directive, "a capability must carry a directive"
 
 
+def test_dasha_lookup_capability_present():
+    # S160 (A2): a PURE dasha-period lookup is routable as a computed capability so
+    # it takes the computed-only route (domains=[]) instead of the corpus timing
+    # path. Routing/awareness row only -- kind="chart" (every dasha system is already
+    # on chart_facts at interpret time), so no dispatcher cable fires for it, exactly
+    # like varshaphal. fact_key is dasha_periods (already in FACT_BLOCK_PROVIDES --
+    # the growth-contract test below is unchanged, zero delta).
+    dl = cr.get("dasha_lookup")
+    assert dl is not None
+    assert dl.fact_key == "dasha_periods"
+    assert dl.dated is False
+    assert dl.kind == "chart"
+    assert dl.needs_chart is False
+    assert dl.id not in cr.timeline_capability_ids()
+    assert dl.id not in cr.live_capability_ids()
+    assert dl.interpreter_directive, "a capability must carry a directive"
+
+
 def test_get_unknown_returns_none():
     assert cr.get("does_not_exist") is None
 

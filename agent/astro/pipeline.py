@@ -635,6 +635,20 @@ def _fact_block(chart_facts: dict, display_zone: str = tz_display.UT) -> str:
                              for _n, _v in _pv.items())
             lines.append(
                 f"  Pancha-vargeeya bala (annual strength, relative): {_pvs}.")
+        _sah = vp.get("sahams") or {}
+        if _sah:
+            _sahs = ", ".join(
+                f"{_n} {_d.get('sign')} {_d.get('degree')} deg "
+                f"(house {_d.get('house_from_annual_lagna')})"
+                for _n, _d in _sah.items())
+            lines.append(
+                f"  Tajaka Sahams (annual sensitive points -- interpret via the "
+                f"retrieved saham doctrine; keystones: a saham's result ripens in "
+                f"the dasa of its LORD, and the inauspicious sahams (Roga, Satru, "
+                f"Kali, Mrityu, etc.) give their adverse result when STRONG and a "
+                f"benign one when weak): {_sahs}.")
+            if vp.get("sahams_note"):
+                lines.append(f"  {vp['sahams_note']}")
         _dashas = vp.get("dashas") or {}
         for _dk, _dlabel in (("mudda", "Mudda"), ("patyayini", "Patyayini"),
                              ("yogini", "Yogini")):
@@ -881,6 +895,37 @@ def _fact_block(chart_facts: dict, display_zone: str = tz_display.UT) -> str:
         note = dasha.get("drift_note")
         if note:
             lines.append(f"  Note on precision: {note}")
+
+    # MARAKA / LONGEVITY (S165). Restated from the house-lords + dasha tree by
+    # agent.astro.maraka_facts.build_maraka_facts (composed into chart_facts).
+    # The 2nd/7th lords (maraka), the 8th lord and Saturn (Ayushkaraka); the
+    # dasa/antardasa windows they rule are periods of ELEVATED RISK -- never a
+    # death date (the caveat carries BPHS 43.2 / 44.12). Cross-reads with the
+    # Mrityu/Apamrityu sahams in the varshaphal block.
+    # GROWTH CONTRACT: "maraka" is in capability_gate.FACT_BLOCK_PROVIDES.
+    mar = chart_facts.get("maraka") or {}
+    if mar.get("maraka_planets"):
+        lines.append("")
+        _mp = "; ".join(f"{_p} ({', '.join(_r)})"
+                        for _p, _r in mar["maraka_planets"].items())
+        lines.append("Maraka / longevity framework (classical vitality-and-"
+                     "mortality indicators): " + _mp + ".")
+        _mwin = mar.get("risk_windows") or []
+        if _mwin:
+            lines.append("  Maraka-ruled periods (ELEVATED-RISK windows -- a "
+                         "maraka-lord's dasa/antardasa, NOT a death date):")
+            for _w in _mwin:
+                _ph = {"past": " [past]", "current": " [CURRENT]",
+                       "future": " [upcoming]"}.get(_w.get("phase"), "")
+                if _w.get("level") == "mahadasha":
+                    lines.append(f"    {_w.get('lord')} major period "
+                                 f"({_w.get('start')} to {_w.get('end')}){_ph}")
+                else:
+                    lines.append(f"      {_w.get('lord')} sub-period under "
+                                 f"{_w.get('under_mahadasha')} "
+                                 f"({_w.get('start')} to {_w.get('end')}){_ph}")
+        if mar.get("caveat"):
+            lines.append(f"  {mar['caveat']}")
 
     # KP (S143). The 7th house cusp's sub-lord (Krishnamurti Paddhati),
     # restated from chart['meta']['house_cusps_kp_sidereal'] -- a DIFFERENT

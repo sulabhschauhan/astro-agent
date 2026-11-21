@@ -26,6 +26,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from agent.astro.maraka_facts import build_maraka_facts
+
 __all__ = ["ChartFactsError", "build_chart_facts"]
 
 _EXPECTED_HOUSES = frozenset(range(1, 13))
@@ -82,6 +84,11 @@ def build_chart_facts(chart: dict) -> dict:
         facts["navamsa"] = navamsa
     if dasha:
         facts["dasha_periods"] = dasha
+    # Maraka (longevity / death-inflicting) layer -- a RESTATE derived from the
+    # house-lords + dasha tree just assembled; fail-soft, additive (S165).
+    maraka = build_maraka_facts(facts)
+    if maraka:
+        facts["maraka"] = maraka
     return facts
 
 

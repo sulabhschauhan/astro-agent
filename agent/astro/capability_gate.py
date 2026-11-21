@@ -227,6 +227,14 @@ FACT_BLOCK_PROVIDES: frozenset[str] = frozenset({
                            # only, never a prediction (the interpreter is told so
                            # inline in _fact_block). Additive, no predicate, no
                            # REQUIREMENT.
+    "maraka",              # S165. Longevity / death-inflicting framework, RESTATED
+                           # from house-lords + dasha tree by agent.astro.
+                           # maraka_facts.build_maraka_facts: the 2nd/7th lords
+                           # (maraka), 8th lord, and Saturn (Ayushkaraka), plus the
+                           # dasa/antardasa windows they rule as ELEVATED-RISK
+                           # periods. Carries the BPHS 43.2/44.12 uncertainty caveat
+                           # -- risk windows, NEVER a death date. Additive context,
+                           # no predicate, no REQUIREMENT.
 })
 
 
