@@ -58,16 +58,31 @@ or V2 scope expansion makes the gap user-visible.
   aberration, mean vs true equinox, tradition-specific correction
   constant)?
 
-### Gap D2: Pratyantar dasha suppressed
+### Gap D2: Pratyantar dasha suppressed -- CLOSED S170, DO NOT REOPEN
 
-- **Symptom:** ±37 day drift + wrong lord assignment in prior
-  implementation.
-- **Root cause:** not investigated at implementation depth; suppressed
-  at architecture layer.
-- **Impact on V1:** none (Pratyantar Dasha not exposed in V1 scope).
-- **Expert question:** is our PD lord ordering formula matching
-  classical? Or is drift purely a downstream effect of Gap D1,
-  amplified at PD nesting?
+- **Status:** CLOSED S170. Suppression STANDS; the recorded reason is
+  corrected. Do not re-litigate.
+- **Old (wrong) reason:** "+/-37 day drift + wrong lord assignment in prior
+  implementation." Disproved -- the +/-37 was an un-investigated day-one
+  precaution stated only vs AstroSage. The measured drift is Gap D1
+  (0.3-2.8 days, non-compounding, S76), and the PD duration formula is the
+  standard `antardasha_years * pd_planet_years / 120`. The math was never
+  the problem.
+- **Correct reason PD stays suppressed:** a pratyantar is weeks-to-months
+  long, so its dates are governed by BIRTH-TIME precision, not ephemeris
+  drift. A 10-minute birth-time error slides the whole dasha ladder ~6-7
+  weeks (longer than many pratyantars); the product supports approximate
+  birth times (`birth_time_confident=False`), which cannot carry PD-level
+  timing. AD + Saturn/Jupiter transits already answer "when" at the
+  granularity the product surfaces, and classical practice reads PD against
+  those same transits. Net: PD gives false precision to the approximate-time
+  majority and only marginal, transit-duplicating value to the minute-precise
+  minority.
+- **Reopen only if:** the product gains a first-class rectified/confident
+  birth-time path AND there is demonstrated demand for sub-month event
+  timing. Then gate PD on `birth_time_confident=True`, present it with the
+  running transit, and first run the 4-chart JHora PD oracle (the one dasha
+  level that never ran it).
 
 ---
 

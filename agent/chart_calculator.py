@@ -495,13 +495,29 @@ def _calc_dasha(moon_lon: float, birth_local: datetime) -> dict:
     """
     # DASHA ACCURACY NOTE:
     # Current implementation uses pyswisseph with Lahiri ayanamsha.
-    # Known drift: ±37 days at Antardasha level vs AstroSage.
-    # Pratyantar dates computed but suppressed from output — wrong lord
-    # at this granularity due to drift.
-    # Same class of irreducible cross-ephemeris discrepancy as the
+    # Mahadasha + Antardasha boundaries carry the fixed Gap D1
+    # balance-at-birth offset (measured 0.3-2.8 days across the 4 reference
+    # charts, S76; non-compounding -- ratio math preserves durations). Same
+    # class of irreducible cross-ephemeris discrepancy as the
     # boundary-sensitivity helper (is_boundary_sensitive) and the
-    # solar-return epoch offset (calculate_solar_return) — see their
-    # cross-reference comments.
+    # solar-return epoch offset (calculate_solar_return).
+    #
+    # PRATYANTAR SUPPRESSION -- CLOSED S170, DO NOT REOPEN.
+    # Pratyantar (3rd level) dates are computed below but NOT surfaced.
+    # The old reason once recorded here ("+/-37-day drift, wrong lord vs
+    # AstroSage") was a day-one architecture-layer precaution, never
+    # investigated (KNOWN_DIVERGENCES D2), and is WRONG: the measured drift
+    # is Gap D1's 0.3-2.8d (not 37d), and the PD duration formula is the
+    # standard one (antardasha_years * pd_planet_years / 120). The math was
+    # never the problem. REAL reason PD stays suppressed: a pratyantar is
+    # only weeks-to-months long, so its dates are governed by BIRTH-TIME
+    # precision -- a 10-min birth-time error slides the whole ladder ~6-7
+    # weeks, longer than many pratyantars. The product supports approximate
+    # birth times (birth_time_confident=False), which cannot carry PD-level
+    # timing; and AD + Saturn/Jupiter transits already answer "when" at the
+    # granularity we surface. PD adds false precision for the majority and
+    # only marginal, transit-duplicating value for the minute-precise
+    # minority. See KNOWN_DIVERGENCES.md D2.
     #
     # BACKUP PLAN — Prokerala API (validated, not built):
     # Endpoint: GET /astrology/kundli/advanced
@@ -564,8 +580,9 @@ def _calc_dasha(moon_lon: float, birth_local: datetime) -> dict:
                       if a["start"] == current_ad["start"])
         next_5_ad = ad_list[ad_idx + 1: ad_idx + 6]
 
-        # Not surfaced to users — ±37-day drift
-        # causes wrong lord at Pratyantar granularity.
+        # Not surfaced to users -- see the DASHA ACCURACY NOTE above
+        # (PRATYANTAR SUPPRESSION, CLOSED S170): PD precision is birth-time
+        # -bound, not an ephemeris-drift problem.
         # Integration point for Prokerala API.
         # Pratyantars within current antardasha
         ad_lord = current_ad["lord"]
@@ -637,7 +654,8 @@ def _calc_dasha(moon_lon: float, birth_local: datetime) -> dict:
     # fabricated a Mercury antardasha only because it was absent from the facts).
     # The birth MD (index 0) is a truncated balance: its sub-periods are a
     # partial tail, so it is a window-only node with no antardashas. Pratyantar
-    # stays out entirely (the +/-37-day wrong-lord drift).
+    # stays out entirely (PRATYANTAR SUPPRESSION, CLOSED S170 -- birth-time
+    # -bound precision, not an ephemeris drift; see DASHA ACCURACY NOTE).
     mahadasha_tree: list[dict] = []
     for i, md in enumerate(timeline[:maha_idx + 4]):
         phase = "past" if i < maha_idx else ("current" if i == maha_idx else "future")
