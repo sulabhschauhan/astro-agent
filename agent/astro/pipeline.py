@@ -910,20 +910,96 @@ def _fact_block(chart_facts: dict, display_zone: str = tz_display.UT) -> str:
                         for _p, _r in mar["maraka_planets"].items())
         lines.append("Maraka / longevity framework (classical vitality-and-"
                      "mortality indicators): " + _mp + ".")
+        lines.append(
+            "  READ THIS WHOLISTICALLY -- never from the maraka side alone (a "
+            "single-factor reading is what falsifies). Weigh the marakas' STRENGTH "
+            "and the PROTECTIVE / arishta-bhanga factors together. Give a "
+            "QUALITATIVE resilience picture + specific caution windows BY KIND; "
+            "NEVER a lifespan number -- a precise span is unsourced (PVR rejects "
+            "the number-methods) and unverifiable. If you name a classical band, "
+            "attribute it to the tradition and state its uncertainty.")
         _mwin = mar.get("risk_windows") or []
         if _mwin:
-            lines.append("  Maraka-ruled periods (ELEVATED-RISK windows -- a "
-                         "maraka-lord's dasa/antardasa, NOT a death date):")
+            lines.append(
+                "  Periods ruled by these planets -- DISTINGUISH THE KIND: "
+                "[maraka] = 2nd/7th lord, life-inflicting; [randhra] = 8th lord, "
+                "transition / upheaval / chronic-health attention, NOT a death "
+                "flag; [ayushkaraka] = the lifespan significator. Never a death "
+                "date:")
             for _w in _mwin:
                 _ph = {"past": " [past]", "current": " [CURRENT]",
                        "future": " [upcoming]"}.get(_w.get("phase"), "")
+                _kd = "+".join(_w.get("kinds") or []) or "longevity"
                 if _w.get("level") == "mahadasha":
                     lines.append(f"    {_w.get('lord')} major period "
-                                 f"({_w.get('start')} to {_w.get('end')}){_ph}")
+                                 f"({_w.get('start')} to {_w.get('end')}) "
+                                 f"[{_kd}]{_ph}")
                 else:
                     lines.append(f"      {_w.get('lord')} sub-period under "
                                  f"{_w.get('under_mahadasha')} "
-                                 f"({_w.get('start')} to {_w.get('end')}){_ph}")
+                                 f"({_w.get('start')} to {_w.get('end')}) "
+                                 f"[{_kd}]{_ph}")
+        # STRENGTH of each maraka/longevity planet (S167): real shadbala + flags.
+        # A weak maraka is a feeble killer; a strong Ayushkaraka protects. The
+        # interpreter weighs these -- the calc emits parameters, never a score.
+        _mstr = mar.get("maraka_strength") or {}
+        if _mstr:
+            lines.append("  Strength of these planets (shadbala rupa; a maraka's "
+                         "power to act scales with its strength):")
+            for _p, _s in _mstr.items():
+                _sb = _s.get("shadbala") or {}
+                _rp = _sb.get("rupa")
+                _str = (f"rupa {_rp}, "
+                        f"{'meets' if _sb.get('meets_minimum') else 'below'} the "
+                        f"classical minimum") if _rp is not None else \
+                       "no shadbala (node)"
+                _flags = []
+                if _s.get("natural_malefic"):
+                    _flags.append("natural malefic")
+                if _s.get("benefic_save_present"):
+                    _flags.append("benefic-aspected/saved")
+                if _s.get("afflicts_2") or _s.get("afflicts_7"):
+                    _flags.append("afflicts a maraka house")
+                _fl = ("; " + ", ".join(_flags)) if _flags else ""
+                lines.append(f"    {_p}: {_str}{_fl}")
+        # PROTECTIVE / arishta-bhanga factors (S167) -- the counterbalance that a
+        # raw longevity number ignores. Weigh them AGAINST the maraka side.
+        _prot = mar.get("protective_factors") or {}
+        if _prot:
+            lines.append("  Protective / arishta-bhanga factors (strong "
+                         "protections cancel or soften early-death indications):")
+            _ak = _prot.get("ayushkaraka") or {}
+            _aksb = _ak.get("shadbala") or {}
+            if _ak.get("planet"):
+                lines.append(
+                    f"    Ayushkaraka {_ak.get('planet')} in house "
+                    f"{_ak.get('house')} ({_ak.get('sign')}), rupa "
+                    f"{_aksb.get('rupa')} "
+                    f"({'strong' if _aksb.get('meets_minimum') else 'weak'})")
+            _lg = _prot.get("lagna") or {}
+            if _lg.get("sign"):
+                _lba = _lg.get("benefic_aspects") or []
+                lines.append(
+                    f"    Lagna {_lg.get('sign')}; benefic aspects to it: "
+                    f"{', '.join(_lba) if _lba else 'none'}")
+            _ll = _prot.get("lagna_lord") or {}
+            _llsb = _ll.get("shadbala") or {}
+            if _ll.get("planet"):
+                _llba = _ll.get("benefic_aspects") or []
+                _llm = (" (strong)" if _llsb.get("meets_minimum")
+                        else " (weak)" if _llsb.get("rupa") is not None else "")
+                lines.append(
+                    f"    Lagna lord {_ll.get('planet')} rupa "
+                    f"{_llsb.get('rupa')}{_llm}; "
+                    f"benefic aspects: {', '.join(_llba) if _llba else 'none'}")
+            for _hk, _hl in (("third_lord", "3rd"), ("eighth_lord", "8th")):
+                _h = _prot.get(_hk) or {}
+                _hsb = _h.get("shadbala") or {}
+                if _h.get("planet"):
+                    _hm = (" (strong)" if _hsb.get("meets_minimum")
+                           else " (weak)" if _hsb.get("rupa") is not None else "")
+                    lines.append(f"    {_hl}-house lord {_h.get('planet')} "
+                                 f"rupa {_hsb.get('rupa')}{_hm}")
         if mar.get("caveat"):
             lines.append(f"  {mar['caveat']}")
 

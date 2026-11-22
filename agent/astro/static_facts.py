@@ -32,6 +32,8 @@ from agent.astro.transit_facts import build_transit_facts
 from agent.astro.kp_facts import build_kp_facts
 from agent.astro.kp_significator_facts import build_kp_significator_facts
 from agent.astro.shadbala_facts import build_shadbala_facts
+from agent.astro.maraka_facts import build_maraka_strength_facts
+from agent.astro.protective_facts import build_protective_facts
 from agent.astro.ashtakavarga_facts import build_ashtakavarga_facts
 from agent.astro.jaimini_facts import build_jaimini_facts
 from agent.astro.divisional_facts import build_divisional_facts
@@ -88,6 +90,24 @@ def build_static_facts(chart: dict) -> dict:
     _compose(facts, "kp_planet_significations",
              lambda: build_kp_significator_facts(_chart))
     _compose(facts, "shadbala", lambda: build_shadbala_facts(_chart))
+    # MARAKA STRENGTH enrichment (S167 longevity build). build_chart_facts set the
+    # base `maraka` block off house-lords + dasha; the strength params need shadbala
+    # (composed just above), so they attach HERE, into the existing `maraka` key --
+    # NO new top-level key, so capability_gate.FACT_BLOCK_PROVIDES is unchanged.
+    # PROTECTIVE / Arishta-bhanga factors -- the counterbalance to the maraka
+    # side; also needs shadbala, also nests under `maraka` (one coherent
+    # longevity block, no new FACT_BLOCK_PROVIDES entry).
+    try:
+        if facts.get("maraka"):
+            strength = build_maraka_strength_facts(facts)
+            if strength:
+                facts["maraka"]["maraka_strength"] = strength
+            protective = build_protective_facts(facts)
+            if protective:
+                facts["maraka"]["protective_factors"] = protective
+    except Exception as exc:  # noqa: BLE001 -- longevity enrichment costs only itself
+        logger.warning("maraka strength/protective unavailable: %s: %s",
+                       type(exc).__name__, exc)
     _compose(facts, "ashtakavarga", lambda: build_ashtakavarga_facts(_chart))
     _compose(facts, "jaimini", lambda: build_jaimini_facts(_chart))
     _compose(facts, "divisional", lambda: build_divisional_facts(_chart))

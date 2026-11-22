@@ -27,7 +27,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["build_maraka_facts"]
+__all__ = ["build_maraka_facts", "build_maraka_strength_facts"]
 
 # 2nd & 7th = maraka houses; 8th = longevity (randhra); Saturn = Ayushkaraka.
 _MARAKA_HOUSE_ROLES = {
@@ -36,6 +36,36 @@ _MARAKA_HOUSE_ROLES = {
     8: "8th lord (longevity / randhra)",
 }
 _AYUSHKARAKA = "Saturn"
+
+# Natural malefics -- the FIXED classical set only. Mercury (malefic by
+# association) and the Moon (malefic when waning) are CONTEXTUAL and are
+# deliberately NOT classified here: the corpus doctrine, applied by the
+# interpreter, decides their valence (S167 -- no hardcoded per-planet rule).
+_NATURAL_MALEFICS = {"Sun", "Mars", "Saturn", "Rahu", "Ketu"}
+# Natural benefics used ONLY for the protective "benefic save" flag; Mercury/
+# Moon excluded for the same contextual reason.
+_NATURAL_BENEFICS = {"Jupiter", "Venus"}
+
+# A window's role maps to a KIND -- the DEFINITIONAL distinction the engine
+# already draws (2nd/7th = maraka houses; 8th = randhra; Saturn = Ayushkaraka),
+# surfaced so the interpreter never conflates a death-inflicting (maraka) period
+# with a transition/upheaval (randhra) one or the lifespan significator
+# (S167 window-kind separation). This is NOT a health-vs-death classifier --
+# it is the role label the calc already produces, normalised.
+_ROLE_KIND = {
+    "2nd lord (maraka)": "maraka",
+    "7th lord (maraka)": "maraka",
+    "8th lord (longevity / randhra)": "randhra",
+    "Ayushkaraka (lifespan significator)": "ayushkaraka",
+}
+
+
+def _kinds_of(roles: list[str]) -> list[str]:
+    """Normalise a planet's maraka/longevity roles to their definitional KINDs
+    (maraka / randhra / ayushkaraka), deduped and ordered. A planet can carry
+    more than one (Saturn = 2nd-lord maraka AND Ayushkaraka)."""
+    kinds = {_ROLE_KIND[r] for r in roles if r in _ROLE_KIND}
+    return [k for k in ("maraka", "randhra", "ayushkaraka") if k in kinds]
 
 
 def _lord_of(house_lords: dict, house: int) -> str | None:
@@ -82,6 +112,7 @@ def build_maraka_facts(chart_facts: dict) -> dict:
             if md_lord in roles:
                 windows.append({
                     "level": "mahadasha", "lord": md_lord, "roles": roles[md_lord],
+                    "kinds": _kinds_of(roles[md_lord]),
                     "start": md.get("start"), "end": md.get("end"), "phase": md_phase,
                 })
             for ad in node.get("antardashas") or []:
@@ -89,6 +120,7 @@ def build_maraka_facts(chart_facts: dict) -> dict:
                 if ad_lord in roles:
                     windows.append({
                         "level": "antardasha", "lord": ad_lord, "roles": roles[ad_lord],
+                        "kinds": _kinds_of(roles[ad_lord]),
                         "under_mahadasha": md_lord, "start": ad.get("start"),
                         "end": ad.get("end"), "phase": md_phase,
                     })
@@ -107,4 +139,90 @@ def build_maraka_facts(chart_facts: dict) -> dict:
         }
     except Exception as exc:  # noqa: BLE001 -- maraka costs only itself
         logger.warning("build_maraka_facts failed; omitting maraka: %s", exc)
+        return {}
+
+
+def _planet_house(facts: dict, planet: str) -> int | None:
+    pos = (facts.get("planet_positions") or {}).get(planet) or {}
+    h = pos.get("house")
+    return h if isinstance(h, int) else None
+
+
+def _shadbala_of(shadbala_planets: dict, planet: str) -> dict | None:
+    """Read-through of the REAL shadbala row; None for grahas with no shadbala
+    (Rahu/Ketu) or a malformed source. Never invents a value."""
+    row = shadbala_planets.get(planet)
+    if not isinstance(row, dict):
+        return None
+    return {
+        "rupa": row.get("rupa"),
+        "ratio": row.get("ratio"),
+        "meets_minimum": row.get("meets_minimum"),
+        "rank": row.get("rank"),
+    }
+
+
+def build_maraka_strength_facts(facts: dict) -> dict:
+    """Strength PARAMETERS for each maraka / longevity planet (S167 longevity build).
+
+    ENRICHMENT PASS. Unlike build_maraka_facts (which runs inside build_chart_facts
+    off house-lords + dasha alone), this needs shadbala, so it MUST be called from
+    static_facts AFTER the shadbala composer has run -- `facts["shadbala"]` does not
+    exist yet inside build_chart_facts. Reads only already-composed facts; computes
+    no chart fact (P-022).
+
+    Emits, per maraka planet build_maraka_facts already identified: structural flags
+    (lord roles, natural_malefic, afflicts_2/7, benefic_save_present) + a read-
+    through of the REAL shadbala virupas. There is NO invented importance weight, NO
+    composite score and NO verdict here -- what a strong-or-weak maraka MEANS is
+    corpus doctrine, applied by the interpreter (S166 locked decision: parameters
+    from calcs, importance from corpus).
+
+    Args:
+        facts: the assembled static fact block AFTER shadbala -- reads
+            ``maraka.maraka_planets``, ``shadbala.planets``, ``planet_positions``
+            and ``aspects`` (aspects_by_planet / aspected_by).
+
+    Returns:
+        {planet: {params}} or {} on any missing input (fail-soft). Never raises.
+    """
+    try:
+        maraka = (facts or {}).get("maraka") or {}
+        planets = maraka.get("maraka_planets") or {}
+        if not planets:
+            return {}
+        shadbala = ((facts.get("shadbala") or {}).get("planets")) or {}
+        aspects = facts.get("aspects") or {}
+        by_planet = aspects.get("aspects_by_planet") or {}   # {planet: [houses]}
+        aspected_by = aspects.get("aspected_by") or {}       # {planet: [planets]}
+
+        out: dict[str, dict] = {}
+        for planet, roles in planets.items():
+            own_house = _planet_house(facts, planet)
+            aspect_houses = set(by_planet.get(planet) or [])
+            aspectors = set(aspected_by.get(planet) or [])
+            # A natural benefic SAVES the maraka when it aspects it, or shares its
+            # house (conjunction = same house). Same-house avoids parsing the
+            # free-form conjunction strings and uses the known positions shape.
+            benefic_aspect = bool(_NATURAL_BENEFICS & aspectors)
+            benefic_conj = own_house is not None and any(
+                _planet_house(facts, b) == own_house for b in _NATURAL_BENEFICS
+            )
+            out[planet] = {
+                "is_2nd_lord": any("2nd lord" in r for r in roles),
+                "is_7th_lord": any("7th lord" in r for r in roles),
+                "is_8th_lord": any("8th lord" in r for r in roles),
+                "is_ayushkaraka": any("Ayushkaraka" in r for r in roles),
+                "natural_malefic": planet in _NATURAL_MALEFICS,
+                # REAL computed strength; None for Rahu/Ketu (no shadbala).
+                "shadbala": _shadbala_of(shadbala, planet),
+                # Does this planet ALSO afflict a maraka house -- occupy or aspect
+                # the 2nd / 7th? (compounding the maraka role.)
+                "afflicts_2": own_house == 2 or 2 in aspect_houses,
+                "afflicts_7": own_house == 7 or 7 in aspect_houses,
+                "benefic_save_present": benefic_aspect or benefic_conj,
+            }
+        return out
+    except Exception as exc:  # noqa: BLE001 -- strength costs only itself
+        logger.warning("build_maraka_strength_facts failed; omitting: %s", exc)
         return {}
