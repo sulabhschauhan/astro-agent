@@ -834,6 +834,16 @@ with st.sidebar:
                 st.session_state.kundali_str = format_kundali_context(chart)
                 st.session_state.chart_ready = True
                 st.session_state.place_error = None
+                # A DIFFERENT birth identity = a different person: drop the stale
+                # Q&A and start a fresh conversation, so previous answers do not
+                # linger on screen AND the prior thread (fed to planner/interpreter
+                # per S147) does not poison the new chart's answers. A re-Calculate
+                # of the SAME details (e.g. a marital-status toggle) keeps the chat.
+                _birth_key = (name.strip(), str(dob), str(tob), (place or "").strip())
+                if st.session_state.get("_birth_key") != _birth_key:
+                    st.session_state.messages    = []
+                    st.session_state.session_mgr = SessionManager()
+                    st.session_state._birth_key  = _birth_key
             except ValueError as e:
                 if "geocode" in str(e).lower() or "cannot geocode" in str(e).lower():
                     st.session_state.place_error = (
