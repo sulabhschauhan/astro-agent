@@ -160,7 +160,8 @@ if TYPE_CHECKING:
 # call site only. Revisit trigger: Ring 3 pass-5 evidence (once wiring,
 # P5, lands) that gpt-4o-mini reaches voice parity, or a dedicated Stage-2
 # probe analogous to fh_stage1_probe_S69.md.
-_VOICE_MODEL = "gpt-4o"
+_VOICE_MODEL = "gpt-6-luna"  # S168: gpt-4o -> gpt-6-luna (reasoning model; see _call_llm)
+_REASONING_EFFORT = "minimal"  # S168: matches interpreter._default_llm
 
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
 # Justification: unchanged pending pass-5 evidence. CLAUDE.md's F-G entry
@@ -318,12 +319,20 @@ def _call_llm(client, messages: list[dict]) -> str:
     """Single try/except boundary around one API call -- the caller owns
     whether an exception here becomes a RuntimeError (it always does in
     this module, per the ERRORS section of the module docstring)."""
-    response = client.chat.completions.create(
+    _base = dict(
         model=_VOICE_MODEL,
         messages=messages,
-        temperature=_VOICE_TEMPERATURE,
         timeout=_VOICE_TIMEOUT_SECONDS,
     )
+    # S168: gpt-6-luna is a reasoning model -- it rejects `temperature`, so
+    # the former temperature=0 pin is dropped (accepted variance). The
+    # reasoning_effort/TypeError-fallback shape mirrors interpreter._default_llm
+    # so an SDK build that rejects the kwarg still works.
+    try:
+        response = client.chat.completions.create(
+            reasoning_effort=_REASONING_EFFORT, **_base)
+    except TypeError:
+        response = client.chat.completions.create(**_base)
     return response.choices[0].message.content
 
 

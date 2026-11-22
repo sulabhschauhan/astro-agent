@@ -1295,7 +1295,7 @@ def _strip_stage2_tags(text: str) -> str:
 # no shared "the model" constant exists across this codebase's LLM call
 # sites. Revisit trigger: comparative dogfood evidence that gpt-4o-mini
 # reaches parity quality for this task.
-_READING_MODEL = "gpt-4o"
+_READING_MODEL = "gpt-6-luna"  # S168: migrated. NOTE: currently unused -- palm_reading delegates LLM calls to claim_extraction/claim_voicing; kept for provenance.
 
 # THRESHOLD DISCIPLINE (CLAUDE.md Working Style #4).
 # Justification: checkpoint-adjacent output must be reproducible --

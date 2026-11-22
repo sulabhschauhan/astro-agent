@@ -65,7 +65,8 @@ if TYPE_CHECKING:
 # task. Scope guard: this module's extraction call site only. Revisit
 # trigger: pass-5 evidence that gpt-4o-mini underperforms gpt-4o on a
 # metric the probe didn't measure.
-_EXTRACTION_MODEL = "gpt-4o-mini"
+_EXTRACTION_MODEL = "gpt-6-luna"  # S168: gpt-4o-mini -> gpt-6-luna (reasoning model; see _call_llm)
+_REASONING_EFFORT = "minimal"  # S168: matches interpreter._default_llm
 _EXTRACTION_TEMPERATURE = 0
 
 # Same value as palm_reading._READING_TIMEOUT_SECONDS -- duplicated, NOT
@@ -226,13 +227,21 @@ def _call_llm(client, messages: list[dict]) -> str:
     """Single try/except boundary around one API call. Raises the
     underlying exception to the caller, which owns retry/fail-closed
     decisions -- this function never swallows errors itself."""
-    response = client.chat.completions.create(
+    _base = dict(
         model=_EXTRACTION_MODEL,
         messages=messages,
-        temperature=_EXTRACTION_TEMPERATURE,
         timeout=_EXTRACTION_TIMEOUT_SECONDS,
         response_format={"type": "json_object"},
     )
+    # S168: gpt-6-luna is a reasoning model -- it rejects `temperature`, so
+    # the former temperature=0 pin is dropped (accepted variance). The
+    # reasoning_effort/TypeError-fallback shape mirrors interpreter._default_llm
+    # so an SDK build that rejects the kwarg still works.
+    try:
+        response = client.chat.completions.create(
+            reasoning_effort=_REASONING_EFFORT, **_base)
+    except TypeError:
+        response = client.chat.completions.create(**_base)
     return response.choices[0].message.content
 
 
