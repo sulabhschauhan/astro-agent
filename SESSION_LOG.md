@@ -2,6 +2,46 @@
 
 > ARCHIVES: Sessions 19-66 -> `SESSION_LOG_ARCHIVE_S19-S66.md` (split at S81); Sessions 67-104 -> `SESSION_LOG_ARCHIVE_S67-S104.md` (split at S105); Sessions 105-145 -> `SESSION_LOG_ARCHIVE_S105-S145.md` (split at S146, S151). This live file holds head-matter + S146 onward.
 
+## S168 (2026-11-22) -- Longevity extension EVALUATED then DROPPED (three-pairs + eighth-lord + Charak flags) + FOUR items CLOSED (planner validation / palm-temperature / LIVE FINDING #1 / longevity) + palm TEXT path migrated to gpt-6-luna (committed + tested) + palm<->astrology confirmed NOT integrated
+
+DESIGN + RESEARCH + ONE MIGRATION. The longevity answer is UNCHANGED (frozen at S167). One code change shipped: palm TEXT -> gpt-6-luna.
+
+### 1. Longevity range methods -- PROTOTYPED, DROPPED (not deferred)
+Prototype `longevity_range_facts.py` built in the DESIGN-CHAT CONTAINER ONLY (NOT in the repo; dies with the session). Source-faithful from the PVR PDF (data/pdfs/Vedic Astrology_ PVR Narashimha Rao.pdf, Ch.14), extracted verbatim, never from memory:
+ - Table 32 (Shiva-motion 8th): Ar->Sc Ta->Ge Ge->Cp Cn->Sg Le->Cn Vi->Aq Li->Ta Sc->Sg Sg->Cn Cp->Ge Aq->Cp Pi->Le.
+ - Table 33 (modality pair -> category): MM->long, FF->short, DD->middle, movable+fixed->middle, movable+dual->short, fixed+dual->long.
+ - §14.4 combine: all-same->that; 2-agree->those dominate; all-differ->prefer pair3 (Lagna/HoraLagna) UNLESS Moon in lagna/7th -> prefer pair2 (Moon/Saturn). Pairs: (1) lagna-lord + special-8th-lord [Table 32], (2) Moon+Saturn, (3) Lagna+HoraLagna.
+ - §14.5 eighth-lord method: 8th lord from the stronger of lagna/7th; quadrant->long, panaphara->middle, apoklima->short.
+ - Charak (Elements of Vedic Astrology, Balarishta & Arishta-bhanga ch., combined-ed. pp.355-369) structural flags: Moon-in-dusthana Balarishta, kendra/trikona malefic-benefic census, Vargottama lagna/lord, trik & tri-shadaya occupants, Saturn-in-8th exception. Coded as emitted flags ONLY (Option-3, book-as-spec); NO Charak prose in the corpus (modern-author exclusion lock STANDS).
+VALIDATION: engine matches PVR's OWN worked examples -- Example 47 -> long, Exercise 23 -> middle; zero free parameters. NOT oracle-validated vs JHora (that would have been the ship gate).
+RUN ON SULABH (deterministic, HL via compute_special_lagnas): pair-1 (Jupiter Aries / Moon Scorpio) = Middle; pair-2 (Moon Scorpio / Saturn Sagittarius) = Long -- ALREADY SPLIT, so pair-3 (Lagna Sagittarius dual + Hora Lagna) ALONE decides, and swings the combined across ALL THREE: HL movable->Short, dual->Middle, fixed->Long. Eighth-lord likewise swings Short (ref=lagna, Moon apoklima) <-> Long (ref=7th, Saturn quadrant). The handover's "Short 0-36" is ONE of three equally-valid outputs. THE INSTABILITY IS THE FINDING.
+DECISION (ratified by Sulabh):
+ - THREE-PAIRS = DROPPED (not deferred): provably unstable on this chart; research consensus that longevity is the least-reliable judgement ("a bracket of several decades is worth very little"); a surfaced band is charter-forbidden; the number-refusal is already doctrinally backed by the S167 caveat; building it costs a JHora 4-chart validation + fact-block growth (feeds LIVE FINDING #2 ceiling) + model-leak risk, for a ~worthless signal.
+ - EIGHTH-LORD METHOD = REJECTED: emitting both lagna- and 7th-references = the S132 "ship two results to defer a decision" violation (Validation Source). PVR himself flags it unreliable ("did not work here").
+ - CHARAK BOOK = ASSESSED, NOT INGESTED. It DOES fill the S167 Arishtabhanga gap (dedicated Balarishta & Arishta-bhanga chapter + longevity-bands chapter). Modern-author corpus-exclusion lock STANDS. Its structural factors are classical consensus (not Charak-unique) -> if ever used, FLAGS ONLY (Option-3). Charak Ch.XXIII number-methods (Pindayu class) stay excluded by the no-number lock.
+ - Longevity FROZEN AT S167 (maraka_facts + maraka_strength + protective_facts, live-confirmed). No regression, no wrong-answer gap -- only a thin spot (no explicit Balarishta/Vargottama flag), whose correct FIRST fix is a MODEL lever (Terra), not code (reaffirms S167: the corpus HAS the protective doctrine; gpt-6-luna under-weights it).
+CARRY-FORWARD (single trigger): revisit Charak structural flags ONLY after (a) Terra is tried on a live longevity/health answer AND (b) protection is STILL under-weighted. Then build FLAGS ONLY (Moon-balarishta, kendra/trikona census, Vargottama, tri-shadaya, Saturn-8th), parameters-only, nest under maraka, + pytest. Three-pairs stays dropped. Prototype + extracted PVR tables recorded above so nothing is re-derived.
+
+### 2. Four items CLOSED
+ - Planner plan-diff validation (gpt-6-luna) -> CLOSED: verified via good live answers across many questions (the real target is answer quality, not plan-byte-match vs gpt-4o). Residual (silent domain-narrowing on edge cases) is academic while live answers stay comprehensive.
+ - Palm temperature reproducibility -> CLOSED (won't-fix): GPT-6 models forbid temperature control and no alternative model offers it -> nothing in hand; accept the variance.
+ - LIVE FINDING #1 (a follow-up inherits the prior turn's narrow domains via the S147 conversation-context feed; a cold broad question fans out correctly) -> CLOSED (won't-fix, by design): a planner scope-detector is the patchwork S140/S161 rejected, with its own false-re-broaden failure mode. Escape hatch if it ever bites: a ONE-LINE interpreter nudge ("this covers career -- ask about health/finances/relationships for the rest"), NOT planner logic. [LIVE FINDING #2 -- all-13-domain overflow false-silence -- stays parked.]
+ - Longevity extension -> dropped/parked (section 1).
+
+### 3. Palm TEXT path migrated to gpt-6-luna (SHIPPED, committed + tested)
+Migrated the 4 palm TEXT modules off gpt-4o/gpt-4o-mini -> gpt-6-luna, matching interpreter._default_llm's shape: drop `temperature` (GPT-6 rejects it), add `reasoning_effort="minimal"` with a TypeError fallback (never crashes on an SDK build that rejects the kwarg). Files: claim_extraction.py (_EXTRACTION_MODEL), claim_voicing.py (_VOICE_MODEL), contact_llm_fallback.py (_FALLBACK_MODEL), palm_reading.py (_READING_MODEL -- vestigial/unused constant, migrated for provenance). New test tests/interpretive/test_palm_gpt6_migration.py (model / reasoning_effort / no-temperature / fallback branch). PYTEST: test_palm_gpt6_migration 8 passed; tests/interpretive 592 passed, 4 skipped; no stale assertions needed updating.
+LOOSE ENDS (flagged, not fixed -- surgical diff): _EXTRACTION/_VOICE/_FALLBACK_TEMPERATURE are now dead constants; the probe-locked gpt-4o-mini justification comments are stale.
+STILL ON gpt-4o (OUT of scope this session, by Sulabh's decision): palm VISION -- palm_processor.py (3 calls) + cheirognomy/vlm_arm.py. The vision model choice (gpt-6.1-terra vs luna) is DEFERRED to the regular-astrology Terra A/B: if Terra is selected there, move palm vision to Terra too; else to luna. gpt-4o retires 14 JAN 2027 -> the Terra A/B is now the HARD-DEADLINE gate for palm vision. (Luna image-input support unverified -- do NOT blind-swap vision to luna.)
+
+### 4. Palm <-> astrology integration: confirmed NOT built
+Traced in frontend/app.py (not memory): answer_question(prompt, chart_facts, chart=, history=, expert=, ...) NEVER receives palm data; generate_palm_reading() NEVER receives the chart. Two parallel independent surfaces. Matches the S65 lock (kundali x palm cross-verification deferred V1.1, gated on a lock-compliant deterministic chart-summary export). A user uploading palms + birth details gets TWO separate readings, not one integrated answer. Fusing them is a real V1.1 build (merging a fidelity artifact with a cited/computed one), not a wiring tweak.
+
+### 5. Agent roster (8)
+Architect/Business/UI-UX approved the longevity-prototype shape; QA conditioned on a pytest (delivered for the palm migration); Ephemeris Auditor confirmed HL correctly handles Sulabh's pre-sunrise 00:30 Vedic-day boundary via compute_special_lagnas, flagged meta.local_datetime tz-awareness (self-neutralising -- a naive datetime fail-softs pair-3 to pending, never a wrong HL); Critic + Validation Source rejected the eighth-lord dual-reference; Debate ruled drop eighth-lord + drop three-pairs as a surfaced band.
+
+NOTE: per Sulabh, NO CLAUDE.md Locked-Decision entry for S168 (head-matter weight) -- the drop/park record lives here only. Resurrection risk (a future session re-proposing three-pairs) is accepted against that weight. SESSION_LOG now ~150KB -> at the re-split trigger; next session should re-split per the boundary rule.
+
+
 ## S167 (2026-11-22) -- Longevity-tag flood fix (corpus precision) + LONGEVITY BUILD (maraka-strength + arishta-bhanga/protective + window role-kinds + render), built + tested + live-confirmed; three-pairs + arishta-bhanga ingest deferred to next session
 
 Commits: `be28c0d` (tag flood fix: build_kp_units.py + regenerated domain_tags/chapter_index), `772742e` (longevity build: maraka_facts + protective_facts + static_facts + pipeline + 3 tests), `67ece91` (app.py refresh fix). Not pushed. Suite 5441 passed / 9 skipped / 2 xfailed.
