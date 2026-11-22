@@ -283,7 +283,7 @@ wealth -> money, finance, income, gain, prosperity.
 children -> progeny, sons and daughters, having or raising children.
 health -> illness, disease, bodily vitality.
 education -> schooling, study, exams, degrees, learning.
-longevity -> lifespan and length of life, death.
+longevity -> lifespan and length of life, death; the body's vitality and constitution, maraka (life-threatening) periods, arishta and its cancellation. If the question ties lifespan to illness or bodily health, also include health.
 travel -> journeys, foreign residence, relocation, migration.
 property -> house, home, land, vehicles, real estate.
 parents -> father, mother, relationship with parents.
