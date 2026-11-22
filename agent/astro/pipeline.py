@@ -649,6 +649,27 @@ def _fact_block(chart_facts: dict, display_zone: str = tz_display.UT) -> str:
                 f"benign one when weak): {_sahs}.")
             if vp.get("sahams_note"):
                 lines.append(f"  {vp['sahams_note']}")
+        _taj = vp.get("tajaka_aspects") or {}
+        if _taj.get("ithasala") or _taj.get("ishrafa"):
+            _ith = "; ".join(_taj.get("ithasala") or []) or "none"
+            _ish = "; ".join(_taj.get("ishrafa") or []) or "none"
+            lines.append(
+                f"  Tajaka aspect yogas (interpret via the retrieved Ithasala/"
+                f"Ishrafa doctrine). Ithasala (APPLYING -- the matter forms or "
+                f"ripens this year): {_ith}. Ishrafa (SEPARATING -- the matter has "
+                f"just passed): {_ish}.")
+            for _k, _lbl in (("kamboola", "Kamboola (Moon strengthens the pair)"),
+                             ("nakta", "Nakta (mediated link)"),
+                             ("yamaya", "Yamaya (mediated link)")):
+                _v = _taj.get(_k) or []
+                if _v:
+                    lines.append(f"    {_lbl}: {', '.join(_v)}.")
+            if _taj.get("direction_provisional"):
+                lines.append(
+                    f"    Direction provisional (signed speeds unavailable): "
+                    f"{', '.join(_taj['direction_provisional'])}.")
+            if vp.get("tajaka_note"):
+                lines.append(f"  {vp['tajaka_note']}")
         _dashas = vp.get("dashas") or {}
         for _dk, _dlabel in (("mudda", "Mudda"), ("patyayini", "Patyayini"),
                              ("yogini", "Yogini")):

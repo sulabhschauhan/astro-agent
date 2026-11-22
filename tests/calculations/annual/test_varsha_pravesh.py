@@ -46,3 +46,22 @@ def test_boundary_flag_on_our_lagna():
     r = compute_varsha_pravesh(NATAL, LAT, LON, 2026)
     assert r["boundary_flag"] is True  # Lagna ~1.4 deg past Vi/Li cusp
     assert compute_varsha_pravesh(NATAL, LAT, LON, 2025)["boundary_flag"] is False
+
+
+def test_planet_speeds_present_and_signed():
+    # Signed daily speeds for the Tajika Ithasala/Ishrafa direction (S169).
+    r = compute_varsha_pravesh(NATAL, LAT, LON, 2027)
+    spd = r["planet_speeds"]
+    assert {"Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus",
+            "Saturn", "Rahu", "Ketu"} <= set(spd)
+    assert spd["Sun"] > 0          # Sun is never retrograde
+    assert spd["Rahu"] < 0         # mean node is always retrograde
+    assert spd["Ketu"] == spd["Rahu"]
+
+
+def test_jupiter_retrograde_in_2027():
+    # JHora marks Jupiter "(R)" in Sulabh's 2027 annual chart -> speed must be
+    # negative, and Jupiter must appear in the retrograde set.
+    r = compute_varsha_pravesh(NATAL, LAT, LON, 2027)
+    assert r["planet_speeds"]["Jupiter"] < 0
+    assert "Jupiter" in r["retrograde"]

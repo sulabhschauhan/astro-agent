@@ -20,7 +20,7 @@
     "technique_method",
     "planetary_nature"
   ],
-  "segment_count": 5229,
+  "segment_count": 5237,
   "segments": [
     {
       "segment_id": "backmatter_s001",
@@ -62149,6 +62149,190 @@
       "confidence": "high",
       "unfittable": false,
       "tokens": 22
+    },
+    {
+      "segment_id": "taj_gen_framework",
+      "unit_id": "tajaka_yogas",
+      "ordinal": 1,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 131
+    },
+    {
+      "segment_id": "taj_gen_deeptamsa",
+      "unit_id": "tajaka_yogas",
+      "ordinal": 2,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 103
+    },
+    {
+      "segment_id": "taj_ithasala",
+      "unit_id": "tajaka_yogas",
+      "ordinal": 3,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 231
+    },
+    {
+      "segment_id": "taj_ishrafa",
+      "unit_id": "tajaka_yogas",
+      "ordinal": 4,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 130
+    },
+    {
+      "segment_id": "taj_ishkavala",
+      "unit_id": "tajaka_yogas",
+      "ordinal": 5,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 69
+    },
+    {
+      "segment_id": "taj_induvara",
+      "unit_id": "tajaka_yogas",
+      "ordinal": 6,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 65
+    },
+    {
+      "segment_id": "taj_khallasara",
+      "unit_id": "tajaka_yogas",
+      "ordinal": 7,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 86
+    },
+    {
+      "segment_id": "taj_radda",
+      "unit_id": "tajaka_yogas",
+      "ordinal": 8,
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "confidence": "high",
+      "unfittable": false,
+      "tokens": 125
     }
   ],
   "units": [
@@ -65676,6 +65860,80 @@
         "property": {
           "segment_count": 11,
           "tokens": 2834
+        }
+      }
+    },
+    {
+      "unit_id": "tajaka_yogas",
+      "domains": [
+        "career",
+        "children",
+        "education",
+        "enemies_conflict",
+        "health",
+        "longevity",
+        "marriage",
+        "parents",
+        "property",
+        "siblings",
+        "spirituality",
+        "travel",
+        "wealth"
+      ],
+      "segment_count": 8,
+      "tokens": 940,
+      "per_domain": {
+        "career": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "children": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "education": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "enemies_conflict": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "health": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "longevity": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "marriage": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "parents": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "property": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "siblings": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "spirituality": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "travel": {
+          "segment_count": 8,
+          "tokens": 940
+        },
+        "wealth": {
+          "segment_count": 8,
+          "tokens": 940
         }
       }
     }

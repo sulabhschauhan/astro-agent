@@ -22,6 +22,7 @@ import swisseph as swe
 from agent.calculations.helpers.ephemeris import (
     EphemerisError,
     sidereal_longitude_true,
+    sidereal_position_true,
 )
 
 # The Swiss .se1 ephemeris path is now configured process-globally at import
@@ -74,8 +75,17 @@ def compute_varsha_pravesh(natal_jd_ut, natal_lat, natal_lon, target_year,
             f"varsha_pravesh: root-find did not converge for {target_year} "
             f"(residual {err:.3e} deg)")
 
-    planets = {name: sidereal_longitude_true(jd, pid) for name, pid in _BODIES}
+    # Longitude AND signed daily speed in one pass (FLG_SPEED leaves the
+    # longitude byte-identical to the old sidereal_longitude_true call, so the
+    # JHora-oracle longitude tests are unaffected). Speed sign gives retrograde,
+    # which the Tajika Ithasala/Ishrafa direction needs (S169).
+    planets, speeds = {}, {}
+    for name, pid in _BODIES:
+        pos = sidereal_position_true(jd, pid)
+        planets[name] = pos.longitude
+        speeds[name] = pos.speed
     planets["Ketu"] = (planets["Rahu"] + 180.0) % 360.0
+    speeds["Ketu"] = speeds["Rahu"]   # Ketu moves identically to Rahu
 
     try:
         swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
@@ -90,6 +100,8 @@ def compute_varsha_pravesh(natal_jd_ut, natal_lat, natal_lon, target_year,
         "pravesh_jd_ut": jd,
         "ascendant_sid": asc,
         "planets_sid": planets,
+        "planet_speeds": speeds,            # signed deg/day; < 0 == retrograde
+        "retrograde": frozenset(n for n, s in speeds.items() if s < 0),
         "boundary_flag": in_sign < BOUNDARY_DEG or in_sign > 30.0 - BOUNDARY_DEG,
         "cast_place": {"lat": lat, "lon": lon},
     }

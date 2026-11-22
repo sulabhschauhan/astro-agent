@@ -51,6 +51,7 @@ from agent.calculations.annual.varsha_pravesh import compute_varsha_pravesh
 from agent.calculations.annual.varshesha import LAGNA_KEY, lord_of_the_year
 from agent.calculations.annual.yogini import yogini_dasha
 from agent.calculations.annual.sahams import compute_sahams
+from agent.calculations.annual.tajaka_aspects import compute_tajaka_aspects
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,39 @@ def build_varshaphal_facts(chart: dict, target_year: int | None = None,
         except Exception as exc:  # noqa: BLE001 -- sahams cost only themselves
             logger.warning("varshaphal: sahams failed: %s", exc)
 
+        # F2 -- Tajaka aspect yogas (Ithasala = applying / Ishrafa = separating).
+        # Direction is computed from REAL signed speeds (pr["planet_speeds"]) so
+        # retrograde is handled correctly, not provisionally (S169). Fail-soft.
+        tajaka_out: dict = {}
+        try:
+            _full = {v: k for k, v in _SAHAM_ABBR.items()}  # abbr -> full name
+            _spd_by_name = pr.get("planet_speeds") or {}
+            tpts, tspd = {}, {}
+            for full, ab in _SAHAM_ABBR.items():
+                if full in planets:
+                    tpts[ab] = planets[full]
+                    if full in _spd_by_name:
+                        tspd[ab] = _spd_by_name[full]
+            tpts["La"] = asc
+            ta = compute_tajaka_aspects(tpts, speeds=tspd or None)
+            tajaka_out = {
+                "ithasala": [f"{_full.get(p.a, p.a)}-{_full.get(p.b, p.b)} "
+                             f"({p.valence}, {p.ithasala_type})" for p in ta.ithasala],
+                "ishrafa": [f"{_full.get(p.a, p.a)}-{_full.get(p.b, p.b)} ({p.valence})"
+                            for p in ta.ishrafa],
+                "kamboola": [f"{_full.get(a, a)}-{_full.get(b, b)}"
+                             for a, b in ta.kamboola_pairs],
+                "nakta": [f"{_full.get(m, m)} links {_full.get(a, a)}+{_full.get(b, b)}"
+                          for m, a, b in ta.nakta],
+                "yamaya": [f"{_full.get(m, m)} links {_full.get(a, a)}+{_full.get(b, b)}"
+                           for m, a, b in ta.yamaya],
+            }
+            if ta.retro_provisional:  # only populated when speeds were unavailable
+                tajaka_out["direction_provisional"] = [
+                    f"{_full.get(a, a)}-{_full.get(b, b)}" for a, b in ta.retro_provisional]
+        except Exception as exc:  # noqa: BLE001 -- aspects cost only themselves
+            logger.warning("varshaphal: tajaka aspects failed: %s", exc)
+
         # E -- the three annual dashas (each fail-soft).
         nak_no = int(float(moon) / _NAK) + 1
         frac_remaining = 1.0 - (float(moon) % _NAK) / _NAK
@@ -241,6 +275,15 @@ def build_varshaphal_facts(chart: dict, target_year: int | None = None,
             "sahams_note": (
                 "All Tajaka sahams are computed and validated against the JHora "
                 "desktop oracle on four annual charts."
+            ),
+            "tajaka_aspects": tajaka_out,
+            "tajaka_note": (
+                "Ithasala = applying aspect (the matter ripens within the year); "
+                "Ishrafa = separating (the matter has just passed). Direction is "
+                "computed from real signed motion, so retrograde is accounted for "
+                "(a retrograde planet that looks applying is read as separating -- "
+                "Khalasara). A retrograde/combust planet ALSO weakens an Ithasala "
+                "into Radda -- that quality layer is not yet computed."
             ),
             "dashas": dashas,
         }

@@ -159,3 +159,32 @@ def sidereal_longitude_true(jd_ut: float, planet: int) -> float:
     except Exception as exc:
         raise EphemerisError(jd_ut, planet, str(exc)) from exc
     return (xx[0] - ayan) % 360.0
+
+
+def sidereal_position_true(jd_ut: float, planet: int) -> SiderealPosition:
+    """TRUE/geometric sidereal longitude AND signed daily speed of `planet`.
+
+    Same annual-chart convention as sidereal_longitude_true (FLG_TRUEPOS + the
+    true nutation-on ayanamsa), with FLG_SPEED added so retrograde motion
+    (speed < 0) is available for the Tajika Ithasala/Ishrafa direction (S169).
+    The LONGITUDE is byte-identical to sidereal_longitude_true -- FLG_SPEED does
+    not change xx[0] -- so callers that only read the longitude are unaffected.
+    The speed xx[3] is tropical; sidereal and tropical speeds differ only by the
+    ayanamsa rate (~4e-5 deg/day), negligible and sign-preserving, so it is used
+    directly (the SIGN, which decides retrograde, is exact either way).
+
+    Raises:
+        EphemerisError: the underlying pyswisseph call failed.
+    """
+    swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+    try:
+        xx, ret = swe.calc_ut(
+            jd_ut, planet, swe.FLG_SWIEPH | swe.FLG_TRUEPOS | swe.FLG_SPEED)
+        if ret < 0:
+            raise EphemerisError(jd_ut, planet, f"retflag={ret}")
+        _ret, ayan = swe.get_ayanamsa_ex_ut(jd_ut, swe.FLG_SWIEPH)
+    except EphemerisError:
+        raise
+    except Exception as exc:
+        raise EphemerisError(jd_ut, planet, str(exc)) from exc
+    return SiderealPosition(longitude=(xx[0] - ayan) % 360.0, speed=xx[3])

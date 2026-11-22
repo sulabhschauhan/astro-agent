@@ -1,0 +1,167 @@
+TAJAKA ASPECT YOGAS — INTERPRETIVE CORPUS (Ithasala / Ishrafa, Varshaphal)
+==========================================================================
+
+PURPOSE
+  Interpretive doctrine the expert interpreter reads to speak to a Tajika
+  aspect yoga in the annual (Varshaphal) chart. The ENGINE
+  (agent/calculations/annual/tajaka_aspects.py) computes WHICH planet pairs are
+  in Ithasala (applying) or Ishrafa (separating), from the deeptamsa orbs and
+  the real signed motion; THIS corpus supplies what those yogas MEAN. Pairs
+  with the fact-block "tajaka_aspects" entry.
+
+SOURCES
+  * B.V. Raman, "Varshaphal — or The Hindu Progressed Horoscope", Chapter VII
+    (Yogas, Sahams etc.), §§57–63 — English, verbatim OCR from
+    data/pdfs/2015.134416.Varshaphal-Or-The-Hindu-Progressed-Horoscope_djvu.txt
+    (djvu line anchors given per segment). The "OCR:" lines quote the source
+    as scanned (garbling and all) so every English gloss is checkable against
+    it; the "Gloss:" lines are a plain reading of that same text.
+
+STATUS / FIDELITY
+  Already-English Raman — NO translation step, so this corpus carries no
+  translation risk (same posture as PART 3 of the saham corpus). The only
+  liberty taken is repairing obvious OCR garble in the gloss; the OCR line is
+  kept verbatim beside it so the repair is auditable. No Sulabh verification
+  gate is required for these segments (unlike the Devanagari saham doctrine).
+
+COVERAGE (deliberate, recorded)
+  Raman details six yogas (§58–63): Ishkavala, Induvara, Ithasala, Easarapha
+  (Ishrafa), Khallasara, Raddha. These cover the engine's PRIMARY predictive
+  yogas (Ithasala/Ishrafa) plus the chart-level pair (Ishkavala/Induvara) and
+  the two conditions that modify an Ithasala (Khallasara, Raddha). The engine
+  ALSO flags Kamboola / Nakta / Yamaya / Manahu, which §57 only NAMES — Raman
+  gives no result-doctrine for them, and the Tajika Nilakanthi passage that
+  does is Devanagari (translation risk + a verification gate), so their full
+  doctrine is a LATER ingest. Until then the fact block labels them
+  descriptively and the general Ithasala doctrine below applies to them.
+
+HOW IT IS SELECTED
+  Each segment carries a double-bracket seg tag (a seg-id plus a domains list),
+  of the form shown on every entry below; "*" expands to all life-area domains.
+  Ingested as one chapter unit "tajaka_yogas" in
+  chapter_index_bphs.json + per-segment tags in domain_tags_bphs.json, so any
+  life-area question (career, marriage, health, …) pulls the applying/
+  separating doctrine alongside the computed pairs.
+  NOTE (architecture, same as the sahams): Tajika aspects are an ANNUAL
+  technique, but the corpus-selection layer has no natal/annual distinction, so
+  these segments also surface on NATAL questions in those areas. If you want
+  them annual-only, gate selection in the planner on varshaphal scope rather
+  than re-tagging here. Life-area-wide tagging is the ratified choice (S169),
+  matching the sahams precedent.
+
+
+==========================================================================
+GENERAL DOCTRINE
+==========================================================================
+
+[[seg: taj_gen_framework | domains: * ]]
+THE SIXTEEN TAJIKA YOGAS; ITHASALA IS THE KEY. Tajika reads planets by their
+DEGREE within a sign, not by whole sign. Of the sixteen special combinations
+("Iddasaladi Shodasa Yogas"), Ithasala (applying) and Ishrafa (separating) are
+the foundation; most of the others are modifications of them. A matter is read
+through the pair of planets that signify it (e.g. the lagna lord and the lord
+of the relevant house): whether they are coming together (the matter forms this
+year) or drifting apart (it has passed).
+  Raman §57 (djvu l.2846–2854), OCR: "THE YOGAS — The Thachakasars gives 16
+  yogas or special combinations called Iddasaladi Shodasa Yogas … the most
+  important ones … (1) Ishkavala, (2) Induvara, (3) Iddasala [Ithasala],
+  (4) Easarapha [Ishrafa], (5) Nakta, … (8) Kamboola, … (11) Raddha, …
+  (16) Durupha."
+
+[[seg: taj_gen_deeptamsa | domains: * ]]
+THE ORB OF INFLUENCE (DEEPTAMSA). Two planets act on each other only when they
+are within each other's "deeptamsa" — a planet-specific orb (Sun 15, Moon 12,
+Mars 8, Mercury 7, Jupiter 9, Venus 7, Saturn 9 degrees). The closer the two
+planets are in degree, the stronger the effect. Outside the orb, an aspect
+between the signs carries no yoga. A strong, dignified, benefic pair gives the
+good form of the matter; a weak or malefic pair, the adverse form — the yoga
+tells you WHETHER and WHEN, the planets' strength tells you HOW WELL.
+
+
+==========================================================================
+THE APPLYING / SEPARATING PAIR
+==========================================================================
+
+[[seg: taj_ithasala | domains: * ]]
+ITHASALA — THE APPLYING ASPECT (the matter forms / ripens this year). Formed
+when the orbs of a slower and a faster planet overlap and the faster planet is
+APPROACHING exactitude. It is the most important and the most AUSPICIOUS of the
+Tajika yogas — the promise that the signified matter comes together within the
+year. Three kinds: VARTHAMANA (present — the faster planet is behind the slower,
+inside the orb), POORNA/SAMA (complete — the two are at the same degree, the
+aspect exact), and BHAVISHYA (future — the faster planet is just forward of the
+slower, inside the orb, the perfection yet to come).
+  Raman §60 (djvu l.2867–2890), OCR: "IDDASALAYOGA — If the Deepthamsas of a
+  slow moving planet mix with those of a faster moving planet this yoga is
+  caused … Guru's deepthamsas are 9 and Sukra's 7; if Guru and Sukra are
+  within 7° from each other this yoga is produced. Three kinds … If a Seegra
+  graha (greater velocity) is backwards of a Manda graha (slower velocity)
+  within its Deepthamsas [Varthamana]; if a Seegragraha is in the same degree
+  as a Mandagraha [Poorna]; and if a Seegragraha is forwards of a Mandagraha
+  (within its deepthamsa) [Bhavishya] … Results — based upon the relations
+  between the planets causing the yoga and the sign in which it is caused; in
+  favourable circumstances good results flow, in unfavourable, evil results."
+
+[[seg: taj_ishrafa | domains: * ]]
+ISHRAFA (EASARAPHA) — THE SEPARATING ASPECT (the matter has just passed). When
+the faster planet has moved PAST exactitude — just a degree in advance of the
+slower — the aspect is separating. It is the inauspicious counterpart of
+Ithasala: the opportunity is gone, the effort fails or comes too late.
+  Raman §61 (djvu l.2894–2900), OCR: "EASARAPHAYOGA — A Seegragraha, just one
+  degree in advance of a Mandagraha, produces this yoga. Results — Failure in
+  all business undertakings, unfavourable and producing evil influences at all
+  times."
+  NOTE on retrograde: direction is judged by REAL motion, so a retrograde
+  planet that appears to be applying is in truth separating — an apparent
+  Ithasala that is false (the "Khalasara" case). See taj_radda for the related
+  spoiling condition.
+
+
+==========================================================================
+THE CHART-LEVEL PAIR
+==========================================================================
+
+[[seg: taj_ishkavala | domains: * ]]
+ISHKAVALA — a whole-chart yoga of PROSPERITY. Present when the planets occupy
+only the kendras (1,4,7,10) and panapharas (2,5,8,11), leaving the apoklimas
+(3,6,9,12) empty. It gives wealth, happiness and good fortune for the year.
+  Raman §58 (djvu l.2855–2858), OCR: "ISHKAVALAYOGA — Planets in kendras
+  (1,4,7,10) and panapharas (2,5,8,11) alone, without any in Apoklimas
+  (3,6,9,12), produce this yoga. Results — Accession to wealth, happiness and
+  good luck are the results."
+
+[[seg: taj_induvara | domains: * ]]
+INDUVARA — the adverse whole-chart yoga. Present when the planets occupy only
+the apoklimas (3,6,9,12), the kendras and panapharas empty. It gives
+disappointment, mental worry and physical ailments.
+  Raman §59 (djvu l.2859–2861), OCR: "INDUVARAYOGA — Planets in Apoklimas,
+  without any in the other houses, cause this yoga. Results — Disappointments
+  in all undertakings, mental worry and physical ailments."
+
+
+==========================================================================
+CONDITIONS THAT MODIFY AN ITHASALA
+==========================================================================
+
+[[seg: taj_khallasara | domains: * ]]
+KHALLASARA — a BROKEN connection. When the lagna lord stands between the Moon
+and the other planets and there is NO intermingling of their deeptamsas, the
+link that an Ithasala would make is absent; the matter is unsupported.
+  Raman §62 (djvu l.2901–2905), OCR: "KHALLASARAYOGA — If the lord of Lagna is
+  between Chandra and any other planets and if there is no intermingling of the
+  Deepthamsas of each with those of the other, then this yoga is produced.
+  Results — All unfavourable, disappointments in all undertakings."
+
+[[seg: taj_radda | domains: * ]]
+RADDA (RADDHA) — a SPOILED Ithasala. When a planet forming an Ithasala is
+RETROGRADE or COMBUST (within the Sun's deeptamsa), it is too weak to deliver:
+the Ithasala becomes Raddha instead. The matter is not denied outright, but
+comes only after much trouble — final success after trials. (This is the
+QUALITY counterpart to the direction rule: retrograde motion reverses
+applying/separating, AND a retrograde/combust planet weakens whatever Ithasala
+survives.)
+  Raman §63 (djvu l.2906–2911), OCR: "RADDHAYOGA — A planet in retrogression or
+  combustion and within the fold of Ravi's Deepthamsa, when causing an
+  Iddasalayoga, will be utterly powerless to effect the results of such a yoga,
+  so that instead of Iddasalayoga Raddhayoga is produced. Results — Final
+  success after much trouble and trials in any undertakings."
