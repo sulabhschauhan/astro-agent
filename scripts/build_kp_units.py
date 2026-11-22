@@ -125,7 +125,13 @@ WORDS = {
 def _mk_stem(d): return {k:[re.compile(r"(?<![a-z])"+re.escape(x),re.I) for x in v] for k,v in d.items()}
 def _mk_word(d): return {k:[re.compile(r"(?<![a-z])"+re.escape(x)+r"(?![a-z])",re.I) for x in v] for k,v in d.items()}
 _STEM_RE, _WORD_RE = _mk_stem(STEMS), _mk_word(WORDS)
-HOUSE_TO_DOMAIN = {8:"longevity",12:"longevity",2:"longevity",7:"longevity",3:"longevity",6:"health"}
+# House->domain by bare house-number is sound ONLY for a house whose PRIMARY
+# signification is the domain: 8 = ayush bhava (longevity), 6 = roga bhava (health).
+# 2/7 (maraka) and 3/12 (derivative) are dual-signification (wealth/marriage/
+# siblings/loss); their maraka role is carried by the longevity LEXICAL net above
+# (ayush/maraka/mrityu/balarishta/death...), so house-number alone must NOT tag
+# them longevity -- it floods the tag with marriage/wealth verses (S167).
+HOUSE_TO_DOMAIN = {8:"longevity",6:"health"}
 HOUSE_RE = re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+house|\bhouse[s]?\s+((?:\d{1,2}[, ]*)+)", re.I)
 
 def tag_segment(text: str):
